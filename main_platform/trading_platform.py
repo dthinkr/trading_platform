@@ -75,6 +75,16 @@ class TradingSession:
 
         return order_book
 
+    @property
+    def current_price(self):
+        if not self.transactions or len(self.transactions) == 0:
+            return None
+        transactions = [{'price': t['price'], 'timestamp': t['timestamp'].timestamp()} for t in self.transactions]
+        # sort by timestamp
+        transactions.sort(key=lambda x: x['timestamp'])
+        return transactions[-1]['price']
+
+
     async def initialize(self):
         self.connection = await aio_pika.connect_robust("amqp://localhost")
         self.channel = await self.connection.channel()
@@ -128,26 +138,19 @@ class TradingSession:
         res = active_orders_df.to_dict('records')
         return res
 
-    async def send_broadcast(self, message):
+    async def send_broadcast(self, message: dict):
         # TODO: PHILIPP: let's think how to make this more efficient but for simplicity
         # TODO we inject the current order book, active orders and transaction history into every broadcasted message
         # TODO: also important thing: we now send all active orders to everyone. We may think about possiblity to
         # TODO: send only to the trader who own them. But not now let's keep it simple.
-        transactions = [{'price': t['price'], 'timestamp': t['timestamp'].timestamp()} for t in self.transactions]
-        # sort by timestamp
-        transactions.sort(key=lambda x: x['timestamp'])
-        # if not empty return the last one for current price
-        if transactions:
-            current_price = transactions[-1]['price']
-        else:
-            current_price = None
+
         message.update({
             'type': 'update',  # TODO: PHILIPP: we need to think about the type of the message. it's hardcoded for now
             'order_book': self.order_book,
             'active_orders': self.get_active_orders_to_broadcast(),
             'history': self.transactions,
             'spread': self.get_spread(),
-            'current_price': current_price
+            'current_price': self.current_price
         })
 
         exchange = await self.channel.get_exchange(self.broadcast_exchange_name)
@@ -235,8 +238,9 @@ class TradingSession:
             return None
 
     async def clear_orders(self):
-
-
+        """ this goes through order book trying to execute orders """
+        # TODO. PHILIPP. At this stage we don't need to return anything but for LOBSTER format later we may needed so let's keep it for now
+        res = {'transactions': [], 'removed_active_orders': []}
         # Separate active orders into asks and bids
         asks = [order for order in self.active_orders.values() if order['order_type'] == OrderType.ASK.value]
         bids = [order for order in self.active_orders.values() if order['order_type'] == OrderType.BID.value]
@@ -293,7 +297,7 @@ class TradingSession:
             logger.info(f"Transaction created: {transaction.model_dump()}")
             transactions.append(transaction.model_dump())
         self.transactions.extend(transactions)
-
+        return res
 
     async def handle_add_order(self, data: dict):
         """
@@ -358,7 +362,7 @@ class TradingSession:
             self.all_orders[order_id]['status'] = OrderStatus.CANCELLED.value
             self.all_orders[order_id]['cancellation_timestamp'] = now()
 
-            await self.send_broadcast(message=dict(message="Order is cancelled"))
+
             return {"status": "cancel success", "order": order_id, "respond": True}
 
 
@@ -385,6 +389,9 @@ class TradingSession:
                 result = await handler_method(incoming_message)
                 if result and result.pop('respond', None) and trader_id:
                     await self.send_message_to_trader(trader_id, result)
+            #         TODO.PHILIPP. IMPORTANT! let's at this stage also send a broadcast message to all traders with updated info.
+            # IT IS FAR from optimal but for now we keep it simple. We'll refactor it later.
+                    await self.send_broadcast(message=dict(text="book is updated"))
 
             else:
                 logger.warning(f"No handler method found for action: {action}")

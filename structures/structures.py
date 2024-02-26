@@ -93,4 +93,4 @@ class TransactionModel(BaseModel):
 class TraderManagerParams(BaseModel):
     n_noise_traders: int = 1  # Default value if not provided
     n_human_traders: int = 1  # Default value if not provided
-    activity_frequency: float = .1 # Default value if not provided in seconds
+    activity_frequency: float = .3 # Default value if not provided in seconds
