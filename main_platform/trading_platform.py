@@ -179,21 +179,6 @@ class TradingSession:
             routing_key=f'trader_{trader_id}'
         )
 
-    async def add_order_to_buffer(self, order):
-        async with self.lock:
-            logger.info(f"Adding order to buffer: {order}")
-            trader_id = order['trader_id']
-            self.buffered_orders[trader_id] = order
-            # self.buffered_orders[trader_id] = order.model_dump()
-
-            if len(self.buffered_orders) == len(self.connected_traders):
-                self.release_event.set()
-
-            if self.release_task is None:
-                self.release_task = asyncio.create_task(self.release_buffered_orders())
-
-            return dict(message="Order added to buffer"
-                        )
 
     @property
     def list_active_orders(self):
@@ -209,6 +194,9 @@ class TradingSession:
         """ This one is called by handle_add_order, and is the one that actually places the order in the system.
         It adds automatically - we do all the validation (whether a trader allowed to place an order, etc) in the
         handle_add_order method.
+        It doesn't make much sense to decouple handle_add_order with the actualy place_order now, but theoretically
+        we may need this later if we want more speed for some traders that will be merged into trading platform (if the rabbitMQ solution won't be fast enough for simluation purposes).
+
         """
         order_id = order_dict['id']
         order_dict.update({
@@ -241,66 +229,8 @@ class TradingSession:
 
         return combined_data  # Return the updated combined_data
 
-    async def release_buffered_orders(self):
-        logger.info(f'total amount of buffered orders: {len(self.buffered_orders)}')
-        sleep_task = asyncio.create_task(asyncio.sleep(self.buffer_delay))
-        release_event_task = asyncio.create_task(self.release_event.wait())
-        # let's NOT wait if  buffer dealy is 0
-        if self.buffer_delay != 0:
-            await asyncio.wait([sleep_task,
-                                release_event_task
-                                ], return_when=asyncio.FIRST_COMPLETED)
 
-        async with self.lock:
-            logger.info(f'we start releasing orders. total amount to release: {len(self.buffered_orders)}')
 
-            self.buffer_release_time = now()
-            logger.info(f"Buffer release time: {self.buffer_release_time.timestamp()}")
-            combined_data = []
-            for trader_id, order_dict in self.buffered_orders.items():
-                logger.info(f"Releasing order: {order_dict}")
-                # lets create a temp list where we'll put ids of single orders OR splitted orders if amount>1
-                temp_order_ids = []
-                # Set the timestamp for the order
-                order_dict['original_timestamp'] = order_dict['timestamp']
-                order_dict['timestamp'] = self.buffer_release_time
-
-                order_amount = order_dict['amount']
-                if order_amount > 1:
-                    for _ in range(order_amount):
-                        split_order = order_dict.copy()
-                        split_order['parent_id'] = order_dict['id']
-                        split_order['id'] = uuid.uuid4()  # Generate a new UUID for each split order
-                        # Add the split order to the temp list
-                        temp_order_ids.append(split_order['id'])
-                        split_order['amount'] = 1
-                        logger.info(f'Placing split order: {split_order}')
-                        await self.place_order(split_order, trader_id)
-                        combined_data = await self.handle_transaction_for_order(split_order['id'], combined_data)
-                else:
-                    # Add the order to the temp list
-                    temp_order_ids.append(order_dict['id'])
-                    logger.info(f'Placing order: {order_dict}')
-                    await self.place_order(order_dict, trader_id)
-                    combined_data = await self.handle_transaction_for_order(order_dict['id'], combined_data)
-
-            logger.info(f"Total of {len(self.buffered_orders)} orders released from buffer")
-            # Clear orders and get transactions and ids of removed orders
-            # if combined_data:
-            #     await append_combined_data_to_csv(combined_data, self.get_file_name())
-
-            # Clear the buffered orders
-            self.buffered_orders.clear()
-
-            self.release_task = None  # Reset the task so it can be recreated
-            self.release_event.clear()  # Reset the event
-            # TODO: let's think about the depth of the order book to send; and also do we need all transactions??
-            await self.send_broadcast(message=dict(message="Buffer released"))
-
-            # Increment the buffer release count
-
-            self.buffer_release_count += 1
-            logger.critical(f"Buffer release count: {self.buffer_release_count}")
 
     def check_counters(self):
 
@@ -405,7 +335,13 @@ class TradingSession:
         return res
 
     async def handle_add_order(self, data: dict):
-        # TODO: Validate the order
+        """
+        that is called automatically on the incoming message if type of a message is 'add_order'.
+        it returns the dict with respond=True to signalize that (ideally) we need to ping back the trader who sent the
+        message that everything is ok (it's not needed in the current implementation and perhaps we can get rid of this later because it also increase the info load)
+
+        """
+        # TODO: Validate the order. We don't need  to do an inventory validation because in the current design this is all done on the trader side.
         trader_id = data.get('trader_id')
         clean_order = {
             'id': uuid.uuid4(),
@@ -419,7 +355,12 @@ class TradingSession:
             'session_id': self.id,
             'trader_id': trader_id
         }
-        resp = await self.add_order_to_buffer(clean_order)
+        if clean_order.get('amount',1)>1:
+            logger.critical('Amount is more than 1. Temporarily we replace all amounts with 1.')
+            # TODO. PHILIPP. IMPORTANT! It's a temporary solution  for now. Should be removed later
+            clean_order['amount']  = 1
+
+        resp = await  self.place_order(clean_order, trader_id)
         if resp:
             logger.critical(f'Total active orders: {len(self.active_orders)}')
 
