@@ -84,7 +84,6 @@ class TradingSession:
         transactions.sort(key=lambda x: x['timestamp'])
         return transactions[-1]['price']
 
-
     async def initialize(self):
         self.connection = await aio_pika.connect_robust("amqp://localhost")
         self.channel = await self.connection.channel()
@@ -182,7 +181,6 @@ class TradingSession:
             routing_key=f'trader_{trader_id}'
         )
 
-
     @property
     def list_active_orders(self):
         """ Returns a list of all active orders. When we switch to real DB or mongo, we won't need it anymore."""
@@ -207,7 +205,6 @@ class TradingSession:
         })
         self.all_orders[order_id] = order_dict
         return order_dict
-
 
     def check_counters(self):
 
@@ -317,14 +314,13 @@ class TradingSession:
             'price': data.get('price'),
             'order_type': data.get('order_type'),
             'timestamp': now(),
-            # we add the timestamp here but when we release an order out of the buffer we set a common tiestmap for them that points to the release time.
             'session_id': self.id,
             'trader_id': trader_id
         }
-        if clean_order.get('amount',1)>1:
+        if clean_order.get('amount', 1) > 1:
             logger.critical('Amount is more than 1. Temporarily we replace all amounts with 1.')
             # TODO. PHILIPP. IMPORTANT! It's a temporary solution  for now. Should be removed later
-            clean_order['amount']  = 1
+            clean_order['amount'] = 1
 
         await  self.place_order(clean_order, trader_id)
 
@@ -362,12 +358,7 @@ class TradingSession:
             self.all_orders[order_id]['status'] = OrderStatus.CANCELLED.value
             self.all_orders[order_id]['cancellation_timestamp'] = now()
 
-
             return {"status": "cancel success", "order": order_id, "respond": True}
-
-
-
-
 
     async def handle_register_me(self, msg_body):
         trader_id = msg_body.get('trader_id')
@@ -389,8 +380,8 @@ class TradingSession:
                 result = await handler_method(incoming_message)
                 if result and result.pop('respond', None) and trader_id:
                     await self.send_message_to_trader(trader_id, result)
-            #         TODO.PHILIPP. IMPORTANT! let's at this stage also send a broadcast message to all traders with updated info.
-            # IT IS FAR from optimal but for now we keep it simple. We'll refactor it later.
+                    #         TODO.PHILIPP. IMPORTANT! let's at this stage also send a broadcast message to all traders with updated info.
+                    # IT IS FAR from optimal but for now we keep it simple. We'll refactor it later.
                     await self.send_broadcast(message=dict(text="book is updated"))
 
             else:
