@@ -206,32 +206,6 @@ class TradingSession:
         return order_dict
 
 
-
-    async def handle_transaction_for_order(self, order_id, combined_data):
-        clear_result = await self.clear_orders()  # Attempt to clear orders and process transactions
-
-        # Initialize the container for transactions
-        if clear_result is None:
-            clear_result = {'transactions': [], 'removed_active_orders': []}
-        transactions = clear_result['transactions']
-        removed_order_ids = clear_result['removed_active_orders']
-
-        # Handle transactions logging
-        for transaction in transactions:
-            # Determine the most recent order (ask or bid) based on the timestamp
-            ask_order = self.all_orders[transaction['ask_order_id']]
-            bid_order = self.all_orders[transaction['bid_order_id']]
-            most_recent_order = ask_order if ask_order['timestamp'] > bid_order['timestamp'] else bid_order
-
-            # Create and append the transaction message
-
-
-
-        return combined_data  # Return the updated combined_data
-
-
-
-
     def check_counters(self):
 
         """ Checks if the buffer release count exceeds the limit. """
@@ -261,8 +235,8 @@ class TradingSession:
             return None
 
     async def clear_orders(self):
-        res = {'transactions': [], 'removed_active_orders': []}
-        logger.info(f'Total amount of active orders: {len(self.active_orders)}')
+
+
         # Separate active orders into asks and bids
         asks = [order for order in self.active_orders.values() if order['order_type'] == OrderType.ASK.value]
         bids = [order for order in self.active_orders.values() if order['order_type'] == OrderType.BID.value]
@@ -288,16 +262,12 @@ class TradingSession:
         if spread > 0:
             logger.info(
                 f"No overlapping orders. Spread is positive: {spread}. Lowest ask: {lowest_ask}, highest bid: {highest_bid}")
-
             return res
 
-        logger.info(f"Spread: {spread}")
         # Filter the bids and asks that could be involved in a transaction
         viable_asks = [ask for ask in asks if ask['price'] <= highest_bid]
         viable_bids = [bid for bid in bids if bid['price'] >= lowest_ask]
-        logger.info(f'Viable asks: {len(viable_asks)}')
-        logger.info(f'Viable bids: {len(viable_bids)}')
-        to_remove = []
+
         transactions = []
 
         # Create transactions
@@ -311,6 +281,7 @@ class TradingSession:
             timestamp = now()
 
             # Create a transaction
+            # TODO.PHILIPP. Should we use mid-price? or we take the price of earliest order (i guess)
             transaction_price = (ask['price'] + bid['price']) / 2  # Mid-price
             transaction = TransactionModel(
                 id=uuid.uuid4(),
@@ -321,18 +292,8 @@ class TradingSession:
             )
             logger.info(f"Transaction created: {transaction.model_dump()}")
             transactions.append(transaction.model_dump())
-
-            to_remove.extend([str(ask['id']), str(bid['id'])])
-
-        # Add transactions to self.transactions
         self.transactions.extend(transactions)
 
-        # Log the number of cleared and transacted orders
-        logger.info(f"Cleared {len(to_remove)} orders.")
-        logger.info(f"Created {len(transactions)} transactions.")
-        res['removed_active_orders'] = to_remove
-        res['transactions'] = transactions
-        return res
 
     async def handle_add_order(self, data: dict):
         """
@@ -343,6 +304,7 @@ class TradingSession:
         """
         # TODO: Validate the order. We don't need  to do an inventory validation because in the current design this is all done on the trader side.
         trader_id = data.get('trader_id')
+        # todo.philipp. makes struct out of the dict below
         clean_order = {
             'id': uuid.uuid4(),
             'status': OrderStatus.BUFFERED.value,
@@ -360,10 +322,10 @@ class TradingSession:
             # TODO. PHILIPP. IMPORTANT! It's a temporary solution  for now. Should be removed later
             clean_order['amount']  = 1
 
-        resp = await  self.place_order(clean_order, trader_id)
-        if resp:
-            logger.critical(f'Total active orders: {len(self.active_orders)}')
+        await  self.place_order(clean_order, trader_id)
 
+        # lets clear them now
+        resp = await self.clear_orders()
         return dict(respond=True, **resp)
 
     async def handle_cancel_order(self, data: dict):
@@ -393,32 +355,15 @@ class TradingSession:
                 return {"status": "failed", "reason": "Order is not active"}
 
             # Cancel the order
-            timestamp = now()
             self.all_orders[order_id]['status'] = OrderStatus.CANCELLED.value
+            self.all_orders[order_id]['cancellation_timestamp'] = now()
 
-            # Create a combined row for the cancel event
-            combined_row = self.register_message(existing_order, LobsterEventType.CANCELLATION_TOTAL)
-
-            # Append the combined row to the CSV
-            await append_combined_data_to_csv([combined_row], self.get_file_name())
-            logger.info(f"Order {order_id} has been canceled for trader {trader_id}.")
-            # Broadcast the cancellation, implementation may vary based on your system's logic
-            await self.broadcast_order_cancellation(trader_id)
+            await self.send_broadcast(message=dict(message="Order is cancelled"))
             return {"status": "cancel success", "order": order_id, "respond": True}
 
-    async def broadcast_order_cancellation(self, trader_id):
-        # Implementation for broadcasting order cancellation
-        # Note: Make sure self.list_active_orders and self.buffered_orders reflect the current state after cancellation
-        await self.send_broadcast(message=dict(message="Order is cancelled"))
 
-    async def handle_update_book_status(self, order):
-        """This one returns the most recent book to the trader who requested it.
-        TODO: now we just stupidly pass all active orders. We need to filter them based on the trader_id, perhaps
-        we'll generate a proper book (with prices-levels) here. but not now.
-        """
-        trader_id = order.get('trader_id')
-        if trader_id:
-            return {"status": "success", "respond": True, "orders": self.active_orders.values()}
+
+
 
     async def handle_register_me(self, msg_body):
         trader_id = msg_body.get('trader_id')
