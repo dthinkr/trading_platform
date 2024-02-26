@@ -6,7 +6,7 @@ from enum import Enum
 from pprint import pprint
 from enum import IntEnum
 from uuid import UUID
-from structures.structures import OrderModel, OrderType, ActionType, LobsterEventType
+from structures.structures import   ActionType, LobsterEventType
 from collections import defaultdict
 from typing import List, Dict
 import pandas as pd
@@ -16,7 +16,7 @@ import os
 import csv
 from main_platform.custom_logger import setup_custom_logger
 from external_traders.noise_trader import settings
-
+from pydantic import BaseModel
 np.set_printoptions(floatmode='fixed', precision=0)
 
 logger = setup_custom_logger(__name__)
@@ -41,7 +41,7 @@ class CustomEncoder(JSONEncoder):
     def default(self, obj):
         if isinstance(obj, datetime):
             return obj.isoformat()
-        if isinstance(obj, OrderModel):
+        if isinstance(obj, BaseModel):
             return obj.model_dump()
         if isinstance(obj, UUID):
             return str(obj)
@@ -129,6 +129,7 @@ def expand_dataframe(df, max_depth=10, step=1, reverse=False, default_price=0):
 
 
 def convert_to_book_format(active_orders, levels_n=10, default_price=2000):
+    """ That's the OLD function for Lobster format. I keep it here for now but that all should be deeply rewritten"""
     # Create a DataFrame from the list of active orders
 
     if active_orders:
@@ -165,6 +166,7 @@ def convert_to_book_format(active_orders, levels_n=10, default_price=2000):
 
 
 def _append_combined_data_to_csv(combined_data, file_name):
+    """ That's the OLD function for Lobster format. I keep it here for now but that all should be deeply rewritten"""
     try:
         csv_file_path = os.path.join(DATA_PATH, f"combined_{file_name}.csv")
 
@@ -210,11 +212,13 @@ def _append_combined_data_to_csv(combined_data, file_name):
 
 
 async def append_combined_data_to_csv(combined_data, file_name):
+    """ That's the OLD function for Lobster format. I keep it here for now but that all should be deeply rewritten"""
     loop = asyncio.get_event_loop()
     await loop.run_in_executor(None, _append_combined_data_to_csv, combined_data, file_name)
 
 
 def convert_active_orders_to_lobster_format(active_orders, levels_n=10):
+    """ That's the OLD function for Lobster format. I keep it here for now but that all should be deeply rewritten"""
     # Create a DataFrame from the active orders
     df = pd.DataFrame(active_orders)
 
@@ -252,6 +256,7 @@ def convert_active_orders_to_lobster_format(active_orders, levels_n=10):
 
 
 def _append_order_books_to_csv(order_books, file_name):
+    """ That's the OLD function for Lobster format. I keep it here for now but that all should be deeply rewritten"""
     csv_file_path = os.path.join(DATA_PATH, f"book_{file_name}.csv")
 
     # Check if the file exists to decide if headers need to be written
@@ -276,6 +281,7 @@ def _append_order_books_to_csv(order_books, file_name):
 
 
 def _append_lobster_messages_to_csv(lobster_msgs, file_name):
+    """ That's the OLD function for Lobster format. I keep it here for now but that all should be deeply rewritten"""
     csv_file_path = os.path.join(DATA_PATH, f"messages_{file_name}.csv")
 
     # Define the header (column names) for the LOBSTER-formatted CSV file
@@ -297,16 +303,19 @@ def _append_lobster_messages_to_csv(lobster_msgs, file_name):
 
 
 async def append_order_books_to_csv(order_books, file_name):
+    """ That's the OLD function for Lobster format. I keep it here for now but that all should be deeply rewritten"""
     loop = asyncio.get_event_loop()
     await loop.run_in_executor(None, _append_order_books_to_csv, order_books, file_name)
 
 
 async def append_lobster_messages_to_csv(lobster_msgs, file_name):
+    """ That's the OLD function for Lobster format. I keep it here for now but that all should be deeply rewritten"""
     loop = asyncio.get_event_loop()
     await loop.run_in_executor(None, _append_lobster_messages_to_csv, lobster_msgs, file_name)
 
 
 def create_lobster_message(order_dict, event_type: LobsterEventType, trader_type: int, timestamp: datetime):
+    """ That's the OLD function for Lobster format. I keep it here for now but that all should be deeply rewritten"""
     """Creates a LOBSTER-formatted message dictionary."""
 
     lobster_message = {

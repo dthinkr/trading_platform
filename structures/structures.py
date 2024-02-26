@@ -1,8 +1,12 @@
 from enum import Enum, IntEnum, StrEnum
-from pydantic import BaseModel
-from pydantic.fields import Field
-from datetime import datetime
+from pydantic import BaseModel, Field
+from typing import Optional
+from uuid import UUID, uuid4
+from datetime import datetime, timezone
 import uuid
+def now():
+    """It is actually from utils.py but we need structures there so we do it here to avoid circular deps"""
+    return datetime.now(timezone.utc)
 
 class TraderCreationData(BaseModel):
     max_short_shares: int = Field(default=100, description="Maximum number of shares for shorting")
@@ -70,17 +74,21 @@ class TraderType(str, Enum):
     # Philipp: expand this list to include new trader types if needed
 
 
-class OrderModel(BaseModel):
-    # id: uuid.UUID
-    id: uuid.UUID
-    amount: float
-    price: float
+
+
+class Order(BaseModel):
+    id: UUID = Field(default_factory=uuid4)
     status: OrderStatus
-    order_type: OrderType  # ask or bid
-    timestamp: datetime
-    # session_id: uuid.UUID
-    session_id: str  # FOR TESTING. REMOVE LATER
-    trader_id: uuid.UUID
+    amount: float = 1  # Assuming amount is a float, adjust the type as needed
+    price: float  # Same assumption as for amount
+    order_type: OrderType
+    timestamp: datetime = Field(default_factory=now)
+    session_id: str
+    trader_id: str
+
+    class Config:
+        use_enum_values = True  # This ensures that enum values are used in serialization
+
 
 
 class TransactionModel(BaseModel):
@@ -93,4 +101,4 @@ class TransactionModel(BaseModel):
 class TraderManagerParams(BaseModel):
     n_noise_traders: int = 1  # Default value if not provided
     n_human_traders: int = 1  # Default value if not provided
-    activity_frequency: float = .3 # Default value if not provided in seconds
+    activity_frequency: float = 1.3 # Default value if not provided in seconds

@@ -1,11 +1,11 @@
 import aio_pika
 import json
 import uuid
-
+from pydantic import ValidationError
 from main_platform.utils import ack_message
 from main_platform.custom_logger import setup_custom_logger
 from typing import List, Dict
-from structures import OrderStatus, OrderType, TransactionModel, LobsterEventType
+from structures import OrderStatus, OrderType, TransactionModel, Order
 import asyncio
 import pandas as pd
 
@@ -305,25 +305,22 @@ class TradingSession:
         """
         # TODO: Validate the order. We don't need  to do an inventory validation because in the current design this is all done on the trader side.
         trader_id = data.get('trader_id')
-        # todo.philipp. makes struct out of the dict below
-        clean_order = {
-            'id': uuid.uuid4(),
-            'status': OrderStatus.BUFFERED.value,
-            'for_execution_only': data.get('for_execution_only', False),
-            'amount': data.get('amount'),
-            'price': data.get('price'),
-            'order_type': data.get('order_type'),
-            'timestamp': now(),
-            'session_id': self.id,
-            'trader_id': trader_id
-        }
-        if clean_order.get('amount', 1) > 1:
-            logger.critical('Amount is more than 1. Temporarily we replace all amounts with 1.')
-            # TODO. PHILIPP. IMPORTANT! It's a temporary solution  for now. Should be removed later
-            clean_order['amount'] = 1
+        try:
+            order = Order(status=OrderStatus.BUFFERED.value,
+                          session_id=self.id,
+                          **data)
 
-        await  self.place_order(clean_order, trader_id)
+            # TODO. PHILIPP. IMPORTANT! Temporary solution: force 'amount' to 1 if it's more than 1
+            if order.amount is not None and order.amount > 1:
+                logger.critical('Amount is more than 1. Temporarily we replace all amounts with 1.')
+                order.amount = 1
 
+            # Place the order
+            await self.place_order(order.model_dump(), trader_id)  # Converting order to dict for compatibility
+
+        except ValidationError as e:
+            # Handle validation errors, e.g., log them or send a message back to the trader
+            logger.critical(f"Order validation failed: {e}")
         # lets clear them now
         resp = await self.clear_orders()
         return dict(respond=True, **resp)
