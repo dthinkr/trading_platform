@@ -1,36 +1,27 @@
 from .base_trader import BaseTrader
-from external_traders.noise_trader import get_signal_noise, settings_noise, settings, get_noise_rule_unif
 from main_platform.utils import convert_to_book_format, convert_to_noise_state, convert_to_trader_actions
 import asyncio
 import random
 import uuid
 from structures import OrderType, TraderType, ORDER_AMOUNT, SIGMOID_PARAMS
 import logging
-import httpx
 import numpy as np
+import numba
+
 logger = logging.getLogger(__name__)
 
 class NoiseTrader(BaseTrader):
 
-    def __init__(self, activity_frequency: int, starting_price=None, step=None, number_of_steps=None ):
-        super().__init__(trader_type=TraderType.NOISE)  # Assuming "NOISE" is a valid TraderType
-        # self.id=None
+    def __init__(self, activity_frequency: int, settings: dict, settings_noise: dict, 
+                 get_signal_noise: callable, get_noise_rule_unif: callable):
+        super().__init__(trader_type=TraderType.NOISE)
         self.activity_frequency = activity_frequency
-        self.starting_price = starting_price
-        self.step = step
-        self.number_of_steps = number_of_steps
-        self.active_orders = []
+        self.settings = settings
+        self.settings_noise = settings_noise
+        self.get_signal_noise = get_signal_noise
+        self.get_noise_rule_unif = get_noise_rule_unif
 
-    async def warm_up(self, starting_price, step, number_of_steps, number_of_warmup_orders):
-        # Initialize with warm-up specific parameters
-        self.starting_price = starting_price
-        self.step = step
-        self.number_of_steps = number_of_steps
-
-        for _ in range(number_of_warmup_orders):
-            print('WE ARE IN WARM UP', _)
-            await self.act()
-
+    @numba.jit
     def sigmoid(self, delta_t):
         """
         randomness
@@ -42,36 +33,24 @@ class NoiseTrader(BaseTrader):
         sigmoid_value = l + (u - l) / (1 + (u / l) * np.exp(-g * adjusted_delta_t))
         cap = u * 10
         return min(sigmoid_value, cap)
-        
-
-    async def observe(self):
-        """TODO: can be removed once data types for self.orders and self.order_book are decided
-        """
-        async with httpx.AsyncClient() as client:
-            response = await client.get('http://localhost:8000/active_orders')
-            if response.status_code == 200:
-                orders_data = response.json()
-                if orders_data.get("status") == "success" and "data" in orders_data:
-                    self.active_orders = list(orders_data["data"].values())
 
     async def act(self):
         """
         bridge to external noise trader class
         """
-        book_format = convert_to_book_format(self.active_orders)
-        noise_state = convert_to_noise_state(self.active_orders) #TODO: change to self.orders
-        signal_noise = get_signal_noise(signal_state=None, settings_noise=settings_noise)
-        noise_orders = get_noise_rule_unif(book_format, signal_noise, noise_state, settings_noise, settings)
-        orders = convert_to_trader_actions(noise_orders)
-        """return value of orders:
-        [
-            {'action_type': 'add_order', 'order_type': 'ask', 'price': 49, 'amount': 2}, 
-            {'action_type': 'cancel_order', 'order_type': 'ask', 'price': 53.5}
-        ]
-        """
-        if self.starting_price and self.step and self.number_of_steps:
+        if self.active_orders:
+            book_format = convert_to_book_format(self.active_orders)
+            noise_state = convert_to_noise_state(self.orders)
+            signal_noise = self.get_signal_noise(signal_state=None, settings_noise=self.settings_noise)
+            noise_orders = self.get_noise_rule_unif(book_format, signal_noise, noise_state, self.settings_noise, self.settings)
+            orders = convert_to_trader_actions(noise_orders)
+            """return value of orders:
+            [
+                {'action_type': 'add_order', 'order_type': 'ask', 'price': 49, 'amount': 2}, 
+                {'action_type': 'cancel_order', 'order_type': 'ask', 'price': 53.5}
+            ]
+            """
             for order in orders:
-
                 if order['action_type'] == 'add_order':
                     order_type = OrderType.ASK if order['order_type'] == 'ask' else OrderType.BID 
                     amount, price = ORDER_AMOUNT, order['price']
@@ -86,11 +65,12 @@ class NoiseTrader(BaseTrader):
                         order_id = random.choice(matching_orders)['id']
                         await self.send_cancel_order_request(order_id)
                         logger.critical(f"""CANCELLED {order_type} ID {order_id[:10]}""")
+        else:
+            await self.post_new_order(ORDER_AMOUNT, self.settings['initial_price'], OrderType.ASK)
     
     async def run(self):
         while not self._stop_requested.is_set():
             try:
-                await self.observe()
                 await self.act()
                 await asyncio.sleep(self.sigmoid(self.activity_frequency))
             except asyncio.CancelledError:

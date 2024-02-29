@@ -197,7 +197,6 @@ class TradingSession:
         handle_add_order method.
         It doesn't make much sense to decouple handle_add_order with the actualy place_order now, but theoretically
         we may need this later if we want more speed for some traders that will be merged into trading platform (if the rabbitMQ solution won't be fast enough for simluation purposes).
-
         """
         order_id = order_dict['id']
         order_dict.update({

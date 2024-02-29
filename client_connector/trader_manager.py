@@ -7,6 +7,7 @@ so they can communicate with them.
 import uuid
 
 from traders import HumanTrader, NoiseTrader
+from external_traders.noise_trader import get_signal_noise, settings_noise, settings, get_noise_rule_unif
 from main_platform import TradingSession
 import logging
 import asyncio
@@ -27,7 +28,9 @@ class TraderManager:
         n_human_traders = 1
         self.human_trader = HumanTrader()
         activity_frequency = params.get("activity_frequency", 5)
-        self.noise_traders = [NoiseTrader(activity_frequency=activity_frequency) for _ in range(n_noise_traders)]
+        self.noise_traders = [NoiseTrader(activity_frequency=activity_frequency, settings=settings, 
+                                          settings_noise=settings_noise, get_signal_noise=get_signal_noise, 
+                                          get_noise_rule_unif=get_noise_rule_unif) for _ in range(n_noise_traders)]
         self.human_traders = [self.human_trader]
         self.traders = {t.id: t for t in self.noise_traders + self.human_traders}
         self.trading_session = TradingSession()
@@ -39,8 +42,7 @@ class TraderManager:
         for trader_id, trader in self.traders.items():
             await trader.initialize()
             await trader.connect_to_session(trading_session_uuid=self.trading_session.id)
-        for trader in self.noise_traders:
-            await trader.warm_up(starting_price=50, step=0.5, number_of_steps=10, number_of_warmup_orders=10)
+
         await self.trading_session.send_broadcast({"content": "Market is open"})
 
         trading_session_task = asyncio.create_task(self.trading_session.run())

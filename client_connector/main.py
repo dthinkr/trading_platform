@@ -7,20 +7,8 @@ from client_connector.trader_manager import TraderManager
 from structures import TraderCreationData, TraderManagerParams
 
 import logging
-logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
-try:
-    from async_lru import alru_cache
-except ImportError:
-    logger.warning("async_lru is not installed. fallback.")
-
-    def alru_cache(maxsize=128):
-        def decorator(func):
-            async def wrapper(*args, **kwargs):
-                return await func(*args, **kwargs)
-            return wrapper
-        return decorator
 
 app = FastAPI()
 app.add_middleware(
@@ -65,7 +53,6 @@ async def create_trading_session(params: TraderManagerParams, background_tasks: 
         "message": "New trader created",
         "data": {"trader_uuid": trader_manager.human_trader.id}
     }
-
 
 @app.websocket("/trader/{trader_uuid}")
 async def websocket_trader_endpoint(websocket: WebSocket, trader_uuid: str):
@@ -118,15 +105,3 @@ async def list_traders():
 async def root():
     return {"status": "trading is active",
             "comment": "this is only for accessing trading platform mostly via websockets"}
-
-@alru_cache(maxsize=128)
-@app.get("/active_orders")
-async def get_active_orders():
-    return {"status": "success", 
-            "data": trader_manager.trading_session.active_orders}
-
-@alru_cache(maxsize=128)
-@app.get("/all_orders")
-async def get_all_orders():
-    return {"status": "success", 
-            "data": trader_manager.trading_session.all_orders}

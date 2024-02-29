@@ -10,8 +10,9 @@ logger = setup_custom_logger(__name__)
 
 
 class BaseTrader:
-    orders:list = None
+    orders: list = None
     order_book: dict = None
+    active_orders: list = None
 
     def __init__(self, trader_type: TraderType):
         self._stop_requested = asyncio.Event() # this one we need only for traders which should be kept active in loop. For instance human traders don't need that
@@ -111,6 +112,7 @@ class BaseTrader:
                 self.order_book = order_book
             active_orders = data.get('active_orders')
             if active_orders:
+                self.active_orders = active_orders
                 own_orders = [order for order in active_orders if order['trader_id'] == self.id]
                 # lets convert the order list to a dictionary with keys as order ids
                 self.orders = own_orders
@@ -126,7 +128,7 @@ class BaseTrader:
             logger.error(f"Error decoding message: {message}")
 
 
-    async  def post_processing_server_message(self, json_message):
+    async def post_processing_server_message(self, json_message):
         """for BaseTrader it is not implemented. For human trader we send updated info back to client.
         For other market maker types we need do some reactions on updated market if needed.
         """

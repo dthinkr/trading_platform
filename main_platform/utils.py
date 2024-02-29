@@ -340,7 +340,7 @@ def convert_to_noise_state(active_orders: List[Dict]) -> Dict:
     }
 
     for order in active_orders:
-        if order['status'] == 'active':
+        if order.get('status', 'default') == 'active':
             order_type_value = order['order_type']
             order_type = OrderType(order_type_value).name.lower()
 
