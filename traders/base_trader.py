@@ -83,15 +83,8 @@ class BaseTrader:
         await self.send_to_trading_system(message)
 
     async def send_to_trading_system(self, message):
-        # we add to any message the trader_id
-        # if self.id:
-        message['trader_id'] = str(self.id)
-        # TODO. PHILIPP. The condition below is a fix for the noise trader. I don't like it but since we need to solve
-        # an issue that a single trader can't put more than one order per buffer then even 0 latency time still it results that noise traders may have some issues at warm-up
-        # since we literally don't care about noise traders inventory it's not that a big deal to not fixed id for noise trader
-        if self.trader_type == TraderType.NOISE.value:
-            message['trader_id'] = str(uuid.uuid4())
-
+        # front end design means human traders' own_orders will alaways be empty
+        message['trader_id'] = self.id
         await self.trading_system_exchange.publish(
             aio_pika.Message(body=json.dumps(message, cls=CustomEncoder).encode()),
             routing_key=self.queue_name  # Use the dynamic queue_name
@@ -120,7 +113,7 @@ class BaseTrader:
             if active_orders:
                 own_orders = [order for order in active_orders if order['trader_id'] == self.id]
                 # lets convert the order list to a dictionary with keys as order ids
-                self.orders =own_orders
+                self.orders = own_orders
 
             handler = getattr(self, f'handle_{action_type}', None)
             if handler:
@@ -169,6 +162,7 @@ class BaseTrader:
 
         await self.send_to_trading_system(cancel_order_request)
         logger.info(f"Trader {self.id} sent cancel order request: {cancel_order_request}")
+    
     async def run(self):
         # Placeholder method for compatibility with the trading system
         logger.info(f"trader {self.id} is waiting")

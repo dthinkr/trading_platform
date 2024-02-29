@@ -5,9 +5,23 @@ from fastapi import FastAPI, WebSocket, HTTPException, WebSocketDisconnect, Back
 from fastapi.middleware.cors import CORSMiddleware
 from client_connector.trader_manager import TraderManager
 from structures import TraderCreationData, TraderManagerParams
-import logging
 
+import logging
+logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
+
+try:
+    from async_lru import alru_cache
+except ImportError:
+    logger.warning("async_lru is not installed. fallback.")
+
+    def alru_cache(maxsize=128):
+        def decorator(func):
+            async def wrapper(*args, **kwargs):
+                return await func(*args, **kwargs)
+            return wrapper
+        return decorator
+
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
@@ -105,4 +119,14 @@ async def root():
     return {"status": "trading is active",
             "comment": "this is only for accessing trading platform mostly via websockets"}
 
+@alru_cache(maxsize=128)
+@app.get("/active_orders")
+async def get_active_orders():
+    return {"status": "success", 
+            "data": trader_manager.trading_session.active_orders}
 
+@alru_cache(maxsize=128)
+@app.get("/all_orders")
+async def get_all_orders():
+    return {"status": "success", 
+            "data": trader_manager.trading_session.all_orders}

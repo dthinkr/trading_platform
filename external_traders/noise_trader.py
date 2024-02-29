@@ -7,12 +7,16 @@ Created on Wed Aug  2 10:14:44 2023
 """
 
 import numpy as np
-import numba
+# import numba
 import datetime
-from main_platform.custom_logger import setup_custom_logger
+# from main_platform.custom_logger import setup_custom_logger
 import random
 
-logger = setup_custom_logger(__name__)
+# logger = setup_custom_logger(__name__)
+
+import logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # I list quantities that will be needed in the experiments
 # what is inside the place holder functions will be defined on a case by case basis
@@ -636,9 +640,9 @@ def get_noise_condition_price(prices, sizes, max_size_level):
 
 # execution code
 # this part updates the bid side of the order book using an ask price and size.
-@numba.jit(numba.types.Tuple((numba.float64[:], numba.float64, numba.float64))(numba.float64[:], numba.float64[:],
-                                                                               numba.float64, numba.float64),
-           nopython=True)
+# @numba.jit(numba.types.Tuple((numba.float64[:], numba.float64, numba.float64))(numba.float64[:], numba.float64[:],
+#                                                                                numba.float64, numba.float64),
+#            nopython=True)
 def get_exec_sell_trd(bid_prices, bid_sizes,
                       order_ask_price, order_ask_size):
     bid_sizes_new = bid_sizes

@@ -74,8 +74,6 @@ class TraderType(str, Enum):
     # Philipp: expand this list to include new trader types if needed
 
 
-
-
 class Order(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     status: OrderStatus
@@ -89,8 +87,6 @@ class Order(BaseModel):
     class Config:
         use_enum_values = True  # This ensures that enum values are used in serialization
 
-
-
 class TransactionModel(BaseModel):
     id: uuid.UUID
     bid_order_id: uuid.UUID
@@ -101,4 +97,13 @@ class TransactionModel(BaseModel):
 class TraderManagerParams(BaseModel):
     n_noise_traders: int = 1  # Default value if not provided
     n_human_traders: int = 1  # Default value if not provided
-    activity_frequency: float = 1.3 # Default value if not provided in seconds
+    activity_frequency: float = 0.3 # Default value if not provided in seconds
+
+
+ORDER_AMOUNT = 1
+
+SIGMOID_PARAMS = {
+    'params': (-0.1, 0.1, 3),
+    'mu': (0.1, 0.3),
+    'cap': 10
+}
