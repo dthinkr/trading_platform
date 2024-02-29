@@ -85,7 +85,8 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_uuid: str):
             message = await websocket.receive_text()
             await trader.on_message_from_client(message)
     except WebSocketDisconnect:
-        await trader_manager.cleanup()  # This will now cancel all tasks
+        logger.critical(f"Trader {trader_uuid} disconnected")
+        pass # should we something here? not sure, because it can be just an connection interruption
     except asyncio.CancelledError:
         logger.warning("Task cancelled")
         await trader_manager.cleanup()  # This will now cancel all tasks
