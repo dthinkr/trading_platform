@@ -49,7 +49,10 @@ async def create_trading_session(params: TraderManagerParams, background_tasks: 
     return {
         "status": "success",
         "message": "New trader created",
-        "data": {"trader_uuid": trader_manager.human_trader.id}
+        "data": {"trading_session_uuid": trader_manager.trading_session.id,
+                 "traders": list(trader_manager.traders.keys()),
+                 "human_traders": [t.id for t in trader_manager.human_traders],
+                 }
     }
 
 
@@ -86,7 +89,7 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_uuid: str):
             await trader.on_message_from_client(message)
     except WebSocketDisconnect:
         logger.critical(f"Trader {trader_uuid} disconnected")
-        pass # should we something here? not sure, because it can be just an connection interruption
+        pass  # should we something here? not sure, because it can be just an connection interruption
     except asyncio.CancelledError:
         logger.warning("Task cancelled")
         await trader_manager.cleanup()  # This will now cancel all tasks
@@ -105,5 +108,3 @@ async def list_traders():
 async def root():
     return {"status": "trading is active",
             "comment": "this is only for accessing trading platform mostly via websockets"}
-
-
