@@ -126,7 +126,7 @@ class TradingSession:
             # Dump all_orders to CSV
             # await dump_orders_to_csv(self.all_orders, generate_file_name(self.id, "all_orders"))
         except Exception as e:
-            print(f"An error occurred during cleanup: {e}")
+            logger.error(f"An error occurred during cleanup: {e}")
 
     def get_active_orders_to_broadcast(self):
         # TODO. PHILIPP. It's not optimal but we'll rewrite it anyway when we convert form in-memory to DB
@@ -297,8 +297,8 @@ class TradingSession:
                 timestamp=timestamp,
                 price=transaction_price
             )
-            logger.info(f"Transaction created: {transaction.dict()}")
-            transactions.append(transaction.dict())
+            logger.info(f"Transaction created: {transaction.model_dump()}")
+            transactions.append(transaction.model_dump())
         self.transactions.extend(transactions)
         return res
 
@@ -322,7 +322,7 @@ class TradingSession:
                 order.amount = 1
 
             # Place the order
-            await self.place_order(order.dict(), trader_id)  # Converting order to dict for compatibility
+            await self.place_order(order.model_dump(), trader_id)  # Converting order to dict for compatibility
 
         except ValidationError as e:
             # Handle validation errors, e.g., log them or send a message back to the trader

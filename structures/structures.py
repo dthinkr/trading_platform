@@ -9,15 +9,13 @@ def now():
     return datetime.now(timezone.utc)
 
 class TraderCreationData(BaseModel):
-    max_short_shares: int = Field(default=100, description="Maximum number of shares for shorting")
-    max_short_cash: float = Field(default=10000.0, description="Maximum amount of cash for shorting")
-    initial_cash: float = Field(default=1000.0, description="Initial amount of cash")
-    initial_shares: int = Field(default=0, description="Initial amount of shares")
+    num_human_traders: int = Field(default=1, description="Number of human traders")
+    num_noise_traders: int = Field(default=1, description="Number of noise traders")
+    activity_frequency: float = Field(default=0.3, description="Frequency of noise traders' updates in seconds")
     trading_day_duration: int = Field(default=5, description="Duration of the trading day in minutes")
-    max_active_orders: int = Field(default=5, description="Maximum amount of active orders")
-    noise_trader_update_freq: int = Field(default=10, description="Frequency of noise traders' updates in seconds")
     step: int = Field(default=100, description="Step for new orders")
-    extra_info_treatment: bool = Field(default=False, description="Extra info treatment")
+
+
     class Config:
         json_schema_extra = {
             "example": {

@@ -67,7 +67,10 @@ class NoiseTrader(BaseTrader):
                         logger.critical(f"""CANCELLED {order_type} ID {order_id[:10]}""")
         else:
             await self.post_new_order(ORDER_AMOUNT, self.settings['initial_price'], OrderType.ASK)
-    
+    async def warm_up(self, number_of_warmup_orders: int):
+        for _ in range(number_of_warmup_orders):
+            await self.act()
+
     async def run(self):
         while not self._stop_requested.is_set():
             try:

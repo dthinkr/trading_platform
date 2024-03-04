@@ -53,9 +53,9 @@ class HumanTrader(BaseTrader):
             if handler:
                 await handler(data)
             else:
-                print(f"Invalid message format: {message}")
+                logger.warning(f"Invalid message format: {message}")
         except json.JSONDecodeError:
-            print(f"Error decoding message: {message}")
+            logger.warning(f"Error decoding message: {message}")
 
     async def handle_add_order(self, data):
         order_type = data.get('type')  # TODO: Philipp. This is a string. We need to convert it to an enum.
