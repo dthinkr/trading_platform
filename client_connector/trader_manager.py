@@ -40,6 +40,7 @@ class TraderManager:
 
         self.traders = {t.id: t for t in self.noise_traders + self.human_traders}
         self.trading_session = TradingSession()
+        self.noise_warm_ups = params.get("noise_warm_ups", 10)
 
     async def launch(self):
         await self.trading_session.initialize()
@@ -50,7 +51,7 @@ class TraderManager:
             await trader.connect_to_session(trading_session_uuid=self.trading_session.id)
 
         for trader in self.noise_traders:
-            await trader.warm_up(number_of_warmup_orders=10)
+            await trader.warm_up(number_of_warmup_orders=self.noise_warm_ups)
 
         await self.trading_session.send_broadcast({"content": "Market is open"})
 

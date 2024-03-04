@@ -44,7 +44,8 @@ async def create_trading_session(params: TraderManagerParams, background_tasks: 
     trader_manager = TraderManager({
         "n_noise_traders": params.n_noise_traders,
         "n_human_traders": params.n_human_traders,
-        "activity_frequency": params.activity_frequency
+        "activity_frequency": params.activity_frequency,
+        "noise_warm_ups": params.noise_warm_ups
     })
 
     background_tasks.add_task(trader_manager.launch)
