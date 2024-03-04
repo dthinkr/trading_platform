@@ -5,9 +5,11 @@ from fastapi import FastAPI, WebSocket, HTTPException, WebSocketDisconnect, Back
 from fastapi.middleware.cors import CORSMiddleware
 from client_connector.trader_manager import TraderManager
 from structures import TraderCreationData, TraderManagerParams
-import logging
 
+import logging
 logger = logging.getLogger(__name__)
+
+
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
@@ -54,7 +56,6 @@ async def create_trading_session(params: TraderManagerParams, background_tasks: 
                  "human_traders": [t.id for t in trader_manager.human_traders],
                  }
     }
-
 
 @app.websocket("/trader/{trader_uuid}")
 async def websocket_trader_endpoint(websocket: WebSocket, trader_uuid: str):

@@ -6,7 +6,7 @@ from enum import Enum
 from pprint import pprint
 from enum import IntEnum
 from uuid import UUID
-from structures.structures import   ActionType, LobsterEventType
+from structures.structures import   ActionType, LobsterEventType, OrderType, Order
 from collections import defaultdict
 from typing import List, Dict
 import pandas as pd
@@ -136,7 +136,7 @@ def convert_to_book_format(active_orders, levels_n=10, default_price=2000):
         df = pd.DataFrame(active_orders)
     else:
         # Create an empty DataFrame with default columns
-        df = pd.DataFrame(columns=[field for field in OrderModel.__annotations__])
+        df = pd.DataFrame(columns=[field for field in Order.__annotations__])
     df['price'] = df['price'].round(5)
     df = df.astype({"price": int, "amount": int})
 
@@ -340,7 +340,7 @@ def convert_to_noise_state(active_orders: List[Dict]) -> Dict:
     }
 
     for order in active_orders:
-        if order['status'] == 'active':
+        if order.get('status', 'default') == 'active':
             order_type_value = order['order_type']
             order_type = OrderType(order_type_value).name.lower()
 

@@ -204,7 +204,6 @@ class TradingSession:
         handle_add_order method.
         It doesn't make much sense to decouple handle_add_order with the actualy place_order now, but theoretically
         we may need this later if we want more speed for some traders that will be merged into trading platform (if the rabbitMQ solution won't be fast enough for simluation purposes).
-
         """
         order_id = order_dict['id']
         order_dict.update({
@@ -298,8 +297,8 @@ class TradingSession:
                 timestamp=timestamp,
                 price=transaction_price
             )
-            logger.info(f"Transaction created: {transaction.model_dump()}")
-            transactions.append(transaction.model_dump())
+            logger.info(f"Transaction created: {transaction.dict()}")
+            transactions.append(transaction.dict())
         self.transactions.extend(transactions)
         return res
 
@@ -323,7 +322,7 @@ class TradingSession:
                 order.amount = 1
 
             # Place the order
-            await self.place_order(order.model_dump(), trader_id)  # Converting order to dict for compatibility
+            await self.place_order(order.dict(), trader_id)  # Converting order to dict for compatibility
 
         except ValidationError as e:
             # Handle validation errors, e.g., log them or send a message back to the trader

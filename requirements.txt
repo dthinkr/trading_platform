@@ -9,3 +9,4 @@ aio-pika
 termcolor
 numba
 pandas
+async-lru
