@@ -14,6 +14,7 @@ from main_platform.utils import (CustomEncoder,
                                  now,
                                  )
 from asyncio import Lock, Event
+from datetime import datetime, timedelta
 
 logger = setup_custom_logger(__name__)
 
@@ -27,7 +28,10 @@ class TradingSession:
         """
         buffer_delay: The delay in seconds before the Trading System processes the buffered orders.
         """
+        self.duration = 1
+        self.start_time = None
         self._stop_requested = asyncio.Event()
+
         self.id = str(uuid.uuid4())
         self.max_buffer_releases = max_buffer_releases
         logger.critical(f"Max buffer releases: {self.max_buffer_releases}")
@@ -85,6 +89,7 @@ class TradingSession:
         return transactions[-1]['price']
 
     async def initialize(self):
+        self.start_time = datetime.now()
         self.connection = await aio_pika.connect_robust("amqp://localhost")
         self.channel = await self.connection.channel()
 
@@ -142,8 +147,10 @@ class TradingSession:
         # TODO we inject the current order book, active orders and transaction history into every broadcasted message
         # TODO: also important thing: we now send all active orders to everyone. We may think about possiblity to
         # TODO: send only to the trader who own them. But not now let's keep it simple.
-
-        message.update({
+        if message.get('type') == 'closure':
+            pass # TODO. PHILIPP. Should we inject some info here?
+        else:
+            message.update({
             'type': 'update',  # TODO: PHILIPP: we need to think about the type of the message. it's hardcoded for now
             'order_book': self.order_book,
             'active_orders': self.get_active_orders_to_broadcast(),
@@ -389,9 +396,11 @@ class TradingSession:
         """ Keeps system active. Stops if the buffer release limit is reached. """
         try:
             while not self._stop_requested.is_set():
-                logger.info('Checking counters...')
-                if self.check_counters():
-                    logger.critical('Counter limit reached, stopping...')
+                current_time = datetime.now()
+                if current_time - self.start_time > timedelta(minutes=self.duration):
+                    logger.critical('Time limit reached, stopping...')
+                    # let's signal to all traders that we are closing
+                    await self.send_broadcast({"type": "closure"})
                     break
                 await asyncio.sleep(1)
             logger.critical('Exited the run loop.')

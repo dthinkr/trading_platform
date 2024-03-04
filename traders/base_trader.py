@@ -91,7 +91,7 @@ class BaseTrader:
             routing_key=self.queue_name  # Use the dynamic queue_name
         )
 
-    @ack_message
+
     async def on_message_from_system(self, message):
         """Process incoming messages from trading system.
         For BaseTrader it updates order book and inventory if needed.
@@ -169,3 +169,9 @@ class BaseTrader:
         # Placeholder method for compatibility with the trading system
         logger.info(f"trader {self.id} is waiting")
         pass
+    async def handle_closure(self, data):
+        """Handle closure messages from the trading system."""
+        logger.critical("Closure signal received. Preparing to stop trading activities.")
+
+        self._stop_requested.set()
+        await self.clean_up()

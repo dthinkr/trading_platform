@@ -17,7 +17,7 @@ class HumanTrader(BaseTrader):
         super().__init__(trader_type=TraderType.HUMAN)
 
     async def post_processing_server_message(self, json_message):
-        message_type = json_message.pop('type')
+        message_type = json_message.pop('type', None)
         if message_type:
             await self.send_message_to_client(message_type, **json_message)
 
@@ -79,3 +79,6 @@ class HumanTrader(BaseTrader):
         else:
             # Handle the case where the order UUID does not exist
             logger.warning(f"Order with UUID {order_uuid} not found.")
+    async def handle_closure(self, data):
+        await self.post_processing_server_message(data)
+        await super().handle_closure(data)
