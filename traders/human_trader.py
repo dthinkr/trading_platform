@@ -1,16 +1,16 @@
 from .base_trader import BaseTrader
-
+from starlette.websockets import WebSocketDisconnect, WebSocketState
 from pprint import pprint
 import json
 
 from structures import TraderType, OrderType
-import logging
+from main_platform.custom_logger import setup_custom_logger
 
-logger = logging.getLogger(__name__)
-
+logger = setup_custom_logger(__name__)
 
 class HumanTrader(BaseTrader):
     websocket = None
+    socket_status = False
     inventory = {'shares': 0, 'cash': 1000}  # TODO.PHILIPP. WRite something sensible here. placeholder for now.
 
     def __init__(self):
@@ -23,22 +23,36 @@ class HumanTrader(BaseTrader):
 
     def connect_to_socket(self, websocket):
         self.websocket = websocket
+        self.socket_status = True
 
     async def send_message_to_client(self, message_type, **kwargs):
+        if not self.websocket or self.websocket.client_state != WebSocketState.CONNECTED:
+            logger.warning("WebSocket is closed or not set yet. Skipping message send.")
+            return
+
+        if not self.socket_status:
+            logger.warning("WebSocket is closed. Skipping message send.")
+            return  # Skip sending the message or handle accordingly
 
         trader_orders = self.orders or []
         order_book = self.order_book or {'bids':[], 'asks':[]}
         kwargs['trader_orders'] = trader_orders
-        if self.websocket:
+        try:
             return await self.websocket.send_json(
                 {
                     'type': message_type,
                     'inventory': self.inventory,
                     **kwargs,
                     'order_book': order_book
-
                 }
             )
+        except WebSocketDisconnect:
+            self.socket_status = False
+            logger.warning("WebSocket is disconnected. Unable to send message.")
+
+        except Exception as e:
+            logger.error(f"An error occurred while sending a message: {e}")
+            # Handle other potential exceptions
 
     async def on_message_from_client(self, message):
         """
@@ -72,7 +86,7 @@ class HumanTrader(BaseTrader):
 
     async def handle_cancel_order(self, data):
         order_uuid = data.get('id')
-        logger.critical(f"Cancel order request received: {data}")
+        logger.info(f"Cancel order request received: {data}")
 
         if order_uuid in [order['id'] for order in self.orders]:
             await self.send_cancel_order_request(order_uuid)

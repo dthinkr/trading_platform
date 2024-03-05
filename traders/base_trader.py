@@ -171,7 +171,7 @@ class BaseTrader:
         pass
     async def handle_closure(self, data):
         """Handle closure messages from the trading system."""
-        logger.critical("Closure signal received. Preparing to stop trading activities.")
+        logger.critical(f"Trader {self.id}: type: {self.trader_type}. Closure signal received. Preparing to stop trading activities.")
 
         self._stop_requested.set()
         await self.clean_up()

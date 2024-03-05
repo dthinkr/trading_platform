@@ -8,7 +8,9 @@ import logging
 import numpy as np
 import numba
 
-logger = logging.getLogger(__name__)
+from main_platform.custom_logger import setup_custom_logger
+
+logger = setup_custom_logger(__name__)
 
 class NoiseTrader(BaseTrader):
 
@@ -77,8 +79,7 @@ class NoiseTrader(BaseTrader):
         while not self._stop_requested.is_set():
             try:
                 await self.act()
-                await asyncio.sleep(self.sigmoid(self.activity_frequency)) # TODO. PHILIPP: fix sigmoid
-                print(f' how long to sleep: {self.activity_frequency} ')
+                # await asyncio.sleep(self.sigmoid(self.activity_frequency)) # TODO. PHILIPP: fix sigmoid
                 await asyncio.sleep(self.activity_frequency)
             except asyncio.CancelledError:
                 logger.info('Run method cancelled, performing cleanup of noise trader...')

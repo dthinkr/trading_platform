@@ -1,7 +1,7 @@
 import asyncio
 
 from fastapi import FastAPI, WebSocket, HTTPException, WebSocketDisconnect, BackgroundTasks
-
+from starlette.websockets import WebSocketState
 from fastapi.middleware.cors import CORSMiddleware
 from client_connector.trader_manager import TraderManager
 from structures import TraderCreationData
@@ -97,6 +97,9 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_uuid: str):
     try:
         while True:
             message = await websocket.receive_text()
+            if websocket.client_state != WebSocketState.CONNECTED:
+                logger.warning(f"Trader {trader_uuid} disconnected")
+                break
             await trader.on_message_from_client(message)
     except WebSocketDisconnect:
         logger.critical(f"Trader {trader_uuid} disconnected")
