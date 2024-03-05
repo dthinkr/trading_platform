@@ -4,8 +4,8 @@ from fastapi import FastAPI, WebSocket, HTTPException, WebSocketDisconnect, Back
 
 from fastapi.middleware.cors import CORSMiddleware
 from client_connector.trader_manager import TraderManager
-from structures import TraderCreationData, TraderManagerParams
-
+from structures import TraderCreationData
+from fastapi.responses import JSONResponse
 import logging
 logger = logging.getLogger(__name__)
 
@@ -25,28 +25,22 @@ trader_manager: TraderManager = None
 
 @app.get("/traders/defaults")
 async def get_trader_defaults():
-    # Get the schema of the model
     schema = TraderCreationData.schema()
+    defaults = {field: {"default": props.get("default"), "title": props.get("title"), "type": props.get("type")}
+                for field, props in schema.get("properties", {}).items()}
 
-    # Extract default values from the schema
-    defaults = {field: props.get("default") for field, props in schema.get("properties", {}).items() if
-                "default" in props}
-
-    return {
+    return JSONResponse(content={
         "status": "success",
         "data": defaults
-    }
+    })
 
 
 @app.post("/trading/initiate")
-async def create_trading_session(params: TraderManagerParams, background_tasks: BackgroundTasks):
+async def create_trading_session(params: TraderCreationData, background_tasks: BackgroundTasks):
+
     global trader_manager
-    trader_manager = TraderManager({
-        "n_noise_traders": params.n_noise_traders,
-        "n_human_traders": params.n_human_traders,
-        "activity_frequency": params.activity_frequency,
-        "noise_warm_ups": params.noise_warm_ups
-    })
+
+    trader_manager = TraderManager(params)
 
     background_tasks.add_task(trader_manager.launch)
     return {
@@ -57,6 +51,21 @@ async def create_trading_session(params: TraderManagerParams, background_tasks: 
                  "human_traders": [t.id for t in trader_manager.human_traders],
                  }
     }
+
+
+
+@app.get("/trader/{trader_uuid}")
+async def get_trader(trader_uuid: str):
+    global trader_manager
+    if trader_manager is None or not trader_manager.exists(trader_uuid):
+        raise HTTPException(status_code=404, detail="Trader not found")
+
+    return {
+        "status": "success",
+        "message": "Trader found",
+        "data": trader_manager.get_params()
+    }
+
 
 @app.websocket("/trader/{trader_uuid}")
 async def websocket_trader_endpoint(websocket: WebSocket, trader_uuid: str):

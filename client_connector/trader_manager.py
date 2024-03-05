@@ -7,7 +7,7 @@ so they can communicate with them.
 import uuid
 
 from external_traders.noise_trader import get_signal_noise, settings_noise, settings, get_noise_rule_unif
-
+from structures import TraderCreationData
 from typing import List
 from traders import HumanTrader, NoiseTrader, BaseTrader
 
@@ -19,18 +19,23 @@ logger = logging.getLogger(__name__)
 
 
 class TraderManager:
+    params: TraderCreationData
     trading_system: TradingSession = None
     traders = {}
     human_traders = List[HumanTrader]
     noise_traders = List[NoiseTrader]
 
-    def __init__(self, params: dict):
+    def __init__(self, params: TraderCreationData):
+
+        self.params = params
+        params=params.model_dump()
         self.tasks = []
-        n_noise_traders = params.get("n_noise_traders", 1)
+        n_noise_traders = params.get("num_noise_traders", 1)
         # TODO: we may start launching with more than one human trader later.
         # So far for debugging purposes we only need one human trader whose id we return to the client
-        n_human_traders = 2
+        n_human_traders = params.get("num_human_traders", 1)
         activity_frequency = params.get("activity_frequency", 5)
+        self.noise_warm_ups = params.get("noise_warm_ups", 10)
 
         self.noise_traders = [NoiseTrader(activity_frequency=activity_frequency, settings=settings,
                                           settings_noise=settings_noise, get_signal_noise=get_signal_noise,
@@ -39,8 +44,9 @@ class TraderManager:
         self.human_traders = [HumanTrader() for _ in range(n_human_traders)]
 
         self.traders = {t.id: t for t in self.noise_traders + self.human_traders}
-        self.trading_session = TradingSession()
-        self.noise_warm_ups = params.get("noise_warm_ups", 10)
+
+        self.trading_session = TradingSession(duration=params['trading_day_duration'])
+
 
     async def launch(self):
         await self.trading_session.initialize()
@@ -77,3 +83,9 @@ class TraderManager:
 
     def exists(self, trader_uuid):
         return trader_uuid in self.traders
+
+    def get_params(self):
+        params = self.params.model_dump()
+        trading_session_params = self.trading_session.get_params()
+        params.update(trading_session_params)
+        return params

@@ -8,29 +8,45 @@ def now():
     """It is actually from utils.py but we need structures there so we do it here to avoid circular deps"""
     return datetime.now(timezone.utc)
 
+
+
 class TraderCreationData(BaseModel):
-    num_human_traders: int = Field(default=1, description="Number of human traders")
-    num_noise_traders: int = Field(default=1, description="Number of noise traders")
-    activity_frequency: float = Field(default=0.3, description="Frequency of noise traders' updates in seconds")
-    trading_day_duration: int = Field(default=5, description="Duration of the trading day in minutes")
-    step: int = Field(default=100, description="Step for new orders")
-
-
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "max_short_shares": 100,
-                "max_short_cash": 10000.0,
-                "initial_cash": 1000.0,
-                "initial_shares": 0,
-                "trading_day_duration": 5,  # Representing 8 hours in minutes
-                "max_active_orders": 5,
-                "noise_trader_update_freq": 10,  # in seconds,
-                "step": 100,
-                "extra_info_treatment": False
-            }
-        }
-
+    num_human_traders: int = Field(
+        default=3,
+        title="Number of Human Traders",
+        description="Number of human traders",
+        gt=0  # Example additional validation: value must be greater than 0
+    )
+    num_noise_traders: int = Field(
+        default=1,
+        title="Number of Noise Traders",
+        description="Number of noise traders",
+        gt=0
+    )
+    activity_frequency: float = Field(
+        default=1.0,
+        title="Activity Frequency",
+        description="Frequency of noise traders' updates in seconds",
+        gt=0
+    )
+    trading_day_duration: int = Field(
+        default=5,
+        title="Trading Day Duration",
+        description="Duration of the trading day in minutes",
+        gt=0
+    )
+    step: int = Field(
+        default=10,
+        title="Step for New Orders",
+        description="Step for new orders",
+        gt=0
+    )
+    noise_warm_ups: int = Field(
+        default=10,
+        title="Noise Warm Ups",
+        description="Number of warm up periods for noise traders",
+        gt=0
+    )
 
 class LobsterEventType(IntEnum):
     """For the LOBSTER data, the event type is an integer. This class maps the integer to a string.
@@ -92,11 +108,6 @@ class TransactionModel(BaseModel):
     timestamp: datetime
     price: float
 
-class TraderManagerParams(BaseModel):
-    n_noise_traders: int = 1  # Default value if not provided
-    n_human_traders: int = 1  # Default value if not provided
-    activity_frequency: float = 1.3 # Default value if not provided in seconds
-    noise_warm_ups: int = 100  # Default value if not provided
 
 ORDER_AMOUNT = 1
 

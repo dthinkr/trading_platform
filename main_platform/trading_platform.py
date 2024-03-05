@@ -20,23 +20,21 @@ logger = setup_custom_logger(__name__)
 
 
 class TradingSession:
+    duration: int
+    active: bool
+    start_time: datetime
     transactions = List[TransactionModel]
     all_orders = Dict[uuid.UUID, Dict]
     buffered_orders = Dict[uuid.UUID, Dict]
 
-    def __init__(self, buffer_delay=0, max_buffer_releases=None):
-        """
-        buffer_delay: The delay in seconds before the Trading System processes the buffered orders.
-        """
-        self.duration = 1
-        self.start_time = None
+    def __init__(self, duration):
+        self.active = False
+        self.duration = duration
+
         self._stop_requested = asyncio.Event()
 
         self.id = str(uuid.uuid4())
-        self.max_buffer_releases = max_buffer_releases
-        logger.critical(f"Max buffer releases: {self.max_buffer_releases}")
-        self.buffer_release_count = 0
-        self.buffer_release_time = None
+
 
         self.creation_time = now()
         self.all_orders = {}
@@ -45,14 +43,23 @@ class TradingSession:
         self.broadcast_exchange_name = f'broadcast_{self.id}'
         self.queue_name = f'trading_system_queue_{self.id}'
         self.trader_exchange = None
-        logger.info(f"Trading System created with UUID: {self.id}. Buffer delay is: {buffer_delay} seconds")
+
         self.connected_traders = {}
-        self.buffer_delay = buffer_delay
+
 
         self.release_task = None
         self.lock = Lock()
         self.release_event = Event()
-
+    def get_params(self):
+        return {
+            "id": self.id,
+            "duration": self.duration,
+            "creation_time": self.creation_time,
+            "active": self.active,
+            "start_time": self.start_time,
+            "end_time": self.start_time + timedelta(minutes=self.duration),
+            "connected_traders": self.connected_traders,
+        }
     @property
     def active_orders(self):
         return {k: v for k, v in self.all_orders.items() if v['status'] == OrderStatus.ACTIVE}
@@ -90,6 +97,7 @@ class TradingSession:
 
     async def initialize(self):
         self.start_time = datetime.now()
+        self.active = True
         self.connection = await aio_pika.connect_robust("amqp://localhost")
         self.channel = await self.connection.channel()
 
@@ -111,6 +119,7 @@ class TradingSession:
         """
         # Signal the run loop to stop
         self._stop_requested.set()
+        self.active = False
         try:
             # Unbind the queue from the exchange (optional, as auto_delete should handle this)
             trader_queue = await self.channel.get_queue(self.queue_name)
@@ -401,6 +410,7 @@ class TradingSession:
                     logger.critical('Time limit reached, stopping...')
                     # let's signal to all traders that we are closing
                     await self.send_broadcast({"type": "closure"})
+                    self.active = False
                     break
                 await asyncio.sleep(1)
             logger.critical('Exited the run loop.')

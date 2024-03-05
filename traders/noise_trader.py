@@ -15,13 +15,14 @@ class NoiseTrader(BaseTrader):
     def __init__(self, activity_frequency: int, settings: dict, settings_noise: dict, 
                  get_signal_noise: callable, get_noise_rule_unif: callable):
         super().__init__(trader_type=TraderType.NOISE)
+        print(f'ACTIVITY FREQUENCY: {activity_frequency}')
         self.activity_frequency = activity_frequency
         self.settings = settings
         self.settings_noise = settings_noise
         self.get_signal_noise = get_signal_noise
         self.get_noise_rule_unif = get_noise_rule_unif
 
-    @numba.jit
+
     def sigmoid(self, delta_t):
         """
         randomness
@@ -69,13 +70,16 @@ class NoiseTrader(BaseTrader):
             await self.post_new_order(ORDER_AMOUNT, self.settings['initial_price'], OrderType.ASK)
     async def warm_up(self, number_of_warmup_orders: int):
         for _ in range(number_of_warmup_orders):
+            print(f' WARMING UP {_} ')
             await self.act()
 
     async def run(self):
         while not self._stop_requested.is_set():
             try:
                 await self.act()
-                await asyncio.sleep(self.sigmoid(self.activity_frequency))
+                await asyncio.sleep(self.sigmoid(self.activity_frequency)) # TODO. PHILIPP: fix sigmoid
+                print(f' how long to sleep: {self.activity_frequency} ')
+                await asyncio.sleep(self.activity_frequency)
             except asyncio.CancelledError:
                 logger.info('Run method cancelled, performing cleanup of noise trader...')
                 await self.clean_up()
