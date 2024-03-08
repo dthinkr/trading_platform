@@ -2,8 +2,6 @@ version: '3.8'
 services:
   fastapi_app:
     build: .
-    ports:
-      - "80:80"
     depends_on:
       - rabbitmq
     environment:
@@ -14,3 +12,15 @@ services:
     ports:
       - "15673:15672" # Management interface on a different port
       - "5673:5672"   # RabbitMQ server on a different port
+
+  nginx:
+    image: nginx:latest
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./localhost.pem:/etc/ssl/certs/localhost.pem:ro
+      - ./localhost-key.pem:/etc/ssl/private/localhost-key.pem:ro
+    depends_on:
+      - fastapi_app
