@@ -2,20 +2,30 @@ services:
 - type: web
   name: fastapi-app
   env: docker
-  buildCommand: "" # Specify if any build commands are needed; often not required for Docker
-  startCommand: "" # Specify if any start commands are needed; Dockerfile CMD is used by default
-  dockerfilePath: ./Dockerfile # Assuming your Dockerfile is in the root directory
+  buildCommand: "" # Docker build commands are often not needed as Render uses the Dockerfile
+  startCommand: "" # Docker start commands are often not needed as Render uses the Dockerfile's CMD
+  dockerfilePath: ./Dockerfile # Path to your Dockerfile
   envVars:
     - key: RABBITMQ_URL
-      value: amqp://guest:guest@rabbitmq:5672/
-  # Render automatically assigns a URL, no need to manually specify port mappings
+      value: amqp://rabbitmq:rabbitmq@rabbitmq:5672/  # Updated username to match the RABBITMQ_DEFAULT_USER
 
-- type: worker # RabbitMQ runs as a background service
+- type: web # Note: RabbitMQ is also accessible as a web service if management UI is needed
   name: rabbitmq
   env: docker
   image: rabbitmq:3-management
-  dockerfilePath: "" # Not needed since we're using a public image
-  envVars: []
+  envVars:
+    - key: RABBITMQ_ERLANG_COOKIE
+      generateValue: true
+    - key: RABBITMQ_DEFAULT_USER
+      value: rabbitmq
+    - key: RABBITMQ_DEFAULT_PASS
+      generateValue: true
+  disk:
+    name: rabbitmq
+    mountPath: /var/lib/rabbitmq
+    sizeGB: 10
   ports:
-    - port: 15672 # Expose management interface; Render automatically maps to an internal port
-      service: public # Making the management interface publicly accessible; use 'private' for internal access only
+    - port: 15672 # Management interface
+      service: private # Set to 'public' if external access is needed, 'private' for internal
+    - port: 5672 # AMQP port, no need to explicitly expose it unless external access is required
+      service: private
