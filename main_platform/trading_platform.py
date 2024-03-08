@@ -8,6 +8,8 @@ from typing import List, Dict
 from structures import OrderStatus, OrderType, TransactionModel, Order
 import asyncio
 import pandas as pd
+import os
+rabbitmq_url = os.getenv('RABBITMQ_URL', 'amqp://localhost')
 
 from main_platform.utils import (CustomEncoder,
                                  append_combined_data_to_csv,
@@ -96,9 +98,9 @@ class TradingSession:
         return transactions[-1]['price']
 
     async def initialize(self):
-        self.start_time = datetime.now()
+        self.start_time = now()
         self.active = True
-        self.connection = await aio_pika.connect_robust("amqp://localhost")
+        self.connection = await aio_pika.connect_robust(rabbitmq_url)
         self.channel = await self.connection.channel()
 
         await self.channel.declare_exchange(self.broadcast_exchange_name, aio_pika.ExchangeType.FANOUT,

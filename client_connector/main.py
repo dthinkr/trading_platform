@@ -6,8 +6,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from client_connector.trader_manager import TraderManager
 from structures import TraderCreationData
 from fastapi.responses import JSONResponse
-from typing import List
-from pprint import pprint
 import logging
 
 logger = logging.getLogger(__name__)
@@ -25,6 +23,15 @@ app.add_middleware(
 trader_managers = {}
 trader_to_session_lookup = {}
 trader_manager: TraderManager = None
+
+
+# for testing if sockets work
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    while True:
+        data = await websocket.receive_text()
+        await websocket.send_text(f"Message text was: {data}")
 
 
 @app.get("/traders/defaults")

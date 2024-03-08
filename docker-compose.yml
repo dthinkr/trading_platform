@@ -1,0 +1,16 @@
+version: '3.8'
+services:
+  fastapi_app:
+    build: .
+    ports:
+      - "80:80"
+    depends_on:
+      - rabbitmq
+    environment:
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq/
+
+  rabbitmq:
+    image: "rabbitmq:3-management"
+    ports:
+      - "15673:15672" # Management interface on a different port
+      - "5673:5672"   # RabbitMQ server on a different port

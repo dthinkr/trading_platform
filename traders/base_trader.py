@@ -3,7 +3,9 @@ import aio_pika
 import json
 import uuid
 from structures.structures import OrderType, ActionType, TraderType
-from main_platform.utils import ack_message, convert_to_noise_state, convert_to_book_format, convert_to_trader_actions
+import os
+rabbitmq_url = os.getenv('RABBITMQ_URL', 'amqp://localhost')
+
 from main_platform.custom_logger import setup_custom_logger
 from main_platform.utils import (CustomEncoder)
 logger = setup_custom_logger(__name__)
@@ -29,7 +31,7 @@ class BaseTrader:
         self.trading_system_exchange = None
 
     async def initialize(self):
-        self.connection = await aio_pika.connect_robust("amqp://localhost")
+        self.connection = await aio_pika.connect_robust(rabbitmq_url)
         self.channel = await self.connection.channel()
         await self.channel.declare_queue(self.trader_queue_name, auto_delete=True)
 
