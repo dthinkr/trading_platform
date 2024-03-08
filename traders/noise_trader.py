@@ -6,7 +6,7 @@ import uuid
 from structures import OrderType, TraderType, ORDER_AMOUNT, SIGMOID_PARAMS
 import logging
 import numpy as np
-import numba
+
 
 from main_platform.custom_logger import setup_custom_logger
 
