@@ -1,0 +1,21 @@
+services:
+- type: web
+  name: fastapi-app
+  env: docker
+  buildCommand: "" # Specify if any build commands are needed; often not required for Docker
+  startCommand: "" # Specify if any start commands are needed; Dockerfile CMD is used by default
+  dockerfilePath: ./Dockerfile # Assuming your Dockerfile is in the root directory
+  envVars:
+    - key: RABBITMQ_URL
+      value: amqp://guest:guest@rabbitmq:5672/
+  # Render automatically assigns a URL, no need to manually specify port mappings
+
+- type: worker # RabbitMQ runs as a background service
+  name: rabbitmq
+  env: docker
+  image: rabbitmq:3-management
+  dockerfilePath: "" # Not needed since we're using a public image
+  envVars: []
+  ports:
+    - port: 15672 # Expose management interface; Render automatically maps to an internal port
+      service: public # Making the management interface publicly accessible; use 'private' for internal access only
