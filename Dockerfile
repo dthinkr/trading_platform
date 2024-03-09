@@ -11,9 +11,11 @@ COPY . /app
 COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Make port 80 available to the world outside this container
-EXPOSE 80
+# Copy entrypoint script into the container
+COPY entrypoint.sh /app/entrypoint.sh
 
+# Make entrypoint script executable
+RUN chmod +x /app/entrypoint.sh
 
-# Command to run the application
-CMD ["uvicorn", "client_connector.main:app", "--host", "0.0.0.0", "--port", "80"]
+# Use the entrypoint script to start the application
+ENTRYPOINT ["/app/entrypoint.sh"]
