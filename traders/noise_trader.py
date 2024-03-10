@@ -2,11 +2,8 @@ from .base_trader import BaseTrader
 from main_platform.utils import convert_to_book_format, convert_to_noise_state, convert_to_trader_actions
 import asyncio
 import random
-import uuid
-from structures import OrderType, TraderType, ORDER_AMOUNT, SIGMOID_PARAMS
-import logging
+from structures import OrderType, TraderType, ORDER_AMOUNT
 import numpy as np
-
 
 from main_platform.custom_logger import setup_custom_logger
 
@@ -17,25 +14,20 @@ class NoiseTrader(BaseTrader):
     def __init__(self, activity_frequency: int, settings: dict, settings_noise: dict, 
                  get_signal_noise: callable, get_noise_rule_unif: callable):
         super().__init__(trader_type=TraderType.NOISE)
-        print(f'ACTIVITY FREQUENCY: {activity_frequency}')
         self.activity_frequency = activity_frequency
         self.settings = settings
         self.settings_noise = settings_noise
         self.get_signal_noise = get_signal_noise
         self.get_noise_rule_unif = get_noise_rule_unif
+        self.current_variance = 5.0
 
-
-    def sigmoid(self, delta_t):
-        """
-        randomness
-        """
-        p = (-0.1, 0.1, 3)
-        mu = random.gauss(0.1, 0.3)
-        adjusted_delta_t = delta_t + mu
-        l, u, g = p
-        sigmoid_value = l + (u - l) / (1 + (u / l) * np.exp(-g * adjusted_delta_t))
-        cap = u * 10
-        return min(sigmoid_value, cap)
+    def cooling_interval(self, target: float, initial_variance: float = 5.0, 
+                         decay_rate: float = 0.9) -> float:
+        if self.current_variance is None:
+            self.current_variance = initial_variance
+        interval = random.gauss(target, np.sqrt(self.current_variance))
+        self.current_variance *= decay_rate  # Update the current variance
+        return interval
 
     async def act(self):
         """
@@ -59,7 +51,7 @@ class NoiseTrader(BaseTrader):
                     amount, price = ORDER_AMOUNT, order['price']
                     for i in range(order['amount']):
                         await self.post_new_order(amount, price, order_type)
-                    logger.critical(f"""POSTED {order['order_type']} AT {price} AMOUNT {ORDER_AMOUNT} * {order['amount']}""")
+                    logger.info(f"""POSTED {order['order_type']} AT {price} AMOUNT {ORDER_AMOUNT} * {order['amount']}""")
                 
                 elif order['action_type'] == 'cancel_order' and self.orders:
                     order_type = order['order_type']
@@ -67,9 +59,10 @@ class NoiseTrader(BaseTrader):
                     if matching_orders:
                         order_id = random.choice(matching_orders)['id']
                         await self.send_cancel_order_request(order_id)
-                        logger.critical(f"""CANCELLED {order_type} ID {order_id[:10]}""")
+                        logger.info(f"""CANCELLED {order_type} ID {order_id[:10]}""")
         else:
             await self.post_new_order(ORDER_AMOUNT, self.settings['initial_price'], OrderType.ASK)
+    
     async def warm_up(self, number_of_warmup_orders: int):
         for _ in range(number_of_warmup_orders):
             print(f' WARMING UP {_} ')
@@ -79,8 +72,7 @@ class NoiseTrader(BaseTrader):
         while not self._stop_requested.is_set():
             try:
                 await self.act()
-                # await asyncio.sleep(self.sigmoid(self.activity_frequency)) # TODO. PHILIPP: fix sigmoid
-                await asyncio.sleep(self.activity_frequency)
+                await asyncio.sleep(self.cooling_interval(target=self.activity_frequency))
             except asyncio.CancelledError:
                 logger.info('Run method cancelled, performing cleanup of noise trader...')
                 await self.clean_up()

@@ -16,7 +16,7 @@ from main_platform.utils import (CustomEncoder,
                                  now,
                                  )
 from asyncio import Lock, Event
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 logger = setup_custom_logger(__name__)
 
@@ -37,7 +37,6 @@ class TradingSession:
 
         self.id = str(uuid.uuid4())
 
-
         self.creation_time = now()
         self.all_orders = {}
         self.buffered_orders = {}
@@ -52,6 +51,11 @@ class TradingSession:
         self.release_task = None
         self.lock = Lock()
         self.release_event = Event()
+    
+    @property
+    def current_time(self):
+        return datetime.now(timezone.utc)
+
     def get_params(self):
         return {
             "id": self.id,
@@ -407,8 +411,7 @@ class TradingSession:
         """ Keeps system active. Stops if the buffer release limit is reached. """
         try:
             while not self._stop_requested.is_set():
-                current_time = datetime.now()
-                if current_time - self.start_time > timedelta(minutes=self.duration):
+                if self.current_time - self.start_time > timedelta(minutes=self.duration):
                     logger.critical('Time limit reached, stopping...')
                     # let's signal to all traders that we are closing
                     await self.send_broadcast({"type": "closure"})

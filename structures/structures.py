@@ -23,6 +23,12 @@ class TraderCreationData(BaseModel):
         description="Number of noise traders",
         gt=0
     )
+    num_informed_traders: int = Field(
+        default=1,
+        title="Number of Informed Traders",
+        description="Number of informed traders",
+        gt=0
+    )
     activity_frequency: float = Field(
         default=1.0,
         title="Activity Frequency",
@@ -110,9 +116,3 @@ class TransactionModel(BaseModel):
 
 
 ORDER_AMOUNT = 1
-
-SIGMOID_PARAMS = {
-    'params': (-0.1, 0.1, 3),
-    'mu': (0.1, 0.3),
-    'cap': 10
-}
