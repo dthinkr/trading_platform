@@ -9,6 +9,7 @@ from structures import OrderStatus, OrderType, TransactionModel, Order
 import asyncio
 import pandas as pd
 import os
+
 rabbitmq_url = os.getenv('RABBITMQ_URL', 'amqp://localhost')
 
 from main_platform.utils import (CustomEncoder,
@@ -16,7 +17,10 @@ from main_platform.utils import (CustomEncoder,
                                  now,
                                  )
 from asyncio import Lock, Event
+
 from datetime import datetime, timedelta, timezone
+
+from collections import defaultdict
 
 logger = setup_custom_logger(__name__)
 
@@ -47,14 +51,15 @@ class TradingSession:
 
         self.connected_traders = {}
 
-
         self.release_task = None
         self.lock = Lock()
         self.release_event = Event()
+
     
     @property
     def current_time(self):
         return datetime.now(timezone.utc)
+
 
     def get_params(self):
         return {
@@ -66,6 +71,7 @@ class TradingSession:
             "end_time": self.start_time + timedelta(minutes=self.duration),
             "connected_traders": self.connected_traders,
         }
+
     @property
     def active_orders(self):
         return {k: v for k, v in self.all_orders.items() if v['status'] == OrderStatus.ACTIVE}
@@ -163,16 +169,17 @@ class TradingSession:
         # TODO: also important thing: we now send all active orders to everyone. We may think about possiblity to
         # TODO: send only to the trader who own them. But not now let's keep it simple.
         if message.get('type') == 'closure':
-            pass # TODO. PHILIPP. Should we inject some info here?
+            pass  # TODO. PHILIPP. Should we inject some info here?
         else:
             message.update({
-            'type': 'update',  # TODO: PHILIPP: we need to think about the type of the message. it's hardcoded for now
-            'order_book': self.order_book,
-            'active_orders': self.get_active_orders_to_broadcast(),
-            'history': self.transactions,
-            'spread': self.get_spread(),
-            'current_price': self.current_price
-        })
+                'type': 'update',
+                # TODO: PHILIPP: we need to think about the type of the message. it's hardcoded for now
+                'order_book': self.order_book,
+                'active_orders': self.get_active_orders_to_broadcast(),
+                'history': self.transactions,
+                'spread': self.get_spread(),
+                'current_price': self.current_price
+            })
 
         exchange = await self.channel.get_exchange(self.broadcast_exchange_name)
         await exchange.publish(
@@ -291,7 +298,8 @@ class TradingSession:
         viable_bids = [bid for bid in bids if bid['price'] >= lowest_ask]
 
         transactions = []
-
+        participated_traders = set()
+        traders_to_transactions_lookup = defaultdict(list)
         # Create transactions
         while viable_asks and viable_bids:
             ask = viable_asks.pop(0)
@@ -312,9 +320,25 @@ class TradingSession:
                 timestamp=timestamp,
                 price=transaction_price
             )
+            participated_traders.add(ask['trader_id'])
+            participated_traders.add(bid['trader_id'])
+            # we  need to get the trader_in_transcation_lookup and if it's
+            # not there we need to create it.
+            # let's not add the entire transaction here, just the order id, price, type of order, amount - so they can correclty update the inventory
+            traders_to_transactions_lookup[ask['trader_id']].append(
+                {'id': ask['id'], 'price': ask['price'], 'type': 'ask', 'amount': ask['amount']})
+            traders_to_transactions_lookup[bid['trader_id']].append(
+                {'id': bid['id'], 'price': bid['price'], 'type': 'bid', 'amount': bid['amount']})
+
             logger.info(f"Transaction created: {transaction.model_dump()}")
+
             transactions.append(transaction.model_dump())
         self.transactions.extend(transactions)
+        # if transactions are not empty (so there are new transactions) let's form subgroup_broadcast message
+        # that will contain to_whom (traders who participated in transactions) and the list of transactions and add them to res
+        if transactions:
+            res['subgroup_broadcast'] = traders_to_transactions_lookup
+
         return res
 
     async def handle_add_order(self, data: dict):
@@ -344,7 +368,19 @@ class TradingSession:
             logger.critical(f"Order validation failed: {e}")
         # lets clear them now
         resp = await self.clear_orders()
+        subgroup_data = resp.pop('subgroup_broadcast', None)
+        if subgroup_data:
+            await self.send_message_to_subgroup(subgroup_data)
         return dict(respond=True, **resp)
+
+    async def send_message_to_subgroup(self, message):
+        # the structre of incoming messages is:
+        # a defaulddict:
+        #  traders_to_transactions_lookup[ask['trader_id']].append(transaction.model_dump())
+        #             traders_to_transactions_lookup[bid['trader_id']].append(transaction.model_dump())
+        # so we need to iterate over it and send the message to each trader
+        for trader_id, transaction_list in message.items():
+            await self.send_message_to_trader(trader_id, {'type': 'update', 'new_transactions': transaction_list})
 
     async def handle_cancel_order(self, data: dict):
         order_id = data.get('order_id')
@@ -383,7 +419,7 @@ class TradingSession:
         self.connected_traders[trader_id] = {'trader_type': msg_body.get('trader_type'), }
         logger.info(f"Trader {trader_id} connected.")
         logger.info(f"Total connected traders: {len(self.connected_traders)}")
-
+        return dict(respond=True, trader_id=trader_id, message="Registered successfully", individual=True)
     @ack_message
     async def on_individual_message(self, message):
 
@@ -400,7 +436,10 @@ class TradingSession:
                     await self.send_message_to_trader(trader_id, result)
                     #         TODO.PHILIPP. IMPORTANT! let's at this stage also send a broadcast message to all traders with updated info.
                     # IT IS FAR from optimal but for now we keep it simple. We'll refactor it later.
-                    await self.send_broadcast(message=dict(text="book is updated"))
+                    if not result.get('individual', False):
+                        await self.send_broadcast(message=dict(text="book is updated"))
+
+
 
             else:
                 logger.warning(f"No handler method found for action: {action}")
@@ -411,7 +450,9 @@ class TradingSession:
         """ Keeps system active. Stops if the buffer release limit is reached. """
         try:
             while not self._stop_requested.is_set():
-                if self.current_time - self.start_time > timedelta(minutes=self.duration):
+
+                current_time = now()
+                if current_time - self.start_time > timedelta(minutes=self.duration):
                     logger.critical('Time limit reached, stopping...')
                     # let's signal to all traders that we are closing
                     await self.send_broadcast({"type": "closure"})

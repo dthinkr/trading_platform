@@ -31,9 +31,15 @@ class TraderManager:
 
         self.params = params
         params=params.model_dump()
+        logger.critical(f"TraderManager params: {params}")
         self.tasks = []
         n_noise_traders = params.get("num_noise_traders", 1)
+
         n_informed_traders = params.get("num_informed_traders", 1)
+
+        cash= params.get("initial_cash", 0)
+        shares= params.get("initial_stocks", 0)
+
         # TODO: we may start launching with more than one human trader later.
         # So far for debugging purposes we only need one human trader whose id we return to the client
         n_human_traders = params.get("num_human_traders", 1)
@@ -46,6 +52,7 @@ class TraderManager:
                                           get_signal_noise=get_signal_noise,
                                           get_noise_rule_unif=get_noise_rule_unif) for _ in range(n_noise_traders)]
 
+
         self.informed_traders = [InformedTrader(activity_frequency=activity_frequency, 
                                                 settings=settings, 
                                                 settings_informed=settings_informed, 
@@ -55,7 +62,8 @@ class TraderManager:
                                                 get_signal_informed=get_signal_informed,
                                                 get_informed_order=get_informed_order) for _ in range(n_informed_traders)]
                 
-        self.human_traders = [HumanTrader() for _ in range(n_human_traders)]
+
+        self.human_traders = [HumanTrader(cash=cash, shares=shares) for _ in range(n_human_traders)]
 
         self.traders = {t.id: t for t in self.noise_traders + self.informed_traders + self.human_traders}
 

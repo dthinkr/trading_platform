@@ -4,10 +4,12 @@ import json
 import uuid
 from structures.structures import OrderType, ActionType, TraderType
 import os
+
 rabbitmq_url = os.getenv('RABBITMQ_URL', 'amqp://localhost')
 
 from main_platform.custom_logger import setup_custom_logger
 from main_platform.utils import (CustomEncoder)
+
 logger = setup_custom_logger(__name__)
 
 
@@ -15,9 +17,14 @@ class BaseTrader:
     orders: list = None
     order_book: dict = None
     active_orders: list = None
+    cash = 0
+    shares = 0
 
-    def __init__(self, trader_type: TraderType):
-        self._stop_requested = asyncio.Event() # this one we need only for traders which should be kept active in loop. For instance human traders don't need that
+    def __init__(self, trader_type: TraderType, cash=0, shares=0):
+        self.cash = cash
+        self.shares = shares
+
+        self._stop_requested = asyncio.Event()  # this one we need only for traders which should be kept active in loop. For instance human traders don't need that
         self.trader_type = trader_type.value
         self.id = str(uuid.uuid4())
         logger.info(f"Trader of type {self.trader_type} created with UUID: {self.id}")
@@ -93,7 +100,6 @@ class BaseTrader:
             routing_key=self.queue_name  # Use the dynamic queue_name
         )
 
-
     async def on_message_from_system(self, message):
         """Process incoming messages from trading system.
         For BaseTrader it updates order book and inventory if needed.
@@ -105,7 +111,8 @@ class BaseTrader:
 
             action_type = json_message.get('type')
             data = json_message
-
+            if data.get('new_transactions'):
+                self.update_inventory(data['new_transactions'])
             if not data:
                 logger.error('no data from trading system')
                 return
@@ -128,13 +135,28 @@ class BaseTrader:
 
         except json.JSONDecodeError:
             logger.error(f"Error decoding message: {message}")
+    def update_inventory(self, new_transactions):
+        """
+        new transactions come in format:
+         [{'id': 'aa5b7bd0-6bd1-49ab-ab24-fbd46b3d437a', 'price': 1999.0, 'type': 'ask', 'amount': 1.0}, {'id': 'e5712c5d-dc58-4092-b369-b9306f2f0527', 'price': 1999.0, 'type': 'bid', 'amount': 1.0}]
 
-
+        and we need to update self.shares and self.cash accordingly
+        """
+        for transaction in new_transactions:
+            if transaction['type'] == 'ask':
+                self.shares -= transaction['amount']
+                self.cash += transaction['price'] * transaction['amount']
+            else:
+                self.shares += transaction['amount']
+                self.cash -= transaction['price'] * transaction['amount']
+        if self.trader_type == TraderType.HUMAN.value:
+            logger.info(f"Trader {self.id} updated inventory: shares: {self.shares}, cash: {self.cash}")
     async def post_processing_server_message(self, json_message):
         """for BaseTrader it is not implemented. For human trader we send updated info back to client.
         For other market maker types we need do some reactions on updated market if needed.
         """
         pass
+
     async def post_new_order(self,
                              amount, price, order_type: OrderType
                              ):
@@ -166,14 +188,16 @@ class BaseTrader:
 
         await self.send_to_trading_system(cancel_order_request)
         logger.info(f"Trader {self.id} sent cancel order request: {cancel_order_request}")
-    
+
     async def run(self):
         # Placeholder method for compatibility with the trading system
         logger.info(f"trader {self.id} is waiting")
         pass
+
     async def handle_closure(self, data):
         """Handle closure messages from the trading system."""
-        logger.critical(f"Trader {self.id}: type: {self.trader_type}. Closure signal received. Preparing to stop trading activities.")
+        logger.critical(
+            f"Trader {self.id}: type: {self.trader_type}. Closure signal received. Preparing to stop trading activities.")
 
         self._stop_requested.set()
         await self.clean_up()

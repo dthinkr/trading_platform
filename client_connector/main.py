@@ -37,7 +37,8 @@ async def websocket_endpoint(websocket: WebSocket):
 @app.get("/traders/defaults")
 async def get_trader_defaults():
     schema = TraderCreationData.model_json_schema()
-    defaults = {field: {"default": props.get("default"), "title": props.get("title"), "type": props.get("type")}
+    defaults = {field: {"default": props.get("default"), "title": props.get("title"), "type": props.get("type"),
+                        "hint": props.get("description")}
                 for field, props in schema.get("properties", {}).items()}
 
     return JSONResponse(content={
@@ -118,7 +119,8 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_uuid: str):
         return
 
     trader = trader_manager.get_trader(trader_uuid)
-    trader.connect_to_socket(websocket)
+    await trader.connect_to_socket(websocket)
+
     logger.info(f"Trader {trader_uuid} connected to websocket")
     # Send current status immediately upon new connection
     await websocket.send_json({
