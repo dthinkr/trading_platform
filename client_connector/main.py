@@ -37,7 +37,8 @@ async def websocket_endpoint(websocket: WebSocket):
 @app.get("/traders/defaults")
 async def get_trader_defaults():
     schema = TraderCreationData.model_json_schema()
-    defaults = {field: {"default": props.get("default"), "title": props.get("title"), "type": props.get("type")}
+    defaults = {field: {"default": props.get("default"), "title": props.get("title"), "type": props.get("type"),
+                        "hint": props.get("description")}
                 for field, props in schema.get("properties", {}).items()}
 
     return JSONResponse(content={

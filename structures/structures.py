@@ -47,6 +47,18 @@ class TraderCreationData(BaseModel):
         description="Number of warm up periods for noise traders",
         gt=0
     )
+    initial_cash: float = Field(
+        default=100000,
+        title="Initial Cash",
+        description="Initial cash for each trader",
+        gt=0
+    )
+    initial_stocks: int = Field(
+        default=100,
+        title="Initial Stocks",
+        description="Initial stocks for each trader",
+        gt=0
+    )
 
 class LobsterEventType(IntEnum):
     """For the LOBSTER data, the event type is an integer. This class maps the integer to a string.

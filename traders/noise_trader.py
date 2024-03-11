@@ -59,7 +59,7 @@ class NoiseTrader(BaseTrader):
                     amount, price = ORDER_AMOUNT, order['price']
                     for i in range(order['amount']):
                         await self.post_new_order(amount, price, order_type)
-                    logger.critical(f"""POSTED {order['order_type']} AT {price} AMOUNT {ORDER_AMOUNT} * {order['amount']}""")
+                    logger.info(f"""POSTED {order['order_type']} AT {price} AMOUNT {ORDER_AMOUNT} * {order['amount']}""")
                 
                 elif order['action_type'] == 'cancel_order' and self.orders:
                     order_type = order['order_type']
@@ -67,7 +67,7 @@ class NoiseTrader(BaseTrader):
                     if matching_orders:
                         order_id = random.choice(matching_orders)['id']
                         await self.send_cancel_order_request(order_id)
-                        logger.critical(f"""CANCELLED {order_type} ID {order_id[:10]}""")
+                        logger.info(f"""CANCELLED {order_type} ID {order_id[:10]}""")
         else:
             await self.post_new_order(ORDER_AMOUNT, self.settings['initial_price'], OrderType.ASK)
     async def warm_up(self, number_of_warmup_orders: int):
