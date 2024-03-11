@@ -17,8 +17,11 @@ from main_platform.utils import (CustomEncoder,
                                  now,
                                  )
 from asyncio import Lock, Event
-from datetime import datetime, timedelta
+
+from datetime import datetime, timedelta, timezone
+
 from collections import defaultdict
+
 logger = setup_custom_logger(__name__)
 
 
@@ -51,6 +54,12 @@ class TradingSession:
         self.release_task = None
         self.lock = Lock()
         self.release_event = Event()
+
+    
+    @property
+    def current_time(self):
+        return datetime.now(timezone.utc)
+
 
     def get_params(self):
         return {
@@ -441,6 +450,7 @@ class TradingSession:
         """ Keeps system active. Stops if the buffer release limit is reached. """
         try:
             while not self._stop_requested.is_set():
+
                 current_time = now()
                 if current_time - self.start_time > timedelta(minutes=self.duration):
                     logger.critical('Time limit reached, stopping...')

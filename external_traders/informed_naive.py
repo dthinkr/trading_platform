@@ -81,5 +81,3 @@ def get_informed_order(book, message, signal_informed, informed_state,settings_i
         order = {}
 
     return order
-
-

@@ -7,9 +7,10 @@ so they can communicate with them.
 import uuid
 
 from external_traders.noise_trader import get_signal_noise, settings_noise, settings, get_noise_rule_unif
+from external_traders.informed_naive import get_informed_time_plan, get_signal_informed, get_informed_order, settings_informed, informed_state
 from structures import TraderCreationData
 from typing import List
-from traders import HumanTrader, NoiseTrader, BaseTrader
+from traders import HumanTrader, NoiseTrader, InformedTrader
 
 from main_platform import TradingSession
 import logging
@@ -24,6 +25,7 @@ class TraderManager:
     traders = {}
     human_traders = List[HumanTrader]
     noise_traders = List[NoiseTrader]
+    informed_traders = List[InformedTrader]
 
     def __init__(self, params: TraderCreationData):
 
@@ -32,21 +34,38 @@ class TraderManager:
         logger.critical(f"TraderManager params: {params}")
         self.tasks = []
         n_noise_traders = params.get("num_noise_traders", 1)
+
+        n_informed_traders = params.get("num_informed_traders", 1)
+
         cash= params.get("initial_cash", 0)
         shares= params.get("initial_stocks", 0)
+
         # TODO: we may start launching with more than one human trader later.
         # So far for debugging purposes we only need one human trader whose id we return to the client
         n_human_traders = params.get("num_human_traders", 1)
         activity_frequency = params.get("activity_frequency", 5)
         self.noise_warm_ups = params.get("noise_warm_ups", 10)
 
-        self.noise_traders = [NoiseTrader(activity_frequency=activity_frequency, settings=settings,
-                                          settings_noise=settings_noise, get_signal_noise=get_signal_noise,
+        self.noise_traders = [NoiseTrader(activity_frequency=activity_frequency, 
+                                          settings=settings,
+                                          settings_noise=settings_noise,
+                                          get_signal_noise=get_signal_noise,
                                           get_noise_rule_unif=get_noise_rule_unif) for _ in range(n_noise_traders)]
+
+
+        self.informed_traders = [InformedTrader(activity_frequency=activity_frequency, 
+                                                settings=settings, 
+                                                settings_informed=settings_informed, 
+                                                informed_state=informed_state, 
+                                                trading_day_duration=params.get('trading_day_duration', 5),
+                                                get_informed_time_plan=get_informed_time_plan, 
+                                                get_signal_informed=get_signal_informed,
+                                                get_informed_order=get_informed_order) for _ in range(n_informed_traders)]
+                
 
         self.human_traders = [HumanTrader(cash=cash, shares=shares) for _ in range(n_human_traders)]
 
-        self.traders = {t.id: t for t in self.noise_traders + self.human_traders}
+        self.traders = {t.id: t for t in self.noise_traders + self.informed_traders + self.human_traders}
 
         self.trading_session = TradingSession(duration=params['trading_day_duration'])
 
