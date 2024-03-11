@@ -410,7 +410,7 @@ class TradingSession:
         self.connected_traders[trader_id] = {'trader_type': msg_body.get('trader_type'), }
         logger.info(f"Trader {trader_id} connected.")
         logger.info(f"Total connected traders: {len(self.connected_traders)}")
-
+        return dict(respond=True, trader_id=trader_id, message="Registered successfully", individual=True)
     @ack_message
     async def on_individual_message(self, message):
 
@@ -427,7 +427,10 @@ class TradingSession:
                     await self.send_message_to_trader(trader_id, result)
                     #         TODO.PHILIPP. IMPORTANT! let's at this stage also send a broadcast message to all traders with updated info.
                     # IT IS FAR from optimal but for now we keep it simple. We'll refactor it later.
-                    await self.send_broadcast(message=dict(text="book is updated"))
+                    if not result.get('individual', False):
+                        await self.send_broadcast(message=dict(text="book is updated"))
+
+
 
             else:
                 logger.warning(f"No handler method found for action: {action}")

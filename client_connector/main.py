@@ -119,7 +119,8 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_uuid: str):
         return
 
     trader = trader_manager.get_trader(trader_uuid)
-    trader.connect_to_socket(websocket)
+    await trader.connect_to_socket(websocket)
+
     logger.info(f"Trader {trader_uuid} connected to websocket")
     # Send current status immediately upon new connection
     await websocket.send_json({

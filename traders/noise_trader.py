@@ -14,10 +14,10 @@ logger = setup_custom_logger(__name__)
 
 class NoiseTrader(BaseTrader):
 
-    def __init__(self, activity_frequency: int, settings: dict, settings_noise: dict, 
+    def __init__(self, activity_frequency: float, settings: dict, settings_noise: dict,
                  get_signal_noise: callable, get_noise_rule_unif: callable):
         super().__init__(trader_type=TraderType.NOISE)
-        print(f'ACTIVITY FREQUENCY: {activity_frequency}')
+
         self.activity_frequency = activity_frequency
         self.settings = settings
         self.settings_noise = settings_noise
@@ -79,7 +79,7 @@ class NoiseTrader(BaseTrader):
         while not self._stop_requested.is_set():
             try:
                 await self.act()
-                # await asyncio.sleep(self.sigmoid(self.activity_frequency)) # TODO. PHILIPP: fix sigmoid
+
                 await asyncio.sleep(self.activity_frequency)
             except asyncio.CancelledError:
                 logger.info('Run method cancelled, performing cleanup of noise trader...')

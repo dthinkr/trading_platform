@@ -150,7 +150,7 @@ class BaseTrader:
                 self.shares += transaction['amount']
                 self.cash -= transaction['price'] * transaction['amount']
         if self.trader_type == TraderType.HUMAN.value:
-            logger.critical(f"Trader {self.id} updated inventory: shares: {self.shares}, cash: {self.cash}")
+            logger.info(f"Trader {self.id} updated inventory: shares: {self.shares}, cash: {self.cash}")
     async def post_processing_server_message(self, json_message):
         """for BaseTrader it is not implemented. For human trader we send updated info back to client.
         For other market maker types we need do some reactions on updated market if needed.

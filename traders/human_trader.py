@@ -22,9 +22,10 @@ class HumanTrader(BaseTrader):
         if message_type:
             await self.send_message_to_client(message_type, **json_message)
 
-    def connect_to_socket(self, websocket):
+    async def connect_to_socket(self, websocket):
         self.websocket = websocket
         self.socket_status = True
+        await self.handle_register_me()
 
     async def send_message_to_client(self, message_type, **kwargs):
         if not self.websocket or self.websocket.client_state != WebSocketState.CONNECTED:
@@ -72,6 +73,11 @@ class HumanTrader(BaseTrader):
                 logger.warning(f"Invalid message format: {message}")
         except json.JSONDecodeError:
             logger.warning(f"Error decoding message: {message}")
+
+    async def handle_register_me(self):
+        logger.critical(f"Registering human trader {self.id}")
+        await self.send_to_trading_system({"action": "register_me"})
+
 
     async def handle_add_order(self, data):
         order_type = data.get('type')  # TODO: Philipp. This is a string. We need to convert it to an enum.
