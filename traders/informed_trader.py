@@ -3,7 +3,7 @@ import asyncio
 from structures import OrderType, TraderType
 from main_platform.custom_logger import setup_custom_logger
 from datetime import datetime, timezone
-
+from main_platform.utils import now
 logger = setup_custom_logger(__name__)
 
 class InformedTrader(BaseTrader):
@@ -28,7 +28,7 @@ class InformedTrader(BaseTrader):
         
     @property
     def current_time(self) -> datetime:
-        return datetime.now(timezone.utc)
+        return now()
     
     def get_best_bid_and_ask(self) -> tuple:
         best_bid = None
