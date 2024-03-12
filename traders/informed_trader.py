@@ -69,10 +69,8 @@ class InformedTrader(BaseTrader):
                         AT STEP {self.current_step} AT TIME {self.current_time.strftime('%H:%M:%S')}"""
                     if order_type == 'bid':
                         await self.post_new_order(amount, price, OrderType.BID)
-                        logger.critical(msg)
                     elif order_type == 'ask':
                         await self.post_new_order(amount, price, OrderType.ASK)
-                        logger.critical(msg)
 
     async def run(self):
         while not self._stop_requested.is_set():
