@@ -15,19 +15,19 @@ class TraderCreationData(BaseModel):
         default=3,
         title="Number of Human Traders",
         description="Number of human traders",
-        gt=0  # Example additional validation: value must be greater than 0
+        ge=0 
     )
     num_noise_traders: int = Field(
         default=1,
         title="Number of Noise Traders",
         description="Number of noise traders",
-        gt=0
+        ge=0
     )
     num_informed_traders: int = Field(
         default=1,
         title="Number of Informed Traders",
         description="Number of informed traders",
-        gt=0
+        ge=0
     )
     activity_frequency: float = Field(
         default=1.0,

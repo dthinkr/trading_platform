@@ -62,10 +62,15 @@ class TraderManager:
                                                 get_signal_informed=get_signal_informed,
                                                 get_informed_order=get_informed_order) for _ in range(n_informed_traders)]
                 
-
         self.human_traders = [HumanTrader(cash=cash, shares=shares) for _ in range(n_human_traders)]
 
+        print(f'noise_traders: {self.noise_traders}')
+        print(f'informed_traders: {self.informed_traders}')
+        print(f'human_traders: {self.human_traders}')
+
         self.traders = {t.id: t for t in self.noise_traders + self.informed_traders + self.human_traders}
+
+        print(f'traders: {self.traders}')
 
         self.trading_session = TradingSession(duration=params['trading_day_duration'])
 
