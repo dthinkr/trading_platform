@@ -528,14 +528,11 @@ class TradingSession:
         logger.info('All traders have reported back their inventories.')
 
     async def run(self):
-        """ Keeps system active. Stops if the buffer release limit is reached. """
         try:
             while not self._stop_requested.is_set():
-
                 current_time = now()
                 if current_time - self.start_time > timedelta(
-                        seconds=10
-                        # minutes=self.duration
+                        minutes=self.duration
                 ):
                     logger.critical('Time limit reached, stopping...')
                     self.active = False # here we stop accepting all incoming requests on placing new orders, cancelling etc.

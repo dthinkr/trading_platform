@@ -25,7 +25,7 @@ class HumanTrader(BaseTrader):
     async def connect_to_socket(self, websocket):
         self.websocket = websocket
         self.socket_status = True
-
+        await self.register()
 
     async def send_message_to_client(self, message_type, **kwargs):
         if not self.websocket or self.websocket.client_state != WebSocketState.CONNECTED:

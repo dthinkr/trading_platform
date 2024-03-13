@@ -57,13 +57,13 @@ class TraderCreationData(BaseModel):
         default=100000,
         title="Initial Cash",
         description="Initial cash for each trader",
-        gt=0
+
     )
     initial_stocks: int = Field(
         default=100,
         title="Initial Stocks",
         description="Initial stocks for each trader",
-        gt=0
+
     )
 
 class LobsterEventType(IntEnum):
