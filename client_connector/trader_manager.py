@@ -13,10 +13,12 @@ from typing import List
 from traders import HumanTrader, NoiseTrader, InformedTrader
 
 from main_platform import TradingSession
-import logging
+
 import asyncio
 
-logger = logging.getLogger(__name__)
+from main_platform.custom_logger import setup_custom_logger
+
+logger = setup_custom_logger(__name__)
 
 
 class TraderManager:
@@ -64,14 +66,8 @@ class TraderManager:
                 
         self.human_traders = [HumanTrader(cash=cash, shares=shares) for _ in range(n_human_traders)]
 
-        print(f'noise_traders: {self.noise_traders}')
-        print(f'informed_traders: {self.informed_traders}')
-        print(f'human_traders: {self.human_traders}')
 
         self.traders = {t.id: t for t in self.noise_traders + self.informed_traders + self.human_traders}
-
-        print(f'traders: {self.traders}')
-
         self.trading_session = TradingSession(duration=params['trading_day_duration'])
 
 

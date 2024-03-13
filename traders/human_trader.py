@@ -25,7 +25,7 @@ class HumanTrader(BaseTrader):
     async def connect_to_socket(self, websocket):
         self.websocket = websocket
         self.socket_status = True
-        await self.handle_register_me()
+
 
     async def send_message_to_client(self, message_type, **kwargs):
         if not self.websocket or self.websocket.client_state != WebSocketState.CONNECTED:
@@ -70,14 +70,9 @@ class HumanTrader(BaseTrader):
             if handler:
                 await handler(data)
             else:
-                logger.warning(f"Invalid message format: {message}")
+                logger.critical(f"Do not recognice the type: {action_type}. Invalid message format: {message}")
         except json.JSONDecodeError:
-            logger.warning(f"Error decoding message: {message}")
-
-    async def handle_register_me(self):
-        logger.critical(f"Registering human trader {self.id}")
-        await self.send_to_trading_system({"action": "register_me"})
-
+            logger.critical(f"Error decoding message: {message}")
 
     async def handle_add_order(self, data):
         order_type = data.get('type')  # TODO: Philipp. This is a string. We need to convert it to an enum.
@@ -101,7 +96,6 @@ class HumanTrader(BaseTrader):
         else:
             # Handle the case where the order UUID does not exist
             logger.warning(f"Order with UUID {order_uuid} not found.")
-
     async def handle_closure(self, data):
         await self.post_processing_server_message(data)
         await super().handle_closure(data)

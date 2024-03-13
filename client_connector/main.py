@@ -6,9 +6,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from client_connector.trader_manager import TraderManager
 from structures import TraderCreationData
 from fastapi.responses import JSONResponse
-import logging
+from main_platform.custom_logger import setup_custom_logger
 
-logger = logging.getLogger(__name__)
+logger = setup_custom_logger(__name__)
 
 app = FastAPI()
 app.add_middleware(

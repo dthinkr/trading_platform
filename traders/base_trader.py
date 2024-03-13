@@ -5,10 +5,10 @@ import uuid
 from structures.structures import OrderType, ActionType, TraderType
 import os
 
-rabbitmq_url = os.getenv('RABBITMQ_URL', 'amqp://localhost')
-
 from main_platform.custom_logger import setup_custom_logger
 from main_platform.utils import (CustomEncoder)
+
+rabbitmq_url = os.getenv('RABBITMQ_URL', 'amqp://localhost')
 
 logger = setup_custom_logger(__name__)
 
@@ -86,6 +86,7 @@ class BaseTrader:
 
     async def register(self):
         message = {
+            'type': ActionType.REGISTER.value,
             'action': ActionType.REGISTER.value,
             'trader_type': self.trader_type
         }
@@ -135,6 +136,7 @@ class BaseTrader:
 
         except json.JSONDecodeError:
             logger.error(f"Error decoding message: {message}")
+
     def update_inventory(self, new_transactions):
         """
         new transactions come in format:
@@ -151,6 +153,7 @@ class BaseTrader:
                 self.cash -= transaction['price'] * transaction['amount']
         if self.trader_type == TraderType.HUMAN.value:
             logger.info(f"Trader {self.id} updated inventory: shares: {self.shares}, cash: {self.cash}")
+
     async def post_processing_server_message(self, json_message):
         """for BaseTrader it is not implemented. For human trader we send updated info back to client.
         For other market maker types we need do some reactions on updated market if needed.
@@ -201,3 +204,16 @@ class BaseTrader:
 
         self._stop_requested.set()
         await self.clean_up()
+
+    async def handle_stop_trading(self, data):
+        """Handle stop trading messages from the trading system."""
+        logger.critical(
+            f"Trader {self.id}: type: {self.trader_type}. Stop trading signal received. Preparing to stop trading activities.")
+
+        await self.send_to_trading_system({
+            "action": 'inventory_report',
+            "trader_id": self.id,
+            "shares": self.shares,
+            "cash": self.cash
+        })
+        self._stop_requested.set()

@@ -12,7 +12,7 @@ def now():
 
 class TraderCreationData(BaseModel):
     num_human_traders: int = Field(
-        default=3,
+        default=1,
         title="Number of Human Traders",
         description="Number of human traders",
         ge=0 
@@ -36,7 +36,7 @@ class TraderCreationData(BaseModel):
         gt=0
     )
     trading_day_duration: int = Field(
-        default=5,
+        default=1,
         title="Trading Day Duration",
         description="Duration of the trading day in minutes",
         gt=0
@@ -120,10 +120,10 @@ class Order(BaseModel):
         use_enum_values = True  # This ensures that enum values are used in serialization
 
 class TransactionModel(BaseModel):
-    id: uuid.UUID
-    bid_order_id: uuid.UUID
-    ask_order_id: uuid.UUID
-    timestamp: datetime
+    id: UUID = Field(default_factory=uuid4)
+    bid_order_id: UUID
+    ask_order_id: UUID
+    timestamp: datetime = Field(default_factory=now)
     price: float
 
 

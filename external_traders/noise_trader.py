@@ -9,14 +9,11 @@ Created on Wed Aug  2 10:14:44 2023
 import numpy as np
 # import numba
 import datetime
-# from main_platform.custom_logger import setup_custom_logger
-import random
+from main_platform.custom_logger import setup_custom_logger
 
-# logger = setup_custom_logger(__name__)
 
-import logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = setup_custom_logger(__name__)
+
 
 # I list quantities that will be needed in the experiments
 # what is inside the place holder functions will be defined on a case by case basis
