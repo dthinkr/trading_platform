@@ -9,18 +9,13 @@ from structures import OrderStatus, OrderType, TransactionModel, Order
 import asyncio
 import pandas as pd
 import os
-
-rabbitmq_url = os.getenv('RABBITMQ_URL', 'amqp://localhost')
-
-from main_platform.utils import (CustomEncoder,
-                                 now,
-                                 )
+from main_platform.utils import CustomEncoder, now, if_active
 from asyncio import Lock, Event
-
 from datetime import datetime, timedelta, timezone
-
 from collections import defaultdict
 
+
+rabbitmq_url = os.getenv('RABBITMQ_URL', 'amqp://localhost')
 logger = setup_custom_logger(__name__)
 
 
@@ -62,8 +57,11 @@ class TradingSession:
         return datetime.now(timezone.utc)
 
     @property
-    def closure_price(self):
+    def mid_price(self) -> float:
         return self.current_price or self.default_price
+
+    def get_closure_price(self, shares: int, order_type: int) -> float:
+        return self.mid_price + order_type * shares * self.default_spread * self.punishing_constant
 
     def get_params(self):
         return {
@@ -226,7 +224,7 @@ class TradingSession:
         """Returns file name for messages which is a trading platform id + datetime of creation with _ as spaces"""
         return f"{self.id}_{self.creation_time.strftime('%Y-%m-%d_%H-%M-%S')}"
 
-    async def place_order(self, order_dict: Dict):
+    def place_order(self, order_dict: Dict):
         """ This one is called by handle_add_order, and is the one that actually places the order in the system.
         It adds automatically - we do all the validation (whether a trader allowed to place an order, etc) in the
         handle_add_order method.
@@ -240,13 +238,7 @@ class TradingSession:
         self.all_orders[order_id] = order_dict
         return order_dict
 
-    def check_counters(self):
 
-        """ Checks if the buffer release count exceeds the limit. """
-        logger.info(f'self.buffer_release_count {self.buffer_release_count}')
-        if self.max_buffer_releases is not None and self.buffer_release_count >= self.max_buffer_releases:
-            return True
-        return False
 
     def get_spread(self):
         """ Returns the spread between the lowest ask and the highest bid. """
@@ -358,6 +350,7 @@ class TradingSession:
 
         return res
 
+    @if_active
     async def handle_add_order(self, data: dict):
         """
         that is called automatically on the incoming message if type of a message is 'add_order'.
@@ -372,7 +365,7 @@ class TradingSession:
                           **data)
 
             # Place the order
-            await self.place_order(order.model_dump())  # Converting order to dict for compatibility
+            self.place_order(order.model_dump())  # Converting order to dict for compatibility
 
         except ValidationError as e:
             # Handle validation errors, e.g., log them or send a message back to the trader
@@ -388,6 +381,7 @@ class TradingSession:
         for trader_id, transaction_list in message.items():
             await self.send_message_to_trader(trader_id, {'type': 'update', 'new_transactions': transaction_list})
 
+    @if_active
     async def handle_cancel_order(self, data: dict):
         order_id = data.get('order_id')
         trader_id = data.get('trader_id')
@@ -420,6 +414,7 @@ class TradingSession:
 
             return {"status": "cancel success", "order": order_id, "respond": True}
 
+    @if_active
     async def handle_register_me(self, msg_body):
         trader_id = msg_body.get('trader_id')
         trader_type = msg_body.get('trader_type')
@@ -455,6 +450,28 @@ class TradingSession:
                 logger.warning(f"No handler method found for action: {action}")
         else:
             logger.warning(f"No action found in message: {incoming_message}")
+    async def close_existing_book(self):
+        """we create a counteroffer on behalf of the platform with a get_closure_price price. and then we
+        create a transaction out of it."""
+        for order_id, order in self.active_orders.items():
+            platform_order_type = OrderType.ASK.value if order['order_type'] == OrderType.BID.value else OrderType.BID.value
+            closure_price = self.get_closure_price(order['amount'], order['order_type'])
+            platform_order = Order(trader_id=self.id,
+                                      order_type=platform_order_type,
+                                      amount=order['amount'],
+                                      price=closure_price,
+                                      status=OrderStatus.BUFFERED.value,
+                                      session_id=self.id,
+                                      )
+
+            self.place_order(platform_order.model_dump())
+            if order['order_type'] == OrderType.BID.value:
+                self.create_transaction(order, platform_order.model_dump(), closure_price)
+            else:
+                self.create_transaction( platform_order.model_dump(),order, closure_price)
+        await self.send_broadcast(message=dict(text="book is updated"))
+
+
 
     async def handle_inventory_report(self, data: dict):
         # Handle received inventory report from a trader
@@ -462,36 +479,44 @@ class TradingSession:
         self.trader_responses[trader_id] = True
         trader_type = self.connected_traders[trader_id]['trader_type']
         logger.info(f'Trader ({trader_type}):  {trader_id} has reported back their inventory: {data}')
-        shares = data.get('shares')
+        shares = data.get('shares', 0)
         # if shares is positive than we need to sell them. to do this we first handle_add_order
         # on behalf of this trader at the closure_price and then put the opposite order to buy
         # the same amount of shares at the same price. We need to do this for each trader who has positive shares
-        if shares > 0:
+        if shares != 0:
+            trader_order_type = OrderType.ASK.value if shares > 0 else OrderType.BID.value
+            platform_order_type = OrderType.BID.value if shares > 0 else OrderType.ASK.value
 
-            ask_order = Order(status=OrderStatus.BUFFERED.value,
-                              session_id=self.id,
-                              trader_id=trader_id,
-                              amount=shares,
-                              price=self.closure_price,
-                              order_type=OrderType.ASK.value,
-                              )
+            closure_price = self.get_closure_price(shares, trader_order_type)
 
-            await self.place_order(ask_order.model_dump())
-            bid_order = Order(status=OrderStatus.BUFFERED.value,
-                              session_id=self.id,
-                              trader_id="MYSELF",
-                              amount=shares,
-                              price=self.closure_price,
-                              order_type=OrderType.BID.value,
-                              )
-            # and then we need to buy the same amount of shares at the same price
+            proto_order = dict(amount=shares,
+                               price=closure_price,
+                               status=OrderStatus.BUFFERED.value,
+                               session_id=self.id,
 
-            await self.place_order(bid_order.model_dump())
+                               )
+            trader_order = Order(trader_id=trader_id,
+                                 order_type=trader_order_type,
+                                 **proto_order
+                                 )
+            platform_order = Order(trader_id=self.id,
+                                   order_type=platform_order_type,
+                                   **proto_order
+                                   )
+            self.place_order(platform_order.model_dump())
+            self.place_order(trader_order.model_dump())
+            # let's create a transaction. it should be a bit different depending on type
+            if trader_order_type == OrderType.BID.value:
+                self.create_transaction( trader_order.model_dump(), platform_order.model_dump(), closure_price)
+            else:
+                self.create_transaction(platform_order.model_dump(), trader_order.model_dump(), closure_price)
 
-            self.create_transaction(bid_order.model_dump(), ask_order.model_dump(), self.closure_price)
             traders_to_transactions_lookup = defaultdict(list)
+            trader_order = trader_order.model_dump()
             traders_to_transactions_lookup[trader_id].append(
-                {'id': ask_order.id, 'price': ask_order.price, 'type': 'ask', 'amount': ask_order.amount})
+                {'id': trader_order['id'], 'price': trader_order['price'],
+                 'type': 'ask' if trader_order['order_type'] == OrderType.ASK.value else 'bid',
+                 'amount': trader_order['amount']})
 
             await self.send_message_to_subgroup(traders_to_transactions_lookup)
 
@@ -513,11 +538,13 @@ class TradingSession:
                         # minutes=self.duration
                 ):
                     logger.critical('Time limit reached, stopping...')
+                    self.active = False # here we stop accepting all incoming requests on placing new orders, cancelling etc.
+                    await self.close_existing_book()
                     await self.send_broadcast({"type": "stop_trading"})
                     # Wait for each of the traders to report back their inventories
                     await self.wait_for_traders()
                     await self.send_broadcast({"type": "closure"})
-                    self.active = False
+
                     break
                 await asyncio.sleep(1)
             logger.critical('Exited the run loop.')

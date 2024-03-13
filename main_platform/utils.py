@@ -27,6 +27,13 @@ DATA_PATH = 'data'
 LOBSTER_MONEY_CONSTANT = 1
 from datetime import timezone, datetime
 
+def if_active(func):
+    def wrapper(self, *args, **kwargs):
+        if not self.active:
+            print(f"{func.__name__} is skipped because the trading session is not active.")
+            return None  # or raise an exception, if you prefer
+        return func(self, *args, **kwargs)
+    return wrapper
 
 def now():
     """

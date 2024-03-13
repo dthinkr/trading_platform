@@ -71,6 +71,7 @@ class TraderManager:
         self.trading_session = TradingSession(duration=params['trading_day_duration'])
 
 
+
     async def launch(self):
         await self.trading_session.initialize()
         logger.info(f"Trading session UUID: {self.trading_session.id}")
