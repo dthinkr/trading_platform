@@ -469,6 +469,7 @@ class TradingSession:
                 self.create_transaction(order, platform_order.model_dump(), closure_price)
             else:
                 self.create_transaction( platform_order.model_dump(),order, closure_price)
+
         await self.send_broadcast(message=dict(text="book is updated"))
 
 

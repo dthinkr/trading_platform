@@ -89,6 +89,24 @@ async def get_trader(trader_uuid: str):
     }
 
 
+# let's write a get endpoint for the current information about the trader: inventory, cash, shares, orders
+@app.get("/trader_info/{trader_uuid}")
+async def get_trader_info(trader_uuid: str):
+    trader_manager = get_manager_by_trader(trader_uuid)
+    if not trader_manager:
+        raise HTTPException(status_code=404, detail="Trader not found")
+
+    trader = trader_manager.get_trader(trader_uuid)
+    return {
+        "status": "success",
+        "message": "Trader found",
+        "data": {
+            "cash": trader.cash,
+            "shares": trader.shares,
+            "orders": trader.orders
+        }
+    }
+
 @app.get("/trading_session/{trading_session_id}")
 async def get_trading_session(trading_session_id: str):
     trader_manager = trader_managers.get(trading_session_id)
