@@ -47,8 +47,7 @@ class NoiseTrader(BaseTrader):
                 bid_count += 1
             elif order['order_type'] == 'ask':
                 ask_count += 1
-
-        # ONLY SIDE IS CONISDERED. THUS SOME ORDERS MAY CANCEL OUT. 
+                
         order_type_override = None
         if bid_count == 0 and ask_count > 0:
             logger.critical("No bids in the market, placing bid to balance.")
@@ -63,7 +62,10 @@ class NoiseTrader(BaseTrader):
 
             await self.process_order(order)
 
-    async def process_order(self, order):
+    async def process_order(self, order, book_format=None):
+        if order['order_type'] == 'ask' or order['order_type'] == 'bid':
+            order['price'] = self.adjust_order_price(order['order_type'], book_format, order['price'])
+
         if order['action_type'] == 'add_order':
             order_type = OrderType.ASK if order['order_type'] == 'ask' else OrderType.BID
             amount, price = ORDER_AMOUNT, order['price']
@@ -77,6 +79,18 @@ class NoiseTrader(BaseTrader):
                 await self.send_cancel_order_request(order_id)
                 logger.info(f"CANCELLED {order['order_type']} ID {order_id[:10]}")
 
+    def adjust_order_price(self, order_type, book_format, original_price):
+        """ADJUSTS ORDER PRICE BASED ON MARKET CONDITION"""
+        if order_type == OrderType.BID:
+            highest_bid = max(book_format['bids'], key=lambda x: x['price'], default={'price': original_price})['price']
+            new_price = highest_bid + self.settings['price_increment']
+        elif order_type == OrderType.ASK:
+            lowest_ask = min(book_format['asks'], key=lambda x: x['price'], default={'price': original_price})['price']
+            new_price = lowest_ask - self.settings['price_increment']
+        else:
+            new_price = original_price
+        return new_price
+
     async def warm_up(self, number_of_warmup_orders: int):
         for _ in range(number_of_warmup_orders):
             print(f' WARMING UP {_} ')
@@ -88,8 +102,6 @@ class NoiseTrader(BaseTrader):
                 await self.act()
 
                 await asyncio.sleep(self.cooling_interval(target=self.activity_frequency))
-
-
              
             except asyncio.CancelledError:
                 logger.info('Run method cancelled, performing cleanup of noise trader...')
