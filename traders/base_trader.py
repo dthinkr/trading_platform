@@ -21,6 +21,8 @@ class BaseTrader:
     shares = 0
 
     def __init__(self, trader_type: TraderType, cash=0, shares=0):
+        self.initial_shares = shares
+        self.initial_cash = cash
         self.cash = cash
         self.shares = shares
 
@@ -36,6 +38,10 @@ class BaseTrader:
         self.queue_name = None
         self.broadcast_exchange_name = None
         self.trading_system_exchange = None
+
+    @property
+    def delta_cash(self):
+        return self.cash - self.initial_cash
 
     async def initialize(self):
         self.connection = await aio_pika.connect_robust(rabbitmq_url)

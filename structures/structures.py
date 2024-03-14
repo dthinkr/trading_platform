@@ -42,7 +42,7 @@ class TraderCreationData(BaseModel):
         gt=0
     )
     step: int = Field(
-        default=10,
+        default=1,
         title="Step for New Orders",
         description="Step for new orders",
         gt=0

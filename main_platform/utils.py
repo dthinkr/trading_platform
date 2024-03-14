@@ -27,14 +27,29 @@ DATA_PATH = 'data'
 LOBSTER_MONEY_CONSTANT = 1
 from datetime import timezone, datetime
 
+import asyncio
+import functools
+
 def if_active(func):
-    def wrapper(self, *args, **kwargs):
+    @functools.wraps(func)
+    def sync_wrapper(self, *args, **kwargs):
         if not self.active:
             logger.critical(f"{func.__name__} is skipped because the trading session is not active.")
-            return None  # or raise an exception, if you prefer
+            return None  # or alternatively, raise an exception
 
         return func(self, *args, **kwargs)
-    return wrapper
+
+    async def async_wrapper(self, *args, **kwargs):
+        if not self.active:
+            logger.critical(f"{func.__name__} is skipped because the trading session is not active.")
+            return None  # or alternatively, raise an exception
+
+        return await func(self, *args, **kwargs)
+
+    if asyncio.iscoroutinefunction(func):
+        return async_wrapper
+    else:
+        return sync_wrapper
 
 def now():
     """

@@ -425,17 +425,19 @@ class TradingSession:
         logger.info(f"Total connected traders: {len(self.connected_traders)}")
         return dict(respond=True, trader_id=trader_id, message="Registered successfully", individual=True)
 
-    @ack_message
-    async def on_individual_message(self, message):
 
+    async def on_individual_message(self, message):
         incoming_message = json.loads(message.body.decode())
         logger.info(f"TS {self.id} received message: {incoming_message}")
         action = incoming_message.pop('action', None)
         trader_id = incoming_message.get('trader_id', None)  # Assuming the trader_id is part of the message
+        if incoming_message is None:
+            logger.critical(f"Invalid message format: {message}")
 
-        handler_method = getattr(self, f"handle_{action}", None)
         if action:
+            handler_method = getattr(self, f"handle_{action}", None)
             if handler_method:
+
                 result = await handler_method(incoming_message)
                 if result and result.pop('respond', None) and trader_id:
                     await self.send_message_to_trader(trader_id, result)
@@ -485,9 +487,10 @@ class TradingSession:
         # on behalf of this trader at the closure_price and then put the opposite order to buy
         # the same amount of shares at the same price. We need to do this for each trader who has positive shares
         if shares != 0:
+
             trader_order_type = OrderType.ASK.value if shares > 0 else OrderType.BID.value
             platform_order_type = OrderType.BID.value if shares > 0 else OrderType.ASK.value
-
+            shares=abs(shares)
             closure_price = self.get_closure_price(shares, trader_order_type)
 
             proto_order = dict(amount=shares,

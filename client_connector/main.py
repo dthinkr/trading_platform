@@ -103,7 +103,10 @@ async def get_trader_info(trader_uuid: str):
         "data": {
             "cash": trader.cash,
             "shares": trader.shares,
-            "orders": trader.orders
+            "orders": trader.orders,
+            "delta_cash": trader.delta_cash,
+            "initial_cash": trader.initial_cash,
+            "initial_shares": trader.initial_shares
         }
     }
 
