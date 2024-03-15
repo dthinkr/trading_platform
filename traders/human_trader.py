@@ -97,5 +97,6 @@ class HumanTrader(BaseTrader):
             # Handle the case where the order UUID does not exist
             logger.warning(f"Order with UUID {order_uuid} not found.")
     async def handle_closure(self, data):
+        logger.critical('Human trader is closing')
         await self.post_processing_server_message(data)
         await super().handle_closure(data)
