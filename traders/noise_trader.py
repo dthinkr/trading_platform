@@ -35,16 +35,11 @@ class NoiseTrader(BaseTrader):
         self.get_noise_rule_unif = get_noise_rule_unif
         self.current_variance = 5.0
 
-    def cooling_interval(
-        self, target: float, initial_variance: float = 5.0, decay_rate: float = 0.9
-    ) -> float:
+    def cooling_interval(self, target: float) -> float:
         """
         adjusts cooling interval using a random process.
         """
-        if self.current_variance is None:
-            self.current_variance = initial_variance
-        interval = random.gauss(target, np.sqrt(self.current_variance))
-        self.current_variance *= decay_rate
+        interval = np.random.exponential(target)
         return interval
 
     async def act(self):

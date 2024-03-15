@@ -44,7 +44,7 @@ settings_market_maker = {'n_levels': 3,  # the number of levels at which to post
 
 settings_informed = {'inv': 100}
 
-settings_noise = {'pr_order': .8,  # probability of a noise trader order arrival
+settings_noise = {'pr_order': 1,  # probability of a noise trader order arrival
                   'pr_passive': .7,  # probability of resting order
                   'pr_bid': .5,  # equal prob of bid or ask order }
                   'pr_cancel': .2,  # probability of an order cancellation
