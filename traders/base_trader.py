@@ -53,7 +53,7 @@ class BaseTrader:
         # END PNL BLOCK
 
     def update_mid_price(self, new_mid_price):
-        logger.critical(f"Trader {self.id} updated mid price: {new_mid_price}")
+
         self.general_mid_prices.append(new_mid_price)
 
     def update_data_for_pnl(self, dinv: float, transaction_price: float) -> None:
