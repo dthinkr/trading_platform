@@ -31,6 +31,7 @@ class TradingSession:
         self.active = False
         self.duration = duration
         self.default_price = default_price
+        self.vwap = 0
         self.default_spread = default_spread
         self.punishing_constant = punishing_constant
 
@@ -184,6 +185,7 @@ class TradingSession:
                 'history': self.transactions,
                 'spread': spread,
                 'mid_price': mid_price,
+                'vwap': self.vwap,
                 'current_price': self.current_price
             })
 
@@ -194,6 +196,8 @@ class TradingSession:
         )
 
     async def send_message_to_trader(self, trader_id, message):
+
+
         # TODO. PHILIPP. IT largely overlap with broadcast. We need to refactor that moving to _injection method
         transactions = [{'price': t['price'], 'timestamp': t['timestamp'].timestamp()} for t in self.transactions]
         # sort by timestamp
@@ -211,6 +215,7 @@ class TradingSession:
             'transaction_history': self.transactions,
             'spread': spread,
             'mid_price': mid_price,
+            'vwap': self.vwap,
             'current_price': current_price
         })
         await self.trader_exchange.publish(
@@ -265,6 +270,14 @@ class TradingSession:
             logger.info("No overlapping orders.")
             return None, None
 
+    def get_vwap(self):
+        # Ensure there are transactions to process
+        if not self.transactions:
+            return 0
+
+        total_price = sum(transaction['price'] for transaction in self.transactions)
+        average_price = total_price / len(self.transactions)
+        return average_price
     def create_transaction(self, bid, ask, transaction_price):
         # Change the status to 'EXECUTED'
         self.all_orders[ask['id']]['status'] = OrderStatus.EXECUTED.value
@@ -279,6 +292,7 @@ class TradingSession:
 
         # Append to self.transactions
         self.transactions.append(transaction.model_dump())
+        self.vwap = self.get_vwap()
 
         # Log the transaction creation
         logger.info(f"Transaction created: {transaction.model_dump()}")

@@ -28,6 +28,8 @@ class HumanTrader(BaseTrader):
         await self.register()
 
     async def send_message_to_client(self, message_type, **kwargs):
+        logger.critical(kwargs.keys())
+        print('*'*100)
         if not self.websocket or self.websocket.client_state != WebSocketState.CONNECTED:
             logger.warning("WebSocket is closed or not set yet. Skipping message send.")
             return
@@ -44,6 +46,7 @@ class HumanTrader(BaseTrader):
                 {"shares": self.shares,
                  "cash": self.cash,
                  "pnl": self.get_current_pnl(),
+
                  'type': message_type,
                  'inventory': dict(shares=self.shares, cash=self.cash),
                  **kwargs,
