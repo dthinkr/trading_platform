@@ -21,6 +21,7 @@ class BaseTrader:
     shares = 0
 
     def __init__(self, trader_type: TraderType, cash=0, shares=0):
+
         self.initial_shares = shares
         self.initial_cash = cash
         self.cash = cash
@@ -38,6 +39,45 @@ class BaseTrader:
         self.queue_name = None
         self.broadcast_exchange_name = None
         self.trading_system_exchange = None
+
+        # PNL BLOCK
+        self.DInv = []
+        self.transaction_prices = []
+        self.transaction_relevant_mid_prices = []  # Mid prices relevant to each transaction
+        self.general_mid_prices = []  # All mid prices from the trading system
+        self.sum_cost = 0
+        self.sum_dinv = 0
+        self.sum_mid_executions = 0
+        self.current_pnl = 0
+
+        # END PNL BLOCK
+
+    def update_mid_price(self, new_mid_price):
+        logger.critical(f"Trader {self.id} updated mid price: {new_mid_price}")
+        self.general_mid_prices.append(new_mid_price)
+
+    def update_data_for_pnl(self, dinv: float, transaction_price: float) -> None:
+        relevant_mid_price = self.general_mid_prices[-1] if self.general_mid_prices else transaction_price
+
+        # Update lists
+        self.DInv.append(dinv)
+        self.transaction_prices.append(transaction_price)
+        self.transaction_relevant_mid_prices.append(relevant_mid_price)  # Store relevant mid_price for this transaction
+
+        # Update running totals
+        self.sum_cost += dinv * (transaction_price - relevant_mid_price)
+        self.sum_dinv += dinv
+        self.sum_mid_executions += relevant_mid_price * dinv
+
+        self.current_pnl = relevant_mid_price * self.sum_dinv - self.sum_mid_executions - self.sum_cost
+
+    def get_current_pnl(self, use_latest_general_mid_price=False):
+
+        if use_latest_general_mid_price and self.general_mid_prices:
+            latest_mid_price = self.general_mid_prices[-1]
+            pnl_adjusted = latest_mid_price * self.sum_dinv - self.sum_mid_executions - self.sum_cost
+            return pnl_adjusted
+        return self.current_pnl
 
     @property
     def delta_cash(self):
@@ -118,6 +158,8 @@ class BaseTrader:
 
             action_type = json_message.get('type')
             data = json_message
+            if data.get('mid_price'):
+                self.update_mid_price(data['mid_price'])
             if data.get('new_transactions'):
                 self.update_inventory(data['new_transactions'])
             if not data:
@@ -151,12 +193,16 @@ class BaseTrader:
         and we need to update self.shares and self.cash accordingly
         """
         for transaction in new_transactions:
+
             if transaction['type'] == 'ask':
                 self.shares -= transaction['amount']
+                d_inv = -transaction['amount']
                 self.cash += transaction['price'] * transaction['amount']
             else:
                 self.shares += transaction['amount']
+                d_inv = transaction['amount']
                 self.cash -= transaction['price'] * transaction['amount']
+            self.update_data_for_pnl(d_inv, transaction['price'])
         if self.trader_type == TraderType.HUMAN.value:
             logger.info(f"Trader {self.id} updated inventory: shares: {self.shares}, cash: {self.cash}")
 

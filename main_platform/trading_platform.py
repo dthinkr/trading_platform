@@ -176,12 +176,14 @@ class TradingSession:
         if message.get('type') == 'closure':
             pass  # TODO. PHILIPP. Should we inject some info here?
         else:
+            spread, mid_price = self.get_spread()
             message.update({
                 # TODO: PHILIPP: we need to think about the type of the message. it's hardcoded for now
                 'order_book': self.order_book,
                 'active_orders': self.get_active_orders_to_broadcast(),
                 'history': self.transactions,
-                'spread': self.get_spread(),
+                'spread': spread,
+                'mid_price': mid_price,
                 'current_price': self.current_price
             })
 
@@ -201,12 +203,14 @@ class TradingSession:
             current_price = transactions[-1]['price']
         else:
             current_price = None
+        spread, mid_price = self.get_spread()
         message.update({
             'type': 'update',  # TODO: PHILIPP: we need to think about the type of the message. it's hardcoded for now
             'order_book': self.order_book,
             'active_orders': self.get_active_orders_to_broadcast(),
             'transaction_history': self.transactions,
-            'spread': self.get_spread(),
+            'spread': spread,
+            'mid_price': mid_price,
             'current_price': current_price
         })
         await self.trader_exchange.publish(
@@ -255,10 +259,11 @@ class TradingSession:
             lowest_ask = asks[0]['price']
             highest_bid = bids[0]['price']
             spread = lowest_ask - highest_bid
-            return spread
+            mid_price = (lowest_ask + highest_bid) / 2
+            return spread, mid_price
         else:
             logger.info("No overlapping orders.")
-            return None
+            return None, None
 
     def create_transaction(self, bid, ask, transaction_price):
         # Change the status to 'EXECUTED'
