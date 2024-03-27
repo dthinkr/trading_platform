@@ -14,9 +14,9 @@ logger = setup_custom_logger(__name__)
 
 
 class BaseTrader:
-    orders: list = None
-    order_book: dict = None
-    active_orders: list = None
+    orders: list = []
+    order_book: dict = {}
+    active_orders: list = []
     cash = 0
     shares = 0
 
