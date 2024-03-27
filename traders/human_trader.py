@@ -43,6 +43,7 @@ class HumanTrader(BaseTrader):
             return await self.websocket.send_json(
                 {"shares": self.shares,
                  "cash": self.cash,
+                 "pnl": self.get_current_pnl(),
                  'type': message_type,
                  'inventory': dict(shares=self.shares, cash=self.cash),
                  **kwargs,

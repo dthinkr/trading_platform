@@ -71,7 +71,7 @@ class BaseTrader:
 
         self.current_pnl = relevant_mid_price * self.sum_dinv - self.sum_mid_executions - self.sum_cost
 
-    def get_current_pnl(self, use_latest_general_mid_price=False):
+    def get_current_pnl(self, use_latest_general_mid_price=True):
 
         if use_latest_general_mid_price and self.general_mid_prices:
             latest_mid_price = self.general_mid_prices[-1]
