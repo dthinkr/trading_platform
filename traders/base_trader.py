@@ -55,7 +55,9 @@ class BaseTrader:
         self.current_pnl = 0
 
         # END PNL BLOCK
-
+    def get_vwap(self):
+        # let's for now just return the average of all transaction prices
+        return sum(self.transaction_prices) / len(self.transaction_prices) if self.transaction_prices else 0
     def update_mid_price(self, new_mid_price):
 
         self.general_mid_prices.append(new_mid_price)

@@ -54,6 +54,7 @@ class HumanTrader(BaseTrader):
                  'initial_cash': self.initial_cash,
                  'initial_shares': self.initial_shares,
                  'sum_dinv': self.sum_dinv,
+                 'vwap': self.get_vwap()
                  }
             )
         except WebSocketDisconnect:
