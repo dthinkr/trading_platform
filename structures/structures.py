@@ -24,7 +24,7 @@ class TraderCreationData(BaseModel):
         ge=0
     )
     num_informed_traders: int = Field(
-        default=1,
+        default=0,
         title="Number of Informed Traders",
         description="Number of informed traders",
         ge=0
@@ -36,7 +36,7 @@ class TraderCreationData(BaseModel):
         gt=0
     )
     trading_day_duration: int = Field(
-        default=1,
+        default=100,
         title="Trading Day Duration",
         description="Duration of the trading day in minutes",
         gt=0

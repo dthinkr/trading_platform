@@ -102,7 +102,8 @@ class TradingSession:
         return order_book
 
     @property
-    def current_price(self):
+    def transaction_price(self):
+        """Returns the price of last transaction. If there are no transactions, returns None."""
         if not self.transactions or len(self.transactions) == 0:
             return None
         transactions = [{'price': t['price'], 'timestamp': t['timestamp'].timestamp()} for t in self.transactions]
@@ -177,16 +178,16 @@ class TradingSession:
         if message.get('type') == 'closure':
             pass  # TODO. PHILIPP. Should we inject some info here?
         else:
-            spread, mid_price = self.get_spread()
+            spread, midpoint = self.get_spread()
             message.update({
                 # TODO: PHILIPP: we need to think about the type of the message. it's hardcoded for now
                 'order_book': self.order_book,
                 'active_orders': self.get_active_orders_to_broadcast(),
                 'history': self.transactions,
                 'spread': spread,
-                'mid_price': mid_price,
+                'midpoint': midpoint,
                 'vwap': self.vwap,
-                'current_price': self.current_price
+                'transaction_price': self.transaction_price
             })
 
         exchange = await self.channel.get_exchange(self.broadcast_exchange_name)
@@ -250,7 +251,9 @@ class TradingSession:
 
 
     def get_spread(self):
-        """ Returns the spread between the lowest ask and the highest bid. """
+        """
+        Returns the spread and the midpoint. If there are no overlapping orders, returns None, None.
+        """
         asks = [order for order in self.active_orders.values() if order['order_type'] == OrderType.ASK.value]
         bids = [order for order in self.active_orders.values() if order['order_type'] == OrderType.BID.value]
 

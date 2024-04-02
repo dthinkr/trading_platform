@@ -158,8 +158,8 @@ class BaseTrader:
 
             action_type = json_message.get('type')
             data = json_message
-            if data.get('mid_price'):
-                self.update_mid_price(data['mid_price'])
+            if data.get('midpoint'):
+                self.update_mid_price(data['midpoint'])
             if data.get('new_transactions'):
                 self.update_inventory(data['new_transactions'])
             if not data:

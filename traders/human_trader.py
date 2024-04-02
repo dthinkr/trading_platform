@@ -28,8 +28,8 @@ class HumanTrader(BaseTrader):
         await self.register()
 
     async def send_message_to_client(self, message_type, **kwargs):
-        logger.critical(kwargs.keys())
-        print('*'*100)
+
+
         if not self.websocket or self.websocket.client_state != WebSocketState.CONNECTED:
             logger.warning("WebSocket is closed or not set yet. Skipping message send.")
             return
