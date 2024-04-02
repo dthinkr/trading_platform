@@ -19,6 +19,8 @@ class BaseTrader:
     active_orders: list = []
     cash = 0
     shares = 0
+    initial_cash = 0
+    initial_shares = 0
 
     def __init__(self, trader_type: TraderType, cash=0, shares=0):
 
@@ -26,6 +28,8 @@ class BaseTrader:
         self.initial_cash = cash
         self.cash = cash
         self.shares = shares
+        self.initial_cash = cash
+        self.initial_shares = shares
 
         self._stop_requested = asyncio.Event()  # this one we need only for traders which should be kept active in loop. For instance human traders don't need that
         self.trader_type = trader_type.value

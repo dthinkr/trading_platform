@@ -29,7 +29,6 @@ class HumanTrader(BaseTrader):
 
     async def send_message_to_client(self, message_type, **kwargs):
 
-
         if not self.websocket or self.websocket.client_state != WebSocketState.CONNECTED:
             logger.warning("WebSocket is closed or not set yet. Skipping message send.")
             return
@@ -49,8 +48,12 @@ class HumanTrader(BaseTrader):
 
                  'type': message_type,
                  'inventory': dict(shares=self.shares, cash=self.cash),
+
                  **kwargs,
-                 'order_book': order_book
+                 'order_book': order_book,
+                 'initial_cash': self.initial_cash,
+                 'initial_shares': self.initial_shares,
+                 'sum_dinv': self.sum_dinv,
                  }
             )
         except WebSocketDisconnect:
@@ -100,6 +103,7 @@ class HumanTrader(BaseTrader):
         else:
             # Handle the case where the order UUID does not exist
             logger.warning(f"Order with UUID {order_uuid} not found.")
+
     async def handle_closure(self, data):
         logger.critical('Human trader is closing')
         await self.post_processing_server_message(data)
