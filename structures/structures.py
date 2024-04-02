@@ -65,6 +65,12 @@ class TraderCreationData(BaseModel):
         description="Initial stocks for each trader",
 
     )
+    depth_book_shown: int = Field(
+        default=5,
+        title="Depth Book Shown",
+        description="Depth of the book shown to the human traders",
+
+    )
 
 class LobsterEventType(IntEnum):
     """For the LOBSTER data, the event type is an integer. This class maps the integer to a string.
