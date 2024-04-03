@@ -120,7 +120,7 @@ async def get_trading_session(trading_session_id: str):
         "status": "found",
         "data": {"trading_session_uuid": trader_manager.trading_session.id,
                  "traders": list(trader_manager.traders.keys()),
-                 "human_traders": [t.id for t in trader_manager.human_traders],
+                 "human_traders": [t.get_trader_params_as_dict() for t in trader_manager.human_traders],
                  }
     }
 
