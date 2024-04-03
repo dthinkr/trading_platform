@@ -31,6 +31,7 @@ class TradingSession:
         self.active = False
         self.duration = duration
         self.default_price = default_price
+
         self.default_spread = default_spread
         self.punishing_constant = punishing_constant
 
@@ -101,7 +102,8 @@ class TradingSession:
         return order_book
 
     @property
-    def current_price(self):
+    def transaction_price(self):
+        """Returns the price of last transaction. If there are no transactions, returns None."""
         if not self.transactions or len(self.transactions) == 0:
             return None
         transactions = [{'price': t['price'], 'timestamp': t['timestamp'].timestamp()} for t in self.transactions]
@@ -176,13 +178,16 @@ class TradingSession:
         if message.get('type') == 'closure':
             pass  # TODO. PHILIPP. Should we inject some info here?
         else:
+            spread, midpoint = self.get_spread()
             message.update({
                 # TODO: PHILIPP: we need to think about the type of the message. it's hardcoded for now
                 'order_book': self.order_book,
                 'active_orders': self.get_active_orders_to_broadcast(),
                 'history': self.transactions,
-                'spread': self.get_spread(),
-                'current_price': self.current_price
+                'spread': spread,
+                'midpoint': midpoint,
+
+                'transaction_price': self.transaction_price
             })
 
         exchange = await self.channel.get_exchange(self.broadcast_exchange_name)
@@ -192,6 +197,8 @@ class TradingSession:
         )
 
     async def send_message_to_trader(self, trader_id, message):
+
+
         # TODO. PHILIPP. IT largely overlap with broadcast. We need to refactor that moving to _injection method
         transactions = [{'price': t['price'], 'timestamp': t['timestamp'].timestamp()} for t in self.transactions]
         # sort by timestamp
@@ -201,12 +208,15 @@ class TradingSession:
             current_price = transactions[-1]['price']
         else:
             current_price = None
+        spread, mid_price = self.get_spread()
         message.update({
             'type': 'update',  # TODO: PHILIPP: we need to think about the type of the message. it's hardcoded for now
             'order_book': self.order_book,
             'active_orders': self.get_active_orders_to_broadcast(),
             'transaction_history': self.transactions,
-            'spread': self.get_spread(),
+            'spread': spread,
+            'mid_price': mid_price,
+
             'current_price': current_price
         })
         await self.trader_exchange.publish(
@@ -241,7 +251,9 @@ class TradingSession:
 
 
     def get_spread(self):
-        """ Returns the spread between the lowest ask and the highest bid. """
+        """
+        Returns the spread and the midpoint. If there are no overlapping orders, returns None, None.
+        """
         asks = [order for order in self.active_orders.values() if order['order_type'] == OrderType.ASK.value]
         bids = [order for order in self.active_orders.values() if order['order_type'] == OrderType.BID.value]
 
@@ -255,10 +267,12 @@ class TradingSession:
             lowest_ask = asks[0]['price']
             highest_bid = bids[0]['price']
             spread = lowest_ask - highest_bid
-            return spread
+            mid_price = (lowest_ask + highest_bid) / 2
+            return spread, mid_price
         else:
             logger.info("No overlapping orders.")
-            return None
+            return None, None
+
 
     def create_transaction(self, bid, ask, transaction_price):
         # Change the status to 'EXECUTED'
@@ -274,6 +288,7 @@ class TradingSession:
 
         # Append to self.transactions
         self.transactions.append(transaction.model_dump())
+
 
         # Log the transaction creation
         logger.info(f"Transaction created: {transaction.model_dump()}")
