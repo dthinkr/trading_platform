@@ -2,10 +2,10 @@ import aio_pika
 import json
 import uuid
 from pydantic import ValidationError
-from main_platform.utils import ack_message
+
 from main_platform.custom_logger import setup_custom_logger
 from typing import List, Dict
-from structures import OrderStatus, OrderType, TransactionModel, Order
+from structures import OrderStatus, OrderType, TransactionModel, Order, TraderType
 import asyncio
 import pandas as pd
 import os
@@ -340,6 +340,12 @@ class TradingSession:
             bid = viable_bids.pop(0)
 
             transaction_price = (ask['price'] + bid['price']) / 2  # Mid-price
+            ask_trader_type = self.connected_traders[ask['trader_id']]['trader_type']
+            ask_trader_id = ask.get('trader_id')
+            bid_trader_id = bid.get('trader_id')
+            if ask_trader_type == TraderType.HUMAN.value and ask_trader_id == bid_trader_id:
+                logger.warning(f'Blocking self-execution for trader {ask_trader_id}')
+                return res
             ask_trader_id, bid_trader_id, transaction = self.create_transaction(bid, ask, transaction_price)
 
             # No need to append the transaction to self.transactions here as it's handled within create_transaction

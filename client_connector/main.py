@@ -81,11 +81,16 @@ async def get_trader(trader_uuid: str):
     trader_manager = get_manager_by_trader(trader_uuid)
     if not trader_manager:
         raise HTTPException(status_code=404, detail="Trader not found")
-
+    trader = trader_manager.traders.get(trader_uuid)
+    if not trader:
+        raise HTTPException(status_code=404, detail="Trader not found")
+    trader_data = trader.get_trader_params_as_dict()
+    data=trader_manager.get_params()
+    data['goal']=trader_data['goal']
     return {
         "status": "success",
         "message": "Trader found",
-        "data": trader_manager.get_params()
+        "data": data
     }
 
 
@@ -120,7 +125,7 @@ async def get_trading_session(trading_session_id: str):
         "status": "found",
         "data": {"trading_session_uuid": trader_manager.trading_session.id,
                  "traders": list(trader_manager.traders.keys()),
-                 "human_traders": [t.id for t in trader_manager.human_traders],
+                 "human_traders": [t.get_trader_params_as_dict() for t in trader_manager.human_traders],
                  }
     }
 

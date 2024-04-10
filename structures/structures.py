@@ -4,10 +4,14 @@ from typing import Optional
 from uuid import UUID, uuid4
 from datetime import datetime, timezone
 import uuid
+
+
 def now():
     """It is actually from utils.py but we need structures there so we do it here to avoid circular deps"""
     return datetime.now(timezone.utc)
 
+
+GOALS = [-10, 0, 10]  # for now let's try a naive hardcoded approach to the goals
 
 
 class TraderCreationData(BaseModel):
@@ -15,7 +19,7 @@ class TraderCreationData(BaseModel):
         default=1,
         title="Number of Human Traders",
         description="Number of human traders",
-        ge=0 
+        ge=0
     )
     num_noise_traders: int = Field(
         default=1,
@@ -72,6 +76,7 @@ class TraderCreationData(BaseModel):
 
     )
 
+
 class LobsterEventType(IntEnum):
     """For the LOBSTER data, the event type is an integer. This class maps the integer to a string.
     See the documentation at: https://lobsterdata.com/info/DataStructure.php
@@ -93,7 +98,7 @@ class ActionType(str, Enum):
 
 
 class OrderType(IntEnum):
-    ASK = -1  #  the price a seller is willing to accept for a security
+    ASK = -1  # the price a seller is willing to accept for a security
     BID = 1  # the price a buyer is willing to pay for a security
 
 
@@ -124,6 +129,7 @@ class Order(BaseModel):
 
     class Config:
         use_enum_values = True  # This ensures that enum values are used in serialization
+
 
 class TransactionModel(BaseModel):
     id: UUID = Field(default_factory=uuid4)
