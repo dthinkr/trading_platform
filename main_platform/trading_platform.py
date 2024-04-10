@@ -2,10 +2,10 @@ import aio_pika
 import json
 import uuid
 from pydantic import ValidationError
-from main_platform.utils import ack_message
+
 from main_platform.custom_logger import setup_custom_logger
 from typing import List, Dict
-from structures import OrderStatus, OrderType, TransactionModel, Order
+from structures import OrderStatus, OrderType, TransactionModel, Order, TraderType
 import asyncio
 import pandas as pd
 import os
@@ -13,6 +13,7 @@ from main_platform.utils import CustomEncoder, now, if_active
 from asyncio import Lock, Event
 from datetime import datetime, timedelta, timezone
 from collections import defaultdict
+
 
 rabbitmq_url = os.getenv('RABBITMQ_URL', 'amqp://localhost')
 logger = setup_custom_logger(__name__)
@@ -197,6 +198,7 @@ class TradingSession:
 
     async def send_message_to_trader(self, trader_id, message):
 
+
         # TODO. PHILIPP. IT largely overlap with broadcast. We need to refactor that moving to _injection method
         transactions = [{'price': t['price'], 'timestamp': t['timestamp'].timestamp()} for t in self.transactions]
         # sort by timestamp
@@ -246,6 +248,8 @@ class TradingSession:
         self.all_orders[order_id] = order_dict
         return order_dict
 
+
+
     def get_spread(self):
         """
         Returns the spread and the midpoint. If there are no overlapping orders, returns None, None.
@@ -269,6 +273,7 @@ class TradingSession:
             logger.info("No overlapping orders.")
             return None, None
 
+
     def create_transaction(self, bid, ask, transaction_price):
         # Change the status to 'EXECUTED'
         self.all_orders[ask['id']]['status'] = OrderStatus.EXECUTED.value
@@ -283,6 +288,7 @@ class TradingSession:
 
         # Append to self.transactions
         self.transactions.append(transaction.model_dump())
+
 
         # Log the transaction creation
         logger.info(f"Transaction created: {transaction.model_dump()}")
@@ -334,24 +340,29 @@ class TradingSession:
             bid = viable_bids.pop(0)
 
             transaction_price = (ask['price'] + bid['price']) / 2  # Mid-price
-            if ask_trader_id != bid_trader_id:
-                ask_trader_id, bid_trader_id, transaction = self.create_transaction(bid, ask, transaction_price)
+            ask_trader_type = self.connected_traders[ask['trader_id']]['trader_type']
+            ask_trader_id = ask.get('trader_id')
+            bid_trader_id = bid.get('trader_id')
+            if ask_trader_type == TraderType.HUMAN.value and ask_trader_id == bid_trader_id:
+                logger.warning(f'Blocking self-execution for trader {ask_trader_id}')
+                return res
+            ask_trader_id, bid_trader_id, transaction = self.create_transaction(bid, ask, transaction_price)
 
-                # No need to append the transaction to self.transactions here as it's handled within create_transaction
+            # No need to append the transaction to self.transactions here as it's handled within create_transaction
 
-                # Process involved trader IDs as needed (e.g., logging, updating trader states)
-                participated_traders.add(ask_trader_id)
-                participated_traders.add(bid_trader_id)
+            # Process involved trader IDs as needed (e.g., logging, updating trader states)
+            participated_traders.add(ask_trader_id)
+            participated_traders.add(bid_trader_id)
 
-                # we  need to get the trader_in_transcation_lookup and if it's
-                # not there we need to create it.
-                # let's not add the entire transaction here, just the order id, price, type of order, amount - so they can correclty update the inventory
-                traders_to_transactions_lookup[ask['trader_id']].append(
-                    {'id': ask['id'], 'price': ask['price'], 'type': 'ask', 'amount': ask['amount']})
-                traders_to_transactions_lookup[bid['trader_id']].append(
-                    {'id': bid['id'], 'price': bid['price'], 'type': 'bid', 'amount': bid['amount']})
+            # we  need to get the trader_in_transcation_lookup and if it's
+            # not there we need to create it.
+            # let's not add the entire transaction here, just the order id, price, type of order, amount - so they can correclty update the inventory
+            traders_to_transactions_lookup[ask['trader_id']].append(
+                {'id': ask['id'], 'price': ask['price'], 'type': 'ask', 'amount': ask['amount']})
+            traders_to_transactions_lookup[bid['trader_id']].append(
+                {'id': bid['id'], 'price': bid['price'], 'type': 'bid', 'amount': bid['amount']})
 
-                transactions.append(transaction.model_dump())
+            transactions.append(transaction.model_dump())
 
         # if transactions are not empty (so there are new transactions) let's form subgroup_broadcast message
         # that will contain to_whom (traders who participated in transactions) and the list of transactions and add them to res
@@ -435,6 +446,7 @@ class TradingSession:
         logger.info(f"Total connected traders: {len(self.connected_traders)}")
         return dict(respond=True, trader_id=trader_id, message="Registered successfully", individual=True)
 
+
     async def on_individual_message(self, message):
         incoming_message = json.loads(message.body.decode())
         logger.info(f"TS {self.id} received message: {incoming_message}")
@@ -461,30 +473,29 @@ class TradingSession:
                 logger.warning(f"No handler method found for action: {action}")
         else:
             logger.warning(f"No action found in message: {incoming_message}")
-
     async def close_existing_book(self):
         """we create a counteroffer on behalf of the platform with a get_closure_price price. and then we
         create a transaction out of it."""
         for order_id, order in self.active_orders.items():
-            platform_order_type = OrderType.ASK.value if order[
-                                                             'order_type'] == OrderType.BID.value else OrderType.BID.value
+            platform_order_type = OrderType.ASK.value if order['order_type'] == OrderType.BID.value else OrderType.BID.value
             closure_price = self.get_closure_price(order['amount'], order['order_type'])
             platform_order = Order(trader_id=self.id,
-                                   order_type=platform_order_type,
-                                   amount=order['amount'],
-                                   price=closure_price,
-                                   status=OrderStatus.BUFFERED.value,
-                                   session_id=self.id,
-                                   )
+                                      order_type=platform_order_type,
+                                      amount=order['amount'],
+                                      price=closure_price,
+                                      status=OrderStatus.BUFFERED.value,
+                                      session_id=self.id,
+                                      )
 
             self.place_order(platform_order.model_dump())
-
             if order['order_type'] == OrderType.BID.value:
                 self.create_transaction(order, platform_order.model_dump(), closure_price)
             else:
-                self.create_transaction(platform_order.model_dump(), order, closure_price)
+                self.create_transaction( platform_order.model_dump(),order, closure_price)
 
         await self.send_broadcast(message=dict(text="book is updated"))
+
+
 
     async def handle_inventory_report(self, data: dict):
         # Handle received inventory report from a trader
@@ -500,7 +511,7 @@ class TradingSession:
 
             trader_order_type = OrderType.ASK.value if shares > 0 else OrderType.BID.value
             platform_order_type = OrderType.BID.value if shares > 0 else OrderType.ASK.value
-            shares = abs(shares)
+            shares=abs(shares)
             closure_price = self.get_closure_price(shares, trader_order_type)
 
             proto_order = dict(amount=shares,
@@ -521,7 +532,7 @@ class TradingSession:
             self.place_order(trader_order.model_dump())
             # let's create a transaction. it should be a bit different depending on type
             if trader_order_type == OrderType.BID.value:
-                self.create_transaction(trader_order.model_dump(), platform_order.model_dump(), closure_price)
+                self.create_transaction( trader_order.model_dump(), platform_order.model_dump(), closure_price)
             else:
                 self.create_transaction(platform_order.model_dump(), trader_order.model_dump(), closure_price)
 
@@ -549,7 +560,7 @@ class TradingSession:
                         minutes=self.duration
                 ):
                     logger.critical('Time limit reached, stopping...')
-                    self.active = False  # here we stop accepting all incoming requests on placing new orders, cancelling etc.
+                    self.active = False # here we stop accepting all incoming requests on placing new orders, cancelling etc.
                     await self.close_existing_book()
                     await self.send_broadcast({"type": "stop_trading"})
                     # Wait for each of the traders to report back their inventories
