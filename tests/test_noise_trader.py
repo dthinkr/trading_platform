@@ -7,7 +7,7 @@ from structures import TraderType
 def noise_trader_settings():
     return {
         "activity_frequency": 1.0,
-        "order_amount": 10,  # Example new parameter
+        "order_amount": 1,
         "settings": {"initial_price": 100},
         "settings_noise": {},
         "get_signal_noise": lambda signal_state, settings_noise: {},
