@@ -15,7 +15,6 @@ import asyncio
 import os
 import csv
 from main_platform.custom_logger import setup_custom_logger
-import polars as pl
 
 from pydantic import BaseModel
 np.set_printoptions(floatmode='fixed', precision=0)
