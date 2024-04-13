@@ -1,6 +1,7 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
+.pytest_cache/
 
 # Virtual environment
 venv/
@@ -11,6 +12,7 @@ venv/
 # Logs and databases
 *.log
 *.sqlite
+logs/
 
 # Secrets folder contents (but not the folder itself)
 _secrets/*

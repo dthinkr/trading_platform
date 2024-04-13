@@ -432,7 +432,7 @@ def get_market_maker_order(book, message, signal_market_maker, market_maker_stat
     return order
 
 
-def get_informed_order(book, message, signal_informed, informed_state,
+def get_order_to_match(book, message, signal_informed, informed_state,
                        settings_informed, settings):
     # do someting and get order in the following format
     # order = {'bid':{2003:4,2002:1}, 'ask': {2011:1,2016:2,2018:1}}

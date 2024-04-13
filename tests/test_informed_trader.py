@@ -18,7 +18,7 @@ def informed_trader_settings():
         "trading_day_duration": 8,
         "get_informed_time_plan": MagicMock(return_value=[]),
         "get_signal_informed": MagicMock(return_value=[1, 100]),
-        "get_informed_order": MagicMock(return_value={}),
+        "get_order_to_match": MagicMock(return_value={}),
     }
 
 

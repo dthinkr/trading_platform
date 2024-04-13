@@ -13,7 +13,7 @@ class HumanTrader(BaseTrader):
     websocket = None
     socket_status = False
     inventory = {'shares': 0, 'cash': 1000}  # TODO.PHILIPP. WRite something sensible here. placeholder for now.
-
+    
     def __init__(self, *args, **kwargs):
         super().__init__(trader_type=TraderType.HUMAN, *args, **kwargs)
         self.goal = random.choice(GOALS)
@@ -91,7 +91,7 @@ class HumanTrader(BaseTrader):
         except json.JSONDecodeError:
             logger.critical(f"Error decoding message: {message}")
 
-    async def handle_add_order(self, data):
+    async def handle_(self, data):
         order_type = data.get('type')  # TODO: Philipp. This is a string. We need to convert it to an enum.
         # TODO. Philipp. We may rewrite a client so it will send us an enum instead of a string.
         if order_type == 'bid':

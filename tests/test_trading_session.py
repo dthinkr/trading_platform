@@ -145,7 +145,7 @@ async def test_get_spread():
         },
     }
     spread = session.get_spread()
-    assert spread == 10
+    assert spread[0] == 10
 
 
 @pytest.mark.asyncio

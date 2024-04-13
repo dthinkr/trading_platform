@@ -1,7 +1,7 @@
 import asyncio
 import random
 import numpy as np
-from structures import OrderType, TraderType, ORDER_AMOUNT
+from structures import OrderType, TraderType
 from main_platform.utils import (
     convert_to_book_format,
     convert_to_noise_state,
@@ -14,10 +14,10 @@ logger = setup_custom_logger(__name__)
 
 
 class NoiseTrader(BaseTrader):
-
     def __init__(
         self,
         activity_frequency: float,
+        order_amount: int,
         settings: dict,
         settings_noise: dict,
         get_signal_noise: callable,
@@ -29,6 +29,7 @@ class NoiseTrader(BaseTrader):
         super().__init__(trader_type=TraderType.NOISE)
 
         self.activity_frequency = activity_frequency
+        self.order_amount = order_amount
         self.settings = settings
         self.settings_noise = settings_noise
         self.get_signal_noise = get_signal_noise
@@ -48,7 +49,7 @@ class NoiseTrader(BaseTrader):
         """
         if not self.active_orders:
             await self.post_new_order(
-                ORDER_AMOUNT,
+                self.order_amount,
                 self.settings["initial_price"],
                 random.choice([OrderType.ASK, OrderType.BID]),
             )
@@ -100,7 +101,7 @@ class NoiseTrader(BaseTrader):
             order_type = (
                 OrderType.ASK if order["order_type"] == "ask" else OrderType.BID
             )
-            amount, price = ORDER_AMOUNT, order["price"]
+            amount, price = self.order_amount, order["price"]
             for _ in range(order["amount"]):
                 await self.post_new_order(amount, price, order_type)
 
@@ -108,7 +109,7 @@ class NoiseTrader(BaseTrader):
                 "POSTED %s AT %s AMOUNT %s * %s",
                 order["order_type"],
                 price,
-                ORDER_AMOUNT,
+                self.order_amount,
                 order["amount"],
             )
 
@@ -126,7 +127,6 @@ class NoiseTrader(BaseTrader):
         places warmup orders to poulate order book.
         """
         for _ in range(number_of_warmup_orders):
-            print(f" WARMING UP {_} ")
             await self.act()
 
     async def run(self):
@@ -143,7 +143,8 @@ class NoiseTrader(BaseTrader):
 
             except asyncio.CancelledError:
                 logger.info(
-                    "Run method cancelled, performing cleanup of %s...", self.trader_type
+                    "Run method cancelled, performing cleanup of %s...",
+                    self.trader_type,
                 )
                 await self.clean_up()
                 raise
