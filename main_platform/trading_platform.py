@@ -52,11 +52,12 @@ class TradingSession:
         self.release_task = None
         self.lock = Lock()
         self.release_event = Event()
+        self.current_price = 0 # handling non-defined attribute
 
     @property
     def current_time(self):
         return datetime.now(timezone.utc)
-
+    
     @property
     def mid_price(self) -> float:
         return self.current_price or self.default_price
@@ -187,7 +188,7 @@ class TradingSession:
                 'spread': spread,
                 'midpoint': midpoint,
 
-                'transaction_price': self.transaction_price
+                'transaction_price': self.transaction_price,
             })
 
         exchange = await self.channel.get_exchange(self.broadcast_exchange_name)
@@ -217,7 +218,7 @@ class TradingSession:
             'spread': spread,
             'mid_price': mid_price,
 
-            'current_price': current_price
+            'current_price': current_price,
         })
         await self.trader_exchange.publish(
             aio_pika.Message(body=json.dumps(message, cls=CustomEncoder).encode()),

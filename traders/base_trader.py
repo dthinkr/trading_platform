@@ -54,7 +54,16 @@ class BaseTrader:
         self.sum_mid_executions = 0
         self.current_pnl = 0
 
+        self.start_time = asyncio.get_event_loop().time()
+
+
         # END PNL BLOCK
+
+    def get_elapsed_time(self) -> float:
+        """Returns the elapsed time in seconds since the trader was initialized."""
+        current_time = asyncio.get_event_loop().time()
+        return current_time - self.start_time
+
     def get_vwap(self):
         # let's for now just return the average of all transaction prices
         return sum(self.transaction_prices) / len(self.transaction_prices) if self.transaction_prices else 0
@@ -85,6 +94,7 @@ class BaseTrader:
             return pnl_adjusted
         return self.current_pnl
 
+    
     @property
     def delta_cash(self):
         return self.cash - self.initial_cash

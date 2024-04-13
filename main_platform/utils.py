@@ -164,10 +164,10 @@ def convert_to_book_format(active_orders, levels_n=10, default_price=2000):
     df = df.astype({"price": int, "amount": int})
 
     # Aggregate orders by price, summing the amounts
-    df_asks = df[df['order_type'] == OrderType.ASK.value].groupby('price')['amount'].sum().reset_index().sort_values(
+    df_asks = df[df['order_type'] == 'ask'].groupby('price')['amount'].sum().reset_index().sort_values(
         by='price').head(
         levels_n)
-    df_bids = df[df['order_type'] == OrderType.BID.value].groupby('price')['amount'].sum().reset_index().sort_values(
+    df_bids = df[df['order_type'] == 'bid'].groupby('price')['amount'].sum().reset_index().sort_values(
         by='price',
         ascending=False).head(
         levels_n)
@@ -206,7 +206,6 @@ def convert_to_noise_state(active_orders: List[Dict]) -> Dict:
             amount = order['amount']
             noise_state['outstanding_orders'][order_type][price] += amount
 
-    # Convert defaultdicts to regular dicts for easier use later
     noise_state['outstanding_orders']['bid'] = dict(noise_state['outstanding_orders']['bid'])
     noise_state['outstanding_orders']['ask'] = dict(noise_state['outstanding_orders']['ask'])
 

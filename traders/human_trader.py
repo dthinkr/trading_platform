@@ -13,7 +13,7 @@ class HumanTrader(BaseTrader):
     websocket = None
     socket_status = False
     inventory = {'shares': 0, 'cash': 1000}  # TODO.PHILIPP. WRite something sensible here. placeholder for now.
-
+    
     def __init__(self, *args, **kwargs):
         super().__init__(trader_type=TraderType.HUMAN, *args, **kwargs)
         self.goal = random.choice(GOALS)

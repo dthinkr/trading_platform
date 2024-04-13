@@ -1,5 +1,5 @@
 from enum import Enum, IntEnum, StrEnum
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional
 from uuid import UUID, uuid4
 from datetime import datetime, timezone
@@ -13,6 +13,10 @@ def now():
 
 GOALS = [-10, 0, 10]  # for now let's try a naive hardcoded approach to the goals
 
+
+class TradeDirection(str, Enum):
+    BUY = 'buy'
+    SELL = 'sell'
 
 class TraderCreationData(BaseModel):
     num_human_traders: int = Field(
@@ -28,28 +32,37 @@ class TraderCreationData(BaseModel):
         ge=0
     )
     num_informed_traders: int = Field(
-        default=0,
+        default=1,
         title="Number of Informed Traders",
         description="Number of informed traders",
         ge=0
     )
-    activity_frequency: float = Field(
-        default=1.0,
-        title="Activity Frequency",
-        description="Frequency of noise traders' updates in seconds",
-        gt=0
-    )
     trading_day_duration: int = Field(
-        default=100,
+        default=1,
         title="Trading Day Duration",
         description="Duration of the trading day in minutes",
         gt=0
     )
-    step: int = Field(
-        default=1,
-        title="Step for New Orders",
-        description="Step for new orders",
+    activity_frequency: float = Field(
+        default=1.0,
+        title="Noise Trader: Activity Frequency",
+        description="Frequency of noise traders' updates in seconds",
         gt=0
+    )
+    order_amount: int = Field(
+        default=1,
+        title="Noise Trader: Order Amount",
+        description="Order amount for noise traders",
+    )
+    trade_intensity_informed: float = Field(
+        default=0.1,
+        title="Informed Trader: Trade Intensity",
+        description="Trade intensity for informed traders, e.g. she will trade 30 percent of the total orders",
+    )
+    trade_direction_informed: TradeDirection = Field(
+        default=TradeDirection.SELL,
+        title="Informed Trader: Trade Direction",
+        description="Trade direction for informed traders, to sell or buy",
     )
     noise_warm_ups: int = Field(
         default=10,
@@ -127,7 +140,7 @@ class Order(BaseModel):
     session_id: str
     trader_id: str
 
-    class Config:
+    class ConfigDict:
         use_enum_values = True  # This ensures that enum values are used in serialization
 
 
@@ -139,4 +152,3 @@ class TransactionModel(BaseModel):
     price: float
 
 
-ORDER_AMOUNT = 1
