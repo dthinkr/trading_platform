@@ -1,5 +1,5 @@
 from enum import Enum, IntEnum, StrEnum
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional
 from uuid import UUID, uuid4
 from datetime import datetime, timezone
@@ -140,7 +140,7 @@ class Order(BaseModel):
     session_id: str
     trader_id: str
 
-    class Config:
+    class ConfigDict:
         use_enum_values = True  # This ensures that enum values are used in serialization
 
 

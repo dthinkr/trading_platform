@@ -7,12 +7,12 @@ from structures import TraderType
 def noise_trader_settings():
     return {
         "activity_frequency": 1.0,
+        "order_amount": 10,  # Example new parameter
         "settings": {"initial_price": 100},
         "settings_noise": {},
         "get_signal_noise": lambda signal_state, settings_noise: {},
         "get_noise_rule_unif": lambda book_format, signal_noise, noise_state, settings_noise, settings: [],
     }
-
 
 @pytest.fixture
 def noise_trader(noise_trader_settings):
