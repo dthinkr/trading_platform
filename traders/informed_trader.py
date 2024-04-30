@@ -61,10 +61,10 @@ class InformedTrader(BaseTrader):
                 for price, amounts in orders.items():
                     for amount in amounts:
                         # if the order to be matched is a bid, we send an ask order to match that bid
-                        if order_type == "bid":
+                        if order_type == OrderType.BID:
                             await self.post_new_order(amount, price, OrderType.ASK)
                         # if the order to be matched is an ask, we send a bid order to match that ask
-                        elif order_type == "ask":
+                        elif order_type == OrderType.ASK:
                             await self.post_new_order(amount, price, OrderType.BID)
                         logger.critical(
                             "MATCHING %s AT %s AMOUNT %s AT TIME %s",

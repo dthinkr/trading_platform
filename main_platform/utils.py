@@ -5,7 +5,7 @@ import aio_pika
 from enum import Enum
 from mongoengine import QuerySet
 from uuid import UUID
-from structures.structures import   ActionType, LobsterEventType, OrderType, Order
+from structures.structures import   ActionType, LobsterEventType, OrderType, Order, str_to_order_type
 from collections import defaultdict
 from typing import List, Dict
 import pandas as pd
@@ -217,17 +217,18 @@ def convert_to_trader_actions(response_dict):
     actions = []
 
     for order_type, order_details in response_dict.items():
+        _order_type =str_to_order_type[order_type]
         for price, size_list in order_details.items():
             size = size_list[0]
             action = {}
             if size > 0:
                 action['action_type'] = ActionType.POST_NEW_ORDER.value
-                action['order_type'] = order_type
+                action['order_type'] = _order_type
                 action['price'] = price
                 action['amount'] = size
             elif size < 0:
                 action['action_type'] = ActionType.CANCEL_ORDER.value
-                action['order_type'] = order_type
+                action['order_type'] = _order_type
                 action['price'] = price
             if action:
                 actions.append(action)

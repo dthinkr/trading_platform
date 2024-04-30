@@ -93,11 +93,7 @@ class HumanTrader(BaseTrader):
 
     async def handle_add_order(self, data):
         order_type = data.get('type')  # TODO: Philipp. This is a string. We need to convert it to an enum.
-        # TODO. Philipp. We may rewrite a client so it will send us an enum instead of a string.
-        if order_type == 'bid':
-            order_type = OrderType.BID
-        else:
-            order_type = OrderType.ASK
+
 
         price = data.get('price')
         amount = data.get('amount',

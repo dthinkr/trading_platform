@@ -67,9 +67,9 @@ class NoiseTrader(BaseTrader):
 
         bid_count, ask_count = 0, 0
         for order in self.active_orders:
-            if order["order_type"] == "bid":
+            if order["order_type"] == OrderType.BID:
                 bid_count += 1
-            elif order["order_type"] == "ask":
+            elif order["order_type"] == OrderType.ASK:
                 ask_count += 1
 
         order_type_override = None
@@ -90,17 +90,13 @@ class NoiseTrader(BaseTrader):
 
         for order in orders:
             if order_type_override is not None:
-                order["order_type"] = (
-                    "ask" if order_type_override == OrderType.ASK else "bid"
-                )
+                order["order_type"] = order_type_override
 
             await self.process_order(order)
 
     async def process_order(self, order):
         if order["action_type"] == "add_order":
-            order_type = (
-                OrderType.ASK if order["order_type"] == "ask" else OrderType.BID
-            )
+            order_type = order["order_type"]
             amount, price = self.order_amount, order["price"]
             for _ in range(order["amount"]):
                 await self.post_new_order(amount, price, order_type)

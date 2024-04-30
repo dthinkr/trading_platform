@@ -2,7 +2,7 @@ import aio_pika
 import json
 import uuid
 from pydantic import ValidationError
-
+from pprint import pprint
 from main_platform.custom_logger import setup_custom_logger
 from typing import List, Dict
 from structures import OrderStatus, OrderType, TransactionModel, Order, TraderType, Message
@@ -19,7 +19,6 @@ from mongoengine import connect
 
 connect('trader', host='localhost', port=27017)
 
-
 rabbitmq_url = os.getenv('RABBITMQ_URL', 'amqp://localhost')
 logger = setup_custom_logger(__name__)
 
@@ -30,7 +29,6 @@ class TradingSession:
     start_time: datetime
     transactions = List[TransactionModel]
     all_orders = Dict[uuid.UUID, Dict]
-
 
     def __init__(self, duration, default_price=1000, default_spread=10, punishing_constant=1):
         self.active = False
@@ -47,7 +45,6 @@ class TradingSession:
         self.creation_time = now()
         self.all_orders = {}
 
-
         self.broadcast_exchange_name = f'broadcast_{self.id}'
         self.queue_name = f'trading_system_queue_{self.id}'
         self.trader_exchange = None
@@ -57,7 +54,7 @@ class TradingSession:
         self.release_task = None
         self.lock = Lock()
         self.release_event = Event()
-        self.current_price = 0 # handling non-defined attribute
+        self.current_price = 0  # handling non-defined attribute
 
     @property
     def current_time(self):
@@ -74,7 +71,7 @@ class TradingSession:
     def mid_price(self) -> float:
         return self.current_price or self.default_price
 
-    def get_closure_price(self, shares: int, order_type: int) -> float:
+    def get_closure_price(self, shares: int, order_type: OrderType) -> float:
         return self.mid_price + order_type * shares * self.default_spread * self.punishing_constant
 
     def get_params(self):
@@ -100,8 +97,8 @@ class TradingSession:
         if active_orders_df.empty:
             return order_book
 
-        active_bids = active_orders_df[(active_orders_df['order_type'] == OrderType.BID.value)]
-        active_asks = active_orders_df[(active_orders_df['order_type'] == OrderType.ASK.value)]
+        active_bids = active_orders_df[(active_orders_df['order_type'] == OrderType.BID)]
+        active_asks = active_orders_df[(active_orders_df['order_type'] == OrderType.ASK)]
         if not active_bids.empty:
             bids_grouped = active_bids.groupby('price').amount.sum().reset_index().sort_values(by='price',
                                                                                                ascending=False)
@@ -174,7 +171,7 @@ class TradingSession:
             return []
         active_orders_df = active_orders_df[['id', 'trader_id', 'order_type', 'amount', 'price', 'timestamp']]
         # TODO: PHILIPP:  I dont like that we don't use structure order type but hardcode it here.
-        active_orders_df['order_type'] = active_orders_df['order_type'].map({-1: 'ask', 1: 'bid'})
+        # active_orders_df['order_type'] = active_orders_df['order_type'].map({-1: 'ask', 1: 'bid'})
 
         # convert to list of dicts
         res = active_orders_df.to_dict('records')
@@ -214,7 +211,6 @@ class TradingSession:
         )
 
     async def send_message_to_trader(self, trader_id, message):
-
 
         # TODO. PHILIPP. IT largely overlap with broadcast. We need to refactor that moving to _injection method
         transactions = [{'price': t['price'], 'timestamp': t['timestamp'].timestamp()} for t in self.transactions]
@@ -265,14 +261,12 @@ class TradingSession:
         self.all_orders[order_id] = order_dict
         return order_dict
 
-
-
     def get_spread(self):
         """
         Returns the spread and the midpoint. If there are no overlapping orders, returns None, None.
         """
-        asks = [order for order in self.active_orders.values() if order['order_type'] == OrderType.ASK.value]
-        bids = [order for order in self.active_orders.values() if order['order_type'] == OrderType.BID.value]
+        asks = [order for order in self.active_orders.values() if order['order_type'] == OrderType.ASK]
+        bids = [order for order in self.active_orders.values() if order['order_type'] == OrderType.BID]
 
         # Sort by price (lowest first for asks), and then by timestamp (oldest first - FIFO)
         asks.sort(key=lambda x: (x['price'], x['timestamp']))
@@ -290,7 +284,6 @@ class TradingSession:
             logger.info("No overlapping orders.")
             return None, None
 
-
     def create_transaction(self, bid, ask, transaction_price):
         # Change the status to 'EXECUTED'
         self.all_orders[ask['id']]['status'] = OrderStatus.EXECUTED.value
@@ -307,8 +300,6 @@ class TradingSession:
 
         # Append to self.transactions
 
-
-
         # Log the transaction creation
         logger.info(f"Transaction created: {transaction}")
 
@@ -320,8 +311,8 @@ class TradingSession:
         # TODO. PHILIPP. At this stage we don't need to return anything but for LOBSTER format later we may needed so let's keep it for now
         res = {'transactions': [], 'removed_active_orders': []}
         # Separate active orders into asks and bids
-        asks = [order for order in self.active_orders.values() if order['order_type'] == OrderType.ASK.value]
-        bids = [order for order in self.active_orders.values() if order['order_type'] == OrderType.BID.value]
+        asks = [order for order in self.active_orders.values() if order['order_type'] == OrderType.ASK]
+        bids = [order for order in self.active_orders.values() if order['order_type'] == OrderType.BID]
 
         # Sort by price (lowest first for asks), and then by timestamp (oldest first - FIFO)
         # TODO: remember that this is FIFO. We need to adjust the rule (or make it adjustable in the config) if we want
@@ -399,7 +390,9 @@ class TradingSession:
 
         """
 
+        data['order_type'] = int(data['order_type'])
         try:
+
             order = Order(status=OrderStatus.BUFFERED.value,
                           session_id=self.id,
                           **data)
@@ -465,7 +458,6 @@ class TradingSession:
         logger.info(f"Total connected traders: {len(self.connected_traders)}")
         return dict(respond=True, trader_id=trader_id, message="Registered successfully", individual=True)
 
-
     async def on_individual_message(self, message):
         incoming_message = json.loads(message.body.decode())
         logger.info(f"TS {self.id} received message: {incoming_message}")
@@ -492,29 +484,29 @@ class TradingSession:
                 logger.warning(f"No handler method found for action: {action}")
         else:
             logger.warning(f"No action found in message: {incoming_message}")
+
     async def close_existing_book(self):
         """we create a counteroffer on behalf of the platform with a get_closure_price price. and then we
         create a transaction out of it."""
         for order_id, order in self.active_orders.items():
-            platform_order_type = OrderType.ASK.value if order['order_type'] == OrderType.BID.value else OrderType.BID.value
+            platform_order_type = OrderType.ASK.value if order[
+                                                             'order_type'] == OrderType.BID else OrderType.BID
             closure_price = self.get_closure_price(order['amount'], order['order_type'])
             platform_order = Order(trader_id=self.id,
-                                      order_type=platform_order_type,
-                                      amount=order['amount'],
-                                      price=closure_price,
-                                      status=OrderStatus.BUFFERED.value,
-                                      session_id=self.id,
-                                      )
+                                   order_type=platform_order_type,
+                                   amount=order['amount'],
+                                   price=closure_price,
+                                   status=OrderStatus.BUFFERED.value,
+                                   session_id=self.id,
+                                   )
 
             self.place_order(platform_order.model_dump())
-            if order['order_type'] == OrderType.BID.value:
+            if order['order_type'] == OrderType.BID:
                 self.create_transaction(order, platform_order.model_dump(), closure_price)
             else:
-                self.create_transaction( platform_order.model_dump(),order, closure_price)
+                self.create_transaction(platform_order.model_dump(), order, closure_price)
 
         await self.send_broadcast(message=dict(text="book is updated"))
-
-
 
     async def handle_inventory_report(self, data: dict):
         # Handle received inventory report from a trader
@@ -528,9 +520,9 @@ class TradingSession:
         # the same amount of shares at the same price. We need to do this for each trader who has positive shares
         if shares != 0:
 
-            trader_order_type = OrderType.ASK.value if shares > 0 else OrderType.BID.value
-            platform_order_type = OrderType.BID.value if shares > 0 else OrderType.ASK.value
-            shares=abs(shares)
+            trader_order_type = OrderType.ASK if shares > 0 else OrderType.BID
+            platform_order_type = OrderType.BID if shares > 0 else OrderType.ASK
+            shares = abs(shares)
             closure_price = self.get_closure_price(shares, trader_order_type)
 
             proto_order = dict(amount=shares,
@@ -550,8 +542,8 @@ class TradingSession:
             self.place_order(platform_order.model_dump())
             self.place_order(trader_order.model_dump())
             # let's create a transaction. it should be a bit different depending on type
-            if trader_order_type == OrderType.BID.value:
-                self.create_transaction( trader_order.model_dump(), platform_order.model_dump(), closure_price)
+            if trader_order_type == OrderType.BID:
+                self.create_transaction(trader_order.model_dump(), platform_order.model_dump(), closure_price)
             else:
                 self.create_transaction(platform_order.model_dump(), trader_order.model_dump(), closure_price)
 
@@ -559,7 +551,7 @@ class TradingSession:
             trader_order = trader_order.model_dump()
             traders_to_transactions_lookup[trader_id].append(
                 {'id': trader_order['id'], 'price': trader_order['price'],
-                 'type': 'ask' if trader_order['order_type'] == OrderType.ASK.value else 'bid',
+                 'type': trader_order['order_type'],
                  'amount': trader_order['amount']})
 
             await self.send_message_to_subgroup(traders_to_transactions_lookup)
@@ -579,7 +571,7 @@ class TradingSession:
                         minutes=self.duration
                 ):
                     logger.critical('Time limit reached, stopping...')
-                    self.active = False # here we stop accepting all incoming requests on placing new orders, cancelling etc.
+                    self.active = False  # here we stop accepting all incoming requests on placing new orders, cancelling etc.
                     await self.close_existing_book()
                     await self.send_broadcast({"type": "stop_trading"})
                     # Wait for each of the traders to report back their inventories

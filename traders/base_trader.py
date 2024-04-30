@@ -235,7 +235,7 @@ class BaseTrader:
             "action": ActionType.POST_NEW_ORDER.value,
             "amount": amount,
             "price": price,
-            "order_type": order_type.value,
+            "order_type": order_type,
         }
         await self.send_to_trading_system(new_order)
         logger.debug(f"Trader {self.id} posted new {order_type} order: {new_order}")
