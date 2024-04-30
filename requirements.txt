@@ -8,3 +8,4 @@ termcolor==2.4.0
 uvicorn==0.23.2
 websockets==11.0.3
 python-engineio==4.5.1
+mongoengine==0.28.2

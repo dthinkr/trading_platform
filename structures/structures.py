@@ -1,5 +1,7 @@
 from enum import Enum, IntEnum, StrEnum
 from pydantic import BaseModel, Field, ConfigDict
+from mongoengine import Document, IntField, BooleanField, DateTimeField, ListField, DictField, UUIDField, FloatField
+
 from typing import Optional
 from uuid import UUID, uuid4
 from datetime import datetime, timezone
@@ -17,6 +19,7 @@ GOALS = [-10, 0, 10]  # for now let's try a naive hardcoded approach to the goal
 class TradeDirection(str, Enum):
     BUY = 'buy'
     SELL = 'sell'
+
 
 class TraderCreationData(BaseModel):
     num_human_traders: int = Field(
@@ -46,7 +49,7 @@ class TraderCreationData(BaseModel):
     step: int = Field(
         default=1,
         title="Step for New Orders",
-        description="Step for new orders",)
+        description="Step for new orders", )
     activity_frequency: float = Field(
         default=1.0,
         title="Noise Trader: Activity Frequency",
@@ -148,11 +151,16 @@ class Order(BaseModel):
         use_enum_values = True  # This ensures that enum values are used in serialization
 
 
-class TransactionModel(BaseModel):
-    id: UUID = Field(default_factory=uuid4)
-    bid_order_id: UUID
-    ask_order_id: UUID
-    timestamp: datetime = Field(default_factory=now)
-    price: float
+class TransactionModel(Document):
+    id = UUIDField(primary_key=True, default=uuid.uuid4, binary=False)
+    trading_session_id = UUIDField(required=True, binary=False)  # Store as string
+    bid_order_id = UUIDField(required=True, binary=False)  # Store as string
+    ask_order_id = UUIDField(required=True, binary=False)  # Store as string
+    timestamp = DateTimeField(default=datetime.now)
+    price = FloatField(required=True)
 
 
+class Message(Document):
+    trading_session_id = UUIDField(required=True, binary=False)  # Assuming you want the UUID as a string
+    content = DictField(required=True)  # Store the entire message as a dictionary
+    timestamp = DateTimeField(default=datetime.now)  # Automatically set the timestamp when created

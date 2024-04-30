@@ -3,17 +3,14 @@ from datetime import datetime
 from functools import wraps
 import aio_pika
 from enum import Enum
-from pprint import pprint
-from enum import IntEnum
+from mongoengine import QuerySet
 from uuid import UUID
 from structures.structures import   ActionType, LobsterEventType, OrderType, Order
 from collections import defaultdict
 from typing import List, Dict
 import pandas as pd
 import numpy as np
-import asyncio
-import os
-import csv
+from bson import ObjectId
 from main_platform.custom_logger import setup_custom_logger
 
 from pydantic import BaseModel
@@ -24,7 +21,7 @@ logger = setup_custom_logger(__name__)
 dict_keys = type({}.keys())
 dict_values = type({}.values())
 DATA_PATH = 'data'
-LOBSTER_MONEY_CONSTANT = 1
+
 from datetime import timezone, datetime
 
 import asyncio
@@ -62,6 +59,8 @@ def now():
 
 class CustomEncoder(JSONEncoder):
     def default(self, obj):
+        if isinstance(obj, ObjectId):
+            return str(obj)
         if isinstance(obj, datetime):
             return obj.isoformat()
         if isinstance(obj, BaseModel):
@@ -76,8 +75,10 @@ class CustomEncoder(JSONEncoder):
             return list(obj)
         if isinstance(obj, UUID):
             return str(obj)
+        if isinstance(obj, QuerySet):
+            # Convert QuerySet to a list of dictionaries
+            return [doc.to_mongo().to_dict() for doc in obj]
         return JSONEncoder.default(self, obj)
-
 
 def ack_message(func):
     @wraps(func)

@@ -5,7 +5,7 @@ from pydantic import ValidationError
 
 from main_platform.custom_logger import setup_custom_logger
 from typing import List, Dict
-from structures import OrderStatus, OrderType, TransactionModel, Order, TraderType
+from structures import OrderStatus, OrderType, TransactionModel, Order, TraderType, Message
 import asyncio
 import pandas as pd
 import os
@@ -13,6 +13,11 @@ from main_platform.utils import CustomEncoder, now, if_active
 from asyncio import Lock, Event
 from datetime import datetime, timedelta, timezone
 from collections import defaultdict
+
+# setting mongodb
+from mongoengine import connect
+
+connect('trader', host='localhost', port=27017)
 
 
 rabbitmq_url = os.getenv('RABBITMQ_URL', 'amqp://localhost')
@@ -25,7 +30,7 @@ class TradingSession:
     start_time: datetime
     transactions = List[TransactionModel]
     all_orders = Dict[uuid.UUID, Dict]
-    buffered_orders = Dict[uuid.UUID, Dict]
+
 
     def __init__(self, duration, default_price=1000, default_spread=10, punishing_constant=1):
         self.active = False
@@ -41,8 +46,8 @@ class TradingSession:
 
         self.creation_time = now()
         self.all_orders = {}
-        self.buffered_orders = {}
-        self.transactions = []
+
+
         self.broadcast_exchange_name = f'broadcast_{self.id}'
         self.queue_name = f'trading_system_queue_{self.id}'
         self.trader_exchange = None
@@ -57,7 +62,14 @@ class TradingSession:
     @property
     def current_time(self):
         return datetime.now(timezone.utc)
-    
+
+    @property
+    def transactions(self):
+        # Fetch all TransactionModel objects that have the current TradingSession's ID
+        transactions = TransactionModel.objects(trading_session_id=self.id)
+        # Convert each transaction document into a dictionary for easier serialization
+        return [transaction.to_mongo().to_dict() for transaction in transactions]
+
     @property
     def mid_price(self) -> float:
         return self.current_price or self.default_price
@@ -187,9 +199,13 @@ class TradingSession:
                 'history': self.transactions,
                 'spread': spread,
                 'midpoint': midpoint,
-
                 'transaction_price': self.transaction_price,
             })
+            message_document = Message(
+                trading_session_id=self.id,  # Assuming self.id is the UUID of the TradingSession
+                content=message
+            )
+            message_document.save()
 
         exchange = await self.channel.get_exchange(self.broadcast_exchange_name)
         await exchange.publish(
@@ -282,17 +298,19 @@ class TradingSession:
 
         # Create a transaction object with automatic id and timestamp generation
         transaction = TransactionModel(
+            trading_session_id=self.id,  # Assuming session_id is the UUID of the TradingSession
             bid_order_id=bid['id'],
             ask_order_id=ask['id'],
             price=transaction_price
         )
+        transaction.save()
 
         # Append to self.transactions
-        self.transactions.append(transaction.model_dump())
+
 
 
         # Log the transaction creation
-        logger.info(f"Transaction created: {transaction.model_dump()}")
+        logger.info(f"Transaction created: {transaction}")
 
         # Return trader IDs involved in the transaction for further processing
         return ask['trader_id'], bid['trader_id'], transaction
@@ -363,7 +381,7 @@ class TradingSession:
             traders_to_transactions_lookup[bid['trader_id']].append(
                 {'id': bid['id'], 'price': bid['price'], 'type': 'bid', 'amount': bid['amount']})
 
-            transactions.append(transaction.model_dump())
+            transactions.append(transaction)
 
         # if transactions are not empty (so there are new transactions) let's form subgroup_broadcast message
         # that will contain to_whom (traders who participated in transactions) and the list of transactions and add them to res
