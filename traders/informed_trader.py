@@ -83,6 +83,7 @@ class InformedTrader(BaseTrader):
         while not self._stop_requested.is_set():
             try:
                 await self.act()
+                # print("InformedTrader run method")
                 await asyncio.sleep(1)
 
             except asyncio.CancelledError:

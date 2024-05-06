@@ -7,7 +7,7 @@ from main_platform.custom_logger import setup_custom_logger
 from typing import List, Dict
 from structures import OrderStatus, OrderType, TransactionModel, Order, TraderType, Message
 import asyncio
-import pandas as pd
+import polars as pl
 import os
 from main_platform.utils import CustomEncoder, now, if_active
 from asyncio import Lock, Event
@@ -91,23 +91,29 @@ class TradingSession:
 
     @property
     def order_book(self):
-        active_orders_df = pd.DataFrame(list(self.active_orders.values()))
+        active_orders_df = pl.DataFrame(list(self.active_orders.values()))
         # Initialize empty order book
         order_book = {'bids': [], 'asks': []}
-        if active_orders_df.empty:
+        if active_orders_df.height == 0:
             return order_book
 
-        active_bids = active_orders_df[(active_orders_df['order_type'] == OrderType.BID)]
-        active_asks = active_orders_df[(active_orders_df['order_type'] == OrderType.ASK)]
-        if not active_bids.empty:
-            bids_grouped = active_bids.groupby('price').amount.sum().reset_index().sort_values(by='price',
-                                                                                               ascending=False)
-            order_book['bids'] = bids_grouped.rename(columns={'price': 'x', 'amount': 'y'}).to_dict('records')
+        # Filter for bids and asks
+        active_bids = active_orders_df.filter(pl.col('order_type') == OrderType.BID)
+        active_asks = active_orders_df.filter(pl.col('order_type') == OrderType.ASK)
+
+        # Aggregate and format bids if there are any
+        if not active_bids.is_empty():
+            bids_grouped = active_bids.groupby('price').agg([
+                pl.col('amount').sum().alias('amount_sum')
+            ]).sort(by='price', descending=True)
+            order_book['bids'] = bids_grouped.rename({'price': 'x', 'amount_sum': 'y'}).to_dicts()
 
         # Aggregate and format asks if there are any
-        if not active_asks.empty:
-            asks_grouped = active_asks.groupby('price').amount.sum().reset_index().sort_values(by='price')
-            order_book['asks'] = asks_grouped.rename(columns={'price': 'x', 'amount': 'y'}).to_dict('records')
+        if not active_asks.is_empty():
+            asks_grouped = active_asks.groupby('price').agg([
+                pl.col('amount').sum().alias('amount_sum')
+            ]).sort(by='price')
+            order_book['asks'] = asks_grouped.rename({'price': 'x', 'amount_sum': 'y'}).to_dicts()
 
         return order_book
 
@@ -164,17 +170,18 @@ class TradingSession:
             logger.error(f"An error occurred during cleanup: {e}")
 
     def get_active_orders_to_broadcast(self):
-        # TODO. PHILIPP. It's not optimal but we'll rewrite it anyway when we convert form in-memory to DB
-        active_orders_df = pd.DataFrame(list(self.active_orders.values()))
-        # lets keep only id, trader_id, order_type, amount, price
-        if active_orders_df.empty:
-            return []
-        active_orders_df = active_orders_df[['id', 'trader_id', 'order_type', 'amount', 'price', 'timestamp']]
-        # TODO: PHILIPP:  I dont like that we don't use structure order type but hardcode it here.
-        # active_orders_df['order_type'] = active_orders_df['order_type'].map({-1: 'ask', 1: 'bid'})
+        # Convert the active orders dictionary to a Polars DataFrame
+        active_orders_df = pl.DataFrame(list(self.active_orders.values()))
 
-        # convert to list of dicts
-        res = active_orders_df.to_dict('records')
+        # Check if the DataFrame is empty
+        if active_orders_df.height == 0:
+            return []
+
+        # Select the necessary columns
+        active_orders_df = active_orders_df.select(['id', 'trader_id', 'order_type', 'amount', 'price', 'timestamp'])
+
+        # Convert to list of dictionaries
+        res = active_orders_df.to_dicts()
         return res
 
     async def send_broadcast(self, message: dict):

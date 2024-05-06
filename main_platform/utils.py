@@ -8,7 +8,7 @@ from uuid import UUID
 from structures.structures import   ActionType, LobsterEventType, OrderType, Order, str_to_order_type
 from collections import defaultdict
 from typing import List, Dict
-import pandas as pd
+import polars as pl
 import numpy as np
 from bson import ObjectId
 from main_platform.custom_logger import setup_custom_logger
@@ -89,106 +89,96 @@ def ack_message(func):
     return wrapper
 
 
+
 def expand_dataframe(df, max_depth=10, step=1, reverse=False, default_price=0):
     """
-    Expand a DataFrame to a specified max_depth.
+    Expand a DataFrame to a specified max_depth using Polars.
 
     Parameters:
-        df (DataFrame): DataFrame containing 'price' and 'amount' columns.
+        df (pl.DataFrame): DataFrame containing 'price' and 'amount' columns.
         max_depth (int, optional): Maximum length to which the DataFrame should be expanded. Default is 10.
         step (int, optional): Step to be used for incrementing the price levels. Default is 1.
         reverse (bool, optional): Whether to reverse the order of the DataFrame. Default is False.
         default_price (float, optional): Default starting price if DataFrame is empty. Default is 0.
 
     Returns:
-        DataFrame: Expanded DataFrame.
+        pl.DataFrame: Expanded DataFrame.
     """
 
     # Check if DataFrame is empty
-    if df.empty:
-        df = pd.DataFrame({'price': [default_price], 'amount': [0]})
+    if df.height == 0:
+        df = pl.DataFrame({'price': [default_price], 'amount': [0]})
 
     # Sort the DataFrame based on 'price'
-    df = df.sort_values('price', ascending=not reverse)
-
-    # Sort the DataFrame based on 'price'
-    df.sort_values('price', ascending=not reverse, inplace=True)
+    df = df.sort('price', descending=reverse)
 
     # Calculate the number of additional rows needed
-    additional_rows_count = max_depth - len(df)
+    additional_rows_count = max_depth - df.height
 
     if additional_rows_count <= 0:
-        return df.iloc[:max_depth]
+        return df.slice(0, max_depth)
 
     # Determine the direction of the step based on 'reverse'
     step_direction = -1 if reverse else 1
 
     # Generate additional elements for price levels
-    last_price = df['price'].iloc[-1 if reverse else 0]
-    existing_prices = set(df['price'].values)
+    last_price = df['price'][df.height - 1] if reverse else df['price'][0]
+    existing_prices = set(df['price'].to_list())
     additional_price_elements = []
+    additional_amount_elements = []
 
     i = 1
     while len(additional_price_elements) < additional_rows_count:
         new_price = last_price + i * step * step_direction
         if new_price not in existing_prices:
             additional_price_elements.append(new_price)
+            additional_amount_elements.append(0)
             existing_prices.add(new_price)
         i += 1
-    # Generate additional elements for amount (all zeros)
-    additional_amount_elements = [0] * additional_rows_count
 
     # Create a DataFrame for the additional elements
-    df_additional = pd.DataFrame({'price': additional_price_elements, 'amount': additional_amount_elements})
+    df_additional = pl.DataFrame({'price': additional_price_elements, 'amount': additional_amount_elements})
 
     # Concatenate the original DataFrame with the additional elements
-    df_expanded = pd.concat([df, df_additional]).reset_index(drop=True)
+    df_expanded = pl.concat([df, df_additional])
 
     # Sort the DataFrame based on 'price' if 'reverse' is True
-    if reverse:
-        df_expanded.sort_values('price', ascending=False, inplace=True)
-        df_expanded.reset_index(drop=True, inplace=True)
+    df_expanded = df_expanded.sort('price', descending=reverse)
 
     return df_expanded
 
-
 def convert_to_book_format(active_orders, levels_n=10, default_price=2000):
-    """ That's the OLD function for Lobster format. I keep it here for now but that all should be deeply rewritten"""
+    """ Convert active orders to book format using Polars. """
     # Create a DataFrame from the list of active orders
-
     if active_orders:
-        df = pd.DataFrame(active_orders)
+        df = pl.DataFrame(active_orders)
     else:
         # Create an empty DataFrame with default columns
-        df = pd.DataFrame(columns=[field for field in Order.__annotations__])
-    df['price'] = df['price'].round(5)
-    df = df.astype({"price": int, "amount": int})
+        df = pl.DataFrame([{}])
+
+    # Ensure correct data types
+    df = df.with_columns([
+        pl.col('price').round(5).cast(pl.Int64),
+        pl.col('amount').cast(pl.Int64),
+        pl.col('order_type').cast(pl.Utf8)  # Ensure 'order_type' is string
+    ])
 
     # Aggregate orders by price, summing the amounts
-    df_asks = df[df['order_type'] == 'ask'].groupby('price')['amount'].sum().reset_index().sort_values(
-        by='price').head(
-        levels_n)
-    df_bids = df[df['order_type'] == 'bid'].groupby('price')['amount'].sum().reset_index().sort_values(
-        by='price',
-        ascending=False).head(
-        levels_n)
+    df_asks = df.filter(pl.col('order_type') == 'ask').groupby('price').agg(pl.col('amount').sum()).sort('price').head(levels_n)
+    df_bids = df.filter(pl.col('order_type') == 'bid').groupby('price').agg(pl.col('amount').sum()).sort('price', descending=True).head(levels_n)
 
     df_asks = expand_dataframe(df_asks, max_depth=10, step=1, reverse=False, default_price=default_price)
     df_bids = expand_dataframe(df_bids, max_depth=10, step=1, reverse=True, default_price=default_price - 1)
 
-    ask_prices = df_asks['price'].tolist()
-
-    ask_quantities = df_asks['amount'].tolist()
-    bid_prices = df_bids['price'].tolist()
-
-    bid_quantities = df_bids['amount'].tolist()
+    ask_prices = df_asks['price'].to_list()
+    ask_quantities = df_asks['amount'].to_list()
+    bid_prices = df_bids['price'].to_list()
+    bid_quantities = df_bids['amount'].to_list()
 
     # Interleave the lists using np.ravel and np.column_stack
     interleaved_array = np.ravel(np.column_stack((ask_prices, ask_quantities, bid_prices, bid_quantities)))
     interleaved_array = interleaved_array.astype(np.float64)
     return interleaved_array
-
-
 
 def convert_to_noise_state(active_orders: List[Dict]) -> Dict:
     noise_state = {

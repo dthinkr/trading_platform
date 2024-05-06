@@ -131,8 +131,10 @@ class NoiseTrader(BaseTrader):
         """
         while not self._stop_requested.is_set():
             try:
+                # print('im working: noise trader')
                 await self.act()
 
+                
                 await asyncio.sleep(
                     self.cooling_interval(target=self.activity_frequency)
                 )

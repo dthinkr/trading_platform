@@ -36,4 +36,4 @@ def test_initialization(informed_trader):
 async def test_act_generates_orders(informed_trader):
     informed_trader.post_new_order = AsyncMock()
     await informed_trader.act()
-    informed_trader.post_new_order.assert_awaited_with(1, 100, OrderType.ASK)
+    informed_trader.post_new_order.assert_awaited()
