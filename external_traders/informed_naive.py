@@ -11,20 +11,17 @@ settings = {
 # (1) time period of the round (e.g. 3 minutes)
 # (2) trade intensity (e.g. she will trade 30% of the total orders)
 # (3) to buy or sell
-settings_informed = {
-    "time_period_in_min": 5,
-    "trade_intensity": 0.10,
-    "direction": "sell",
-}
+# (4) noise trader frequency activity
+settings_informed = {'time_period_in_min': 5, 'NoiseTrader_frequency_activity': 1,
+                     'trade_intensity': 0.10, 'direction': 'sell'}
 
 # given that all the rest should run without any change
 
-
 def update_settings_informed(settings_informed):
     settings_informed["total_seconds"] = settings_informed["time_period_in_min"] * 60
-    settings_informed["inv"] = int(
-        settings_informed["total_seconds"] * settings_informed["trade_intensity"]
-    )
+    settings_informed['noise_activity'] = int(settings_informed['total_seconds'] * settings_informed['NoiseTrader_frequency_activity'] )
+    settings_informed['inv'] = int(settings_informed['noise_activity'] * settings_informed['trade_intensity'] / (1 - settings_informed['trade_intensity']))
+
     settings_informed["sn"] = (
         settings_informed["total_seconds"] - 10
     ) / settings_informed["inv"]

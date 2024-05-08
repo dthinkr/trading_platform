@@ -16,7 +16,8 @@ from analysis.parameterize import generate_and_store_parameters, plot_parameters
 from main_platform.custom_logger import setup_custom_logger
 
 # file
-with open("analysis/config.yaml", "r") as file:
+# file
+with open("analysis/config.yaml", "r", encoding="utf-8") as file:
     config = yaml.safe_load(file)
 DATA_FILE = tempfile.NamedTemporaryFile(suffix=".parquet", delete=True).name
 TABLE_RES = config["TABLE_RES"]
@@ -102,14 +103,14 @@ def create_trading_session(trader_data: dict) -> dict:
 async def create_and_wait_session(trader_data: dict) -> None:
     session_info = create_trading_session(trader_data)
     session_id = session_info.get("data", {}).get("trading_session_uuid")
-    logger.info(f"Trading Session {session_id} Initiated")
+    logger.info("Trading Session %s Initiated", session_id)
 
     simulation_length = trader_data.get("trading_day_duration", 1)
     buffer_time = 0.05
     total_wait_time = (simulation_length + buffer_time) * 60
 
     await asyncio.sleep(total_wait_time)
-    logger.info(f"Trading Session {session_id} Completed")
+    logger.info("Trading Session %s Completed", session_id)
 
     write_to_duckdb.fn(session_id, trader_data)
 
