@@ -184,7 +184,7 @@ class TradingSession:
         res = active_orders_df.to_dicts()
         return res
 
-    async def send_broadcast(self, message: dict):
+    async def send_broadcast(self, message: dict, incoming_message=None):
         # TODO: PHILIPP: let's think how to make this more efficient but for simplicity
         # TODO we inject the current order book, active orders and transaction history into every broadcasted message
         # TODO: also important thing: we now send all active orders to everyone. We may think about possiblity to
@@ -204,6 +204,7 @@ class TradingSession:
                 'spread': spread,
                 'midpoint': midpoint,
                 'transaction_price': self.transaction_price,
+                'incoming_message': incoming_message
             })
             message_document = Message(
                 trading_session_id=self.id,  # Assuming self.id is the UUID of the TradingSession
@@ -483,7 +484,7 @@ class TradingSession:
                     #         TODO.PHILIPP. IMPORTANT! let's at this stage also send a broadcast message to all traders with updated info.
                     # IT IS FAR from optimal but for now we keep it simple. We'll refactor it later.
                     if not result.get('individual', False):
-                        await self.send_broadcast(message=dict(text="book is updated"))
+                        await self.send_broadcast(message=dict(text="book is updated"), incoming_message=incoming_message)
 
 
 
