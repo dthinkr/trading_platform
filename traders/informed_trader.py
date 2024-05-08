@@ -32,7 +32,7 @@ class InformedTrader(BaseTrader):
         self.get_signal_informed = get_signal_informed
         self.get_order_to_match = get_order_to_match
 
-    async def act(self):
+    async def act(self) -> None:
         """
         Loads signal and generates orders.
         """
@@ -76,7 +76,7 @@ class InformedTrader(BaseTrader):
         except Exception as e:
             print(e)
 
-    async def run(self):
+    async def run(self) -> None:
         """
         trades at each step.
         """

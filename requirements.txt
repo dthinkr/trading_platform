@@ -10,3 +10,5 @@ websockets==11.0.3
 python-engineio==4.5.1
 mongoengine==0.28.2
 polars==0.20.20
+duckdb==0.9.2
+SALib==1.4.7

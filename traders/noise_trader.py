@@ -43,7 +43,7 @@ class NoiseTrader(BaseTrader):
         interval = np.random.exponential(target)
         return interval
 
-    async def act(self):
+    async def act(self) -> None:
         """
         generates action based on active orders in the market.
         """
@@ -94,7 +94,7 @@ class NoiseTrader(BaseTrader):
 
             await self.process_order(order)
 
-    async def process_order(self, order):
+    async def process_order(self, order) -> None:
         if order["action_type"] == "add_order":
             order_type = order["order_type"]
             amount, price = self.order_amount, order["price"]
@@ -118,14 +118,14 @@ class NoiseTrader(BaseTrader):
                 await self.send_cancel_order_request(order_id)
                 logger.info("CANCELLED %s ID %s", order["order_type"], order_id[:10])
 
-    async def warm_up(self, number_of_warmup_orders: int):
+    async def warm_up(self, number_of_warmup_orders: int) -> None:
         """
         places warmup orders to poulate order book.
         """
         for _ in range(number_of_warmup_orders):
             await self.act()
 
-    async def run(self):
+    async def run(self) -> None:
         """
         trades at cooling intervals.
         """
