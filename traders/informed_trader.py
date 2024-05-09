@@ -66,13 +66,14 @@ class InformedTrader(BaseTrader):
                         # if the order to be matched is an ask, we send a bid order to match that ask
                         elif order_type == OrderType.ASK:
                             await self.post_new_order(amount, price, OrderType.BID)
-                        logger.critical(
-                            "MATCHING %s AT %s AMOUNT %s AT TIME %s",
-                            order_type,
-                            price,
-                            amount,
-                            elapsed_time_sec,
-                        )
+                        # logging
+                        # logger.critical(
+                        #     "MATCHING %s AT %s AMOUNT %s AT TIME %s",
+                        #     order_type,
+                        #     price,
+                        #     amount,
+                        #     elapsed_time_sec,
+                        # )
         except Exception as e:
             print(e)
 

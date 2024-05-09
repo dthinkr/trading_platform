@@ -61,6 +61,11 @@ class TraderCreationData(BaseModel):
         title="Noise Trader: Order Amount",
         description="Order amount for noise traders",
     )
+    passive_order_probability: float = Field(
+        default=0.7,
+        title="Noise Trader: Passive Order Probability",
+        description="Probability of noise traders to place passive orders",
+    )
     trade_intensity_informed: float = Field(
         default=0.1,
         title="Informed Trader: Trade Intensity",
