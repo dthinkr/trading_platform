@@ -1,5 +1,6 @@
+import itertools
 import json
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 import matplotlib.pyplot as plt
 from SALib.sample import sobol
@@ -26,27 +27,34 @@ def store_parameters(filename: str, parameters: List[Dict[str, float]]) -> None:
 
 
 def generate_and_store_parameters(
-    bounds: Dict[str, Tuple[float, float]],
+    bounds: Dict[str, Union[Tuple[float, float], List[float]]],
     resolution: int,
     filepath: Optional[str] = None,
 ) -> Optional[List[Dict[str, float]]]:
-    sobol_params = generate_sobol_parameters(bounds, resolution)
-
-    # convert, handle types
-    parameter_dicts = []
-    for params in sobol_params:
-        param_dict = {}
-        for name, value in zip(bounds.keys(), params):
-            # handle edge cases
-            if name == "trade_direction_informed":
-                # map 0 to 'sell' and 1 to 'buy'
-                param_dict[name] = "buy" if round(value) == 1 else "sell"
-            elif isinstance(bounds[name][0], int) and isinstance(bounds[name][1], int):
-                param_dict[name] = int(round(value))
-            else:
-                # remains unchanged
-                param_dict[name] = value
-        parameter_dicts.append(param_dict)
+    if all(isinstance(b, list) for b in bounds.values()):
+        # Generate all combinations of parameter values if they are given as lists
+        keys = list(bounds.keys())
+        values_product = list(itertools.product(*bounds.values()))
+        parameter_dicts = [
+            {key: value for key, value in zip(keys, values)}
+            for values in values_product
+        ]
+    else:
+        # Generate Sobol parameters if bounds are given as tuples
+        sobol_params = generate_sobol_parameters(bounds, resolution)
+        parameter_dicts = []
+        for params in sobol_params:
+            param_dict = {}
+            for name, value in zip(bounds.keys(), params):
+                if name == "trade_direction_informed":
+                    param_dict[name] = "buy" if round(value) == 1 else "sell"
+                elif isinstance(bounds[name][0], int) and isinstance(
+                    bounds[name][1], int
+                ):
+                    param_dict[name] = int(round(value))
+                else:
+                    param_dict[name] = value
+            parameter_dicts.append(param_dict)
 
     validated_params = [
         TraderCreationData(**params).dict() for params in parameter_dicts

@@ -4,5 +4,22 @@ TABLE_REF: "session_parameter"
 TABLE_RES: "trading_data"
 DATASET: "trader"
 
-NUM_SERVERS: 30
+DATA_DIR: "analysis/results"
+
+NUM_SERVERS: 3
 UVICORN_STARTING_PORT: 8000
+
+TYPE_MAPPING:
+  ## at the moment, the update type within the simulation is too broad, 
+  ## we need to split it into multiple types
+  update: 1  # Submission of a new limit order
+  cancel: 2  # Cancellation (partial deletion of a limit order)
+  delete: 3  # Deletion (total deletion of a limit order)
+  execute_visible: 4  # Execution of a visible limit order
+  execute_hidden: 5  # Execution of a hidden limit order
+  cross_trade: 6  # Indicates a cross trade, e.g., auction trade
+  stop_trading: 7  # Trading halt indicator
+
+
+MESSAGE_COLUMNS: ['trading_session_id','Time', 'Event Type', 'Order ID', 'Size', 'Price', 'Direction']
+LOBSTER_BOOK_COLUMN: 'LOBSTER_BOOK'

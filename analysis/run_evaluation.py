@@ -11,8 +11,8 @@ from pymongo import MongoClient
 
 from analysis.parameterize import generate_and_store_parameters
 
-from .utilities import flatten_item, load_config, process_df
 from .run_server import start_servers
+from .utilities import flatten_item, load_config, process_df
 
 # file
 DATA_FILE = tempfile.NamedTemporaryFile(suffix=".parquet", delete=True).name
@@ -25,12 +25,25 @@ con.execute(
 )
 
 # params
+# Bounds can be defined as all lists for exact parameter combinations 
+# or all ranges (tuples) for Sobol sampling. 
+# Lists trigger simple combinatory simulations, while tuples use Sobol sampling.
+# example usage for range (SOBOL).
+# bounds = {
+#     "order_amount": (1, 10),
+#     "trade_intensity_informed": (0.05, 0.3),
+#     "passive_order_probability": (0.5, 0.9),
+# }
+
+# example usage for list (combinatory).
 bounds = {
-    "order_amount": (1, 10),
-    "trade_intensity_informed": (0.05, 0.3),
-    "passive_order_probability": (0.5, 0.9),
+    "order_amount": [1, 10],
+    "trade_intensity_informed": [0.05, 0.3],
+    "passive_order_probability": [0.5, 0.9],
 }
-resolution = 4
+
+
+resolution = 4  # (2p+2) * 2^n, n is resolution, p is number of tweaked parameters
 
 
 # flows and tasks
@@ -109,6 +122,7 @@ async def handle_server_sessions(batch, port):
     for trader_data in batch:
         await create_and_wait_session(trader_data, port)
 
+
 @flow
 async def run_trading_sessions(params: list[dict]) -> None:
     num_servers = CONFIG.NUM_SERVERS
@@ -124,7 +138,7 @@ async def run_trading_sessions(params: list[dict]) -> None:
     await asyncio.gather(*tasks)
 
 
-def main():
+def run_evaluation():
     params = generate_and_store_parameters(bounds=bounds, resolution=resolution)
     asyncio.run(run_trading_sessions(params))
     ingest()
@@ -132,4 +146,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    run_evaluation()

@@ -33,7 +33,7 @@ class BaseTrader:
 
         self._stop_requested = asyncio.Event()  # this one we need only for traders which should be kept active in loop. For instance human traders don't need that
         self.trader_type = trader_type.value
-        self.id = str(uuid.uuid4())
+        self.id = f"{trader_type.name}_{str(uuid.uuid4())}" # added identifier of trader type
         logger.info(f"Trader of type {self.trader_type} created with UUID: {self.id}")
         self.connection = None
         self.channel = None

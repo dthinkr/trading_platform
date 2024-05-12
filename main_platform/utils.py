@@ -5,7 +5,7 @@ import aio_pika
 from enum import Enum
 from mongoengine import QuerySet
 from uuid import UUID
-from structures.structures import   ActionType, LobsterEventType, OrderType, Order, str_to_order_type
+from structures.structures import  ActionType, LobsterEventType, OrderType, Order, str_to_order_type
 from collections import defaultdict
 from typing import List, Dict
 import polars as pl
@@ -150,22 +150,23 @@ def expand_dataframe(df, max_depth=10, step=1, reverse=False, default_price=0):
 def convert_to_book_format(active_orders, levels_n=10, default_price=2000):
     """ Convert active orders to book format using Polars. """
     # Create a DataFrame from the list of active orders
-    if active_orders:
+    if isinstance(active_orders, (list, dict)):
         df = pl.DataFrame(active_orders)
+    elif isinstance(active_orders, pl.DataFrame):
+        df = active_orders
     else:
-        # Create an empty DataFrame with default columns
-        df = pl.DataFrame([{}])
+        raise ValueError("active_orders must be a list, dict, or Polars DataFrame")
 
     # Ensure correct data types
     df = df.with_columns([
         pl.col('price').round(5).cast(pl.Int64),
         pl.col('amount').cast(pl.Int64),
-        pl.col('order_type').cast(pl.Utf8)  # Ensure 'order_type' is string
+        pl.col('order_type').cast(pl.Int64)
     ])
 
     # Aggregate orders by price, summing the amounts
-    df_asks = df.filter(pl.col('order_type') == 'ask').groupby('price').agg(pl.col('amount').sum()).sort('price').head(levels_n)
-    df_bids = df.filter(pl.col('order_type') == 'bid').groupby('price').agg(pl.col('amount').sum()).sort('price', descending=True).head(levels_n)
+    df_asks = df.filter(pl.col('order_type') == OrderType.ASK.value).groupby('price').agg(pl.col('amount').sum()).sort('price').head(levels_n)
+    df_bids = df.filter(pl.col('order_type') == OrderType.BID.value).groupby('price').agg(pl.col('amount').sum()).sort('price', descending=True).head(levels_n)
 
     df_asks = expand_dataframe(df_asks, max_depth=10, step=1, reverse=False, default_price=default_price)
     df_bids = expand_dataframe(df_bids, max_depth=10, step=1, reverse=True, default_price=default_price - 1)
