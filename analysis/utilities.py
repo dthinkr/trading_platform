@@ -74,16 +74,13 @@ def process_df(df: pl.DataFrame) -> pl.DataFrame:
     return df
 
 
-def delete_all_tables():
-    # Establish connections
+def delete_all_tables() -> None:
     con = duckdb.connect(f"md:{CONFIG.DATASET}?motherduck_token={CONFIG.MD_TOKEN}")
     mongo_client = MongoClient("localhost", 27017)
 
-    # Delete tables in DuckDB
     con.execute(f"DROP TABLE IF EXISTS {CONFIG.TABLE_REF}")
     con.execute(f"DROP TABLE IF EXISTS {CONFIG.TABLE_RES}")
 
-    # Check if tables are deleted in DuckDB
     tables_deleted = con.execute("SHOW TABLES").fetchall()
     if (CONFIG.TABLE_REF,) not in tables_deleted and (
         CONFIG.TABLE_RES,
@@ -92,11 +89,9 @@ def delete_all_tables():
     else:
         print("Error: DuckDB tables not deleted.")
 
-    # Delete collection in MongoDB
     db = mongo_client["trader"]
     db.message.drop()
 
-    # Check if collection is deleted in MongoDB
     if "message" not in db.list_collection_names():
         print("MongoDB collection deleted successfully.")
     else:
