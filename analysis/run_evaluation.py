@@ -30,18 +30,18 @@ con.execute(
 # or all ranges (tuples) for Sobol sampling. 
 # Lists trigger simple combinatory simulations, while tuples use Sobol sampling.
 # example usage for range (SOBOL).
-# bounds = {
-#     "order_amount": (1, 10),
-#     "trade_intensity_informed": (0.05, 0.3),
-#     "passive_order_probability": (0.5, 0.9),
-# }
+bounds = {
+    "order_amount": (1, 10),
+    "trade_intensity_informed": (0.05, 0.3),
+    "passive_order_probability": (0.5, 0.9),
+}
 
 # example usage for list (combinatory).
-bounds = {
-    "order_amount": [1, 10],
-    "trade_intensity_informed": [0.05, 0.3],
-    "passive_order_probability": [0.5, 0.9],
-}
+# bounds = {
+#     "order_amount": [1, 10],
+#     "trade_intensity_informed": [0.05, 0.3],
+#     "passive_order_probability": [0.5, 0.9],
+# }
 
 
 resolution = 4  # (2p+2) * 2^n, n is resolution, p is number of tweaked parameters
@@ -57,7 +57,7 @@ def write_to_duckdb(session_id: str, trader_data: dict) -> None:
     )
 
 
-def ingest() -> None:
+def ingest() -> pl.DataFrame:
     table_exists = (
         con.execute(
             f"SELECT count(*) FROM information_schema.tables WHERE table_name = '{CONFIG.TABLE_RES}'"
@@ -98,6 +98,8 @@ def ingest() -> None:
             con.execute(
                 f"CREATE TABLE {CONFIG.TABLE_RES} AS SELECT * FROM read_parquet('{DATA_FILE}')"
             )
+    
+    return df
 
 
 def create_trading_session(trader_data: dict, port: int) -> dict:
