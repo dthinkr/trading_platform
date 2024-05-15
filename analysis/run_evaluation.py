@@ -1,7 +1,6 @@
 import asyncio
 import datetime
 import json
-import tempfile
 
 import duckdb
 import polars as pl
@@ -11,11 +10,9 @@ from pymongo import MongoClient
 
 from analysis.parameterize import generate_and_store_parameters
 
-from .run_server import start_servers
 from .utilities import flatten_item, load_config, process_df
 
 # file
-DATA_FILE = tempfile.NamedTemporaryFile(suffix=".parquet", delete=True).name
 CONFIG = load_config()
 
 # cloud_db
@@ -30,18 +27,16 @@ con.execute(
 # or all ranges (tuples) for Sobol sampling. 
 # Lists trigger simple combinatory simulations, while tuples use Sobol sampling.
 # example usage for range (SOBOL).
-bounds = {
-    "order_amount": (1, 10),
-    "trade_intensity_informed": (0.05, 0.3),
-    "passive_order_probability": (0.5, 0.9),
-}
+# bounds = {
+#     "trade_intensity_informed": (0.05, 0.3),
+#     "passive_order_probability": (0.5, 0.9),
+# }
 
 # example usage for list (combinatory).
-# bounds = {
-#     "order_amount": [1, 10],
-#     "trade_intensity_informed": [0.05, 0.3],
-#     "passive_order_probability": [0.5, 0.9],
-# }
+bounds = {
+    "trade_intensity_informed": [0.05, 0.3],
+    "passive_order_probability": [0.5, 0.9],
+}
 
 
 resolution = 4  # (2p+2) * 2^n, n is resolution, p is number of tweaked parameters
@@ -88,15 +83,21 @@ def ingest() -> pl.DataFrame:
     df = pl.DataFrame(flattened_data)
 
     if not df.is_empty():
+
+        # refill the content column as empty. 
+        if 'content' not in df.columns:
+            content_series = pl.Series(name='content', values=[None] * len(df))
+            df.insert_column(1, content_series)
+
         df = process_df(df)
-        df.write_parquet(DATA_FILE)
+        df.write_parquet(CONFIG.DATA_FILE)
         if table_exists:
             con.execute(
-                f"INSERT INTO {CONFIG.TABLE_RES} SELECT * FROM read_parquet('{DATA_FILE}')"
+                f"INSERT INTO {CONFIG.TABLE_RES} SELECT * FROM read_parquet('{CONFIG.DATA_FILE}')"
             )
         else:
             con.execute(
-                f"CREATE TABLE {CONFIG.TABLE_RES} AS SELECT * FROM read_parquet('{DATA_FILE}')"
+                f"CREATE TABLE {CONFIG.TABLE_RES} AS SELECT * FROM read_parquet('{CONFIG.DATA_FILE}')"
             )
     
     return df

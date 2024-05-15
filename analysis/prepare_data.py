@@ -46,7 +46,7 @@ def lobster_message_time(df_res: pl.DataFrame) -> pl.DataFrame:
     if "Time" not in df_res.columns:
         df_res = df_res.with_columns(
             pl.col("timestamp")
-            .str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%.f", strict=False)
+            .str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S.%f", strict=False)
             .alias("Time")
         )
     min_timestamps = (

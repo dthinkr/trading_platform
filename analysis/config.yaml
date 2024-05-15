@@ -3,7 +3,7 @@ MD_TOKEN: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzZXNzaW9uIjoidmVudm9vb28uZ21h
 TABLE_REF: "session_parameter"
 TABLE_RES: "trading_data"
 DATASET: "trader"
-
+DATA_FILE: "analysis/results/new_run_data.parquet"
 DATA_DIR: "analysis/results"
 
 NUM_SERVERS: 30
