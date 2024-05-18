@@ -59,7 +59,7 @@ def run_lobster(max_depth: int = 10) -> pd.DataFrame:
     return result_df
 
 
-def pick_one(max_depth: int = 10, trading_session_id: str = None) -> pd.DataFrame:
+def pick_one(trading_session_id: str = None, max_depth: int = 10) -> pd.DataFrame:
     df = run_lobster(max_depth)
     if trading_session_id:
         filtered_df = df[df["trading_session_id"] == trading_session_id]
