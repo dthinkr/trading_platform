@@ -3,7 +3,7 @@ import random
 import numpy as np
 from structures import OrderType, TraderType
 from main_platform.utils import (
-    convert_to_book_format,
+    convert_to_book_format_new,
     convert_to_noise_state,
     convert_to_trader_actions,
 )
@@ -35,6 +35,8 @@ class NoiseTrader(BaseTrader):
         self.get_signal_noise = get_signal_noise
         self.get_noise_rule_unif = get_noise_rule_unif
         self.current_variance = 5.0
+        self.order_list = [(2000, OrderType.BID), (2000, OrderType.ASK), (2001, OrderType.BID)]
+        self.order_index = 0
 
     def cooling_interval(self, target: float) -> float:
         """
@@ -47,7 +49,8 @@ class NoiseTrader(BaseTrader):
         """
         generates action based on active orders in the market.
         """
-        if not self.active_orders:
+        if not self.order_book:
+            logger.critical('%s', self.order_book)
             await self.post_new_order(
                 self.order_amount,
                 self.settings["initial_price"],
@@ -55,7 +58,7 @@ class NoiseTrader(BaseTrader):
             )
             return
 
-        book_format = convert_to_book_format(self.active_orders)
+        book_format = convert_to_book_format_new(self.order_book)
         noise_state = convert_to_noise_state(self.orders)
         signal_noise = self.get_signal_noise(
             signal_state=None, settings_noise=self.settings_noise
@@ -65,12 +68,8 @@ class NoiseTrader(BaseTrader):
         )
         orders = convert_to_trader_actions(noise_orders)
 
-        bid_count, ask_count = 0, 0
-        for order in self.active_orders:
-            if order["order_type"] == OrderType.BID:
-                bid_count += 1
-            elif order["order_type"] == OrderType.ASK:
-                ask_count += 1
+        bid_count = len(self.order_book['bids'])
+        ask_count = len(self.order_book['asks'])
 
         order_type_override = None
         order_type = None
@@ -91,7 +90,6 @@ class NoiseTrader(BaseTrader):
         for order in orders:
             if order_type_override is not None:
                 order["order_type"] = order_type_override
-
             await self.process_order(order)
 
     async def process_order(self, order) -> None:
@@ -122,8 +120,14 @@ class NoiseTrader(BaseTrader):
         """
         places warmup orders to poulate order book.
         """
-        for _ in range(number_of_warmup_orders):
-            await self.act()
+        pass
+        # for _ in range(number_of_warmup_orders):
+        #     await self.act()
+
+    async def post_orders_from_list(self):
+        if self.order_index < len(self.order_list):
+            await self.post_new_order(1, self.order_list[self.order_index][0], self.order_list[self.order_index][1])
+            self.order_index += 1
 
     async def run(self) -> None:
         """
@@ -132,8 +136,8 @@ class NoiseTrader(BaseTrader):
         while not self._stop_requested.is_set():
             try:
                 # print('im working: noise trader')
-                await self.act()
-
+                # await self.act()
+                await self.post_orders_from_list()
                 
                 await asyncio.sleep(
                     self.cooling_interval(target=self.activity_frequency)

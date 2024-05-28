@@ -1,9 +1,9 @@
 import asyncio
 import random
 from datetime import datetime
-from structures import OrderType, TraderType
+from structures import OrderType, TraderType, str_to_order_type
 from main_platform.custom_logger import setup_custom_logger
-from main_platform.utils import convert_to_book_format
+from main_platform.utils import convert_to_book_format_new
 from .base_trader import BaseTrader
 
 logger = setup_custom_logger(__name__)
@@ -37,7 +37,20 @@ class InformedTrader(BaseTrader):
         Loads signal and generates orders.
         """
         # prep the order book based on active orders
-        book = convert_to_book_format(self.active_orders)
+        book = convert_to_book_format_new(self.order_book)
+
+        #     # PNL BLOCK
+        # self.DInv = []
+        # self.transaction_prices = []
+        # self.transaction_relevant_mid_prices = []  # Mid prices relevant to each transaction
+        # self.general_mid_prices = []  # All mid prices from the trading system
+        # self.sum_cost = 0
+        # self.sum_dinv = 0
+        # self.sum_mid_executions = 0
+        # self.current_pnl = 0
+
+
+        # print(f"DInv: {self.DInv}, transaction_prices: {self.transaction_prices}, transaction_relevant_mid_prices: {self.transaction_relevant_mid_prices}, general_mid_prices: {self.general_mid_prices}, sum_cost: {self.sum_cost}, sum_dinv: {self.sum_dinv}, sum_mid_executions: {self.sum_mid_executions}, current_pnl: {self.current_pnl}")
 
         elapsed_time_sec = int(self.get_elapsed_time())
 
@@ -60,20 +73,15 @@ class InformedTrader(BaseTrader):
             for order_type, orders in order_dict.items():
                 for price, amounts in orders.items():
                     for amount in amounts:
-                        # if the order to be matched is a bid, we send an ask order to match that bid
-                        if order_type == OrderType.BID:
-                            await self.post_new_order(amount, price, OrderType.ASK)
-                        # if the order to be matched is an ask, we send a bid order to match that ask
-                        elif order_type == OrderType.ASK:
-                            await self.post_new_order(amount, price, OrderType.BID)
+                        await self.post_new_order(amount, price, str_to_order_type[order_type])
                         # logging
-                        # logger.critical(
-                        #     "MATCHING %s AT %s AMOUNT %s AT TIME %s",
-                        #     order_type,
-                        #     price,
-                        #     amount,
-                        #     elapsed_time_sec,
-                        # )
+                        logger.critical(
+                            "INFORMED MATCHING %s AT %s AMOUNT %s AT TIME %s",
+                            order_type,
+                            price,
+                            amount,
+                            elapsed_time_sec,
+                        )
         except Exception as e:
             print(e)
 

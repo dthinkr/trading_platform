@@ -6,7 +6,7 @@ DATASET: "trader"
 DATA_FILE: "analysis/results/new_run_data.parquet"
 DATA_DIR: "analysis/results"
 
-NUM_SERVERS: 30
+NUM_SERVERS: 10
 UVICORN_STARTING_PORT: 8000
 
 TYPE_MAPPING:
@@ -21,5 +21,5 @@ TYPE_MAPPING:
   stop_trading: 7  # Trading halt indicator
 
 
-MESSAGE_COLUMNS: ['trading_session_id','Time', 'Event Type', 'Order ID', 'Size', 'Price', 'Direction']
+MESSAGE_COLUMNS: ['trading_session_id','Time', 'Event Type', 'Order ID', 'Trader ID','Size', 'Price', 'Direction']
 LOBSTER_BOOK_COLUMN: 'LOBSTER_BOOK'

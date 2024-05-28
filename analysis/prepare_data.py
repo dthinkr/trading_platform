@@ -4,7 +4,7 @@ import duckdb
 import polars as pl
 
 from analysis import load_config
-from main_platform.utils import convert_to_book_format
+from main_platform.utils import convert_to_book_format_new
 
 
 def load_configuration() -> dict:
@@ -30,14 +30,15 @@ def parse_and_transform_active_orders(active_orders: str) -> pl.DataFrame:
     return pl.DataFrame(orders_list)
 
 
+
 def lobster_book_transformation(df_res: pl.DataFrame) -> pl.DataFrame:
-    active_orders_df = df_res["active_orders"].map_elements(
-        lambda ob: parse_and_transform_active_orders(ob), return_dtype=pl.Object
-    )
+    active_orders_df = df_res["order_book"].str.json_decode()
+
     book_format_series = active_orders_df.map_elements(
-        lambda df: convert_to_book_format(df) if df.height != 0 else pl.DataFrame(),
-        return_dtype=pl.Object,
+        lambda ob: convert_to_book_format_new(ob) if ob else pl.DataFrame({'price': [], 'amount': []}),
+        return_dtype=pl.Object
     )
+
     df_res = df_res.with_columns(book_format_series.alias("LOBSTER_BOOK"))
     return df_res
 
@@ -90,6 +91,7 @@ def lobster_message_other(df_res: pl.DataFrame) -> pl.DataFrame:
     df_res = df_res.with_columns(
         [
             pl.col("id").alias("Order ID"),
+            pl.col("order_trader_id").alias("Trader ID"),
             pl.col("order_amount").alias("Size"),
             pl.col("order_price").alias("Price"),
             pl.col("order_type").alias("Direction"),

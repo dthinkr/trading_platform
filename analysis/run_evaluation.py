@@ -32,11 +32,15 @@ con.execute(
 #     "passive_order_probability": (0.5, 0.9),
 # }
 
-# example usage for list (combinatory).
+# example usage for list (combinatory)
 bounds = {
     "trade_intensity_informed": [0.05, 0.3],
     "passive_order_probability": [0.5, 0.9],
 }
+
+# bounds = {
+#     "trade_intensity_informed": [0.2],
+# }
 
 
 resolution = 4  # (2p+2) * 2^n, n is resolution, p is number of tweaked parameters

@@ -181,6 +181,60 @@ def convert_to_book_format(active_orders, levels_n=10, default_price=2000):
     interleaved_array = interleaved_array.astype(np.float64)
     return interleaved_array
 
+
+def convert_to_book_format_new(input_data, levels_n=10, default_price=2000):
+    """
+    Convert a dictionary with 'bids' and 'asks' lists to a book format.
+
+    Parameters:
+        input_data (dict): Dictionary containing 'bids' and 'asks', each a list of dictionaries with 'x' for price and 'y' for amount.
+        levels_n (int, optional): Number of levels to include in the book for both bids and asks. Default is 10.
+        default_price (int, optional): Default price to use for expanding the DataFrame if needed. Default is 2000.
+
+    Returns:
+        np.ndarray: Interleaved array of ask prices, ask quantities, bid prices, and bid quantities.
+    """
+    # Handle empty 
+    if not input_data['bids']:
+        df_bids = pl.DataFrame({'price': [], 'amount': []})
+    else:
+        df_bids = pl.DataFrame(input_data['bids']).rename({'x': 'price', 'y': 'amount'})
+
+    if not input_data['asks']:
+        df_asks = pl.DataFrame({'price': [], 'amount': []})
+    else:
+        df_asks = pl.DataFrame(input_data['asks']).rename({'x': 'price', 'y': 'amount'})
+
+    # Set data types
+    df_bids = df_bids.with_columns([
+        pl.col('price').cast(pl.Int64),
+        pl.col('amount').cast(pl.Int64)
+    ])
+    df_asks = df_asks.with_columns([
+        pl.col('price').cast(pl.Int64),
+        pl.col('amount').cast(pl.Int64)
+    ])
+
+    # Aggregate orders by price, summing the amounts
+    df_bids = df_bids.group_by('price').agg(pl.col('amount').sum()).sort('price', descending=True).head(levels_n)
+    df_asks = df_asks.group_by('price').agg(pl.col('amount').sum()).sort('price').head(levels_n)
+
+    # Expand the dataframes to ensure they have the specified number of levels
+    df_bids = expand_dataframe(df_bids, max_depth=levels_n, step=1, reverse=True, default_price=default_price - 1)
+    df_asks = expand_dataframe(df_asks, max_depth=levels_n, step=1, reverse=False, default_price=default_price)
+
+    # Extract prices and amounts
+    bid_prices = df_bids['price'].to_list()
+    bid_quantities = df_bids['amount'].to_list()
+    ask_prices = df_asks['price'].to_list()
+    ask_quantities = df_asks['amount'].to_list()
+
+    # Interleave the lists using np.ravel and np.column_stack
+    interleaved_array = np.ravel(np.column_stack((ask_prices, ask_quantities, bid_prices, bid_quantities)))
+    interleaved_array = interleaved_array.astype(np.float64)
+    return interleaved_array
+
+
 def convert_to_noise_state(active_orders: List[Dict]) -> Dict:
     noise_state = {
         'outstanding_orders': {

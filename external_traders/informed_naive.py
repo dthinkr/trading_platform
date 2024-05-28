@@ -2,7 +2,7 @@ import numpy as np
 
 
 settings = {
-    "levels_n": 10,  # int
+    "levels_n": 5,  # int
     "initial_price": 2000,  # this implies a spread of 5bps
 }
 
