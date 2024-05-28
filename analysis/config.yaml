@@ -12,7 +12,7 @@ UVICORN_STARTING_PORT: 8000
 TYPE_MAPPING:
   ## at the moment, the update type within the simulation is too broad, 
   ## we need to split it into multiple types
-  update: 1  # Submission of a new limit order
+  a broadcast message: 1  # Submission of a new limit order
   cancel: 2  # Cancellation (partial deletion of a limit order)
   delete: 3  # Deletion (total deletion of a limit order)
   execute_visible: 4  # Execution of a visible limit order

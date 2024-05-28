@@ -114,15 +114,16 @@ class NoiseTrader(BaseTrader):
             if matching_orders:
                 order_id = random.choice(matching_orders)["id"]
                 await self.send_cancel_order_request(order_id)
+                # print('canceled orders')
                 logger.info("CANCELLED %s ID %s", order["order_type"], order_id[:10])
 
     async def warm_up(self, number_of_warmup_orders: int) -> None:
         """
         places warmup orders to poulate order book.
         """
-        pass
-        # for _ in range(number_of_warmup_orders):
-        #     await self.act()
+        for _ in range(number_of_warmup_orders):
+            # await self.act()
+            pass
 
     async def post_orders_from_list(self):
         if self.order_index < len(self.order_list):
@@ -135,7 +136,6 @@ class NoiseTrader(BaseTrader):
         """
         while not self._stop_requested.is_set():
             try:
-                # print('im working: noise trader')
                 await self.act()
                 # await self.post_orders_from_list()
                 
