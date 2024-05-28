@@ -59,7 +59,7 @@ class TradingSession:
         self.release_event = Event()
         self.current_price = 0  # handling non-defined attribute
 
-        self.db_lock = Lock()
+        self.order_book_lock = Lock()
         self.transaction_queue = asyncio.Queue()
 
 
@@ -326,28 +326,29 @@ class TradingSession:
         self.all_orders[ask['id']]['status'] = OrderStatus.EXECUTED.value
         self.all_orders[bid['id']]['status'] = OrderStatus.EXECUTED.value
 
-        # Create a transaction object with automatic id and timestamp generation
+        # Create a transaction object
         transaction = TransactionModel(
-            trading_session_id=self.id, 
+            trading_session_id=self.id,
             bid_order_id=bid['id'],
             ask_order_id=ask['id'],
             price=transaction_price
         )
-        await transaction.save_async()  
+
+        # Enqueue the transaction for processing
+        await self.transaction_queue.put(transaction)
 
         # Log the transaction creation
-        logger.info(f"Transaction created: {transaction}")
+        logger.info(f"Transaction enqueued: {transaction}")
 
-        # Return trader IDs
+        # Return trader IDs involved in the transaction for further processing
         return ask['trader_id'], bid['trader_id'], transaction
-
     
     async def process_transactions(self) -> None:
         while True:
             transaction = await self.transaction_queue.get()
-            transaction.save()
+            await transaction.save_async()  # Ensure this is the async save method
             self.transaction_queue.task_done()
-
+            logger.info(f"Transaction processed: {transaction}")
 
     async def clear_orders(self) -> Dict:
         """ this goes through order book trying to execute orders """
@@ -611,6 +612,7 @@ class TradingSession:
     async def run(self) -> None:
         try:
             while not self._stop_requested.is_set():
+                self.transaction_processor_task = asyncio.create_task(self.process_transactions())
                 current_time = now()
                 if current_time - self.start_time > timedelta(
                         minutes=self.duration
