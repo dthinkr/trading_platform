@@ -66,7 +66,8 @@ def pick_one(trading_session_id: str = None, max_depth: int = 10) -> pd.DataFram
     else:
         unique_ids = df["trading_session_id"].drop_duplicates().tolist()
         if unique_ids:
-            selected_id = random.choice(unique_ids)
+            # selected_id = random.choice(unique_ids)
+            selected_id = unique_ids[-1]
             filtered_df = df[df["trading_session_id"] == selected_id]
         else:
             return pd.DataFrame()  # Return empty if no IDs found

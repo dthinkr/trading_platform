@@ -35,7 +35,7 @@ class NoiseTrader(BaseTrader):
         self.get_signal_noise = get_signal_noise
         self.get_noise_rule_unif = get_noise_rule_unif
         self.current_variance = 5.0
-        self.order_list = [(2000, OrderType.BID), (2000, OrderType.ASK), (2001, OrderType.BID)]
+        self.order_list = [(2000, OrderType.BID), (2000, OrderType.ASK), (2001, OrderType.BID), (2011, OrderType.ASK)]
         self.order_index = 0
 
     def cooling_interval(self, target: float) -> float:
@@ -136,8 +136,8 @@ class NoiseTrader(BaseTrader):
         while not self._stop_requested.is_set():
             try:
                 # print('im working: noise trader')
-                # await self.act()
-                await self.post_orders_from_list()
+                await self.act()
+                # await self.post_orders_from_list()
                 
                 await asyncio.sleep(
                     self.cooling_interval(target=self.activity_frequency)

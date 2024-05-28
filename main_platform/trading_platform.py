@@ -13,6 +13,9 @@ from main_platform.utils import CustomEncoder, now, if_active
 from asyncio import Lock, Event
 from datetime import datetime, timedelta, timezone
 from collections import defaultdict
+from asyncio import Lock
+
+from typing import Optional, Tuple
 
 # setting mongodb
 from mongoengine import connect
@@ -30,7 +33,7 @@ class TradingSession:
     transactions = List[TransactionModel]
     all_orders = Dict[uuid.UUID, Dict]
 
-    def __init__(self, duration, default_price=1000, default_spread=10, punishing_constant=1):
+    def __init__(self, duration: int, default_price: int = 1000, default_spread: int = 10, punishing_constant: int = 1):
         self.active = False
         self.duration = duration
         self.default_price = default_price
@@ -56,12 +59,16 @@ class TradingSession:
         self.release_event = Event()
         self.current_price = 0  # handling non-defined attribute
 
+        self.db_lock = Lock()
+        self.transaction_queue = asyncio.Queue()
+
+
     @property
-    def current_time(self):
+    def current_time(self) -> datetime:
         return datetime.now(timezone.utc)
 
     @property
-    def transactions(self):
+    def transactions(self) -> List[Dict]:
         # Fetch all TransactionModel objects that have the current TradingSession's ID
         transactions = TransactionModel.objects(trading_session_id=self.id)
         # Convert each transaction document into a dictionary for easier serialization
@@ -74,7 +81,7 @@ class TradingSession:
     def get_closure_price(self, shares: int, order_type: OrderType) -> float:
         return self.mid_price + order_type * shares * self.default_spread * self.punishing_constant
 
-    def get_params(self):
+    def get_params(self) -> Dict:
         return {
             "id": self.id,
             "duration": self.duration,
@@ -86,11 +93,11 @@ class TradingSession:
         }
 
     @property
-    def active_orders(self):
+    def active_orders(self) -> Dict:
         return {k: v for k, v in self.all_orders.items() if v['status'] == OrderStatus.ACTIVE}
 
     @property
-    def order_book(self):
+    def order_book(self) -> Dict:
         active_orders_df = pl.DataFrame(list(self.active_orders.values()))
         # Initialize empty order book
         order_book = {'bids': [], 'asks': []}
@@ -118,7 +125,7 @@ class TradingSession:
         return order_book
 
     @property
-    def transaction_price(self):
+    def transaction_price(self) -> Optional[float]:
         """Returns the price of last transaction. If there are no transactions, returns None."""
         if not self.transactions or len(self.transactions) == 0:
             return None
@@ -127,7 +134,7 @@ class TradingSession:
         transactions.sort(key=lambda x: x['timestamp'])
         return transactions[-1]['price']
 
-    async def initialize(self):
+    async def initialize(self) -> None:
         self.start_time = now()
         self.active = True
         self.connection = await aio_pika.connect_robust(rabbitmq_url)
@@ -143,7 +150,7 @@ class TradingSession:
 
         await trader_queue.purge()
 
-    async def clean_up(self):
+    async def clean_up(self) -> None:
         """
         This one is mostly used for closing connections and channels opened by a trading session.
         At this stage we also dump existing transactions and orders from the memory. In the future, we'll probably
@@ -169,7 +176,7 @@ class TradingSession:
         except Exception as e:
             logger.error(f"An error occurred during cleanup: {e}")
 
-    def get_active_orders_to_broadcast(self):
+    def get_active_orders_to_broadcast(self) -> List[Dict]:
         # Convert the active orders dictionary to a Polars DataFrame
         active_orders_df = pl.DataFrame(list(self.active_orders.values()))
 
@@ -184,7 +191,7 @@ class TradingSession:
         res = active_orders_df.to_dicts()
         return res
 
-    async def send_broadcast(self, message: dict, incoming_message=None):
+    async def send_broadcast(self, message: dict, incoming_message=None) -> None:
         # TODO: PHILIPP: let's think how to make this more efficient but for simplicity
         # TODO we inject the current order book, active orders and transaction history into every broadcasted message
         # TODO: also important thing: we now send all active orders to everyone. We may think about possiblity to
@@ -218,7 +225,7 @@ class TradingSession:
             routing_key=''  # routing_key is typically ignored in FANOUT exchanges
         )
 
-    async def send_message_to_trader(self, trader_id, message):
+    async def send_message_to_trader(self, trader_id: str, message: dict) -> None:
 
         # TODO. PHILIPP. IT largely overlap with broadcast. We need to refactor that moving to _injection method
         transactions = [{'price': t['price'], 'timestamp': t['timestamp'].timestamp()} for t in self.transactions]
@@ -246,16 +253,16 @@ class TradingSession:
         )
 
     @property
-    def list_active_orders(self):
+    def list_active_orders(self) -> List[Dict]:
         """ Returns a list of all active orders. When we switch to real DB or mongo, we won't need it anymore."""
         return list(self.active_orders.values())
 
-    def get_file_name(self):
+    def get_file_name(self) -> str:
         # todo: rename this to get_message_file_name
         """Returns file name for messages which is a trading platform id + datetime of creation with _ as spaces"""
         return f"{self.id}_{self.creation_time.strftime('%Y-%m-%d_%H-%M-%S')}"
 
-    def place_order(self, order_dict: Dict):
+    def place_order(self, order_dict: Dict) -> Dict:
         """ This one is called by handle_add_order, and is the one that actually places the order in the system.
         It adds automatically - we do all the validation (whether a trader allowed to place an order, etc) in the
         handle_add_order method.
@@ -269,7 +276,7 @@ class TradingSession:
         self.all_orders[order_id] = order_dict
         return order_dict
 
-    def get_spread(self):
+    def get_spread(self) -> Tuple[Optional[float], Optional[float]]:
         """
         Returns the spread and the midpoint. If there are no overlapping orders, returns None, None.
         """
@@ -292,29 +299,57 @@ class TradingSession:
             logger.info("No overlapping orders.")
             return None, None
 
-    def create_transaction(self, bid, ask, transaction_price):
+    # def create_transaction(self, bid, ask, transaction_price):
+    #     # Change the status to 'EXECUTED'
+    #     self.all_orders[ask['id']]['status'] = OrderStatus.EXECUTED.value
+    #     self.all_orders[bid['id']]['status'] = OrderStatus.EXECUTED.value
+
+    #     # Create a transaction object with automatic id and timestamp generation
+    #     transaction = TransactionModel(
+    #         trading_session_id=self.id,  # Assuming session_id is the UUID of the TradingSession
+    #         bid_order_id=bid['id'],
+    #         ask_order_id=ask['id'],
+    #         price=transaction_price
+    #     )
+    #     transaction.save()
+
+    #     # Append to self.transactions
+
+    #     # Log the transaction creation
+    #     logger.info(f"Transaction created: {transaction}")
+
+    #     # Return trader IDs involved in the transaction for further processing
+    #     return ask['trader_id'], bid['trader_id'], transaction
+
+    async def create_transaction(self, bid: Dict, ask: Dict, transaction_price: float) -> Tuple[str, str, TransactionModel]:
         # Change the status to 'EXECUTED'
         self.all_orders[ask['id']]['status'] = OrderStatus.EXECUTED.value
         self.all_orders[bid['id']]['status'] = OrderStatus.EXECUTED.value
 
         # Create a transaction object with automatic id and timestamp generation
         transaction = TransactionModel(
-            trading_session_id=self.id,  # Assuming session_id is the UUID of the TradingSession
+            trading_session_id=self.id, 
             bid_order_id=bid['id'],
             ask_order_id=ask['id'],
             price=transaction_price
         )
-        transaction.save()
-
-        # Append to self.transactions
+        await transaction.save_async()  
 
         # Log the transaction creation
         logger.info(f"Transaction created: {transaction}")
 
-        # Return trader IDs involved in the transaction for further processing
+        # Return trader IDs
         return ask['trader_id'], bid['trader_id'], transaction
 
-    async def clear_orders(self):
+    
+    async def process_transactions(self) -> None:
+        while True:
+            transaction = await self.transaction_queue.get()
+            transaction.save()
+            self.transaction_queue.task_done()
+
+
+    async def clear_orders(self) -> Dict:
         """ this goes through order book trying to execute orders """
         # TODO. PHILIPP. At this stage we don't need to return anything but for LOBSTER format later we may needed so let's keep it for now
         res = {'transactions': [], 'removed_active_orders': []}
@@ -341,7 +376,7 @@ class TradingSession:
 
         # Check if any transactions are possible
         if spread > 0:
-            logger.info(
+            logger.critical(
                 f"No overlapping orders. Spread is positive: {spread}. Lowest ask: {lowest_ask}, highest bid: {highest_bid}")
             return res
 
@@ -364,7 +399,8 @@ class TradingSession:
             if ask_trader_type == TraderType.HUMAN.value and ask_trader_id == bid_trader_id:
                 logger.warning(f'Blocking self-execution for trader {ask_trader_id}')
                 return res
-            ask_trader_id, bid_trader_id, transaction = self.create_transaction(bid, ask, transaction_price)
+
+            ask_trader_id, bid_trader_id, transaction = await self.create_transaction(bid, ask, transaction_price)
 
             # No need to append the transaction to self.transactions here as it's handled within create_transaction
 
@@ -386,11 +422,12 @@ class TradingSession:
         # that will contain to_whom (traders who participated in transactions) and the list of transactions and add them to res
         if transactions:
             res['subgroup_broadcast'] = traders_to_transactions_lookup
-
+        
+        print(res)
         return res
 
     @if_active
-    async def handle_add_order(self, data: dict):
+    async def handle_add_order(self, data: dict) -> Dict:
         """
         that is called automatically on the incoming message if type of a message is 'add_order'.
         it returns the dict with respond=True to signalize that (ideally) we need to ping back the trader who sent the
@@ -418,12 +455,12 @@ class TradingSession:
             await self.send_message_to_subgroup(subgroup_data)
         return dict(respond=True, **resp)
 
-    async def send_message_to_subgroup(self, message):
+    async def send_message_to_subgroup(self, message: Dict) -> None:
         for trader_id, transaction_list in message.items():
             await self.send_message_to_trader(trader_id, {'type': 'update', 'new_transactions': transaction_list})
 
     @if_active
-    async def handle_cancel_order(self, data: dict):
+    async def handle_cancel_order(self, data: dict) -> Dict:
         order_id = data.get('order_id')
         trader_id = data.get('trader_id')
 
@@ -456,7 +493,7 @@ class TradingSession:
             return {"status": "cancel success", "order": order_id, "respond": True}
 
     @if_active
-    async def handle_register_me(self, msg_body):
+    async def handle_register_me(self, msg_body: Dict) -> Dict:
         trader_id = msg_body.get('trader_id')
         trader_type = msg_body.get('trader_type')
         self.connected_traders[trader_id] = {'trader_type': trader_type, }
@@ -466,7 +503,7 @@ class TradingSession:
         logger.info(f"Total connected traders: {len(self.connected_traders)}")
         return dict(respond=True, trader_id=trader_id, message="Registered successfully", individual=True)
 
-    async def on_individual_message(self, message):
+    async def on_individual_message(self, message: Dict) -> None:
         incoming_message = json.loads(message.body.decode())
         logger.info(f"TS {self.id} received message: {incoming_message}")
         action = incoming_message.pop('action', None)
@@ -493,7 +530,7 @@ class TradingSession:
         else:
             logger.warning(f"No action found in message: {incoming_message}")
 
-    async def close_existing_book(self):
+    async def close_existing_book(self) -> None:
         """we create a counteroffer on behalf of the platform with a get_closure_price price. and then we
         create a transaction out of it."""
         for order_id, order in self.active_orders.items():
@@ -516,7 +553,7 @@ class TradingSession:
 
         await self.send_broadcast(message=dict(text="book is updated"))
 
-    async def handle_inventory_report(self, data: dict):
+    async def handle_inventory_report(self, data: dict) -> Dict:
         # Handle received inventory report from a trader
         trader_id = data.get('trader_id')
         self.trader_responses[trader_id] = True
@@ -566,12 +603,12 @@ class TradingSession:
 
         # mid_price + x * spread * const)
 
-    async def wait_for_traders(self):
+    async def wait_for_traders(self) -> None:
         while not all(self.trader_responses.values()):
             await asyncio.sleep(1)  # Check every second
         logger.info('All traders have reported back their inventories.')
 
-    async def run(self):
+    async def run(self) -> None:
         try:
             while not self._stop_requested.is_set():
                 current_time = now()

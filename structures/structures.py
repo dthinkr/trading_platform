@@ -6,7 +6,8 @@ from typing import Optional
 from uuid import UUID, uuid4
 from datetime import datetime, timezone
 import uuid
-
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
 def now():
     """It is actually from utils.py but we need structures there so we do it here to avoid circular deps"""
@@ -15,6 +16,7 @@ def now():
 
 GOALS = [-10, 0, 10]  # for now let's try a naive hardcoded approach to the goals
 
+executor = ThreadPoolExecutor()
 
 class TradeDirection(str, Enum):
     BUY = 'buy'
@@ -51,7 +53,7 @@ class TraderCreationData(BaseModel):
         title="Step for New Orders",
         description="Step for new orders", )
     activity_frequency: float = Field(
-        default=0.1,
+        default=1,
         title="Noise Trader: Activity Frequency",
         description="Frequency of noise traders' updates in seconds",
         gt=0
@@ -151,27 +153,30 @@ class TraderType(str, Enum):
 class Order(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     status: OrderStatus
-    amount: float = 1  # Assuming amount is a float, adjust the type as needed
-    price: float  # Same assumption as for amount
+    amount: float = 1  
+    price: float  
     order_type: OrderType
     timestamp: datetime = Field(default_factory=now)
     session_id: str
     trader_id: str
 
     class ConfigDict:
-        use_enum_values = True  # This ensures that enum values are used in serialization
+        use_enum_values = True
 
 
 class TransactionModel(Document):
     id = UUIDField(primary_key=True, default=uuid.uuid4, binary=False)
-    trading_session_id = UUIDField(required=True, binary=False)  # Store as string
-    bid_order_id = UUIDField(required=True, binary=False)  # Store as string
-    ask_order_id = UUIDField(required=True, binary=False)  # Store as string
+    trading_session_id = UUIDField(required=True, binary=False)
+    bid_order_id = UUIDField(required=True, binary=False)
+    ask_order_id = UUIDField(required=True, binary=False)
     timestamp = DateTimeField(default=datetime.now)
     price = FloatField(required=True)
 
+    async def save_async(self):
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(executor, self.save)
 
 class Message(Document):
-    trading_session_id = UUIDField(required=True, binary=False)  # Assuming you want the UUID as a string
-    content = DictField(required=True)  # Store the entire message as a dictionary
-    timestamp = DateTimeField(default=datetime.now)  # Automatically set the timestamp when created
+    trading_session_id = UUIDField(required=True, binary=False)  
+    content = DictField(required=True)  
+    timestamp = DateTimeField(default=datetime.now)  
