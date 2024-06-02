@@ -61,8 +61,8 @@ class TradingSession:
         self.lock = Lock()
         self.release_event = Event()
         self.current_price = 0  # handling non-defined attribute
+        self.transaction_processor_task = None # handling non-defined attribute
 
-        self.order_book_lock = Lock()
         self.transaction_queue = asyncio.Queue()
 
     @property
@@ -213,9 +213,13 @@ class TradingSession:
             message["type"] = "a broadcast message"
 
         spread, midpoint = self.get_spread()
+
+        async with self.lock:  # acquire lock before accessing the order book
+            order_book_snapshot = self.order_book
+
         message.update(
             {
-                "order_book": self.order_book,
+                "order_book": order_book_snapshot,
                 "active_orders": self.get_active_orders_to_broadcast(),
                 "history": self.transactions,
                 "spread": spread,
@@ -234,33 +238,30 @@ class TradingSession:
         )
 
     async def send_message_to_trader(self, trader_id: str, message: dict) -> None:
-        # TODO. PHILIPP. IT largely overlap with broadcast. We need to refactor that moving to _injection method
         transactions = [
             {"price": t["price"], "timestamp": t["timestamp"].timestamp()}
             for t in self.transactions
         ]
-        # sort by timestamp
         transactions.sort(key=lambda x: x["timestamp"])
-        # if not empty return the last one for current price
         if transactions:
             current_price = transactions[-1]["price"]
         else:
             current_price = None
         spread, mid_price = self.get_spread()
+
+        async with self.lock:  # acquire lock before accessing the order book
+            order_book_snapshot = self.order_book
+
         message.update(
             {
-                "type": "a message to all",  # TODO: PHILIPP: we need to think about the type of the message. it's hardcoded for now
-                "order_book": self.order_book,
+                "type": "a message to all",
+                "order_book": order_book_snapshot,
                 "active_orders": self.get_active_orders_to_broadcast(),
                 "transaction_history": self.transactions,
                 "spread": spread,
                 "mid_price": mid_price,
                 "current_price": current_price,
             }
-        )
-        await self.trader_exchange.publish(
-            aio_pika.Message(body=json.dumps(message, cls=CustomEncoder).encode()),
-            routing_key=f"trader_{trader_id}",
         )
 
     @property
@@ -551,11 +552,11 @@ class TradingSession:
 
             self.place_order(platform_order.model_dump())
             if order["order_type"] == OrderType.BID:
-                self.create_transaction(
+                await self.create_transaction(
                     order, platform_order.model_dump(), closure_price
                 )
             else:
-                self.create_transaction(
+                await self.create_transaction(
                     platform_order.model_dump(), order, closure_price
                 )
 
@@ -592,13 +593,13 @@ class TradingSession:
             self.place_order(trader_order.model_dump())
 
             if trader_order_type == OrderType.BID:
-                self.create_transaction(
+                await self.create_transaction(
                     trader_order.model_dump(),
                     platform_order.model_dump(),
                     closure_price,
                 )
             else:
-                self.create_transaction(
+                await self.create_transaction(
                     platform_order.model_dump(),
                     trader_order.model_dump(),
                     closure_price,

@@ -35,7 +35,9 @@ class NoiseTrader(BaseTrader):
         self.get_signal_noise = get_signal_noise
         self.get_noise_rule_unif = get_noise_rule_unif
         self.current_variance = 5.0
-        self.order_list = [(2000, OrderType.BID), (2000, OrderType.ASK), (2001, OrderType.BID), (2011, OrderType.ASK)]
+        self.order_list = [(2000, OrderType.BID), (2000, OrderType.ASK), (2001, OrderType.BID), (2011, OrderType.ASK)
+                            , (2000, OrderType.BID), (2000, OrderType.ASK), (2000, OrderType.BID), (2000, OrderType.ASK), 
+                            (2000, OrderType.BID), (2000, OrderType.ASK), (2000, OrderType.BID), (2000, OrderType.ASK)]
         self.order_index = 0
 
     def cooling_interval(self, target: float) -> float:
@@ -50,7 +52,6 @@ class NoiseTrader(BaseTrader):
         generates action based on active orders in the market.
         """
         if not self.order_book:
-            logger.critical('%s', self.order_book)
             await self.post_new_order(
                 self.order_amount,
                 self.settings["initial_price"],
@@ -141,6 +142,7 @@ class NoiseTrader(BaseTrader):
                 
                 await asyncio.sleep(
                     self.cooling_interval(target=self.activity_frequency)
+                    # 0.01
                 )
 
             except asyncio.CancelledError:
