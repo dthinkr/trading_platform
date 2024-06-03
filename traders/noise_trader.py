@@ -1,7 +1,7 @@
 import asyncio
 import random
 import numpy as np
-from structures import OrderType, TraderType
+from structures import OrderType, TraderType, ActionType
 from main_platform.utils import (
     convert_to_book_format_new,
     convert_to_noise_state,
@@ -94,7 +94,7 @@ class NoiseTrader(BaseTrader):
             await self.process_order(order)
 
     async def process_order(self, order) -> None:
-        if order["action_type"] == "add_order":
+        if order["action_type"] == ActionType.POST_NEW_ORDER.value:
             order_type = order["order_type"]
             amount, price = self.order_amount, order["price"]
             for _ in range(order["amount"]):
@@ -108,15 +108,23 @@ class NoiseTrader(BaseTrader):
                 order["amount"],
             )
 
-        elif order["action_type"] == "cancel_order" and self.orders:
-            matching_orders = [
-                o for o in self.orders if o["order_type"] == order["order_type"]
-            ]
-            if matching_orders:
-                order_id = random.choice(matching_orders)["id"]
-                await self.send_cancel_order_request(order_id)
-                # print('canceled orders')
-                logger.info("CANCELLED %s ID %s", order["order_type"], order_id[:10])
+        elif order["action_type"] == ActionType.CANCEL_ORDER.value:
+            await self.cancel_random_order()
+
+    async def cancel_random_order(self) -> None:
+            """
+            Cancels a random existing order from the trader's order list.
+            """
+            if not self.orders:
+                logger.info("No orders to cancel.")
+                return
+
+            # Select a random order to cancel
+            order_to_cancel = random.choice(self.orders)
+            order_id = order_to_cancel["id"]
+            print(order_id)
+            await self.send_cancel_order_request(order_id)
+            logger.info(f"Canceled order ID {order_id[:10]}")
 
     async def warm_up(self, number_of_warmup_orders: int) -> None:
         """
@@ -137,12 +145,13 @@ class NoiseTrader(BaseTrader):
         """
         while not self._stop_requested.is_set():
             try:
-                await self.act()
-                # await self.post_orders_from_list()
+                # await self.act()
+                await self.post_orders_from_list()
+                await self.cancel_random_order()
+                # print('TESTING')
                 
                 await asyncio.sleep(
                     self.cooling_interval(target=self.activity_frequency)
-                    # 0.01
                 )
 
             except asyncio.CancelledError:

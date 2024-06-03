@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, patch
 from traders import NoiseTrader
-from structures import TraderType
+from structures import TraderType, ActionType
 
 @pytest.fixture
 def noise_trader_settings():
@@ -43,7 +43,7 @@ async def test_act_with_no_active_orders(noise_trader):
 @pytest.mark.asyncio
 async def test_process_order_add_order(noise_trader):
     noise_trader.post_new_order = AsyncMock()
-    order = {"action_type": "add_order", "order_type": "ask", "price": 100, "amount": 1}
+    order = {"action_type": ActionType.POST_NEW_ORDER.value, "order_type": "ask", "price": 100, "amount": 1}
     await noise_trader.process_order(order)
     noise_trader.post_new_order.assert_awaited_once()
 

@@ -208,26 +208,24 @@ class TradingSession:
         res = active_orders_df.to_dicts()
         return res
 
-    async def send_broadcast(self, message: dict, incoming_message=None) -> None:
+    async def send_broadcast(self, message: dict, message_type="BOOK_UPDATED", incoming_message=None) -> None:
         if "type" not in message:
-            message["type"] = "a broadcast message"
+            message["type"] = message_type  # Only set default if not specified
 
         spread, midpoint = self.get_spread()
 
         async with self.lock:  # acquire lock before accessing the order book
             order_book_snapshot = self.order_book
 
-        message.update(
-            {
-                "order_book": order_book_snapshot,
-                "active_orders": self.get_active_orders_to_broadcast(),
-                "history": self.transactions,
-                "spread": spread,
-                "midpoint": midpoint,
-                "transaction_price": self.transaction_price,
-                "incoming_message": incoming_message,
-            }
-        )
+        message.update({
+            "order_book": order_book_snapshot,
+            "active_orders": self.get_active_orders_to_broadcast(),
+            "history": self.transactions,
+            "spread": spread,
+            "midpoint": midpoint,
+            "transaction_price": self.transaction_price,
+            "incoming_message": incoming_message,
+        })
         message_document = Message(trading_session_id=self.id, content=message)
         message_document.save()
 
@@ -428,9 +426,7 @@ class TradingSession:
         data["order_type"] = int(data["order_type"])
         try:
             order = Order(status=OrderStatus.BUFFERED.value, session_id=self.id, **data)
-
             self.place_order(order.model_dump())
-
         except ValidationError as e:
             logger.critical(f"Order validation failed: {e}")
             return {"status": "failed", "reason": str(e), "type": "order_failed"}
@@ -441,8 +437,37 @@ class TradingSession:
         if subgroup_data:
             await self.send_message_to_subgroup(subgroup_data)
 
-        resp.update({"type": "add_order_success", "respond": True})
+        resp.update({"type": "NEW_ORDER_ADDED", "content": "A", "respond": True})
         return resp
+
+
+
+
+    async def handle_cancel_order(self, data: dict) -> Dict:
+        order_id = data.get("order_id")
+        trader_id = data.get("trader_id")
+        try:
+            order_id = uuid.UUID(order_id)
+        except ValueError:
+            logger.warning(f"Invalid order ID format: {order_id}.")
+            return {"status": "failed", "reason": "Invalid order ID format"}
+
+        async with self.lock:
+            if order_id not in self.active_orders:
+                return {"status": "failed", "reason": "Order not found"}
+
+            existing_order = self.active_orders[order_id]
+            if existing_order["trader_id"] != trader_id:
+                return {"status": "failed", "reason": "Trader does not own the order"}
+
+            if existing_order["status"] != OrderStatus.ACTIVE.value:
+                return {"status": "failed", "reason": "Order is not active"}
+
+            self.all_orders[order_id]["status"] = OrderStatus.CANCELLED.value
+            self.all_orders[order_id]["cancellation_timestamp"] = now()
+
+            return {"status": "cancel success", "order": order_id, "type": "ORDER_CANCELLED", "content": "B", "respond": True}
+
 
     async def send_message_to_subgroup(self, message: Dict) -> None:
         for trader_id, transaction_list in message.items():
@@ -518,11 +543,13 @@ class TradingSession:
                 result = await handler_method(incoming_message)
                 if result and result.pop("respond", None) and trader_id:
                     await self.send_message_to_trader(trader_id, result)
-                    #         TODO.PHILIPP. IMPORTANT! let's at this stage also send a broadcast message to all traders with updated info.
-                    # IT IS FAR from optimal but for now we keep it simple. We'll refactor it later.
+                    # Check if the message is meant for individual or all traders
                     if not result.get("individual", False):
+                        # Determine the appropriate message type based on the action
+                        message_type = f"{action.upper()}"
                         await self.send_broadcast(
-                            message=dict(text="book is updated"),
+                            message=dict(text=f"{action} update processed"),
+                            message_type=message_type,
                             incoming_message=incoming_message,
                         )
 
