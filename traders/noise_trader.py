@@ -148,7 +148,6 @@ class NoiseTrader(BaseTrader):
                 # await self.act()
                 await self.post_orders_from_list()
                 await self.cancel_random_order()
-                # print('TESTING')
                 
                 await asyncio.sleep(
                     self.cooling_interval(target=self.activity_frequency)
