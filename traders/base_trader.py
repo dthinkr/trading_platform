@@ -251,10 +251,15 @@ class BaseTrader:
             logger.error(f"Trader {self.id} has no order with ID {order_id}")
             return
 
+        order_to_cancel = next((order for order in self.orders if order['id'] == order_id), None)
+
         cancel_order_request = {
             "action": ActionType.CANCEL_ORDER.value,  # Assuming you have an ActionType Enum
             "trader_id": self.id,
-            "order_id": order_id
+            "order_id": order_id,
+            "amount": -order_to_cancel["amount"],
+            "price": order_to_cancel["price"],
+            "order_type": order_to_cancel["order_type"],
         }
 
         await self.send_to_trading_system(cancel_order_request)

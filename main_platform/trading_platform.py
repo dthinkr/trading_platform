@@ -441,11 +441,11 @@ class TradingSession:
         return resp
 
 
-
-
     async def handle_cancel_order(self, data: dict) -> Dict:
         order_id = data.get("order_id")
         trader_id = data.get("trader_id")
+        order_details = data.get("order_details")  # Ensure this key exists in the message
+
         try:
             order_id = uuid.UUID(order_id)
         except ValueError:
@@ -463,11 +463,22 @@ class TradingSession:
             if existing_order["status"] != OrderStatus.ACTIVE.value:
                 return {"status": "failed", "reason": "Order is not active"}
 
+            # Log the cancellation with details
+            message_document = Message(
+                trading_session_id=self.id,
+                content={
+                    "action": "order_cancelled",
+                    "order_id": str(order_id),
+                    "details": order_details  # Include negative amount and other details
+                }
+            )
+            message_document.save()
+
+            # Update order status
             self.all_orders[order_id]["status"] = OrderStatus.CANCELLED.value
             self.all_orders[order_id]["cancellation_timestamp"] = now()
 
-            return {"status": "cancel success", "order": order_id, "type": "ORDER_CANCELLED", "content": "B", "respond": True}
-
+            return {"status": "cancel success", "order": order_id, "type": "ORDER_CANCELLED", "respond": True}
 
     async def send_message_to_subgroup(self, message: Dict) -> None:
         for trader_id, transaction_list in message.items():
