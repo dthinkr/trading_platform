@@ -6,7 +6,7 @@ so they can communicate with them.
 
 import uuid
 
-from external_traders.noise_trader import get_signal_noise, settings_noise, settings, get_noise_rule_unif
+#from external_traders.noise_trader import get_signal_noise, settings_noise, get_noise_rule_unif, settings
 from external_traders.informed_naive import get_signal_informed, get_order_to_match, settings_informed, update_settings_informed
 from structures import TraderCreationData
 from typing import List
@@ -48,13 +48,23 @@ class TraderManager:
         n_human_traders = params.get("num_human_traders", 1)
         self.noise_warm_ups = params.get("noise_warm_ups", 10)
 
-        settings_noise['passive_order_probability'] = params.get('passive_order_probability')
+        settings = {}
+        settings['levels_n'] = params.get('order_book_levels')
+        settings['initial'] = 2000
+        settings['step'] = params.get('step')
+
+        settings_noise = {}
+        settings_noise['levels_n'] = settings['levels_n']
+        settings_noise['pr_passive'] = params.get('passive_order_probability')
+        settings_noise['pr_cancel'] = 0.1
+        settings_noise['pr_bid'] = 0.5
+        settings_noise['step'] = params.get('step')
+        print(settings_noise)
+
         self.noise_traders = [NoiseTrader(activity_frequency=params.get('activity_frequency'),
-                                          order_amount=params.get('order_amount'), 
-                                          settings=settings,
-                                          settings_noise=settings_noise,
-                                          get_signal_noise=get_signal_noise,
-                                          get_noise_rule_unif=get_noise_rule_unif) for _ in range(n_noise_traders)]
+                                          order_amount=params.get('order_amount'),
+                                          settings = settings, 
+                                          settings_noise=settings_noise) for _ in range(n_noise_traders)]
 
         settings_informed['time_period_in_min'] = params.get('trading_day_duration')
         settings_informed['trade_intensity'] = params.get('trade_intensity_informed')

@@ -40,7 +40,7 @@ class TraderCreationData(BaseModel):
         ge=0,
     )
     num_informed_traders: int = Field(
-        default=1,
+        default=0,
         title="Number of Informed Traders",
         description="Number of informed traders",
         ge=0,
@@ -83,7 +83,7 @@ class TraderCreationData(BaseModel):
         description="Trade direction for informed traders, to sell or buy",
     )
     noise_warm_ups: int = Field(
-        default=10,
+        default=2,
         title="Noise Warm Ups",
         description="Number of warm up periods for noise traders",
         gt=0,
@@ -99,9 +99,14 @@ class TraderCreationData(BaseModel):
         description="Initial stocks for each trader",
     )
     depth_book_shown: int = Field(
-        default=5,
+        default=3,
         title="Depth Book Shown",
         description="Depth of the book shown to the human traders",
+    )
+    order_book_levels: int = Field(
+        default=5,
+        title="Order Book Levels",
+        description="Numbers of levels in order book",
     )
 
 
