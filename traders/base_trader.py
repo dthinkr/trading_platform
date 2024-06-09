@@ -164,20 +164,18 @@ class BaseTrader:
         )
 
     async def on_message_from_system(self, message):
-        """Process incoming messages from trading system.
-        For BaseTrader it updates order book and inventory if needed.
-
-        """
         try:
-
             json_message = json.loads(message.body.decode())
-
             action_type = json_message.get('type')
             data = json_message
+            print(action_type)
+            
+            if action_type == 'transaction_update':
+                print('transaction update received')
+                self.update_inventory(data['transactions'])
+
             if data.get('midpoint'):
                 self.update_mid_price(data['midpoint'])
-            if data.get('new_transactions'):
-                self.update_inventory(data['new_transactions'])
             if not data:
                 logger.error('no data from trading system')
                 return
@@ -188,7 +186,6 @@ class BaseTrader:
             if active_orders:
                 self.active_orders = active_orders
                 own_orders = [order for order in active_orders if order['trader_id'] == self.id]
-                # lets convert the order list to a dictionary with keys as order ids
                 self.orders = own_orders
 
             handler = getattr(self, f'handle_{action_type}', None)
@@ -208,6 +205,7 @@ class BaseTrader:
 
         and we need to update self.shares and self.cash accordingly
         """
+        print('updating inventory')
         for transaction in new_transactions:
 
             if transaction['type'] == 'ask':

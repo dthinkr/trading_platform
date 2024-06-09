@@ -313,9 +313,7 @@ class TradingSession:
             logger.info("No overlapping orders.")
             return None, None
 
-    async def create_transaction(
-        self, bid: Dict, ask: Dict, transaction_price: float
-    ) -> Tuple[str, str, TransactionModel]:
+    async def create_transaction(self, bid: Dict, ask: Dict, transaction_price: float) -> Tuple[str, str, TransactionModel]:
         self.all_orders[ask["id"]]["status"] = OrderStatus.EXECUTED.value
         self.all_orders[bid["id"]]["status"] = OrderStatus.EXECUTED.value
 
@@ -329,6 +327,17 @@ class TradingSession:
         await self.transaction_queue.put(transaction)
         logger.info(f"Transaction enqueued: {transaction}")
 
+        # Send transaction details to both traders
+        transaction_details = {
+            "type": "transaction_update",
+            "transactions": [
+                {"id": ask["id"], "price": transaction_price, "type": "ask", "amount": ask["amount"]},
+                {"id": bid["id"], "price": transaction_price, "type": "bid", "amount": bid["amount"]}
+            ]
+        }
+        await self.send_message_to_trader(ask["trader_id"], transaction_details)
+        await self.send_message_to_trader(bid["trader_id"], transaction_details)
+        # print(f'sent transactions to traders, type is {transaction_details["type"]}')
         return ask["trader_id"], bid["trader_id"], transaction
 
     async def process_transactions(self) -> None:
