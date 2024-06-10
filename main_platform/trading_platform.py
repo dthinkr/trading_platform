@@ -14,6 +14,7 @@ from pydantic import ValidationError
 
 from main_platform.custom_logger import setup_custom_logger
 from main_platform.utils import CustomEncoder, if_active, now
+from main_platform.message_broker import MessageBroker
 from structures import (Message, Order, OrderStatus, OrderType, TraderType,
                         TransactionModel)
 
@@ -64,6 +65,8 @@ class TradingSession:
         self.transaction_processor_task = None # handling non-defined attribute
 
         self.transaction_queue = asyncio.Queue()
+
+        self.message_broker = None
 
     @property
     def current_time(self) -> datetime:
@@ -154,6 +157,7 @@ class TradingSession:
         self.active = True
         self.connection = await aio_pika.connect_robust(rabbitmq_url)
         self.channel = await self.connection.channel()
+        self.message_broker = MessageBroker(self.channel)
 
         await self.channel.declare_exchange(
             self.broadcast_exchange_name, aio_pika.ExchangeType.FANOUT, auto_delete=True
@@ -191,77 +195,46 @@ class TradingSession:
         except Exception as e:
             logger.error(f"An error occurred during cleanup: {e}")
 
-    def get_active_orders_to_broadcast(self) -> List[Dict]:
-        # Convert the active orders dictionary to a Polars DataFrame
-        active_orders_df = pl.DataFrame(list(self.active_orders.values()))
+    async def get_order_book_snapshot(self) -> Dict:
+        async with self.lock:
+            return self.order_book.copy()  
 
-        # Check if the DataFrame is empty
+    def get_transaction_history(self) -> List[Dict]:
+        return self.transactions
+
+    def get_current_spread(self) -> Optional[float]:
+        spread, _ = self.get_spread()
+        return spread
+
+    def get_current_midpoint(self) -> Optional[float]:
+        _, midpoint = self.get_spread()
+        return midpoint
+
+    def get_last_transaction_price(self) -> Optional[float]:
+        return self.transaction_price
+
+    def get_active_orders_to_broadcast(self) -> List[Dict]:
+        active_orders_df = pl.DataFrame(list(self.active_orders.values()))
         if active_orders_df.height == 0:
             return []
-
-        # Select the necessary columns
         active_orders_df = active_orders_df.select(
             ["id", "trader_id", "order_type", "amount", "price", "timestamp"]
         )
+        return active_orders_df.to_dicts()
 
-        # Convert to list of dictionaries
-        res = active_orders_df.to_dicts()
-        return res
-
-    async def send_broadcast(self, message: dict, message_type="BOOK_UPDATED", incoming_message=None) -> None:
-        if "type" not in message:
-            message["type"] = message_type  # Only set default if not specified
-
-        spread, midpoint = self.get_spread()
-
-        async with self.lock:  # acquire lock before accessing the order book
-            order_book_snapshot = self.order_book
-
-        message.update({
-            "order_book": order_book_snapshot,
+    async def send_broadcast(self, message, message_type="BOOK_UPDATED", incoming_message=None) -> None:
+        context = {
+            "order_book": await self.get_order_book_snapshot(),
             "active_orders": self.get_active_orders_to_broadcast(),
-            "history": self.transactions,
-            "spread": spread,
-            "midpoint": midpoint,
-            "transaction_price": self.transaction_price,
+            "history": self.get_transaction_history(),
+            "spread": self.get_current_spread(),
+            "midpoint": self.get_current_midpoint(),
+            "transaction_price": self.get_last_transaction_price(),
             "incoming_message": incoming_message,
-        })
-        message_document = Message(trading_session_id=self.id, content=message)
-        message_document.save()
-
-        exchange = await self.channel.get_exchange(self.broadcast_exchange_name)
-        await exchange.publish(
-            aio_pika.Message(body=json.dumps(message, cls=CustomEncoder).encode()),
-            routing_key="",  # routing_key is typically ignored in FANOUT exchanges
-        )
-
-    async def send_message_to_trader(self, trader_id: str, message: dict) -> None:
-        transactions = [
-            {"price": t["price"], "timestamp": t["timestamp"].timestamp()}
-            for t in self.transactions
-        ]
-        transactions.sort(key=lambda x: x["timestamp"])
-        if transactions:
-            current_price = transactions[-1]["price"]
-        else:
-            current_price = None
-        spread, mid_price = self.get_spread()
-
-        async with self.lock:  # acquire lock before accessing the order book
-            order_book_snapshot = self.order_book
-
-        message.update(
-            {
-                "type": "a message to all",
-                "order_book": order_book_snapshot,
-                "active_orders": self.get_active_orders_to_broadcast(),
-                "transaction_history": self.transactions,
-                "spread": spread,
-                "mid_price": mid_price,
-                "current_price": current_price,
-            }
-        )
-
+        }
+        base_message = {"type": message_type}
+        await self.message_broker.broadcast_message(base_message, self.broadcast_exchange_name, context)
+        
     @property
     def list_active_orders(self) -> List[Dict]:
         """Returns a list of all active orders. When we switch to real DB or mongo, we won't need it anymore."""
@@ -335,9 +308,6 @@ class TradingSession:
                 {"id": bid["id"], "price": transaction_price, "type": "bid", "amount": bid["amount"]}
             ]
         }
-        await self.send_message_to_trader(ask["trader_id"], transaction_details)
-        await self.send_message_to_trader(bid["trader_id"], transaction_details)
-        # print(f'sent transactions to traders, type is {transaction_details["type"]}')
         return ask["trader_id"], bid["trader_id"], transaction
 
     async def process_transactions(self) -> None:
@@ -443,9 +413,6 @@ class TradingSession:
         # Clear orders and prepare for response
         resp = await self.clear_orders()
         subgroup_data = resp.pop("subgroup_broadcast", None)
-        if subgroup_data:
-            await self.send_message_to_subgroup(subgroup_data)
-
         resp.update({"type": "NEW_ORDER_ADDED", "content": "A", "respond": True})
         return resp
 
@@ -488,13 +455,6 @@ class TradingSession:
             self.all_orders[order_id]["cancellation_timestamp"] = now()
 
             return {"status": "cancel success", "order": order_id, "type": "ORDER_CANCELLED", "respond": True}
-
-    async def send_message_to_subgroup(self, message: Dict) -> None:
-        for trader_id, transaction_list in message.items():
-            await self.send_message_to_trader(
-                trader_id,
-                {"type": "a message to subgroup", "new_transactions": transaction_list},
-            )
 
     @if_active
     async def handle_cancel_order(self, data: dict) -> Dict:
@@ -562,7 +522,7 @@ class TradingSession:
             if handler_method:
                 result = await handler_method(incoming_message)
                 if result and result.pop("respond", None) and trader_id:
-                    await self.send_message_to_trader(trader_id, result)
+
                     # Check if the message is meant for individual or all traders
                     if not result.get("individual", False):
                         # Determine the appropriate message type based on the action
@@ -662,8 +622,6 @@ class TradingSession:
                     "amount": trader_order["amount"],
                 }
             )
-
-            await self.send_message_to_subgroup(traders_to_transactions_lookup)
 
     async def wait_for_traders(self) -> None:
         while not all(self.trader_responses.values()):

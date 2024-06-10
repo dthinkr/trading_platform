@@ -168,7 +168,7 @@ class BaseTrader:
             json_message = json.loads(message.body.decode())
             action_type = json_message.get('type')
             data = json_message
-            print(action_type)
+            # print(data.keys())
             
             if action_type == 'transaction_update':
                 print('transaction update received')
