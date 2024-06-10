@@ -40,7 +40,7 @@ class TraderCreationData(BaseModel):
         ge=0,
     )
     num_informed_traders: int = Field(
-        default=0,
+        default=1,
         title="Number of Informed Traders",
         description="Number of informed traders",
         ge=0,

@@ -4,6 +4,7 @@ import json
 import uuid
 from structures.structures import OrderType, ActionType, TraderType
 import os
+from abc import abstractmethod
 
 from main_platform.custom_logger import setup_custom_logger
 from main_platform.utils import (CustomEncoder)
@@ -163,16 +164,26 @@ class BaseTrader:
             routing_key=self.queue_name  # Use the dynamic queue_name
         )
 
+    def check_if_relevant(self, transactions: list) -> list:
+        """
+        Check if any of the transactions in the list are relevant to this trader.
+        """
+        transactions_relevant_to_self = []
+        for transaction in transactions:
+            if transaction['trader_id'] == self.id:
+                transactions_relevant_to_self.append(transaction)
+        return transactions_relevant_to_self
+
     async def on_message_from_system(self, message):
         try:
             json_message = json.loads(message.body.decode())
             action_type = json_message.get('type')
             data = json_message
-            # print(data.keys())
             
-            if action_type == 'transaction_update':
-                print('transaction update received')
-                self.update_inventory(data['transactions'])
+            if action_type == 'transaction_update' and self.trader_type != TraderType.NOISE.value:
+                transactions_relevant_to_self = self.check_if_relevant(data['transactions'])
+                if transactions_relevant_to_self:
+                    self.update_inventory(transactions_relevant_to_self)
 
             if data.get('midpoint'):
                 self.update_mid_price(data['midpoint'])
@@ -198,37 +209,39 @@ class BaseTrader:
         except json.JSONDecodeError:
             logger.error(f"Error decoding message: {message}")
 
-    def update_inventory(self, new_transactions):
+    def update_inventory(self, transactions_relevant_to_self: list) -> None:
         """
-        new transactions come in format:
-         [{'id': 'aa5b7bd0-6bd1-49ab-ab24-fbd46b3d437a', 'price': 1999.0, 'type': 'ask', 'amount': 1.0}, {'id': 'e5712c5d-dc58-4092-b369-b9306f2f0527', 'price': 1999.0, 'type': 'bid', 'amount': 1.0}]
-
-        and we need to update self.shares and self.cash accordingly
+        Update the trader's inventory based on matched transactions relevant to this trader.
+        Only accounts for the increase of shares and cash.
         """
-        print('updating inventory')
-        for transaction in new_transactions:
-
-            if transaction['type'] == 'ask':
-                self.shares -= transaction['amount']
-                d_inv = -transaction['amount']
-                self.cash += transaction['price'] * transaction['amount']
-            else:
+        for transaction in transactions_relevant_to_self:
+            if transaction['type'] == 'bid':
                 self.shares += transaction['amount']
-                d_inv = transaction['amount']
-                self.cash -= transaction['price'] * transaction['amount']
-            self.update_data_for_pnl(d_inv, transaction['price'])
-        if self.trader_type == TraderType.HUMAN.value:
-            logger.info(f"Trader {self.id} updated inventory: shares: {self.shares}, cash: {self.cash}")
+            elif transaction['type'] == 'ask':
+                self.cash += transaction['price'] * transaction['amount']
+            self.update_data_for_pnl(transaction['amount'], transaction['price'])
+        logger.critical(f"Trader {self.id} updated inventory: shares: {self.shares}, cash: {self.cash}")
 
+    @abstractmethod
     async def post_processing_server_message(self, json_message):
         """for BaseTrader it is not implemented. For human trader we send updated info back to client.
         For other market maker types we need do some reactions on updated market if needed.
         """
         pass
 
-    async def post_new_order(self,
-                             amount, price, order_type: OrderType
-                             ):
+    async def post_new_order(self, amount: int, price: int, order_type: OrderType) -> None:
+        if self.trader_type != TraderType.NOISE.value:
+            if order_type == OrderType.BID:
+                if self.cash < price * amount:
+                    logger.critical(f"Trader {self.id} does not have enough cash to place bid order.")
+                    return
+                self.cash -= price * amount
+            elif order_type == OrderType.ASK:
+                if self.shares < amount:
+                    logger.critical(f"Trader {self.id} does not have enough shares to place ask order.")
+                    return
+                self.shares -= amount
+
         new_order = {
             "action": ActionType.POST_NEW_ORDER.value,
             "amount": amount,
@@ -236,9 +249,8 @@ class BaseTrader:
             "order_type": order_type,
         }
         await self.send_to_trading_system(new_order)
-        logger.debug(f"Trader {self.id} posted new {order_type} order: {new_order}")
 
-    async def send_cancel_order_request(self, order_id: uuid.UUID):
+    async def send_cancel_order_request(self, order_id: uuid.UUID) -> None:
         if not order_id:
             logger.error(f"Order ID is not provided")
             return

@@ -92,7 +92,8 @@ class InformedTrader(BaseTrader):
         while not self._stop_requested.is_set():
             try:
                 await self.act()
-                # print("InformedTrader run method")
+                print("InformedTrader run method")
+                # print(f'i have {self.shares} shares and {self.cash} cash')
                 await asyncio.sleep(1)
 
             except asyncio.CancelledError:

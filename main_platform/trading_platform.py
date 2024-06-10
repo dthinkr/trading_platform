@@ -14,7 +14,6 @@ from pydantic import ValidationError
 
 from main_platform.custom_logger import setup_custom_logger
 from main_platform.utils import CustomEncoder, if_active, now
-from main_platform.message_broker import MessageBroker
 from structures import (Message, Order, OrderStatus, OrderType, TraderType,
                         TransactionModel)
 
@@ -65,8 +64,6 @@ class TradingSession:
         self.transaction_processor_task = None # handling non-defined attribute
 
         self.transaction_queue = asyncio.Queue()
-
-        self.message_broker = None
 
     @property
     def current_time(self) -> datetime:
@@ -157,7 +154,6 @@ class TradingSession:
         self.active = True
         self.connection = await aio_pika.connect_robust(rabbitmq_url)
         self.channel = await self.connection.channel()
-        self.message_broker = MessageBroker(self.channel)
 
         await self.channel.declare_exchange(
             self.broadcast_exchange_name, aio_pika.ExchangeType.FANOUT, auto_delete=True
@@ -222,19 +218,29 @@ class TradingSession:
         )
         return active_orders_df.to_dicts()
 
-    async def send_broadcast(self, message, message_type="BOOK_UPDATED", incoming_message=None) -> None:
-        context = {
-            "order_book": await self.get_order_book_snapshot(),
-            "active_orders": self.get_active_orders_to_broadcast(),
-            "history": self.get_transaction_history(),
-            "spread": self.get_current_spread(),
-            "midpoint": self.get_current_midpoint(),
-            "transaction_price": self.get_last_transaction_price(),
-            "incoming_message": incoming_message,
-        }
-        base_message = {"type": message_type}
-        await self.message_broker.broadcast_message(base_message, self.broadcast_exchange_name, context)
-        
+    async def send_broadcast(self, message: dict, message_type="BOOK_UPDATED", incoming_message=None) -> None:
+            if "type" not in message:
+                message["type"] = message_type  # Only set default if not specified
+
+            message.update({
+                "order_book": await self.get_order_book_snapshot(),
+                "active_orders": self.get_active_orders_to_broadcast(),
+                "history": self.get_transaction_history(),
+                "spread": self.get_current_spread(),
+                "midpoint": self.get_current_midpoint(),
+                "transaction_price": self.get_last_transaction_price(),
+                "incoming_message": incoming_message,
+                "test_field": "test"
+            })
+            message_document = Message(trading_session_id=self.id, content=message)
+            message_document.save()
+
+            exchange = await self.channel.get_exchange(self.broadcast_exchange_name)
+            await exchange.publish(
+                aio_pika.Message(body=json.dumps(message, cls=CustomEncoder).encode()),
+                routing_key="",  # routing_key is typically ignored in FANOUT exchanges
+            )
+
     @property
     def list_active_orders(self) -> List[Dict]:
         """Returns a list of all active orders. When we switch to real DB or mongo, we won't need it anymore."""
@@ -304,10 +310,18 @@ class TradingSession:
         transaction_details = {
             "type": "transaction_update",
             "transactions": [
-                {"id": ask["id"], "price": transaction_price, "type": "ask", "amount": ask["amount"]},
-                {"id": bid["id"], "price": transaction_price, "type": "bid", "amount": bid["amount"]}
+                {"id": ask["id"], "price": transaction_price, "type": "ask", "amount": ask["amount"], "trader_id": ask["trader_id"]},
+                {"id": bid["id"], "price": transaction_price, "type": "bid", "amount": bid["amount"], "trader_id": bid["trader_id"]}
             ]
         }
+
+        # Publish transaction details to both traders
+        exchange = await self.channel.get_exchange(self.broadcast_exchange_name)
+        await exchange.publish(
+            aio_pika.Message(body=json.dumps(transaction_details, cls=CustomEncoder).encode()),
+            routing_key=""
+        )
+
         return ask["trader_id"], bid["trader_id"], transaction
 
     async def process_transactions(self) -> None:
@@ -455,13 +469,12 @@ class TradingSession:
             self.all_orders[order_id]["cancellation_timestamp"] = now()
 
             return {"status": "cancel success", "order": order_id, "type": "ORDER_CANCELLED", "respond": True}
-
+    
     @if_active
     async def handle_cancel_order(self, data: dict) -> Dict:
         order_id = data.get("order_id")
         trader_id = data.get("trader_id")
 
-        # Ensure order_id is a valid UUID
         try:
             order_id = uuid.UUID(order_id)
         except ValueError:
@@ -469,7 +482,6 @@ class TradingSession:
             return {"status": "failed", "reason": "Invalid order ID format"}
 
         async with self.lock:
-            # Check if the order exists and belongs to the trader
             if order_id not in self.active_orders:
                 return {"status": "failed", "reason": "Order not found"}
 
@@ -480,17 +492,14 @@ class TradingSession:
                 return {"status": "failed", "reason": "Trader does not own the order"}
 
             if existing_order["status"] != OrderStatus.ACTIVE.value:
-                logger.warning(
-                    f"Order {order_id} is not active and cannot be canceled."
-                )
+                logger.warning(f"Order {order_id} is not active and cannot be canceled.")
                 return {"status": "failed", "reason": "Order is not active"}
 
-            # Cancel the order
             self.all_orders[order_id]["status"] = OrderStatus.CANCELLED.value
             self.all_orders[order_id]["cancellation_timestamp"] = now()
 
             return {"status": "cancel success", "order": order_id, "respond": True}
-
+            
     @if_active
     async def handle_register_me(self, msg_body: Dict) -> Dict:
         trader_id = msg_body.get("trader_id")
@@ -655,9 +664,7 @@ class TradingSession:
             raise
 
         except Exception as e:
-            # Handle the exception here
             logger.error(f"Exception in trading session run: {e}")
-            # Optionally re-raise the exception if you want it to be propagated
             raise
         finally:
             await self.clean_up()

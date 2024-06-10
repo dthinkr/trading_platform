@@ -28,6 +28,18 @@ class NoiseTrader(BaseTrader):
         self.settings_noise = settings_noise
         self.step = self.settings_noise["step"]
         self.initial_value = self.settings["initial"]
+        self.order_list = [(2000, OrderType.BID), (2000, OrderType.ASK), 
+                            (2001, OrderType.BID), (2011, OrderType.ASK)
+                            # , (2000, OrderType.BID), (2000, OrderType.ASK), (2000, OrderType.BID), (2000, OrderType.ASK), 
+                            # (2000, OrderType.BID), (2000, OrderType.ASK), (2000, OrderType.BID), (2000, OrderType.ASK)
+                            ]
+        self.order_index = 0
+
+
+    async def post_orders_from_list(self):
+        if self.order_index < len(self.order_list):
+            await self.post_new_order(1, self.order_list[self.order_index][0], self.order_list[self.order_index][1])
+            self.order_index += 1
 
     def cooling_interval(self, target: float) -> float:
         interval = np.random.exponential(1 / target)
@@ -132,12 +144,14 @@ class NoiseTrader(BaseTrader):
 
     async def warm_up(self, number_of_warmup_orders: int) -> None:
         for _ in range(number_of_warmup_orders):
-            await self.act()
+            pass
+            # await self.act()
 
     async def run(self) -> None:
         while not self._stop_requested.is_set():
             try:
-                await self.act()
+                # await self.act()
+                await self.post_orders_from_list()
                 await asyncio.sleep(self.cooling_interval(target=self.activity_frequency))
             except asyncio.CancelledError:
                 logger.info(
