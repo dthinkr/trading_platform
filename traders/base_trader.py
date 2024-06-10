@@ -58,8 +58,6 @@ class BaseTrader:
         self.start_time = asyncio.get_event_loop().time()
 
 
-        # END PNL BLOCK
-
     def get_elapsed_time(self) -> float:
         """Returns the elapsed time in seconds since the trader was initialized."""
         current_time = asyncio.get_event_loop().time()
@@ -220,7 +218,6 @@ class BaseTrader:
             elif transaction['type'] == 'ask':
                 self.cash += transaction['price'] * transaction['amount']
             self.update_data_for_pnl(transaction['amount'], transaction['price'])
-        logger.critical(f"Trader {self.id} updated inventory: shares: {self.shares}, cash: {self.cash}")
 
     @abstractmethod
     async def post_processing_server_message(self, json_message):

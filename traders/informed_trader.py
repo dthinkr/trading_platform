@@ -1,9 +1,6 @@
 import asyncio
-import random
-from datetime import datetime
-from structures import OrderType, TraderType, str_to_order_type
+from structures import OrderType, TraderType, TradeDirection
 from main_platform.custom_logger import setup_custom_logger
-from main_platform.utils import convert_to_book_format_new
 from .base_trader import BaseTrader
 
 logger = setup_custom_logger(__name__)
@@ -20,9 +17,6 @@ class InformedTrader(BaseTrader):
         get_signal_informed: callable,
         get_order_to_match: callable,
     ):
-        """
-        initializes the informed trader with settings and callable functions.
-        """
         super().__init__(trader_type=TraderType.INFORMED)
         self.activity_frequency = activity_frequency
         self.settings = settings
@@ -31,78 +25,97 @@ class InformedTrader(BaseTrader):
         self.informed_state = informed_state
         self.get_signal_informed = get_signal_informed
         self.get_order_to_match = get_order_to_match
+        self.next_sleep_time = activity_frequency
+        self.initialize_inventory(settings_informed)
+
+    def initialize_inventory(self, settings_informed: dict) -> None:
+        if settings_informed["direction"] == TradeDirection.BUY:
+            self.shares = 0
+            self.cash = 1e6
+        elif settings_informed["direction"] == TradeDirection.SELL:
+            self.shares = settings_informed["inv"]
+            self.cash = 0
+        else:
+            raise ValueError(f"Invalid direction: {settings_informed['direction']}")
+
+    def get_remaining_time(self) -> float:
+        return self.settings_informed["total_seconds"] - self.get_elapsed_time()
+
+    def get_best_opposite_price(self, order_side: OrderType) -> float:
+        if order_side == OrderType.BID:
+            asks = self.order_book.get("asks", [])
+            if asks:
+                return min(ask["x"] for ask in asks)
+            else:
+                return float("inf")
+        elif order_side == OrderType.ASK:
+            bids = self.order_book.get("bids", [])
+            if bids:
+                return max(bid["x"] for bid in bids)
+            else:
+                return 2000 # magic number
+
+    def calculate_sleep_time(self, remaining_time: float) -> float:
+        # buying case
+        if self.settings_informed["direction"] == TradeDirection.BUY:
+            if self.shares >= self.settings_informed["inv"]:
+                # target reached
+                return remaining_time
+            else:
+                # calculate time
+                shares_needed = self.settings_informed["inv"] - self.shares
+                return (
+                    remaining_time
+                    / max(shares_needed, 1)
+                    * self.settings_informed["trade_intensity"]
+                )
+
+        # selling case
+        elif self.settings_informed["direction"] == TradeDirection.SELL:
+            if self.shares == 0:
+                # all sold
+                return remaining_time
+            else:
+                # calculate time
+                return (
+                    remaining_time
+                    / max(self.shares, 1)
+                    * self.settings_informed["trade_intensity"]
+                )
+
+        # default case
+        return remaining_time
 
     async def act(self) -> None:
-        """
-        Loads signal and generates orders.
-        """
-        # prep the order book based on active orders
-        book = convert_to_book_format_new(self.order_book)
+        remaining_time = self.get_remaining_time()
+        if remaining_time <= 0:
+            return
 
-        #     # PNL BLOCK
-        # self.DInv = []
-        # self.transaction_prices = []
-        # self.transaction_relevant_mid_prices = []  # Mid prices relevant to each transaction
-        # self.general_mid_prices = []  # All mid prices from the trading system
-        # self.sum_cost = 0
-        # self.sum_dinv = 0
-        # self.sum_mid_executions = 0
-        # self.current_pnl = 0
+        trade_direction = self.settings_informed["direction"]
+        order_side = (
+            OrderType.BID if trade_direction == TradeDirection.BUY else OrderType.ASK
+        )
+        price = self.get_best_opposite_price(order_side)
 
+        await self.post_new_order(1, price, order_side)
 
-        # print(f"DInv: {self.DInv}, transaction_prices: {self.transaction_prices}, transaction_relevant_mid_prices: {self.transaction_relevant_mid_prices}, general_mid_prices: {self.general_mid_prices}, sum_cost: {self.sum_cost}, sum_dinv: {self.sum_dinv}, sum_mid_executions: {self.sum_mid_executions}, current_pnl: {self.current_pnl}")
-
-        elapsed_time_sec = int(self.get_elapsed_time())
-
-        try:
-            signal_informed = self.get_signal_informed(
-                self.informed_state,
-                self.settings_informed,
-                self.informed_time_plan,
-                elapsed_time_sec,
-            )
-            order_dict = self.get_order_to_match(
-                book,
-                signal_informed,
-                self.informed_state,
-                self.settings_informed,
-                self.settings,
-                elapsed_time_sec,
-            )
-
-            for order_type, orders in order_dict.items():
-                for price, amounts in orders.items():
-                    for amount in amounts:
-                        await self.post_new_order(amount, price, str_to_order_type[order_type])
-                        # logging
-                        logger.critical(
-                            "INFORMED MATCHING %s AT %s AMOUNT %s AT TIME %s",
-                            order_type,
-                            price,
-                            amount,
-                            elapsed_time_sec,
-                        )
-        except Exception as e:
-            print(e)
+        self.next_sleep_time = self.calculate_sleep_time(remaining_time)
 
     async def run(self) -> None:
-        """
-        trades at each step.
-        """
         while not self._stop_requested.is_set():
             try:
                 await self.act()
-                print("InformedTrader run method")
-                # print(f'i have {self.shares} shares and {self.cash} cash')
-                await asyncio.sleep(1)
-
-            except asyncio.CancelledError:
-                logger.info(
-                    "Run method cancelled, performing cleanup of %s...",
-                    self.trader_type,
+                print(  f"Action: {'Buying' if self.settings_informed['direction'] == TradeDirection.BUY else 'Selling'}, "
+                        f"Inventory: {self.shares} shares, "
+                        f"Cash: ${self.cash:,.2f}, "
+                        f"Sleep Time: {self.next_sleep_time:.2f} seconds"
                 )
+
+                await asyncio.sleep(self.next_sleep_time)
+            except asyncio.CancelledError:
+                logger.info("Run method cancelled, performing cleanup...")
                 await self.clean_up()
                 raise
             except Exception as e:
-                logger.error("An error occurred in InformedTrader run loop: %s", e)
+                logger.error(f"An error occurred in InformedTrader run loop: {e}")
                 break

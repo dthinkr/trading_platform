@@ -13,7 +13,7 @@ settings = {
 # (3) to buy or sell
 # (4) noise trader frequency activity
 settings_informed = {'time_period_in_min': 5, 'NoiseTrader_frequency_activity': 1,
-                     'trade_intensity': 0.10, 'direction': 'sell'}
+                     'trade_intensity': 0.10, 'direction': 'buy'}
 
 # given that all the rest should run without any change
 

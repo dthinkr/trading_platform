@@ -144,14 +144,14 @@ class NoiseTrader(BaseTrader):
 
     async def warm_up(self, number_of_warmup_orders: int) -> None:
         for _ in range(number_of_warmup_orders):
-            pass
-            # await self.act()
+            # pass
+            await self.act()
 
     async def run(self) -> None:
         while not self._stop_requested.is_set():
             try:
-                # await self.act()
-                await self.post_orders_from_list()
+                await self.act()
+                # await self.post_orders_from_list()
                 await asyncio.sleep(self.cooling_interval(target=self.activity_frequency))
             except asyncio.CancelledError:
                 logger.info(
