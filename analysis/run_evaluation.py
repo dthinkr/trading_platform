@@ -16,7 +16,7 @@ from .utilities import flatten_item, load_config, process_df
 CONFIG = load_config()
 
 # cloud_db
-con = duckdb.connect(f"/Users/marioljonuzaj/Documents/Python Projects/Simulations/data.duckdb")
+con = duckdb.connect(f"md:{CONFIG.DATASET}?motherduck_token={CONFIG.MD_TOKEN}")
 con.execute(
     f"""CREATE TABLE IF NOT EXISTS {CONFIG.TABLE_REF} (session_id VARCHAR, trader_data STRING)"""
 )
