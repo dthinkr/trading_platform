@@ -2,7 +2,7 @@ import asyncio
 import aio_pika
 import json
 import uuid
-from structures.structures import OrderType, ActionType, TraderType
+from structures import OrderType, ActionType, TraderType
 import os
 from abc import abstractmethod
 

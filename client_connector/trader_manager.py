@@ -8,9 +8,12 @@ import uuid
 
 #from external_traders.noise_trader import get_signal_noise, settings_noise, get_noise_rule_unif, settings
 from external_traders.informed_naive import get_signal_informed, get_order_to_match, settings_informed, update_settings_informed
-from structures import TraderCreationData
+from structures import TraderCreationData, OrderType, ActionType, TraderType
 from typing import List
-from traders import HumanTrader, NoiseTrader, InformedTrader
+from traders import HumanTrader, NoiseTrader, InformedTrader, BookInitializer
+import random
+import math
+
 
 from main_platform import TradingSession
 
@@ -43,14 +46,16 @@ class TraderManager:
         cash = params.get("initial_cash", 0)
         shares = params.get("initial_stocks", 0)
 
-        # TODO: we may start launching with more than one human trader later.
-        # So far for debugging purposes we only need one human trader whose id we return to the client
-        n_human_traders = params.get("num_human_traders", 1)
-        self.noise_warm_ups = params.get("noise_warm_ups", 10)
+        # initialize traders
+        self.book_initializer = BookInitializer(params)
 
+        # human traders
+        n_human_traders = params.get("num_human_traders", 1)
+
+        # noise trader
         settings = {}
         settings['levels_n'] = params.get('order_book_levels')
-        settings['initial'] = 2000
+        settings['initial'] = params.get('initial_price')
         settings['step'] = params.get('step')
 
         settings_noise = {}
@@ -65,7 +70,7 @@ class TraderManager:
                                           settings = settings, 
                                           settings_noise=settings_noise) for _ in range(n_noise_traders)]
 
-        
+        # informed trader
         settings_informed['time_period_in_min'] = params.get('trading_day_duration')
         settings_informed['trade_intensity'] = params.get('trade_intensity_informed')
         settings_informed['direction'] = params.get('trade_direction_informed')
@@ -84,24 +89,32 @@ class TraderManager:
                 
         self.human_traders = [HumanTrader(cash=cash, shares=shares) for _ in range(n_human_traders)]
 
-
-        self.traders = {t.id: t for t in self.noise_traders + self.informed_traders + self.human_traders}
+        self.traders = {t.id: t for t in self.noise_traders + self.informed_traders + self.human_traders + [self.book_initializer]}
         self.trading_session = TradingSession(duration=params['trading_day_duration'])
-
 
 
     async def launch(self):
         await self.trading_session.initialize()
-        logger.info(f"Trading session UUID: {self.trading_session.id}")
+        print(f"Trading session UUID: {self.trading_session.id}")
 
         for trader_id, trader in self.traders.items():
             await trader.initialize()
             await trader.connect_to_session(trading_session_uuid=self.trading_session.id)
 
-        for trader in self.noise_traders:
-            await trader.warm_up(number_of_warmup_orders=self.noise_warm_ups)
+        # Initialize order book
+        print("Starting order book initialization")
+        await self.book_initializer.initialize_order_book()
+        print("Order book initialization completed")
 
-        await self.trading_session.send_broadcast({"content": "Market is open"})
+        # Set initialization complete
+        print("Setting initialization complete")
+        self.trading_session.set_initialization_complete()
+        print("Initialization complete set")
+
+        # Start the trading session timer after initialization
+        print("Starting trading session")
+        await self.trading_session.start_trading()
+        print("Trading session started")
 
         trading_session_task = asyncio.create_task(self.trading_session.run())
         trader_tasks = [asyncio.create_task(i.run()) for i in self.traders.values()]
@@ -110,7 +123,7 @@ class TraderManager:
         self.tasks.extend(trader_tasks)
 
         await trading_session_task
-
+        
     async def cleanup(self):
         await self.trading_session.clean_up()
         for trader in self.traders.values():
