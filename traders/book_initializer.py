@@ -12,7 +12,7 @@ class BookInitializer(BaseTrader):
         self.shares = math.inf
 
     def generate_price(self, is_bid: bool) -> int:
-        default_price = self.trader_creation_data["initial_price"]
+        default_price = self.trader_creation_data["default_price"]
         step = self.trader_creation_data["step"]
         order_book_levels = self.trader_creation_data["order_book_levels"]
 
