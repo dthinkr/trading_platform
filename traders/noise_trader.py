@@ -45,12 +45,11 @@ class NoiseTrader(BaseTrader):
         interval = np.random.gamma(shape=1,scale=1/target)
         return interval
 
-    def get_noise_order(self, book_format):
+    def get_noise_order(self, book_format, pr_bid):
         order = {"bid": {}, "ask": {}}
         levels_n = self.settings_noise["levels_n"]
         step = self.settings_noise["step"]
         pr_passive = self.settings_noise["pr_passive"]
-        pr_bid = self.settings_noise["pr_bid"]
         pr_cancel = self.settings_noise["pr_cancel"]
 
         pr_passive_signal = np.random.uniform(0, 1) < pr_passive
@@ -96,26 +95,23 @@ class NoiseTrader(BaseTrader):
             await self.post_new_order(1, self.initial_value - 2* self.step, OrderType.BID)
             return
 
-
         book_format = convert_to_book_format_new(self.order_book)
 
         bid_count = len(self.order_book["bids"])
         ask_count = len(self.order_book["asks"])
 
+        pr_bid = self.settings_noise["pr_bid"]
+
         if bid_count == 0:
-            best_ask = book_format[0]
-            await self.post_new_order(1, best_ask - self.step, OrderType.BID)
+            pr_bid = 1  # Force a bid
+        elif ask_count == 0:
+            pr_bid = 0  # Force an ask
 
-        if ask_count == 0:
-            best_bid = book_format[2]
-            await self.post_new_order(1, best_bid + self.step, OrderType.ASK)
-
-        noise_orders = self.get_noise_order(book_format)
+        noise_orders = self.get_noise_order(book_format, pr_bid)
         orders = convert_to_trader_actions(noise_orders)
 
         for order in orders:
             await self.process_order(order)
-
     
 
     async def process_order(self, order) -> None:

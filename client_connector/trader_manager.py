@@ -72,7 +72,7 @@ class TraderManager:
         settings_informed['NoiseTrader_frequency_activity'] = params.get('activity_frequency')
         settings_informed['pr_passive'] = settings_noise['pr_passive']
         updated_settings_informed, informed_time_plan, informed_state = update_settings_informed(settings_informed)
-        print(updated_settings_informed)
+        # print(updated_settings_informed)
 
         self.informed_traders = [InformedTrader(activity_frequency=params.get('activity_frequency'), 
                                                 settings=settings, 

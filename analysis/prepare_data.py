@@ -12,7 +12,7 @@ def load_configuration() -> dict:
 
 
 def connect_to_database(config: dict) -> duckdb.DuckDBPyConnection:
-    return duckdb.connect("/Users/marioljonuzaj/Documents/Python Projects/Simulations/data.duckdb")
+    return duckdb.connect(f"md:{config.DATASET}?motherduck_token={config.MD_TOKEN}")
 
 
 def fetch_data(
