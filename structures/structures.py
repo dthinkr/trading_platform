@@ -102,10 +102,15 @@ class TraderCreationData(BaseModel):
         title="Order Book Levels",
         description="Numbers of levels in order book",
     )
-    initial_price: int = Field(
+    default_price: int = Field(
         default=2000,
-        title="Initial Price",
-        description="Initial price for the order book",
+        title="Default Price",
+        description="Default price for the order book",
+    )
+    informed_edge: int = Field(
+        default=2,
+        title="Informed Trader: Edge",
+        description="Price adjustment for informed traders",
     )
 
 

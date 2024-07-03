@@ -55,7 +55,7 @@ class TraderManager:
         # noise trader
         settings = {}
         settings['levels_n'] = params.get('order_book_levels')
-        settings['initial'] = params.get('initial_price')
+        settings['initial'] = params.get('default_price')
         settings['step'] = params.get('step')
 
         settings_noise = {}
@@ -79,7 +79,9 @@ class TraderManager:
         updated_settings_informed, informed_time_plan, informed_state = update_settings_informed(settings_informed)
         # print(updated_settings_informed)
 
-        self.informed_traders = [InformedTrader(activity_frequency=params.get('activity_frequency'), 
+        self.informed_traders = [InformedTrader(activity_frequency=params.get('activity_frequency'),
+                                                default_price=params.get('default_price'),
+                                                informed_edge=params.get('informed_edge'),
                                                 settings=settings, 
                                                 settings_informed=updated_settings_informed, 
                                                 informed_time_plan=informed_time_plan,
@@ -90,31 +92,21 @@ class TraderManager:
         self.human_traders = [HumanTrader(cash=cash, shares=shares) for _ in range(n_human_traders)]
 
         self.traders = {t.id: t for t in self.noise_traders + self.informed_traders + self.human_traders + [self.book_initializer]}
-        self.trading_session = TradingSession(duration=params['trading_day_duration'])
+        self.trading_session = TradingSession(duration=params['trading_day_duration'], default_price=params.get('default_price'))
 
 
     async def launch(self):
         await self.trading_session.initialize()
-        print(f"Trading session UUID: {self.trading_session.id}")
 
         for trader_id, trader in self.traders.items():
             await trader.initialize()
             await trader.connect_to_session(trading_session_uuid=self.trading_session.id)
 
-        # Initialize order book
-        print("Starting order book initialization")
         await self.book_initializer.initialize_order_book()
-        print("Order book initialization completed")
 
-        # Set initialization complete
-        print("Setting initialization complete")
         self.trading_session.set_initialization_complete()
-        print("Initialization complete set")
 
-        # Start the trading session timer after initialization
-        print("Starting trading session")
         await self.trading_session.start_trading()
-        print("Trading session started")
 
         trading_session_task = asyncio.create_task(self.trading_session.run())
         trader_tasks = [asyncio.create_task(i.run()) for i in self.traders.values()]
@@ -123,7 +115,7 @@ class TraderManager:
         self.tasks.extend(trader_tasks)
 
         await trading_session_task
-        
+
     async def cleanup(self):
         await self.trading_session.clean_up()
         for trader in self.traders.values():

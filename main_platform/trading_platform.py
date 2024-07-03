@@ -34,7 +34,7 @@ class TradingSession:
     def __init__(
         self,
         duration: int,
-        default_price: int = 1000,
+        default_price: int,
         default_spread: int = 10,
         punishing_constant: int = 1,
     ):
@@ -669,9 +669,7 @@ class TradingSession:
                 current_time = now()
                 elapsed_time = current_time - start_time
                 remaining_time = timedelta(minutes=self.duration) - elapsed_time
-                
-                print(f"Elapsed time: {elapsed_time}, Remaining time: {remaining_time}")
-                
+                                
                 if self.start_time and current_time - self.start_time > timedelta(minutes=self.duration):
                     logger.critical("Time limit reached, stopping...")
                     self.active = False
