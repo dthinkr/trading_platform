@@ -8,6 +8,8 @@ from structures import TraderCreationData
 from fastapi.responses import JSONResponse
 from main_platform.custom_logger import setup_custom_logger
 
+from datetime import timedelta
+
 logger = setup_custom_logger(__name__)
 
 app = FastAPI()
@@ -148,29 +150,31 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_uuid: str):
     await trader.connect_to_socket(websocket)
 
     logger.info(f"Trader {trader_uuid} connected to websocket")
-    # Send current status immediately upon new connection
-    await websocket.send_json({
-        "type": "success",
-        "message": "Connected to trader",
-        "data": {
-            "trader_uuid": trader_uuid,
-            "order_book": trader.order_book
-        }
-    })
-
+    
     try:
         while True:
-            message = await websocket.receive_text()
-            if websocket.client_state != WebSocketState.CONNECTED:
-                logger.warning(f"Trader {trader_uuid} disconnected")
-                break
-            await trader.on_message_from_client(message)
+            # Send time update every second
+            await websocket.send_json({
+                "type": "time_update",
+                "data": {
+                    "current_time": trader_manager.trading_session.current_time.isoformat(),
+                    "is_trading_started": trader_manager.trading_session.trading_started,
+                    "remaining_time": (trader_manager.trading_session.start_time + timedelta(minutes=trader_manager.trading_session.duration) - trader_manager.trading_session.current_time).total_seconds() if trader_manager.trading_session.trading_started else None
+                }
+            })
+            await asyncio.sleep(1)  # Wait for 1 second before sending the next update
+            
+            # Handle incoming messages
+            try:
+                message = await asyncio.wait_for(websocket.receive_text(), timeout=0.1)
+                await trader.on_message_from_client(message)
+            except asyncio.TimeoutError:
+                pass  # No message received, continue with the loop
     except WebSocketDisconnect:
         logger.critical(f"Trader {trader_uuid} disconnected")
-        pass  # should we something here? not sure, because it can be just an connection interruption
     except asyncio.CancelledError:
         logger.warning("Task cancelled")
-        await trader_manager.cleanup()  # This will now cancel all tasks
+        await trader_manager.cleanup()
 
 
 @app.get("/traders/list")

@@ -9,6 +9,7 @@ from main_platform.utils import (
 )
 from main_platform.custom_logger import setup_custom_logger
 from .base_trader import BaseTrader
+import math
 
 logger = setup_custom_logger(__name__)
 
@@ -34,6 +35,8 @@ class NoiseTrader(BaseTrader):
                             # (2000, OrderType.BID), (2000, OrderType.ASK), (2000, OrderType.BID), (2000, OrderType.ASK)
                             ]
         self.order_index = 0
+        self.cash = math.inf
+        self.shares = math.inf
         
 
     async def post_orders_from_list(self):
@@ -89,10 +92,6 @@ class NoiseTrader(BaseTrader):
 
     async def act(self) -> None:
         if not self.order_book:
-            await self.post_new_order(1, self.initial_value + self.step, OrderType.ASK)
-            await self.post_new_order(1, self.initial_value - self.step, OrderType.BID)
-            await self.post_new_order(1, self.initial_value + 2* self.step, OrderType.ASK)
-            await self.post_new_order(1, self.initial_value - 2* self.step, OrderType.BID)
             return
 
         book_format = convert_to_book_format_new(self.order_book)
@@ -141,11 +140,6 @@ class NoiseTrader(BaseTrader):
         order_id = order_to_cancel["id"]
         await self.send_cancel_order_request(order_id)
         logger.info(f"Canceled order ID {order_id[:10]}")
-
-    async def warm_up(self, number_of_warmup_orders: int) -> None:
-        for _ in range(number_of_warmup_orders):
-            # pass
-            await self.act()
 
     async def run(self) -> None:
         while not self._stop_requested.is_set():

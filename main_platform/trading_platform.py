@@ -11,6 +11,7 @@ import aio_pika
 import polars as pl
 from mongoengine import connect
 from pydantic import ValidationError
+import random
 
 from main_platform.custom_logger import setup_custom_logger
 from main_platform.utils import CustomEncoder, if_active, now
@@ -64,6 +65,10 @@ class TradingSession:
         self.transaction_processor_task = None # handling non-defined attribute
 
         self.transaction_queue = asyncio.Queue()
+
+        self.initialization_complete = False
+        self.trading_started = False
+
 
     @property
     def current_time(self) -> datetime:
@@ -223,6 +228,9 @@ class TradingSession:
                 message["type"] = message_type  # Only set default if not specified
 
             message.update({
+                "current_time": self.current_time.isoformat(),
+                "start_time": self.start_time.isoformat() if self.start_time else None,
+                "duration": self.duration,
                 "order_book": await self.get_order_book_snapshot(),
                 "active_orders": self.get_active_orders_to_broadcast(),
                 "history": self.get_transaction_history(),
@@ -259,6 +267,7 @@ class TradingSession:
             }
         )
         self.all_orders[order_id] = order_dict
+        # print(self.all_orders[0])
         return order_dict
 
     def get_spread(self) -> Tuple[Optional[float], Optional[float]]:
@@ -509,8 +518,6 @@ class TradingSession:
         }
         self.trader_responses[trader_id] = False
 
-        logger.info(f"Trader type  {trader_type} id {trader_id} connected.")
-        logger.info(f"Total connected traders: {len(self.connected_traders)}")
         return dict(
             respond=True,
             trader_id=trader_id,
@@ -637,22 +644,41 @@ class TradingSession:
             await asyncio.sleep(1)  # Check every second
         logger.info("All traders have reported back their inventories.")
 
+    async def start_trading(self):
+        if not self.initialization_complete:
+            logger.warning("Attempting to start trading before initialization is complete")
+            return
+        self.start_time = now()
+        self.active = True
+        self.trading_started = True
+        logger.info(f"Trading session {self.id} started at {self.start_time}")
+        await self.send_broadcast({"type": "TRADING_STARTED", "content": "Market is open"})
+
+    # Add a method to set initialization complete
+    def set_initialization_complete(self):
+        self.initialization_complete = True
+        logger.info(f"Trading session {self.id} initialization complete")
+
     async def run(self) -> None:
         try:
+            start_time = now()
             while not self._stop_requested.is_set():
                 self.transaction_processor_task = asyncio.create_task(
                     self.process_transactions()
                 )
                 current_time = now()
-                if current_time - self.start_time > timedelta(minutes=self.duration):
+                elapsed_time = current_time - start_time
+                remaining_time = timedelta(minutes=self.duration) - elapsed_time
+                
+                print(f"Elapsed time: {elapsed_time}, Remaining time: {remaining_time}")
+                
+                if self.start_time and current_time - self.start_time > timedelta(minutes=self.duration):
                     logger.critical("Time limit reached, stopping...")
-                    self.active = False  # here we stop accepting all incoming requests on placing new orders, cancelling etc.
+                    self.active = False
                     await self.close_existing_book()
                     await self.send_broadcast({"type": "stop_trading"})
-                    # Wait for each of the traders to report back their inventories
                     await self.wait_for_traders()
                     await self.send_broadcast({"type": "closure"})
-
                     break
                 await asyncio.sleep(1)
             logger.critical("Exited the run loop.")
@@ -660,9 +686,7 @@ class TradingSession:
             logger.info(
                 "Run method cancelled, performing cleanup of trading session..."
             )
-
             raise
-
         except Exception as e:
             logger.error(f"Exception in trading session run: {e}")
             raise

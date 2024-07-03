@@ -82,12 +82,6 @@ class TraderCreationData(BaseModel):
         title="Informed Trader: Trade Direction",
         description="Trade direction for informed traders, to sell or buy",
     )
-    noise_warm_ups: int = Field(
-        default=2,
-        title="Noise Warm Ups",
-        description="Number of warm up periods for noise traders",
-        gt=0,
-    )
     initial_cash: float = Field(
         default=100000,
         title="Initial Cash",
@@ -107,6 +101,11 @@ class TraderCreationData(BaseModel):
         default=5,
         title="Order Book Levels",
         description="Numbers of levels in order book",
+    )
+    initial_price: int = Field(
+        default=2000,
+        title="Initial Price",
+        description="Initial price for the order book",
     )
 
 
@@ -152,8 +151,7 @@ class TraderType(str, Enum):
     MARKET_MAKER = "MARKET_MAKER"
     INFORMED = "INFORMED"
     HUMAN = "HUMAN"
-    # Philipp: expand this list to include new trader types if needed
-
+    INITIAL_ORDER_BOOK = "INITIAL_ORDER_BOOK"
 
 class Order(BaseModel):
     id: UUID = Field(default_factory=uuid4)
