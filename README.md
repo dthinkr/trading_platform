@@ -26,29 +26,32 @@ There we have:
 
 the folder `structures` contain the dataclasses used in the project. I want to keep all the structure definitions in one place.
 
-# Agent Specification
+# Main Changes
 
-- Set of All Agents: $\mathcal{A}$
+## July 4 2024
 
-  - Noise Trader: $\mathcal{N} \in \mathcal{A}$
-- Observation Space $O_{\mathcal{N}}$: $O_{\mathcal{N}} = [b_{a}, b_{b}, \Delta, v_{i}, \mathbb{P}_\mathcal{N}]$
+1. Noise Trader Behavior:
+   - Enhanced to override existing orders when sending a new one
 
-  - $b_{a}$ and $b_{b}$ are the best ask and bid prices.
-  - $\Delta$ is the price spread between the best ask and bid.
-  - $v_{i}$ is the volume imbalance between buy and sell orders.
-  - $\mathbb{P}_\mathcal{N}$ is the set of of active orders by $\mathcal{N}$, where $\mathbb{P}_\mathcal{N} \in \mathbb{P}$
-- Parameter Space $P_{\mathcal{N}}$: $P_{\mathcal{N}} = [\nu_0, p_{0}, \delta_0, n_{0}]$
+2. Order Book State:
+   - Implemented controlled function $M: \text{Parameters} \rightarrow \text{Order Book State}$
+   - [Book initializer](https://github.com/dthinkr/trader_london/blob/e84347657ed0f6794a7484a7164dd34e27c0042e/traders/book_initializer.py) now sets the initial order book state 
 
-  - $\nu_0$ is the activity frequency of the trader.
-    - at each step, $\nu_{t}=\phi(\nu_0)$, where $\phi$ is a stochastic process
-  - $p_{0}$ is the starting price for trading actions.
-  - $\delta_0$ is the price step for order placement.
-  - $n_{0}$ is the number of steps for price adjustment.
-- Action Space $A_{\mathcal{N}}$: $A_{\mathcal{N}} = \{ [\alpha, \tau, \pi, q], [c, \tau, \iota] \}$
+3. Default Price:
+   - Removed hard-coded default price (2000)
+   - Price is now a configurable parameter throughout the system
 
-  - $\alpha$ is add order action.
-  - $\tau$ is the order type, ask or bid.
-  - $\pi$ is the price of order.
-  - $q$ is the quantity of order.
-  - $c$ is a cancel action for an order.
-  - $\iota$ is the ID of the order to be cancelled.
+4. Informed Trader Behavior:
+   - Orders now based on best bid plus an edge parameter: $\text{Order Price} = \text{Best Bid} + \text{Informed Edge}$
+   - Order execution logic: - If $\text{Best Bid} + \text{Informed Edge} \geq \text{Top Ask}$, send order
+
+Additional Notes:
+- Some recent changes to the informed trader were reverted due to conflicts
+- Database connection requires further optimization for deployment
+- #2 the Book initializer is necessary because it handles the order book intialization. 
+- #4 Informed does not always send order. Potentially, this could lead to it not finishing its task, but such likelihood is rare, whcih can be studied. 
+
+Extra Changes:
+
+1. Timer and agents now do not act until the order book is initialized. 
+2. The timer in the frontend is no longer a mock and can sync with the backend. 
