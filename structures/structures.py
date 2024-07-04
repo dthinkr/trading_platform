@@ -28,89 +28,89 @@ class TradeDirection(str, Enum):
 
 class TraderCreationData(BaseModel):
     num_human_traders: int = Field(
-        default=1,
+        default=6,
         title="Number of Human Traders",
-        description="Number of human traders",
+        description="model_parameter",
         ge=0,
     )
     num_noise_traders: int = Field(
         default=1,
         title="Number of Noise Traders",
-        description="Number of noise traders",
+        description="model_parameter",
         ge=0,
     )
     num_informed_traders: int = Field(
         default=1,
         title="Number of Informed Traders",
-        description="Number of informed traders",
+        description="model_parameter",
         ge=0,
     )
     trading_day_duration: int = Field(
-        default=1,
+        default=5,
         title="Trading Day Duration",
-        description="Duration of the trading day in minutes",
+        description="model_parameter",
         gt=0,
     )
     step: int = Field(
         default=1,
         title="Step for New Orders",
-        description="Step for new orders",
+        description="model_parameter",
     )
     activity_frequency: float = Field(
         default=5,
-        title="Noise Trader: Activity Frequency",
-        description="Frequency of noise traders' updates in seconds",
+        title="Activity Frequency",
+        description="noise_parameter",
         gt=0,
     )
     order_amount: int = Field(
         default=1,
-        title="Noise Trader: Order Amount",
-        description="Order amount for noise traders",
+        title="Order Amount",
+        description="model_parameter",
     )
     passive_order_probability: float = Field(
         default=0.7,
-        title="Noise Trader: Passive Order Probability",
-        description="Probability of noise traders to place passive orders",
+        title="Passive Order Probability",
+        description="noise_parameter",
     )
     trade_intensity_informed: float = Field(
         default=0.1,
-        title="Informed Trader: Trade Intensity",
-        description="Trade intensity for informed traders, e.g. she will trade 30 percent of the total orders",
+        title="Trade Intensity",
+        description="informed_parameter",
     )
     trade_direction_informed: TradeDirection = Field(
         default=TradeDirection.SELL,
-        title="Informed Trader: Trade Direction",
-        description="Trade direction for informed traders, to sell or buy",
+        title="Trade Direction",
+        description="informed_parameter",
     )
     initial_cash: float = Field(
         default=100000,
         title="Initial Cash",
-        description="Initial cash for each trader",
+        description="human_parameter",
     )
     initial_stocks: int = Field(
         default=100,
         title="Initial Stocks",
-        description="Initial stocks for each trader",
+        description="human_parameter",
     )
     depth_book_shown: int = Field(
         default=3,
         title="Depth Book Shown",
-        description="Depth of the book shown to the human traders",
+        description="human_parameter",
     )
     order_book_levels: int = Field(
         default=5,
         title="Order Book Levels",
-        description="Numbers of levels in order book",
+        description="model_parameter",
     )
     default_price: int = Field(
         default=2000,
         title="Default Price",
-        description="Default price for the order book",
+        description="model_parameter",
     )
     informed_edge: int = Field(
         default=2,
-        title="Informed Trader: Edge",
-        description="Price adjustment for informed traders",
+        title="Informed Edge",
+        description="informed_parameter",
     )
 
 
