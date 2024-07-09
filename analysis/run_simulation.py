@@ -8,6 +8,7 @@ from prefect import flow, get_run_logger, task
 from .utilities import load_config
 import fcntl
 import requests
+import itertools
 
 CONFIG = load_config()
 file_name = f"trader_data_mapping_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
@@ -97,32 +98,42 @@ async def handle_server_sessions(batch: List[Dict], unscaled_batch: List[Dict], 
         tasks.append(task)
     await asyncio.gather(*tasks)
 
+def generate_parameters(bounds):
+    if all(isinstance(b, list) for b in bounds.values()):
+        keys = list(bounds.keys())
+        values_product = list(itertools.product(*bounds.values()))
+        params = [
+            {key: value for key, value in zip(keys, values)}
+            for values in values_product
+        ]
+        problem = None
+    else:
+        problem = {
+            'num_vars': len(bounds),
+            'names': list(bounds.keys()),
+            'bounds': [bounds[name] for name in bounds.keys()]
+        }
+        N = 2**CONFIG.RESOLUTION
+        param_values = generate_sobol_samples(problem, N)
+        params = []
+        for values in param_values:
+            param_dict = {}
+            for name, value in zip(problem['names'], values):
+                if name == "trade_direction_informed":
+                    param_dict[name] = "buy" if round(value) == 1 else "sell"
+                elif isinstance(bounds[name][0], int) and isinstance(bounds[name][1], int):
+                    param_dict[name] = int(round(value))
+                else:
+                    param_dict[name] = value
+            params.append(param_dict)
+
+    return params, problem
+
 def run_evaluation():
-    problem = {
-        'num_vars': len(CONFIG.BOUNDS),
-        'names': list(CONFIG.BOUNDS.keys()),
-        'bounds': [CONFIG.BOUNDS[name] for name in CONFIG.BOUNDS.keys()]
-    }
+    bounds = CONFIG.BOUNDS
+    params, problem = generate_parameters(bounds)
     
-    N = 2**CONFIG.RESOLUTION  # Number of base samples
-    
-    param_values = generate_sobol_samples(problem, N)
-    
-    params = []
-    unscaled_params = []
-    for values in param_values:
-        param_dict = {}
-        unscaled_dict = {}
-        for name, value in zip(problem['names'], values):
-            unscaled_dict[name] = value
-            if name == "trade_direction_informed":
-                param_dict[name] = "buy" if round(value) == 1 else "sell"
-            elif isinstance(CONFIG.BOUNDS[name][0], int) and isinstance(CONFIG.BOUNDS[name][1], int):
-                param_dict[name] = int(round(value))
-            else:
-                param_dict[name] = value
-        params.append(param_dict)
-        unscaled_params.append(unscaled_dict)
+    unscaled_params = [{name: param[name] for name in bounds.keys()} for param in params]
     
     write_to_json_file.fn("initial", {}, None, problem)
     asyncio.run(run_trading_sessions(params, unscaled_params))
