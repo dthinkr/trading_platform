@@ -46,7 +46,7 @@ class TraderCreationData(BaseModel):
         ge=0,
     )
     trading_day_duration: int = Field(
-        default=5,
+        default=1,
         title="Trading Day Duration",
         description="model_parameter",
         gt=0,
