@@ -9,6 +9,14 @@ import yaml
 from pymongo import MongoClient
 
 
+# YAML constructor for !python/tuple
+def tuple_constructor(loader, node):
+    return tuple(loader.construct_sequence(node))
+
+
+yaml.SafeLoader.add_constructor("!python/tuple", tuple_constructor)
+
+
 # config
 def load_config():
     with open("analysis/config.yaml", "r", encoding="utf-8") as file:

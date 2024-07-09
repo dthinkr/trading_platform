@@ -57,7 +57,7 @@ class InformedTrader(BaseTrader):
                 return (
                     remaining_time
                     / max(shares_needed, 1)
-                    * self.settings_informed["trade_intensity"]
+                    # * self.settings_informed["trade_intensity"]
                 )
 
         # selling case
@@ -70,7 +70,7 @@ class InformedTrader(BaseTrader):
                 return (
                     remaining_time
                     / max(self.shares, 1)
-                    * self.settings_informed["trade_intensity"]
+                    # * self.settings_informed["trade_intensity"]
                 )
 
         # default case

@@ -30,22 +30,31 @@ def generate_and_store_parameters(
     bounds: Dict[str, Union[Tuple[float, float], List[float]]],
     resolution: int,
     filepath: Optional[str] = None,
-) -> Optional[List[Dict[str, float]]]:
+) -> Union[Tuple[List[Dict[str, float]], List[Dict[str, float]], Dict], None]:
+    sobol_problem = None
     if all(isinstance(b, list) for b in bounds.values()):
-        # Generate all combinations of parameter values if they are given as lists
         keys = list(bounds.keys())
         values_product = list(itertools.product(*bounds.values()))
         parameter_dicts = [
             {key: value for key, value in zip(keys, values)}
             for values in values_product
         ]
+        unscaled_params = parameter_dicts.copy()
     else:
-        # Generate Sobol parameters if bounds are given as tuples
+        sobol_problem = {
+            "num_vars": len(bounds),
+            "names": list(bounds.keys()),
+            "bounds": [bounds[name] for name in bounds.keys()],
+        }
         sobol_params = generate_sobol_parameters(bounds, resolution)
+        print(sobol_params)
         parameter_dicts = []
+        unscaled_params = []
         for params in sobol_params:
             param_dict = {}
+            unscaled_dict = {}
             for name, value in zip(bounds.keys(), params):
+                unscaled_dict[name] = value
                 if name == "trade_direction_informed":
                     param_dict[name] = "buy" if round(value) == 1 else "sell"
                 elif isinstance(bounds[name][0], int) and isinstance(
@@ -55,6 +64,7 @@ def generate_and_store_parameters(
                 else:
                     param_dict[name] = value
             parameter_dicts.append(param_dict)
+            unscaled_params.append(unscaled_dict)
 
     validated_params = [
         TraderCreationData(**params).dict() for params in parameter_dicts
@@ -64,8 +74,7 @@ def generate_and_store_parameters(
         store_parameters(filepath, validated_params)
         return None
     else:
-        return validated_params
-
+        return validated_params, unscaled_params, sobol_problem
 
 def plot_parameters(parameters: List[Dict[str, float]]) -> None:
     data = []

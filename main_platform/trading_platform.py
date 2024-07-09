@@ -15,10 +15,19 @@ import random
 
 from main_platform.custom_logger import setup_custom_logger
 from main_platform.utils import CustomEncoder, if_active, now
-from structures import (Message, Order, OrderStatus, OrderType, TraderType,
-                        TransactionModel)
+from structures import (
+    Message,
+    Order,
+    OrderStatus,
+    OrderType,
+    TraderType,
+    TransactionModel,
+)
 
-connect(host="mongodb://localhost:27017/trader?w=majority&wtimeoutMS=1000")
+connect(
+    host="mongodb://localhost:27017/trader?w=majority&wtimeoutMS=1000",
+    uuidRepresentation="standard",
+)
 
 rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://localhost")
 logger = setup_custom_logger(__name__)
@@ -62,13 +71,12 @@ class TradingSession:
         self.lock = Lock()
         self.release_event = Event()
         self.current_price = 0  # handling non-defined attribute
-        self.transaction_processor_task = None # handling non-defined attribute
+        self.transaction_processor_task = None  # handling non-defined attribute
 
         self.transaction_queue = asyncio.Queue()
 
         self.initialization_complete = False
         self.trading_started = False
-
 
     @property
     def current_time(self) -> datetime:
@@ -198,7 +206,7 @@ class TradingSession:
 
     async def get_order_book_snapshot(self) -> Dict:
         async with self.lock:
-            return self.order_book.copy()  
+            return self.order_book.copy()
 
     def get_transaction_history(self) -> List[Dict]:
         return self.transactions
@@ -223,11 +231,14 @@ class TradingSession:
         )
         return active_orders_df.to_dicts()
 
-    async def send_broadcast(self, message: dict, message_type="BOOK_UPDATED", incoming_message=None) -> None:
-            if "type" not in message:
-                message["type"] = message_type  # Only set default if not specified
+    async def send_broadcast(
+        self, message: dict, message_type="BOOK_UPDATED", incoming_message=None
+    ) -> None:
+        if "type" not in message:
+            message["type"] = message_type  # Only set default if not specified
 
-            message.update({
+        message.update(
+            {
                 "current_time": self.current_time.isoformat(),
                 "start_time": self.start_time.isoformat() if self.start_time else None,
                 "duration": self.duration,
@@ -238,16 +249,17 @@ class TradingSession:
                 "midpoint": self.get_current_midpoint(),
                 "transaction_price": self.get_last_transaction_price(),
                 "incoming_message": incoming_message,
-                "test_field": "test"
-            })
-            message_document = Message(trading_session_id=self.id, content=message)
-            message_document.save()
+                "test_field": "test",
+            }
+        )
+        message_document = Message(trading_session_id=self.id, content=message)
+        message_document.save()
 
-            exchange = await self.channel.get_exchange(self.broadcast_exchange_name)
-            await exchange.publish(
-                aio_pika.Message(body=json.dumps(message, cls=CustomEncoder).encode()),
-                routing_key="",  # routing_key is typically ignored in FANOUT exchanges
-            )
+        exchange = await self.channel.get_exchange(self.broadcast_exchange_name)
+        await exchange.publish(
+            aio_pika.Message(body=json.dumps(message, cls=CustomEncoder).encode()),
+            routing_key="",  # routing_key is typically ignored in FANOUT exchanges
+        )
 
     @property
     def list_active_orders(self) -> List[Dict]:
@@ -301,7 +313,9 @@ class TradingSession:
             logger.info("No overlapping orders.")
             return None, None
 
-    async def create_transaction(self, bid: Dict, ask: Dict, transaction_price: float) -> Tuple[str, str, TransactionModel]:
+    async def create_transaction(
+        self, bid: Dict, ask: Dict, transaction_price: float
+    ) -> Tuple[str, str, TransactionModel]:
         self.all_orders[ask["id"]]["status"] = OrderStatus.EXECUTED.value
         self.all_orders[bid["id"]]["status"] = OrderStatus.EXECUTED.value
 
@@ -319,16 +333,30 @@ class TradingSession:
         transaction_details = {
             "type": "transaction_update",
             "transactions": [
-                {"id": ask["id"], "price": transaction_price, "type": "ask", "amount": ask["amount"], "trader_id": ask["trader_id"]},
-                {"id": bid["id"], "price": transaction_price, "type": "bid", "amount": bid["amount"], "trader_id": bid["trader_id"]}
-            ]
+                {
+                    "id": ask["id"],
+                    "price": transaction_price,
+                    "type": "ask",
+                    "amount": ask["amount"],
+                    "trader_id": ask["trader_id"],
+                },
+                {
+                    "id": bid["id"],
+                    "price": transaction_price,
+                    "type": "bid",
+                    "amount": bid["amount"],
+                    "trader_id": bid["trader_id"],
+                },
+            ],
         }
 
         # Publish transaction details to both traders
         exchange = await self.channel.get_exchange(self.broadcast_exchange_name)
         await exchange.publish(
-            aio_pika.Message(body=json.dumps(transaction_details, cls=CustomEncoder).encode()),
-            routing_key=""
+            aio_pika.Message(
+                body=json.dumps(transaction_details, cls=CustomEncoder).encode()
+            ),
+            routing_key="",
         )
 
         return ask["trader_id"], bid["trader_id"], transaction
@@ -439,11 +467,12 @@ class TradingSession:
         resp.update({"type": "NEW_ORDER_ADDED", "content": "A", "respond": True})
         return resp
 
-
     async def handle_cancel_order(self, data: dict) -> Dict:
         order_id = data.get("order_id")
         trader_id = data.get("trader_id")
-        order_details = data.get("order_details")  # Ensure this key exists in the message
+        order_details = data.get(
+            "order_details"
+        )  # Ensure this key exists in the message
 
         try:
             order_id = uuid.UUID(order_id)
@@ -468,8 +497,8 @@ class TradingSession:
                 content={
                     "action": "order_cancelled",
                     "order_id": str(order_id),
-                    "details": order_details  # Include negative amount and other details
-                }
+                    "details": order_details,  # Include negative amount and other details
+                },
             )
             message_document.save()
 
@@ -477,8 +506,13 @@ class TradingSession:
             self.all_orders[order_id]["status"] = OrderStatus.CANCELLED.value
             self.all_orders[order_id]["cancellation_timestamp"] = now()
 
-            return {"status": "cancel success", "order": order_id, "type": "ORDER_CANCELLED", "respond": True}
-    
+            return {
+                "status": "cancel success",
+                "order": order_id,
+                "type": "ORDER_CANCELLED",
+                "respond": True,
+            }
+
     @if_active
     async def handle_cancel_order(self, data: dict) -> Dict:
         order_id = data.get("order_id")
@@ -501,14 +535,16 @@ class TradingSession:
                 return {"status": "failed", "reason": "Trader does not own the order"}
 
             if existing_order["status"] != OrderStatus.ACTIVE.value:
-                logger.warning(f"Order {order_id} is not active and cannot be canceled.")
+                logger.warning(
+                    f"Order {order_id} is not active and cannot be canceled."
+                )
                 return {"status": "failed", "reason": "Order is not active"}
 
             self.all_orders[order_id]["status"] = OrderStatus.CANCELLED.value
             self.all_orders[order_id]["cancellation_timestamp"] = now()
 
             return {"status": "cancel success", "order": order_id, "respond": True}
-            
+
     @if_active
     async def handle_register_me(self, msg_body: Dict) -> Dict:
         trader_id = msg_body.get("trader_id")
@@ -538,7 +574,6 @@ class TradingSession:
             if handler_method:
                 result = await handler_method(incoming_message)
                 if result and result.pop("respond", None) and trader_id:
-
                     # Check if the message is meant for individual or all traders
                     if not result.get("individual", False):
                         # Determine the appropriate message type based on the action
@@ -646,13 +681,17 @@ class TradingSession:
 
     async def start_trading(self):
         if not self.initialization_complete:
-            logger.warning("Attempting to start trading before initialization is complete")
+            logger.warning(
+                "Attempting to start trading before initialization is complete"
+            )
             return
         self.start_time = now()
         self.active = True
         self.trading_started = True
         logger.info(f"Trading session {self.id} started at {self.start_time}")
-        await self.send_broadcast({"type": "TRADING_STARTED", "content": "Market is open"})
+        await self.send_broadcast(
+            {"type": "TRADING_STARTED", "content": "Market is open"}
+        )
 
     # Add a method to set initialization complete
     def set_initialization_complete(self):
@@ -669,8 +708,10 @@ class TradingSession:
                 current_time = now()
                 elapsed_time = current_time - start_time
                 remaining_time = timedelta(minutes=self.duration) - elapsed_time
-                                
-                if self.start_time and current_time - self.start_time > timedelta(minutes=self.duration):
+
+                if self.start_time and current_time - self.start_time > timedelta(
+                    minutes=self.duration
+                ):
                     logger.critical("Time limit reached, stopping...")
                     self.active = False
                     await self.close_existing_book()

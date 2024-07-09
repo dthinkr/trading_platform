@@ -11,7 +11,7 @@ def load_configuration() -> dict:
     return load_config()
 
 
-def connect_to_database(config: dict) -> duckdb.DuckDBPyConnection:
+def connect_to_database(config: dict) -> 1.DuckDBPyConnection:
     return duckdb.connect(f"md:{config.DATASET}?motherduck_token={config.MD_TOKEN}")
 
 
@@ -30,13 +30,14 @@ def parse_and_transform_active_orders(active_orders: str) -> pl.DataFrame:
     return pl.DataFrame(orders_list)
 
 
-
 def lobster_book_transformation(df_res: pl.DataFrame) -> pl.DataFrame:
     active_orders_df = df_res["order_book"].str.json_decode()
 
     book_format_series = active_orders_df.map_elements(
-        lambda ob: convert_to_book_format_new(ob) if ob else pl.DataFrame({'price': [], 'amount': []}),
-        return_dtype=pl.Object
+        lambda ob: convert_to_book_format_new(ob)
+        if ob
+        else pl.DataFrame({"price": [], "amount": []}),
+        return_dtype=pl.Object,
     )
 
     df_res = df_res.with_columns(book_format_series.alias("LOBSTER_BOOK"))
