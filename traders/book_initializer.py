@@ -39,7 +39,7 @@ class BookInitializer(BaseTrader):
 
     async def initialize_order_book(self) -> None:
         order_book_levels = self.trader_creation_data["order_book_levels"]
-        num_orders = order_book_levels * 10
+        num_orders = order_book_levels * self.trader_creation_data["start_of_book_num_order_per_level"]
 
         for i in range(num_orders):
             order_type = self.generate_order_type(i, num_orders)

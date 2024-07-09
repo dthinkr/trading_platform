@@ -39,6 +39,12 @@ class TraderCreationData(BaseModel):
         description="model_parameter",
         ge=0,
     )
+    start_of_book_num_order_per_level: int = Field(
+        default=7,
+        title="Orders per Level at Book Start",
+        description="model_parameter",
+        ge=0,
+    )
     num_informed_traders: int = Field(
         default=1,
         title="Number of Informed Traders",
