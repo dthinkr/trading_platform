@@ -2,10 +2,13 @@
 
 python -m analysis.run_server
 
-python -m analysis.run_evaluation
+python -m analysis.run_simulation
 
 ## To anlayze data, use one command:
 
-python -m analysis.run_lobster
+1. genereate time series sobol sensitivities, with order book imbalance used as the metric 
 
-this generates a LOBSTER csv file within the analysis/results folder.
+   1. python -m analysis.run_evaluation
+2. generate a set of performance metrics
+
+   1. python -m analysis.record_pm.py
