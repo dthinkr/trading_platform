@@ -18,6 +18,15 @@ read_input() {
   fi
 }
 
+# Function to run docker compose command
+run_docker_compose() {
+  if command -v docker-compose &> /dev/null; then
+    docker-compose "$@"
+  else
+    docker compose "$@"
+  fi
+}
+
 # Function to check for updates and restart
 check_update_and_restart() {
   echo "Checking for updates..."
@@ -29,12 +38,12 @@ check_update_and_restart() {
     echo "Update available. Pulling changes..."
     git pull origin deploy
     echo "Restarting containers with new version..."
-    if docker-compose up --build -d; then
+    if run_docker_compose up --build -d; then
       echo "Update successful!"
     else
       echo "Update failed. Reverting to previous version..."
       git reset --hard HEAD@{1}
-      docker-compose up -d
+      run_docker_compose up -d
     fi
   else
     echo "No updates available."
@@ -47,8 +56,8 @@ if ! command -v docker &> /dev/null; then
     exit 1
 fi
 
-# Check if Docker Compose is installed
-if ! command -v docker-compose &> /dev/null; then
+# Check if Docker Compose is installed (either as docker-compose or docker compose)
+if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
     echo "Docker Compose is not installed. Please install Docker Compose and try again."
     exit 1
 fi
@@ -89,14 +98,14 @@ fi
 docker login
 
 # Build and start the containers
-docker-compose up --build -d
+run_docker_compose up --build -d
 
 echo "Trading platform is now running!"
 echo "Your ngrok hostname is: $ngrok_hostname"
 
 # Show logs and keep the script running
 echo "Showing logs. Press Ctrl+C to stop."
-docker-compose logs -f &
+run_docker_compose logs -f &
 
 # Periodically check for updates
 while true; do
