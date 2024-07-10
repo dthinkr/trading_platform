@@ -20,14 +20,11 @@ read_input() {
   fi
 }
 
-# Function to run docker compose command
 run_docker_compose() {
   if docker compose version &> /dev/null; then
     docker compose "$@"
-  elif command -v docker-compose &> /dev/null; then
-    docker-compose "$@"
   else
-    echo "Error: Neither docker compose nor docker-compose is available."
+    echo "Error: Docker Compose is not available."
     echo "Please install Docker Compose and try again."
     exit 1
   fi
