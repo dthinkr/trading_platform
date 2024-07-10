@@ -24,13 +24,18 @@ from structures import (
     TransactionModel,
 )
 
+mongodb_host = os.getenv("MONGODB_HOST", "mongodb")
+mongodb_port = os.getenv("MONGODB_PORT", "27017")
+mongodb_url = f"mongodb://{mongodb_host}:{mongodb_port}/trader?w=majority&wtimeoutMS=1000"
+
 connect(
-    host="mongodb://localhost:27017/trader?w=majority&wtimeoutMS=1000",
+    host=mongodb_url,
     uuidRepresentation="standard",
 )
 
 rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://localhost")
 logger = setup_custom_logger(__name__)
+print(f"Connecting to RabbitMQ at: {rabbitmq_url}")
 
 
 class TradingSession:
