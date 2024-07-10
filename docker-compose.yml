@@ -3,14 +3,14 @@ version: '3.8'
 services:
   frontend:
     build:
-      context: ./london_trader_front
+      context: ./front
       dockerfile: Dockerfile
     expose:
       - "3000"
 
   backend:
     build:
-      context: ./trader_london
+      context: ./back
       dockerfile: Dockerfile
     expose:
       - "8000"
