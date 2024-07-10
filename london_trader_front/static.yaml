@@ -1,0 +1,3 @@
+handlers:
+  - route: /*
+    serve: /index.html
