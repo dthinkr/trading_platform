@@ -1,7 +1,0 @@
-version: 2
-authtoken: 
-tunnels:
-  combined:
-    addr: nginx:80
-    proto: http
-    hostname: dthinkr.ngrok.app
