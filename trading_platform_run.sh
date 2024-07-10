@@ -18,6 +18,29 @@ read_input() {
   fi
 }
 
+# Function to check for updates and restart
+check_update_and_restart() {
+  echo "Checking for updates..."
+  git fetch origin
+  LOCAL=$(git rev-parse HEAD)
+  REMOTE=$(git rev-parse @{u})
+
+  if [ $LOCAL != $REMOTE ]; then
+    echo "Update available. Pulling changes..."
+    git pull origin deploy
+    echo "Restarting containers with new version..."
+    if docker-compose up --build -d; then
+      echo "Update successful!"
+    else
+      echo "Update failed. Reverting to previous version..."
+      git reset --hard HEAD@{1}
+      docker-compose up -d
+    fi
+  else
+    echo "No updates available."
+  fi
+}
+
 # Check if Docker is installed
 if ! command -v docker &> /dev/null; then
     echo "Docker is not installed. Please install Docker and try again."
@@ -30,21 +53,28 @@ if ! command -v docker-compose &> /dev/null; then
     exit 1
 fi
 
-# Clone the repository
-git clone https://github.com/dthinkr/trading_platform.git
-cd trading_platform
+# Clone the repository if it doesn't exist, otherwise update it
+if [ ! -d "trading_platform" ]; then
+  git clone https://github.com/dthinkr/trading_platform.git
+  cd trading_platform
+else
+  cd trading_platform
+  check_update_and_restart
+fi
 
-# Prompt for ngrok authtoken
-read_input "Enter your ngrok authtoken:" ngrok_authtoken
+# Prompt for ngrok authtoken if ngrok.yml doesn't exist
+if [ ! -f "ngrok.yml" ]; then
+  # Prompt for ngrok authtoken
+  read_input "Enter your ngrok authtoken:" ngrok_authtoken
 
-# Set default hostname
-default_hostname="dthinkr.ngrok.app"
+  # Set default hostname
+  default_hostname="dthinkr.ngrok.app"
 
-# Prompt for ngrok hostname with default option
-read_input "Enter your ngrok hostname (press Enter to use $default_hostname):" ngrok_hostname "$default_hostname"
+  # Prompt for ngrok hostname with default option
+  read_input "Enter your ngrok hostname (press Enter to use $default_hostname):" ngrok_hostname "$default_hostname"
 
-# Create ngrok.yml file
-cat > ngrok.yml << EOL
+  # Create ngrok.yml file
+  cat > ngrok.yml << EOL
 version: 2
 authtoken: $ngrok_authtoken
 tunnels:
@@ -53,6 +83,7 @@ tunnels:
     proto: http
     hostname: $ngrok_hostname
 EOL
+fi
 
 # Log in to Docker Hub
 docker login
@@ -65,4 +96,10 @@ echo "Your ngrok hostname is: $ngrok_hostname"
 
 # Show logs and keep the script running
 echo "Showing logs. Press Ctrl+C to stop."
-docker-compose logs -f
+docker-compose logs -f &
+
+# Periodically check for updates
+while true; do
+  sleep 300  # Check every 5 minutes
+  check_update_and_restart
+done
