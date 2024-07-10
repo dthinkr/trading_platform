@@ -55,7 +55,7 @@ class InformedTrader(BaseTrader):
                 # calculate time
                 shares_needed = self.settings_informed["inv"] - self.shares
                 return (
-                    remaining_time
+                    (remaining_time - 5)
                     / max(shares_needed, 1)
                     # * self.settings_informed["trade_intensity"]
                 )
