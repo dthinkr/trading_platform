@@ -2,6 +2,8 @@
 
 # trading_platform_run.sh
 
+set -e
+
 # Function to read user input
 read_input() {
   local prompt="$1"
@@ -20,10 +22,14 @@ read_input() {
 
 # Function to run docker compose command
 run_docker_compose() {
-  if command -v docker-compose &> /dev/null; then
+  if docker compose version &> /dev/null; then
+    docker compose "$@"
+  elif command -v docker-compose &> /dev/null; then
     docker-compose "$@"
   else
-    docker compose "$@"
+    echo "Error: Neither docker compose nor docker-compose is available."
+    echo "Please install Docker Compose and try again."
+    exit 1
   fi
 }
 
@@ -34,7 +40,7 @@ check_update_and_restart() {
   LOCAL=$(git rev-parse HEAD)
   REMOTE=$(git rev-parse @{u})
 
-  if [ $LOCAL != $REMOTE ]; then
+  if [ "$LOCAL" != "$REMOTE" ]; then
     echo "Update available. Pulling changes..."
     git pull origin deploy
     echo "Restarting containers with new version..."
@@ -52,22 +58,29 @@ check_update_and_restart() {
 
 # Check if Docker is installed
 if ! command -v docker &> /dev/null; then
-    echo "Docker is not installed. Please install Docker and try again."
+    echo "Error: Docker is not installed. Please install Docker and try again."
     exit 1
 fi
 
-# Check if Docker Compose is installed (either as docker-compose or docker compose)
-if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
-    echo "Docker Compose is not installed. Please install Docker Compose and try again."
+# Check Docker version
+docker_version=$(docker --version | awk '{print $3}' | cut -d',' -f1)
+echo "Docker version: $docker_version"
+
+# Check if Docker Compose is available
+if run_docker_compose version &> /dev/null; then
+    compose_version=$(run_docker_compose version --short)
+    echo "Docker Compose version: $compose_version"
+else
+    echo "Error: Docker Compose is not installed. Please install Docker Compose and try again."
     exit 1
 fi
 
 # Clone the repository if it doesn't exist, otherwise update it
 if [ ! -d "trading_platform" ]; then
   git clone https://github.com/dthinkr/trading_platform.git
-  cd trading_platform
+  cd trading_platform || exit
 else
-  cd trading_platform
+  cd trading_platform || exit
   check_update_and_restart
 fi
 
@@ -95,10 +108,18 @@ EOL
 fi
 
 # Log in to Docker Hub
-docker login
+echo "Logging in to Docker Hub..."
+if ! docker login; then
+    echo "Error: Failed to log in to Docker Hub. Please check your credentials and try again."
+    exit 1
+fi
 
 # Build and start the containers
-run_docker_compose up --build -d
+echo "Building and starting containers..."
+if ! run_docker_compose up --build -d; then
+    echo "Error: Failed to build and start containers. Please check the Docker Compose file and try again."
+    exit 1
+fi
 
 echo "Trading platform is now running!"
 echo "Your ngrok hostname is: $ngrok_hostname"
