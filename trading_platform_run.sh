@@ -32,23 +32,36 @@ run_docker_compose() {
   fi
 }
 
-# Function to check for updates and restart
 check_update_and_restart() {
   echo "Checking for updates..."
-  git fetch origin
+  git fetch origin deploy
+  
+  git checkout deploy
+  git branch --set-upstream-to=origin/deploy deploy
+  
   LOCAL=$(git rev-parse HEAD)
-  REMOTE=$(git rev-parse @{u})
+  REMOTE=$(git rev-parse origin/deploy)
+
+  echo "Local commit: $LOCAL"
+  echo "Remote commit: $REMOTE"
 
   if [ "$LOCAL" != "$REMOTE" ]; then
     echo "Update available. Pulling changes..."
-    git pull origin deploy
-    echo "Restarting containers with new version..."
-    if run_docker_compose up --build -d; then
-      echo "Update successful!"
+    git reset --hard origin/deploy
+    NEW_LOCAL=$(git rev-parse HEAD)
+    echo "New local commit after reset: $NEW_LOCAL"
+    
+    if [ "$NEW_LOCAL" != "$LOCAL" ]; then
+      echo "Restarting containers with new version..."
+      if run_docker_compose up --build -d; then
+        echo "Update successful!"
+      else
+        echo "Update failed. Reverting to previous version..."
+        git reset --hard "$LOCAL"
+        run_docker_compose up -d
+      fi
     else
-      echo "Update failed. Reverting to previous version..."
-      git reset --hard HEAD@{1}
-      run_docker_compose up -d
+      echo "No new changes after reset. Skipping restart."
     fi
   else
     echo "No updates available."
