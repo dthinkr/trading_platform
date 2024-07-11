@@ -1,87 +1,73 @@
-# Trading Platform
-
-![Trading Platform Logo](front/src/assets/trading_platform_logo.svg)
-
-A trading platform for conducting financial market experiments and simulations.
-
-## 🚀 Features
-
-- Real-time trading simulation
-- WebSocket-based communication
-- Vue.js frontend with Vuetify
-- FastAPI backend
-- Customizable trading scenarios
-- Data analysis tools
+<p align="center">
+  <img src="front/src/assets/trading_platform_logo.svg" alt="Trading Platform Logo" width="200"/>
+</p>
 
 
-## 📋 Table of Contents
+<h1 align="center">Trading Platform</h1>
 
-- [Installation](#installation)
-- [Usage](#usage)
-- [Project Structure](#project-structure)
-- [Contributing](#contributing)
-- [License](#license)
+<p align="center">
+  A simple platform for conducting financial market experiments and simulations.
+</p>
 
-## Main Changes
+  <p>
+    <a href="https://github.com/dthinkr/trading_platform/stargazers"><img src="https://img.shields.io/github/stars/dthinkr/trading_platform" alt="Stars Badge"/></a>
+    <a href="https://github.com/dthinkr/trading_platform/network/members"><img src="https://img.shields.io/github/forks/dthinkr/trading_platform" alt="Forks Badge"/></a>
+    <a href="https://github.com/dthinkr/trading_platform/pulls"><img src="https://img.shields.io/github/issues-pr/dthinkr/trading_platform" alt="Pull Requests Badge"/></a>
+    <a href="https://github.com/dthinkr/trading_platform/issues"><img src="https://img.shields.io/github/issues/dthinkr/trading_platform" alt="Issues Badge"/></a>
+    <a href="https://github.com/dthinkr/trading_platform/graphs/contributors"><img alt="GitHub contributors" src="https://img.shields.io/github/contributors/dthinkr/trading_platform?color=2b9348"></a>
+    <a href="https://github.com/dthinkr/trading_platform/blob/master/LICENSE"><img src="https://img.shields.io/github/license/dthinkr/trading_platform?color=2b9348" alt="License Badge"/></a>
+  </p>
+  
+<p align="center">
+  <a href="#key-features">Key Features</a> •
+  <a href="#installation">Installation</a> •
+  <a href="#usage">Usage</a> •
+  <a href="#project-structure">Project Structure</a> •
+  <a href="#contributing">Contributing</a> •
+  <a href="#license">License</a>
+</p>
 
-### July 10 2024
+<p align="center">
+    <img src="front/src/assets/demo.gif" alt="Trading Platform Demo" width="600">
+  </p>
+</div>
 
-1. public link to the trading platform for all to access
-2. newly integrated front and backends with a cleaner structure
-3. a one-liner command to self-host the platform
-   - bash <(curl -sSL https://raw.githubusercontent.com/dthinkr/trading_platform/main/trading_platform_run.sh)
-4. an expanded evaluation framework that enables tracking 20+ time-series performance metrics and perform time-series sensitivity analysis
-   - https://github.com/dthinkr/trading_platform/tree/main/back/analysis
-   - for example, the following figure evaluates the individual contributions of two parameters to the variability in one performance metric (orderbook imbalance) across trading time
-   - ![sensitivity](back/analysis/results/figs/sobol_sensitivity_indices_mapping_20240709.png)
-### July 4 2024
+## Key Features
 
-1. Noise Trader Behavior:
+- 🚀 Real-time trading simulation
+- 🌐 WebSocket-based communication
+- 🖥️ Vue.js frontend with Vuetify
+- ⚡ FastAPI backend
+- 🔧 Customizable trading scenarios
+- 📊 Advanced data analysis tools
 
-   - Enhanced to override existing orders when sending a new one
-2. Order Book State:
+## Installation
 
-   - Implemented controlled function $M: \text{Parameters} \rightarrow \text{Order Book State}$
-   - [Book initializer](https://github.com/dthinkr/trader_london/blob/e84347657ed0f6794a7484a7164dd34e27c0042e/traders/book_initializer.py) now sets the initial order book state
-3. Default Price:
+### One-liner Self-Host
 
-   - Removed hard-coded default price (2000)
-   - Price is now a configurable parameter throughout the system
-4. Informed Trader Behavior:
+```bash
+bash <(curl -sSL https://raw.githubusercontent.com/dthinkr/trading_platform/main/trading_platform_run.sh)
+```
 
-   - Orders now based on best bid plus an edge parameter: $\text{Order Price} = \text{Best Bid} + \text{Informed Edge}$
-   - Order execution logic: - If $\text{Best Bid} + \text{Informed Edge} \geq \text{Top Ask}$, send order
+### Manual Setup
 
-5. Additional Notes:
-    - Some recent changes to the informed trader were reverted due to conflicts
-    - Database connection requires further optimization for deployment
-    - #2 the Book initializer is necessary because it handles the order book intialization.
-    - #4 Informed does not always send order. Potentially, this could lead to it not finishing its task, but such likelihood is rare, whcih can be studied.
-
-6. Extra Changes:
-   - Timer and agents now do not act until the order book is initialized.
-   - The timer in the frontend is no longer a mock and can sync with the backend.
-
-
-## 🛠 Installation
-
-### Frontend
+#### Frontend
 
 ```bash
 cd front
 npm install
 ```
 
-### Backend
+#### Backend
 
 ```bash
 cd back
 pip install -r requirements.txt
 ```
 
-## 🖥 Usage
+## Usage
 
-### Starting the Development Server
+### Development Server
 
 #### Frontend
 
@@ -90,7 +76,7 @@ cd front
 npm run dev
 ```
 
-The frontend will be accessible at `http://localhost:3000`.
+Access at `http://localhost:3000`
 
 #### Backend
 
@@ -99,16 +85,16 @@ cd back
 uvicorn client_connector.main:app --reload
 ```
 
-The backend API will be available at `http://localhost:8000`.
+API available at `http://localhost:8000`
 
-### Building for Production
+### Production Build
 
 ```bash
 cd front
 npm run build
 ```
 
-## 🗂 Project Structure
+## Project Structure
 
 ```
 trading_platform/
@@ -132,9 +118,27 @@ trading_platform/
 └── README.md
 ```
 
-## 🤝 Contributing
+## Recent Updates
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+### July 10, 2024
+
+- 🌐 Public access link
+- 🏗️ Integrated front and backend structure
+- 🚀 One-liner self-host command
+- 📊 Expanded evaluation framework (20+ metrics)
+
+### July 4, 2024
+
+- 🔄 Enhanced Noise Trader behavior
+- 📚 Implemented Order Book State function
+- 💹 Configurable default price
+- 🧠 Improved Informed Trader logic
+
+[View full changelog](CHANGELOG.md)
+
+## Contributing
+
+We welcome contributions! Here's how you can help:
 
 1. Fork the project
 2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
@@ -142,13 +146,19 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgements
+## Acknowledgements
 
 - [Vue.js](https://vuejs.org/)
 - [Vuetify](https://vuetifyjs.com/)
 - [FastAPI](https://fastapi.tiangolo.com/)
 - [Highcharts](https://www.highcharts.com/)
+
+---
+
+<p align="center">
+  Made with ❤️ by the Team
+</p>
