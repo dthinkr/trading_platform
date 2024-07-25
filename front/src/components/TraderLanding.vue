@@ -1,15 +1,10 @@
 <template>
   <v-app>
     <v-main>
-      <v-container fluid class="fill-height" @wheel="handleScroll">
+      <v-container fluid class="fill-height">
         <v-row justify="center" align="center" class="fill-height">
-          <v-col cols="12" md="10" lg="8" class="position-relative">
-            <v-card 
-              v-for="(component, index) in pageComponents" 
-              :key="index"
-              class="elevation-4 card-stack"
-              :class="{ 'card-active': index === currentPageIndex }"
-            >
+          <v-col cols="12" md="10" lg="8">
+            <v-card class="elevation-4">
               <v-card-text>
                 <v-container class="pa-0">
                   <v-row no-gutters>
@@ -21,16 +16,22 @@
                         elevation="4"
                       >
                         <h1 class="text-h2 font-weight-bold text-center white--text">
-                          {{ index + 1 }}: {{ pageTitles[index] }}
+                          {{ pageTitles[currentPageIndex] }}
                         </h1>
                       </v-sheet>
                     </v-col>
                     <v-col cols="12">
-                      <component :is="component" :goal="playerGoal" />
+                      <component :is="pageComponents[currentPageIndex]" :goal="playerGoal" />
                     </v-col>
                   </v-row>
                 </v-container>
               </v-card-text>
+              <v-card-actions>
+                <v-btn @click="prevPage" :disabled="currentPageIndex === 0">Back</v-btn>
+                <v-spacer></v-spacer>
+                <v-btn @click="nextPage" v-if="currentPageIndex < pageComponents.length - 1">Next</v-btn>
+                <v-btn @click="startTrading" v-else color="primary">Start Trading</v-btn>
+              </v-card-actions>
             </v-card>
           </v-col>
         </v-row>
@@ -43,6 +44,8 @@
 import { ref, computed, onMounted } from 'vue';
 import { useTraderStore } from "@/store/app";
 import { storeToRefs } from "pinia";
+import { useRouter } from 'vue-router';
+
 
 import Page1 from './pages/1.vue';
 import Page2 from './pages/2.vue';
@@ -56,6 +59,8 @@ import Page8 from './pages/8.vue';
 const props = defineProps({
   traderUuid: String,
 });
+
+const router = useRouter();
 
 const traderStore = useTraderStore();
 const { gameParams, tradingSessionData } = storeToRefs(traderStore);
@@ -118,6 +123,22 @@ const pageTitles = [
 const duration = computed(() => gameParams.value.duration || '#');
 const numMarkets = computed(() => gameParams.value.num_rounds || '#');
 console.log(Object.keys(tradingSessionData.value));
+
+const nextPage = () => {
+  if (currentPageIndex.value < pageComponents.length - 1) {
+    currentPageIndex.value++;
+  }
+};
+
+const prevPage = () => {
+  if (currentPageIndex.value > 0) {
+    currentPageIndex.value--;
+  }
+};
+
+const startTrading = () => {
+  router.push({ name: 'TradingSystem', params: { traderUuid: props.traderUuid } });
+};
 </script>
 
 <style>
