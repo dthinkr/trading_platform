@@ -118,6 +118,24 @@ class TraderCreationData(BaseModel):
         title="Informed Edge",
         description="informed_parameter",
     )
+    num_rounds: int = Field(
+        default=3,
+        title="Number of Rounds (Placeholder, not used yet)",
+        description="human_parameter",
+        ge=0,
+    )
+    conversion_rate: float = Field(
+        default=42.52,
+        title="Lira-GBP Conversion Rate",
+        description="model_parameter",
+        gt=0,
+    )   
+    cancel_time: int = Field(
+        default=1,
+        title="Seconds Locked Until Cancelation (Placeholder, not used yet)",
+        description="human_parameter",
+        gt=0,
+    )
 
 
 class LobsterEventType(IntEnum):

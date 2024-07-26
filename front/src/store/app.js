@@ -33,6 +33,7 @@ export const useTraderStore = defineStore("trader", {
     isTradingStarted: false,
     remainingTime: null,
     tradingSessionData: {},
+    formState: null, 
     extraParams: [
       {
         var_name: 'transaction_price',
@@ -158,19 +159,26 @@ export const useTraderStore = defineStore("trader", {
 
         // Store the formState in gameParams for future reference
         this.gameParams = formState;
+        // Store the formState separately as well
+        this.formState = formState;
+        console.log("Store formState after initialization:", this.formState); // Debug log
         // Connect to WebSocket or perform other actions
       } catch (error) {
-        // Handle error appropriately
+        console.error("Error initializing trading system:", error);
+        throw error; // Rethrow the error so it can be caught in the component
       }
     },
+
     async getTradingSessionData(tradingSessionUUID) {
       const httpUrl = import.meta.env.VITE_HTTP_URL;
       try {
         const response = await axios.get(`${httpUrl}trading_session/${tradingSessionUUID}`);
         console.debug(response.data.data);
         this.tradingSessionData = response.data.data;
+        console.log("Store formState in getTradingSessionData:", this.formState); // Debug log
       } catch (error) {
-        console.error(error);
+        console.error("Error fetching trading session data:", error);
+        throw error; // Rethrow the error so it can be caught in the component
       }
     },
     async initializeTrader(traderUuid) {

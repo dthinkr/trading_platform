@@ -21,13 +21,18 @@
                       </v-sheet>
                     </v-col>
                     <v-col cols="12">
-                      <component :is="pageComponents[currentPageIndex]" :goal="playerGoal" />
+                      <component 
+                        :is="pageComponents[currentPageIndex]" 
+                        :goal="playerGoal"
+                        :duration="duration"
+                        :numRounds="numRounds"
+                      />
                     </v-col>
                   </v-row>
                 </v-container>
               </v-card-text>
               <v-card-actions>
-                <v-btn @click="prevPage" :disabled="currentPageIndex === 0">Back</v-btn>
+                <v-btn @click="prevPage" :disabled="currentPageIndex === 0">Previous</v-btn>
                 <v-spacer></v-spacer>
                 <v-btn @click="nextPage" v-if="currentPageIndex < pageComponents.length - 1">Next</v-btn>
                 <v-btn @click="startTrading" v-else color="primary">Start Trading</v-btn>
@@ -44,66 +49,44 @@
 import { ref, computed, onMounted } from 'vue';
 import { useTraderStore } from "@/store/app";
 import { storeToRefs } from "pinia";
-import { useRouter } from 'vue-router';
-
+import { useRouter, useRoute } from 'vue-router';
 
 import Page1 from './pages/1.vue';
 import Page2 from './pages/2.vue';
 import Page3 from './pages/3.vue';
 import Page4 from './pages/4.vue';
-import Page5 from './pages/5.vue';
 import Page6 from './pages/6.vue';
 import Page7 from './pages/7.vue';
 import Page8 from './pages/8.vue';
 
-const props = defineProps({
-  traderUuid: String,
-});
-
 const router = useRouter();
+const route = useRoute();
 
 const traderStore = useTraderStore();
 const { gameParams, tradingSessionData } = storeToRefs(traderStore);
 
+const traderUuid = ref(route.params.traderUuid);
+const duration = ref(parseInt(route.params.duration) || 5);
+const numRounds = ref(parseInt(route.params.numRounds) || 3);
+
 const playerGoal = computed(() => {
-  const trader = tradingSessionData.value?.human_traders?.find(t => t.id === props.traderUuid);
+  const trader = tradingSessionData.value?.human_traders?.find(t => t.id === traderUuid.value);
   return trader ? trader.goal : '';
 });
 
 onMounted(async () => {
-  if (props.traderUuid) {
-    await traderStore.getTradingSessionData(props.traderUuid);
+  if (traderUuid.value) {
+    await traderStore.getTradingSessionData(traderUuid.value);
   }
 });
 
 const currentPageIndex = ref(0);
-const scrollThreshold = 1200; 
-let lastScrollTime = 0;
-let accumulatedDelta = 0;
-
-const handleScroll = (event) => {
-  const now = new Date().getTime();
-  if (now - lastScrollTime < 500) return;
-
-  accumulatedDelta += event.deltaY;
-
-  if (accumulatedDelta > scrollThreshold && currentPageIndex.value < pageComponents.length - 1) {
-    currentPageIndex.value++;
-    lastScrollTime = now;
-    accumulatedDelta = 0;
-  } else if (accumulatedDelta < -scrollThreshold && currentPageIndex.value > 0) {
-    currentPageIndex.value--;
-    lastScrollTime = now;
-    accumulatedDelta = 0;
-  }
-};
 
 const pageComponents = [
   Page1,
   Page2,
   Page3,
   Page4,
-  Page5,
   Page6,
   Page7,
   Page8,
@@ -113,16 +96,13 @@ const pageTitles = [
   "Welcome",
   "Trading Platform",
   "Setup",
-  "Your Earnings (Selling)",
-  "Your Earnings (Buying)",
+  "Your Earnings",
   "Other Participants in the Market",
   "Control Questions",
   "Practice"
 ];
 
-const duration = computed(() => gameParams.value.duration || '#');
-const numMarkets = computed(() => gameParams.value.num_rounds || '#');
-console.log(Object.keys(tradingSessionData.value));
+console.log('TraderLanding mounted. Duration:', duration.value, 'NumRounds:', numRounds.value);
 
 const nextPage = () => {
   if (currentPageIndex.value < pageComponents.length - 1) {
@@ -137,7 +117,7 @@ const prevPage = () => {
 };
 
 const startTrading = () => {
-  router.push({ name: 'TradingSystem', params: { traderUuid: props.traderUuid } });
+  router.push({ name: 'TradingSystem', params: { traderUuid: traderUuid.value } });
 };
 </script>
 
@@ -165,31 +145,5 @@ const startTrading = () => {
 
 .text-h6 {
   font-size: 1.25em !important;
-}
-</style>
-
-<style scoped>
-.position-relative {
-  position: relative;
-  height: 100%;
-  display: flex;
-  align-items: center;
-}
-.card-stack {
-  position: absolute;
-  top: 50%;
-  left: 0;
-  right: 0;
-  transform: translateY(-50%) translateY(20px);
-  opacity: 0;
-  transition: opacity 0.5s, transform 0.5s;
-  pointer-events: none;
-  max-height: 80vh;
-  overflow-y: auto;
-}
-.card-active {
-  opacity: 1;
-  transform: translateY(-50%);
-  pointer-events: auto;
 }
 </style>

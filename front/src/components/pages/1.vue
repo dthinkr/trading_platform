@@ -8,7 +8,7 @@
       class="start-trading-btn text-h5 mb-6"
     >
       <v-icon left>mdi-play-circle-outline</v-icon>
-      Start Trading
+      Start Trading (For Testing Only)
     </v-btn>
 
     <p class="text-h5 mb-4">
@@ -25,7 +25,7 @@
       You can earn considerable money depending on your decisions, which we will transfer to your bank account the next working day.
     </v-alert>
     <p class="text-h5 mb-4">
-      You will participate in markets where you can earn money by trading with other participants on our trading platform. Each market will last <span class="font-weight-bold">5 minutes</span> and you will participate in <span class="font-weight-bold">3 markets</span>.
+      You will participate in markets where you can earn money by trading with other participants on our trading platform. Each market will last <span class="dynamic-value">{{ duration }} minutes</span> and you will participate in <span class="dynamic-value">{{ numRounds }} markets</span>.
     </p>
     <v-divider class="my-4"></v-divider>
     <p class="text-h5 mb-4">
@@ -54,12 +54,25 @@
 import { useRouter } from 'vue-router';
 import { useTraderStore } from "@/store/app";
 
+const props = defineProps({
+  duration: {
+    type: Number,
+    default: 3
+  },
+  numRounds: {
+    type: Number,
+    default: 3
+  }
+});
+
 const router = useRouter();
 const traderStore = useTraderStore();
 
 const startTrading = () => {
   router.push({ name: 'TradingSystem', params: { traderUuid: traderStore.traderUuid } });
 };
+
+console.log('Props in 1.vue:', props); // Debug log
 </script>
 
 <style scoped>
@@ -78,5 +91,19 @@ const startTrading = () => {
 
 .start-trading-btn:hover {
   transform: scale(1.02);
+}
+
+.dynamic-value {
+  display: inline-block;
+  padding: 2px 6px;
+  background-color: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+  color: #1976D2;
+  font-weight: 500;
+  transition: background-color 0.3s ease;
+}
+
+.dynamic-value:hover {
+  background-color: rgba(0, 0, 0, 0.1);
 }
 </style>
