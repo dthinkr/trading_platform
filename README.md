@@ -120,14 +120,19 @@ trading_platform/
 
 ## Recent Updates
 
-### July 10, 2024
+### July 26, 2024 (v1.0.1)
+- 🧭 Improved instruction flow with navigation buttons and auto-generated content
+- 📊 Enhanced pre-market information display
+- 💱 Calibrated exchange rate from liras to GBP
+
+### July 10, 2024 (v1.0.0)
 
 - 🌐 Public access link
 - 🏗️ Integrated front and backend structure
 - 🚀 One-liner self-host command
 - 📊 Expanded evaluation framework (20+ metrics)
 
-### July 4, 2024
+### July 4, 2024 (v0.2.0)
 
 - 🔄 Enhanced Noise Trader behavior
 - 📚 Implemented Order Book State function
