@@ -16,4 +16,4 @@ COPY . .
 EXPOSE 3000
 
 # Start the app in development mode
-CMD ["yarn", "dev", "--host"]
+CMD ["yarn", "prod", "--host"]
