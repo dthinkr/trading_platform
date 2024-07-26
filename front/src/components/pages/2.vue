@@ -75,24 +75,23 @@
       </v-card-text>
     </v-card>
 
-    <v-card class="mb-6" elevation="3" shaped color="info" dark>
-      <v-card-title class="text-h5">
-        <v-icon left>mdi-information</v-icon>
-        Additional Information
-      </v-card-title>
-      <v-card-text class="text-h5">
-        You can also place orders that do not improve the best current order. For example, if there is already an order to buy a share for 10, you can place an additional order to buy a share at 9.
-      </v-card-text>
-    </v-card>
-
     <v-card class="mt-6" elevation="3" shaped>
       <v-card-title class="text-h5 font-weight-bold primary--text">
         <v-icon left color="primary">mdi-image</v-icon>
-        Trading Platform Screenshot
+        Trading Platform Demo
       </v-card-title>
       <v-card-text class="text-h5">
-        <p class="font-italic">
-          [Add a screenshot with arrows and a bubble to show where one can see the current prices and how to place a bid or ask.]
+        <p class="mb-4">
+          Here's a demonstration of the trading platform in action:
+        </p>
+        <v-img
+          src="@/assets/demo.gif"
+          alt="Trading Platform Demo"
+          max-width="600"
+          class="mx-auto"
+        ></v-img>
+        <p class="mt-4 font-italic">
+          This GIF shows the key features of the trading platform, including real-time updates and order placement.
         </p>
       </v-card-text>
     </v-card>

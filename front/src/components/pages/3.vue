@@ -4,7 +4,7 @@
     <v-card class="mb-6" elevation="3" shaped>
       <v-card-text class="text-h5">
         <p class="mb-4">
-          We are going to conduct <span class="font-weight-bold primary--text">{{ numMarkets }} markets</span> in which you will be a participant. You have a straightforward task:
+          We are going to conduct <span class="dynamic-value">{{ numRounds }} markets</span> in which you will be a participant. You have a straightforward task:
         </p>
         <v-alert
           color="warning"
@@ -53,20 +53,48 @@
     <v-card class="mb-6" elevation="3" shaped color="secondary" dark>
       <v-card-text class="text-h5">
         <v-icon large left>mdi-information</v-icon>
-        All trading will be in terms of Liras and the length of each market will be <span class="font-weight-bold">{{ duration }} minutes</span>.
+        All trading will be in terms of Liras and the length of each market will be <span class="dynamic-value dynamic-value-dark">{{ duration }} minutes</span>.
       </v-card-text>
     </v-card>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue';
-import { useTraderStore } from "@/store/app";
-import { storeToRefs } from "pinia";
+const props = defineProps({
+  duration: {
+    type: Number,
+    default: 3
+  },
+  numRounds: {
+    type: Number,
+    default: 3
+  }
+});
 
-const traderStore = useTraderStore();
-const { gameParams } = storeToRefs(traderStore);
-
-const duration = computed(() => gameParams.value.duration || '#');
-const numMarkets = computed(() => gameParams.value.num_rounds || '#');
+console.log('Props in 3.vue:', props); // Debug log
 </script>
+
+<style scoped>
+.dynamic-value {
+  display: inline-block;
+  padding: 2px 6px;
+  background-color: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+  color: #1976D2;
+  font-weight: 500;
+  transition: background-color 0.3s ease;
+}
+
+.dynamic-value:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.dynamic-value-dark {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.dynamic-value-dark:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+</style>

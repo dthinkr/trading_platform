@@ -3,7 +3,7 @@ import CreateTradingSession from "@/components/createTradingSession.vue";
 import TradingSystem from "@/components/tradingSystem.vue";
 import AdminPage from "@/components/AdminPage.vue";
 import dayOver from "@/components/dayOver.vue";
-import TraderLanding from "@/components/TraderLanding.vue";  // added landing page
+import TraderLanding from "@/components/TraderLanding.vue";
 import { useTraderStore } from "@/store/app";
 import { storeToRefs } from "pinia";
 
@@ -18,7 +18,7 @@ const routes = [
     component: CreateTradingSession,
   },
   {
-    path: "/trader/:traderUuid/landing",  // added landing page
+    path: "/trader/:traderUuid/landing/:duration?/:numRounds?",  // Modified this line
     name: "TraderLanding",
     component: TraderLanding,
     props: true,

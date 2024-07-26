@@ -61,11 +61,16 @@ const formFields = ref([]);
 const { tradingSessionData } = storeToRefs(useTraderStore());
 
 const initializeTrader = async () => {
-  await traderStore.initializeTradingSystem(formState.value);
-  router.push({
-    name: "AdminPage",
-    params: { tradingSessionUUID: tradingSessionData.value.trading_session_uuid }
-  });
+  try {
+    await traderStore.initializeTradingSystem(formState.value);
+    console.log("Form state before navigation:", formState.value); // Debug log
+    router.push({
+      name: "AdminPage",
+      params: { tradingSessionUUID: tradingSessionData.value.trading_session_uuid }
+    });
+  } catch (error) {
+    console.error("Error initializing trading system:", error);
+  }
 };
 
 const groupedFields = computed(() => {
