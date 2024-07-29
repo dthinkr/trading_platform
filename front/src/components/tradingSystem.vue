@@ -133,28 +133,35 @@ const formatDelta = computed(() => {
 });
 
 const finalizingDay = () => {
-  //let's just refresh page
-  // location.reload();
   router.push({ name: "DayOver", params: { traderUuid: props.traderUuid } });
 };
+
 watch(
   gameParams,
-  () => {
-    if (gameParams.value.active === false) {
+  (newValue) => {
+    if (newValue && newValue.active === false && isTradingStarted.value) {
       finalizingDay();
     }
   },
-  { immediate: true, deep: true }
+  { deep: true }
 );
 
 watch(
   dayOver,
   (newValue) => {
-    if (newValue) {
+    if (newValue && isTradingStarted.value) {
       finalizingDay();
     }
-  },
-  { immediate: true }
+  }
+);
+
+watch(
+  remainingTime,
+  (newValue) => {
+    if (newValue !== null && newValue <= 0 && isTradingStarted.value) {
+      finalizingDay();
+    }
+  }
 );
 
 watch(

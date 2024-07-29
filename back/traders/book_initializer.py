@@ -3,10 +3,9 @@ import random
 from structures import OrderType, TraderType
 from . import BaseTrader
 
-
 class BookInitializer(BaseTrader):
-    def __init__(self, trader_creation_data: dict) -> None:
-        super().__init__(TraderType.INITIAL_ORDER_BOOK)
+    def __init__(self, id: str, trader_creation_data: dict) -> None:
+        super().__init__(TraderType.INITIAL_ORDER_BOOK, id=id)
         self.trader_creation_data = trader_creation_data
         self.cash = math.inf
         self.shares = math.inf

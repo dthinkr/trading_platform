@@ -17,12 +17,13 @@ logger = setup_custom_logger(__name__)
 class NoiseTrader(BaseTrader):
     def __init__(
         self,
+        id: str,
         activity_frequency: float,
         order_amount: int,
         settings: dict,
         settings_noise: dict,
     ):
-        super().__init__(trader_type=TraderType.NOISE)
+        super().__init__(trader_type=TraderType.NOISE, id = id)
         self.activity_frequency = activity_frequency
         self.order_amount = order_amount
         self.settings = settings

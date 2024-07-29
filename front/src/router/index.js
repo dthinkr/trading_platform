@@ -51,8 +51,9 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   const traderStore = useTraderStore();
 
-  // Check if navigating to the TradingSystem without a traderUuid
   if (to.name === "TradingSystem" && !to.params.traderUuid) {
+    next({ name: "CreateTradingSession" });
+  } else if (to.name === "DayOver" && from.name !== "TradingSystem") {
     next({ name: "CreateTradingSession" });
   } else {
     next();
