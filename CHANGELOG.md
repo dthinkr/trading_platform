@@ -10,29 +10,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Planned
 
 - Make all Control Questions mandatory and show correct answers with explanations
-- Fix order cancellation not removing orders from the table
-- Correct share count updates when buying/selling
 - Review and adjust initial midprice and tick size
 - Adjust profits to range from 5 to 15 GBP
 
-## [1.0.1] - 2024-07-26
+## [1.0.2] - 2024-08-01
 
-### Added
+### Changed
+
+- Redesigned both frontend and backend of the trading platform
+- Updated order matching logic for improved efficiency and accuracy
+- Fix order cancellation not removing orders from the table
+- Correct share count updates when buying/selling
+
+## [1.0.1][1.0.1] - 2024-07-26
+
+### Changed
 
 - Implemented 'Next' and 'Back' buttons for navigation between instruction pages
 - Automatically generate instruction page information from parameter settings
 - Moved 'Start Trading' button to the end of all instructions
 - Added a table showing the goal, initial shares, and initial cash before market start
 - Implemented market wrapping under a single link with 'Next' button navigation
-
-### Changed
-
 - Calibrated exchange rate from liras to GBP
-
-### Improved
-
-- Enhanced user interface for better navigation and clarity
-- Updated documentation to reflect new features and changes
 
 ## [1.0.0][1.0.0] - 2024-07-10
 

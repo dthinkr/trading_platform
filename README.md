@@ -120,6 +120,10 @@ trading_platform/
 
 ## Recent Updates
 
+### July 29, 2024 (v1.0.2)
+- 🎨 Redesigned platform frontend and backend
+- 🔄 Updated order matching logic for improved efficiency
+
 ### July 26, 2024 (v1.0.1)
 - 🧭 Improved instruction flow with navigation buttons and auto-generated content
 - 📊 Enhanced pre-market information display
