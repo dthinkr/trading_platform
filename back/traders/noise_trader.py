@@ -29,20 +29,11 @@ class NoiseTrader(BaseTrader):
         self.settings_noise = settings_noise
         self.step = self.settings_noise["step"]
         self.initial_value = self.settings["initial"]
-        self.order_list = [(2000, OrderType.BID), (2000, OrderType.ASK), 
-                            (2001, OrderType.BID), (2011, OrderType.ASK)
-                            # , (2000, OrderType.BID), (2000, OrderType.ASK), (2000, OrderType.BID), (2000, OrderType.ASK), 
-                            # (2000, OrderType.BID), (2000, OrderType.ASK), (2000, OrderType.BID), (2000, OrderType.ASK)
-                            ]
-        self.order_index = 0
+
         self.cash = math.inf
         self.shares = math.inf
         
 
-    async def post_orders_from_list(self):
-        if self.order_index < len(self.order_list):
-            await self.post_new_order(1, self.order_list[self.order_index][0], self.order_list[self.order_index][1])
-            self.order_index += 1
 
     def cooling_interval(self, target: float) -> float:
         interval = np.random.gamma(shape=1,scale=1/target)
