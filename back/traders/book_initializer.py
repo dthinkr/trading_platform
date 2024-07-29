@@ -10,6 +10,17 @@ class BookInitializer(BaseTrader):
         self.trader_creation_data = trader_creation_data
         self.cash = math.inf
         self.shares = math.inf
+        # self.order_list = [
+        #                     (2000, OrderType.BID), 
+        #                     (2000, OrderType.ASK), 
+        #                     (2000, OrderType.BID), 
+        #                     (2000, OrderType.ASK), 
+        #                     # (2001, OrderType.BID), 
+        #                     # (2011, OrderType.ASK),
+        #                     # (2000, OrderType.BID), (2000, OrderType.ASK), (2000, OrderType.BID), (2000, OrderType.ASK), 
+        #                     # (2000, OrderType.BID), (2000, OrderType.ASK), (2000, OrderType.BID), (2000, OrderType.ASK)
+        #                     ]
+        # self.order_index = 0
 
     def generate_price(self, is_bid: bool) -> int:
         default_price = self.trader_creation_data["default_price"]
@@ -32,6 +43,11 @@ class BookInitializer(BaseTrader):
 
         return price
 
+    # async def post_orders_from_list(self):
+    #     if self.order_index < len(self.order_list):
+    #         await self.post_new_order(1, self.order_list[self.order_index][0], self.order_list[self.order_index][1])
+    #         self.order_index += 1
+
     def generate_order_type(self, index: int, total_orders: int) -> OrderType:
         if index < total_orders // 2:
             return OrderType.BID
@@ -47,8 +63,9 @@ class BookInitializer(BaseTrader):
             amount = 1.0
             await self.post_new_order(amount, price, order_type)
         
-        print(f"Order book initialization completed. {num_orders} orders placed.")
-
+        # while self.order_index < len(self.order_list):
+        #     await self.post_orders_from_list()
+        
     async def run(self) -> None:
         pass
 

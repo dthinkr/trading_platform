@@ -7,7 +7,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
 import heapq
-
+from sortedcontainers import SortedDict
 
 import aio_pika
 import polars as pl
@@ -84,6 +84,9 @@ class TradingSession:
 
         self.initialization_complete = False
         self.trading_started = False
+
+        self.bids = SortedDict()
+        self.asks = SortedDict()
 
     @property
     def current_time(self) -> datetime:
@@ -278,17 +281,6 @@ class TradingSession:
         """Returns file name for messages which is a trading platform id + datetime of creation with _ as spaces"""
         return f"{self.id}_{self.creation_time.strftime('%Y-%m-%d_%H-%M-%S')}"
 
-    def place_order(self, order_dict: Dict) -> Dict:
-        order_id = order_dict["id"]
-        order_dict.update(
-            {
-                "status": OrderStatus.ACTIVE.value,
-            }
-        )
-        self.all_orders[order_id] = order_dict
-        # print(self.all_orders[0])
-        return order_dict
-
     def get_spread(self) -> Tuple[Optional[float], Optional[float]]:
         """
         Returns the spread and the midpoint. If there are no overlapping orders, returns None, None.
@@ -381,34 +373,48 @@ class TradingSession:
             for order in orders
         ]
 
+    def place_order(self, order_dict: Dict) -> Dict:
+        order_id = order_dict["id"]
+        order_dict["status"] = OrderStatus.ACTIVE.value
+        self.all_orders[order_id] = order_dict
+
+        price = order_dict["price"]
+        if order_dict["order_type"] == OrderType.BID:
+            if price not in self.bids:
+                self.bids[price] = []
+            self.bids[price].append(order_dict)
+        else:
+            if price not in self.asks:
+                self.asks[price] = []
+            self.asks[price].append(order_dict)
+
+        return order_dict
+
     async def clear_orders(self) -> Dict:
         res = {"transactions": [], "removed_active_orders": []}
         
-        asks = [order for order in self.active_orders.values() if order["order_type"] == OrderType.ASK]
-        bids = [order for order in self.active_orders.values() if order["order_type"] == OrderType.BID]
-
-        if not asks or not bids:
+        if not self.asks or not self.bids:
             return res
-
-        ask_heap = self.create_order_heap(asks, is_ask=True)
-        bid_heap = self.create_order_heap(bids, is_ask=False)
-        heapq.heapify(ask_heap)
-        heapq.heapify(bid_heap)
 
         transactions = []
         traders_to_transactions_lookup = defaultdict(list)
 
-        while ask_heap and bid_heap:
-            ask_price, _, ask = ask_heap[0]
-            bid_price, _, bid = bid_heap[0]
+        while self.asks and self.bids:
+            best_ask = self.asks.peekitem(0)
+            best_bid = self.bids.peekitem(-1)
 
-            if ask_price > -bid_price:
+            if best_ask[0] > best_bid[0]:
                 break  # No more matches possible
 
-            heapq.heappop(ask_heap)
-            heapq.heappop(bid_heap)
+            ask = self.asks[best_ask[0]].pop(0)
+            bid = self.bids[best_bid[0]].pop()
 
-            transaction_price = (ask_price + (-bid_price)) / 2
+            if not self.asks[best_ask[0]]:
+                del self.asks[best_ask[0]]
+            if not self.bids[best_bid[0]]:
+                del self.bids[best_bid[0]]
+
+            transaction_price = (best_ask[0] + best_bid[0]) / 2
             ask_trader_id = ask["trader_id"]
             bid_trader_id = bid["trader_id"]
 
@@ -421,8 +427,8 @@ class TradingSession:
             )
 
             # Remove matched orders from self.active_orders
-            del self.active_orders[ask["id"]]
-            del self.active_orders[bid["id"]]
+            self.active_orders.pop(ask["id"], None)
+            self.active_orders.pop(bid["id"], None)
 
             traders_to_transactions_lookup[ask_trader_id].append(
                 {
@@ -447,9 +453,8 @@ class TradingSession:
             res["subgroup_broadcast"] = traders_to_transactions_lookup
             res["transactions"] = transactions
 
-        return res        
-
-
+        return res
+        
     async def handle_add_order(self, data: dict) -> Dict:
         data["order_type"] = int(data["order_type"])
         try:

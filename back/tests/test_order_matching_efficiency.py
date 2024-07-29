@@ -107,26 +107,32 @@ async def test_order_matching_consistency(capsys):
         await trading_session.start_trading()
         logger.info("Trading session started")
 
-        for amount, price, order_type in predefined_orders:
-            await trader.post_new_order(amount, price, order_type)
-        logger.info(f"Posted {len(predefined_orders)} predefined orders")
+        with capsys.disabled():
+            print(f"\n{GREEN}Order Matching Consistency Test Results:{RESET}")
+            
+            for i, (amount, price, order_type) in enumerate(predefined_orders, 1):
+                await trader.post_new_order(amount, price, order_type)
+                order_book = await trading_session.get_order_book_snapshot()
+                
+                print(f"\n{BLUE}After posting order {i} ({order_type.name} @ {price}):{RESET}")
+                print(order_book)
+                print(f"Bids: {order_book['bids']}")
+                print(f"Asks: {order_book['asks']}")
 
         await asyncio.sleep(0.5)  # Allow some time for order processing
 
-        order_book = await trading_session.get_order_book_snapshot()
+        final_order_book = await trading_session.get_order_book_snapshot()
         
         with capsys.disabled():
-            print(f"\n{GREEN}Order Matching Consistency Test Results:{RESET}")
-            print(f"{BLUE}Final Order Book:{RESET}")
-            print(f"Bids: {order_book['bids']}")
-            print(f"Asks: {order_book['asks']}")
+            print(f"\n{GREEN}Final Order Book:{RESET}")
+            print(f"Bids: {final_order_book['bids']}")
+            print(f"Asks: {final_order_book['asks']}")
 
     finally:
         if trading_session:
             await trading_session.clean_up()
         await trader.clean_up()
         logger.info("Cleanup completed")
-
 
 @pytest.fixture(autouse=True)
 async def cleanup_tasks():
