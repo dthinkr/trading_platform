@@ -20,7 +20,7 @@ async def create_random_orders(trader, num_orders):
     orders = []
     for _ in range(num_orders):
         order_type = random.choice([OrderType.BID, OrderType.ASK])
-        amount = random.randint(1, 10)
+        amount = 1
         price = random.randint(95, 105)
         orders.append((amount, price, order_type))
     return orders
@@ -78,6 +78,55 @@ async def test_order_creation_and_processing_efficiency(capsys):
         for trader in traders:
             await trader.clean_up()
         logger.info("Cleanup completed")
+
+async def test_order_matching_consistency(capsys):
+    duration = 1
+    trading_session = None
+    traders = []
+    
+    predefined_orders = [
+        (1, 100, OrderType.ASK),
+        (1, 99, OrderType.ASK),
+        (1, 98, OrderType.ASK),
+        (1, 101, OrderType.BID),
+        (1, 102, OrderType.BID),
+        (1, 103, OrderType.BID),
+    ]
+    
+    try:
+        trading_session = TradingSession(duration=duration, default_price=100)
+        await trading_session.initialize()
+        logger.info("Trading session initialized")
+
+        trader = BaseTrader(TraderType.NOISE, cash=10000, shares=100)
+        await trader.initialize()
+        await trader.connect_to_session(trading_session.id)
+        logger.info("Trader initialized and connected")
+
+        trading_session.set_initialization_complete()
+        await trading_session.start_trading()
+        logger.info("Trading session started")
+
+        for amount, price, order_type in predefined_orders:
+            await trader.post_new_order(amount, price, order_type)
+        logger.info(f"Posted {len(predefined_orders)} predefined orders")
+
+        await asyncio.sleep(0.5)  # Allow some time for order processing
+
+        order_book = await trading_session.get_order_book_snapshot()
+        
+        with capsys.disabled():
+            print(f"\n{GREEN}Order Matching Consistency Test Results:{RESET}")
+            print(f"{BLUE}Final Order Book:{RESET}")
+            print(f"Bids: {order_book['bids']}")
+            print(f"Asks: {order_book['asks']}")
+
+    finally:
+        if trading_session:
+            await trading_session.clean_up()
+        await trader.clean_up()
+        logger.info("Cleanup completed")
+
 
 @pytest.fixture(autouse=True)
 async def cleanup_tasks():

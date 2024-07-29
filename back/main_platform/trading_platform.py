@@ -6,6 +6,8 @@ from asyncio import Event, Lock
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
+import heapq
+
 
 import aio_pika
 import polars as pl
@@ -373,67 +375,56 @@ class TradingSession:
             self.transaction_queue.task_done()
             logger.info(f"Transaction processed: {transaction}")
 
+    def create_order_heap(self, orders: List[Dict], is_ask: bool) -> List[Tuple[float, float, Dict]]:
+        return [
+            (order['price'] if is_ask else -order['price'], order['timestamp'].timestamp(), order)
+            for order in orders
+        ]
+
     async def clear_orders(self) -> Dict:
         res = {"transactions": [], "removed_active_orders": []}
-        asks = [
-            order
-            for order in self.active_orders.values()
-            if order["order_type"] == OrderType.ASK
-        ]
-        bids = [
-            order
-            for order in self.active_orders.values()
-            if order["order_type"] == OrderType.BID
-        ]
+        
+        asks = [order for order in self.active_orders.values() if order["order_type"] == OrderType.ASK]
+        bids = [order for order in self.active_orders.values() if order["order_type"] == OrderType.BID]
 
-        asks.sort(key=lambda x: (x["price"], x["timestamp"]))
-        bids.sort(key=lambda x: (-x["price"], x["timestamp"]))
-
-        if asks and bids:
-            lowest_ask = asks[0]["price"]
-            highest_bid = bids[0]["price"]
-            spread = lowest_ask - highest_bid
-        else:
-            logger.info("No overlapping orders.")
+        if not asks or not bids:
             return res
 
-        if spread > 0:
-            logger.info(
-                f"No overlapping orders. Spread is positive: {spread}. Lowest ask: {lowest_ask}, highest bid: {highest_bid}"
-            )
-            return res
-
-        viable_asks = [ask for ask in asks if ask["price"] <= highest_bid]
-        viable_bids = [bid for bid in bids if bid["price"] >= lowest_ask]
+        ask_heap = self.create_order_heap(asks, is_ask=True)
+        bid_heap = self.create_order_heap(bids, is_ask=False)
+        heapq.heapify(ask_heap)
+        heapq.heapify(bid_heap)
 
         transactions = []
-        participated_traders = set()
         traders_to_transactions_lookup = defaultdict(list)
 
-        while viable_asks and viable_bids:
-            ask = viable_asks.pop(0)
-            bid = viable_bids.pop(0)
+        while ask_heap and bid_heap:
+            ask_price, _, ask = ask_heap[0]
+            bid_price, _, bid = bid_heap[0]
 
-            transaction_price = (ask["price"] + bid["price"]) / 2
-            ask_trader_type = self.connected_traders[ask["trader_id"]]["trader_type"]
-            ask_trader_id = ask.get("trader_id")
-            bid_trader_id = bid.get("trader_id")
+            if ask_price > -bid_price:
+                break  # No more matches possible
 
-            if (
-                ask_trader_type == TraderType.HUMAN.value
-                and ask_trader_id == bid_trader_id
-            ):
+            heapq.heappop(ask_heap)
+            heapq.heappop(bid_heap)
+
+            transaction_price = (ask_price + (-bid_price)) / 2
+            ask_trader_id = ask["trader_id"]
+            bid_trader_id = bid["trader_id"]
+
+            if self.connected_traders[ask_trader_id]["trader_type"] == TraderType.HUMAN.value and ask_trader_id == bid_trader_id:
                 logger.warning(f"Blocking self-execution for trader {ask_trader_id}")
-                return res
+                continue
 
             ask_trader_id, bid_trader_id, transaction = await self.create_transaction(
                 bid, ask, transaction_price
             )
 
-            participated_traders.add(ask_trader_id)
-            participated_traders.add(bid_trader_id)
+            # Remove matched orders from self.active_orders
+            del self.active_orders[ask["id"]]
+            del self.active_orders[bid["id"]]
 
-            traders_to_transactions_lookup[ask["trader_id"]].append(
+            traders_to_transactions_lookup[ask_trader_id].append(
                 {
                     "id": ask["id"],
                     "price": ask["price"],
@@ -441,7 +432,7 @@ class TradingSession:
                     "amount": ask["amount"],
                 }
             )
-            traders_to_transactions_lookup[bid["trader_id"]].append(
+            traders_to_transactions_lookup[bid_trader_id].append(
                 {
                     "id": bid["id"],
                     "price": bid["price"],
@@ -454,8 +445,10 @@ class TradingSession:
 
         if transactions:
             res["subgroup_broadcast"] = traders_to_transactions_lookup
+            res["transactions"] = transactions
 
-        return res
+        return res        
+
 
     async def handle_add_order(self, data: dict) -> Dict:
         data["order_type"] = int(data["order_type"])
