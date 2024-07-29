@@ -1,12 +1,18 @@
 <template>
-  <div class="history-chart-container">
-    <highcharts
-      ref="priceGraph"
-      :constructor-type="'stockChart'"
-      :options="chartOptions"
-    >
-    </highcharts>
-  </div>
+  <v-card class="history-chart-container" elevation="3">
+    <v-card-title class="cardtitle-primary">
+      <v-icon left>mdi-chart-line</v-icon>
+      Transaction Price History
+    </v-card-title>
+    <div class="chart-wrapper">
+      <highcharts
+        ref="priceGraph"
+        :constructor-type="'stockChart'"
+        :options="chartOptions"
+      >
+      </highcharts>
+    </div>
+  </v-card>
 </template>
 
 <script setup>
@@ -24,12 +30,12 @@ const priceGraph = ref(null);
 
 const chartOptions = reactive({
   chart: {
-    height: 300,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    height: 250,
+    backgroundColor: '#f5f5f5',
     style: {
       fontFamily: 'Roboto, sans-serif'
     },
-    animation: false // Disable animations for faster rendering
+    animation: false
   },
   navigator: {
     enabled: false,
@@ -41,7 +47,7 @@ const chartOptions = reactive({
     enabled: false,
   },
   tooltip: {
-    backgroundColor: 'rgba(247, 247, 247, 0.95)',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderWidth: 0,
     shadow: true,
     useHTML: true,
@@ -54,18 +60,18 @@ const chartOptions = reactive({
     labels: {
       style: {
         color: '#666',
-        fontSize: '12px'
+        fontSize: '11px'
       }
     },
     lineColor: '#ccd6eb',
     tickColor: '#ccd6eb',
-    tickPixelInterval: 150 // Adjust this value to control the density of x-axis ticks
+    tickPixelInterval: 150
   },
   yAxis: {
     labels: {
       style: {
         color: '#666',
-        fontSize: '12px'
+        fontSize: '11px'
       }
     },
     lineColor: '#ccd6eb',
@@ -73,11 +79,7 @@ const chartOptions = reactive({
     tickWidth: 1
   },
   title: { 
-    text: "Transaction Price History",
-    style: {
-      color: '#333',
-      fontWeight: 'bold'
-    }
+    text: null
   },
   time: {
     useUTC: false,
@@ -93,7 +95,7 @@ const chartOptions = reactive({
         radius: 3,
         symbol: 'circle'
       },
-      animation: false // Disable animations for the series
+      animation: false
     },
   ],
   lang: {
@@ -108,8 +110,8 @@ const chartOptions = reactive({
   },
   plotOptions: {
     series: {
-      animation: false, // Disable animations for all series
-      turboThreshold: 0 // Disable turbo threshold to always use the marker
+      animation: false,
+      turboThreshold: 0
     },
     line: {
       marker: {
@@ -130,7 +132,6 @@ watch(
         y: item.price,
       }));
       
-      // Update the series data
       if (priceGraph.value && priceGraph.value.chart) {
         priceGraph.value.chart.series[0].setData(data, true, false, false);
       } else {
@@ -163,16 +164,22 @@ export default {
 <style scoped>
 .history-chart-container {
   width: 100%;
-  height: 300px;
-  background: linear-gradient(to bottom, #f8f9fa, #ffffff);
-  border-radius: 8px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  padding: 16px;
-  transition: all 0.3s ease;
+  background-color: #f5f5f5;
+}
+
+.cardtitle-primary {
+  color: black;
+  font-weight: bold;
+  padding: 12px 16px;
+}
+
+.chart-wrapper {
+  padding: 0 16px 16px;
 }
 
 .history-chart-container:hover {
-  box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
   transform: translateY(-2px);
+  transition: all 0.3s ease;
 }
 </style>

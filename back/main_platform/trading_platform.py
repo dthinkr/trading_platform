@@ -454,99 +454,61 @@ class TradingSession:
             res["transactions"] = transactions
 
         return res
-        
+            
     async def handle_add_order(self, data: dict) -> Dict:
         data["order_type"] = int(data["order_type"])
         try:
             order = Order(status=OrderStatus.BUFFERED.value, session_id=self.id, **data)
-            self.place_order(order.model_dump())
+            placed_order = self.place_order(order.model_dump())
+            
+            trader_id = placed_order["trader_id"]
+            price = placed_order["price"]
+            amount = placed_order["amount"]
+            order_type = "BID" if placed_order["order_type"] == OrderType.BID else "ASK"
+            print(f"Order added by trader {trader_id}: type={order_type}, price={price}, amount={amount}")
+            
         except ValidationError as e:
             logger.critical(f"Order validation failed: {e}")
             return {"status": "failed", "reason": str(e), "type": "order_failed"}
 
-        # Clear orders and prepare for response
         resp = await self.clear_orders()
         subgroup_data = resp.pop("subgroup_broadcast", None)
         resp.update({"type": "NEW_ORDER_ADDED", "content": "A", "respond": True})
         return resp
 
-    async def handle_cancel_order(self, data: dict) -> Dict:
-        order_id = data.get("order_id")
-        trader_id = data.get("trader_id")
-        order_details = data.get(
-            "order_details"
-        )  # Ensure this key exists in the message
-
-        try:
-            order_id = uuid.UUID(order_id)
-        except ValueError:
-            logger.warning(f"Invalid order ID format: {order_id}.")
-            return {"status": "failed", "reason": "Invalid order ID format"}
-
-        async with self.lock:
-            if order_id not in self.active_orders:
-                return {"status": "failed", "reason": "Order not found"}
-
-            existing_order = self.active_orders[order_id]
-            if existing_order["trader_id"] != trader_id:
-                return {"status": "failed", "reason": "Trader does not own the order"}
-
-            if existing_order["status"] != OrderStatus.ACTIVE.value:
-                return {"status": "failed", "reason": "Order is not active"}
-
-            # Log the cancellation with details
-            message_document = Message(
-                trading_session_id=self.id,
-                content={
-                    "action": "order_cancelled",
-                    "order_id": str(order_id),
-                    "details": order_details,  # Include negative amount and other details
-                },
-            )
-            message_document.save()
-
-            # Update order status
-            self.all_orders[order_id]["status"] = OrderStatus.CANCELLED.value
-            self.all_orders[order_id]["cancellation_timestamp"] = now()
-
-            return {
-                "status": "cancel success",
-                "order": order_id,
-                "type": "ORDER_CANCELLED",
-                "respond": True,
-            }
-
     @if_active
     async def handle_cancel_order(self, data: dict) -> Dict:
-        order_id = data.get("order_id")
+        order_id = uuid.UUID(data.get("order_id"))
         trader_id = data.get("trader_id")
-
-        try:
-            order_id = uuid.UUID(order_id)
-        except ValueError:
-            logger.warning(f"Invalid order ID format: {order_id}.")
-            return {"status": "failed", "reason": "Invalid order ID format"}
+        order_details = data.get("order_details")
 
         async with self.lock:
-            if order_id not in self.active_orders:
-                return {"status": "failed", "reason": "Order not found"}
+            if order_id in self.active_orders:
+                existing_order = self.active_orders[order_id]
+                if existing_order["trader_id"] == trader_id and existing_order["status"] == OrderStatus.ACTIVE.value:
+                    message_document = Message(
+                        trading_session_id=self.id,
+                        content={
+                            "action": "order_cancelled",
+                            "order_id": str(order_id),
+                            "details": order_details,
+                        },
+                    )
+                    message_document.save()
 
-            existing_order = self.active_orders[order_id]
+                    self.all_orders[order_id]["status"] = OrderStatus.CANCELLED.value
+                    self.all_orders[order_id]["cancellation_timestamp"] = now()
 
-            if existing_order["trader_id"] != trader_id:
-                logger.warning(f"Trader {trader_id} does not own order {order_id}.")
-                return {"status": "failed", "reason": "Trader does not own the order"}
+                    print(f"Order {order_id} successfully canceled by trader {trader_id}")
 
-            if existing_order["status"] != OrderStatus.ACTIVE.value:
-                logger.warning(
-                    f"Order {order_id} is not active and cannot be canceled."
-                )
-                return {"status": "failed", "reason": "Order is not active"}
+                    return {
+                        "status": "cancel success",
+                        "order": order_id,
+                        "type": "ORDER_CANCELLED",
+                        "respond": True,
+                    }
 
-            self.all_orders[order_id]["status"] = OrderStatus.CANCELLED.value
-            self.all_orders[order_id]["cancellation_timestamp"] = now()
-
-            return {"status": "cancel success", "order": order_id, "respond": True}
+        return {"status": "failed", "reason": "Order cancellation failed"}
 
     @if_active
     async def handle_register_me(self, msg_body: Dict) -> Dict:
