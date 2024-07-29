@@ -8,6 +8,7 @@ def informed_trader_settings():
     informed_state = {"inv": 1} 
 
     return {
+        "id": "1",
         "activity_frequency": 10,
         "default_price": 100,
         "informed_edge": 1,

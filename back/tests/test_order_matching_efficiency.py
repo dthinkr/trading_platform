@@ -37,7 +37,7 @@ async def test_order_creation_and_processing_efficiency(capsys):
         await trading_session.initialize()
         logger.info("Trading session initialized")
 
-        traders = [BaseTrader(TraderType.NOISE, cash=10000, shares=100) for _ in range(num_traders)]
+        traders = [BaseTrader(TraderType.NOISE, id='1', cash=10000, shares=100) for i in range(num_traders)]
         for trader in traders:
             await trader.initialize()
             await trader.connect_to_session(trading_session.id)
