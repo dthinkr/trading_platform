@@ -134,7 +134,6 @@ if ! run_docker_compose up --build -d; then
 fi
 
 echo "Trading platform is now running!"
-echo "Your ngrok hostname is: $ngrok_hostname"
 
 cleanup() {
     echo "Stopping all services..."
