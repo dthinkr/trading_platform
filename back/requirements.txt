@@ -12,3 +12,4 @@ mongoengine==0.28.2
 polars==0.20.20
 duckdb==1.0.0
 SALib==1.4.7
+sortedcontainers
