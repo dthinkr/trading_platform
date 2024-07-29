@@ -17,6 +17,7 @@
           class="order-item bid"
           :class="{ 'best-price': price === bestAsk }"
           @mousedown="startOrderAdjustment(1, price, $event)"
+          @touchstart.prevent="startOrderAdjustment(1, price, $event)"
         >
           <div class="order-content">
             <span class="order-type">BUY</span>
@@ -37,6 +38,7 @@
           class="order-item ask"
           :class="{ 'best-price': price === bestBid }"
           @mousedown="startOrderAdjustment(-1, price, $event)"
+          @touchstart.prevent="startOrderAdjustment(-1, price, $event)"
         >
           <div class="order-content">
             <span class="order-type">SELL</span>
@@ -47,7 +49,14 @@
       </div>
     </div>
     
-    <div v-if="isAdjusting" class="order-adjustment-overlay" @mousemove="adjustOrderAmount" @mouseup="finishOrder" @mouseleave="cancelOrder">
+    <div v-if="isAdjusting" 
+         class="order-adjustment-overlay" 
+         @mousemove="adjustOrderAmount"
+         @touchmove.prevent="adjustOrderAmount"
+         @mouseup="finishOrder" 
+         @touchend.prevent="finishOrder"
+         @mouseleave="cancelOrder"
+         @touchcancel="cancelOrder">
       <div class="order-adjustment-content" :class="orderType === 1 ? 'buy-order' : 'sell-order'">
         <h2>{{ orderType === 1 ? 'Buy' : 'Sell' }} Order</h2>
         <p class="price">Price: {{ formatPrice(orderPrice) }}</p>
@@ -84,6 +93,8 @@ const sellPrices = computed(() => bestBid.value !== null ? Array.from({ length: 
 const isBuyButtonDisabled = computed(() => !hasAskData.value);
 const isSellButtonDisabled = computed(() => !hasBidData.value);
 
+const isMobile = ref(false);
+
 const isAdjusting = ref(false);
 const orderType = ref(null);
 const orderPrice = ref(null);
@@ -104,15 +115,19 @@ function startOrderAdjustment(type, price, event) {
   orderType.value = type;
   orderPrice.value = price;
   orderAmount.value = 0;
-  startX.value = event.clientX;
-  startY.value = event.clientY;
+  const clientX = event.clientX || (event.touches && event.touches[0].clientX);
+  const clientY = event.clientY || (event.touches && event.touches[0].clientY);
+  startX.value = clientX;
+  startY.value = clientY;
   cursorPosition.value = { x: 100, y: 100 };
 }
 
 function adjustOrderAmount(event) {
   if (!isAdjusting.value) return;
-  const deltaX = event.clientX - startX.value;
-  const deltaY = startY.value - event.clientY;
+  const clientX = event.clientX || (event.touches && event.touches[0].clientX);
+  const clientY = event.clientY || (event.touches && event.touches[0].clientY);
+  const deltaX = clientX - startX.value;
+  const deltaY = startY.value - clientY;
   const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
   const angle = Math.atan2(deltaY, deltaX);
   
@@ -160,12 +175,23 @@ function formatPrice(price) {
   return price.toFixed(2);
 }
 
+function checkMobile() {
+  isMobile.value = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
 onMounted(() => {
-  document.addEventListener('mouseleave', cancelOrder);
+  checkMobile();
+  window.addEventListener('resize', checkMobile);
+  if (!isMobile.value) {
+    document.addEventListener('mouseleave', cancelOrder);
+  }
 });
 
 onUnmounted(() => {
-  document.removeEventListener('mouseleave', cancelOrder);
+  window.removeEventListener('resize', checkMobile);
+  if (!isMobile.value) {
+    document.removeEventListener('mouseleave', cancelOrder);
+  }
 });
 </script>
 
@@ -219,6 +245,7 @@ onUnmounted(() => {
   transition: all 0.3s ease;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   cursor: pointer;
+  touch-action: none;
 }
 
 .order-item:hover {
