@@ -24,7 +24,7 @@ from structures import (
     TransactionModel,
 )
 
-mongodb_host = os.getenv("MONGODB_HOST", "mongodb")
+mongodb_host = os.getenv("MONGODB_HOST", "localhost")
 mongodb_port = os.getenv("MONGODB_PORT", "27017")
 mongodb_url = f"mongodb://{mongodb_host}:{mongodb_port}/trader?w=majority&wtimeoutMS=1000"
 
@@ -134,7 +134,7 @@ class TradingSession:
 
         if not active_bids.is_empty():
             bids_grouped = (
-                active_bids.groupby("price")
+                active_bids.group_by("price")
                 .agg([pl.col("amount").sum().alias("amount_sum")])
                 .sort(by="price", descending=True)
             )
@@ -144,7 +144,7 @@ class TradingSession:
 
         if not active_asks.is_empty():
             asks_grouped = (
-                active_asks.groupby("price")
+                active_asks.group_by("price")
                 .agg([pl.col("amount").sum().alias("amount_sum")])
                 .sort(by="price")
             )

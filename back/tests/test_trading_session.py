@@ -4,10 +4,9 @@ from unittest.mock import AsyncMock, patch
 from main_platform import TradingSession
 from structures import OrderStatus, OrderType
 
-
 @pytest.mark.asyncio
 async def test_initialize():
-    session = TradingSession(duration=1)
+    session = TradingSession(duration=1, default_price=1000)
     session.connection = AsyncMock()
     session.channel = AsyncMock()
     with patch("aio_pika.connect_robust", return_value=session.connection), patch(
@@ -19,10 +18,9 @@ async def test_initialize():
         assert session.active is True
         assert session.start_time == "2023-04-01T00:00:00Z"
 
-
 @pytest.mark.asyncio
 async def test_place_order():
-    session = TradingSession(duration=1)
+    session = TradingSession(duration=1, default_price=1000)
     order_dict = {
         "id": "test_order_id",
         "order_type": OrderType.BID.value,
@@ -34,20 +32,18 @@ async def test_place_order():
     assert placed_order["status"] == OrderStatus.ACTIVE.value
     assert session.all_orders["test_order_id"] == placed_order
 
-
 @pytest.mark.asyncio
 async def test_order_book_empty():
-    session = TradingSession(duration=1)
+    session = TradingSession(duration=1, default_price=1000)
     order_book = session.order_book
     assert order_book == {
         "bids": [],
         "asks": [],
     }, "Order book should be empty initially"
 
-
 @pytest.mark.asyncio
 async def test_order_book_with_only_bids():
-    session = TradingSession(duration=1)
+    session = TradingSession(duration=1, default_price=1000)
     session.all_orders = {
         "bid_order_1": {
             "id": "bid_order_1",
@@ -67,14 +63,11 @@ async def test_order_book_with_only_bids():
     order_book = session.order_book
     assert order_book["asks"] == [], "Expect no asks in the order book"
     assert len(order_book["bids"]) == 2, "Expect two bids in the order book"
-    assert (
-        order_book["bids"][0]["x"] == 1010
-    ), "The first bid should have the highest price"
-
+    assert order_book["bids"][0]["x"] == 1010, "The first bid should have the highest price"
 
 @pytest.mark.asyncio
 async def test_order_book_with_only_asks():
-    session = TradingSession(duration=1)
+    session = TradingSession(duration=1, default_price=1000)
     session.all_orders = {
         "ask_order_1": {
             "id": "ask_order_1",
@@ -94,14 +87,11 @@ async def test_order_book_with_only_asks():
     order_book = session.order_book
     assert order_book["bids"] == [], "Expect no bids in the order book"
     assert len(order_book["asks"]) == 2, "Expect two asks in the order book"
-    assert (
-        order_book["asks"][0]["x"] == 1005
-    ), "The first ask should have the lowest price"
-
+    assert order_book["asks"][0]["x"] == 1005, "The first ask should have the lowest price"
 
 @pytest.mark.asyncio
 async def test_order_book_with_bids_and_asks():
-    session = TradingSession(duration=1)
+    session = TradingSession(duration=1, default_price=1000)
     session.all_orders = {
         "bid_order": {
             "id": "bid_order",
@@ -124,10 +114,9 @@ async def test_order_book_with_bids_and_asks():
     assert order_book["bids"][0]["x"] == 1000, "The bid price should match"
     assert order_book["asks"][0]["x"] == 1020, "The ask price should match"
 
-
 @pytest.mark.asyncio
 async def test_get_spread():
-    session = TradingSession(duration=1)
+    session = TradingSession(duration=1, default_price=1000)
     session.all_orders = {
         "ask_order": {
             "id": "ask_order",
@@ -147,10 +136,9 @@ async def test_get_spread():
     spread = session.get_spread()
     assert spread[0] == 10
 
-
 @pytest.mark.asyncio
 async def test_clean_up():
-    session = TradingSession(duration=1)
+    session = TradingSession(duration=1, default_price=1000)
     session.connection = AsyncMock()
     session.channel = AsyncMock()
     session._stop_requested = asyncio.Event()
