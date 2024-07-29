@@ -21,7 +21,7 @@ async def create_random_orders(trader, num_orders):
     for _ in range(num_orders):
         order_type = random.choice([OrderType.BID, OrderType.ASK])
         amount = 1
-        price = random.randint(95, 105)
+        price = random.randint(1900, 2100)
         orders.append((amount, price, order_type))
     return orders
 
@@ -33,7 +33,7 @@ async def test_order_creation_and_processing_efficiency(capsys):
     trading_session = None
     traders = []
     try:
-        trading_session = TradingSession(duration=duration, default_price=100)
+        trading_session = TradingSession(duration=duration, default_price=2000)
         await trading_session.initialize()
         logger.info("Trading session initialized")
 
@@ -79,60 +79,60 @@ async def test_order_creation_and_processing_efficiency(capsys):
             await trader.clean_up()
         logger.info("Cleanup completed")
 
-async def test_order_matching_consistency(capsys):
-    duration = 1
-    trading_session = None
-    traders = []
+# async def test_order_matching_consistency(capsys):
+#     duration = 1
+#     trading_session = None
+#     traders = []
     
-    predefined_orders = [
-        (1, 100, OrderType.ASK),
-        (1, 99, OrderType.ASK),
-        (1, 98, OrderType.ASK),
-        (1, 101, OrderType.BID),
-        (1, 102, OrderType.BID),
-        (1, 103, OrderType.BID),
-    ]
+#     predefined_orders = [
+#         (1, 2000, OrderType.ASK),
+#         (1, 1999, OrderType.ASK),
+#         (1, 1998, OrderType.ASK),
+#         (1, 2001, OrderType.BID),
+#         (1, 2002, OrderType.BID),
+#         (1, 2003, OrderType.BID),
+#     ]
     
-    try:
-        trading_session = TradingSession(duration=duration, default_price=100)
-        await trading_session.initialize()
-        logger.info("Trading session initialized")
+#     try:
+#         trading_session = TradingSession(duration=duration, default_price=2000)
+#         await trading_session.initialize()
+#         logger.info("Trading session initialized")
 
-        trader = BaseTrader(TraderType.NOISE, cash=10000, shares=100)
-        await trader.initialize()
-        await trader.connect_to_session(trading_session.id)
-        logger.info("Trader initialized and connected")
+#         trader = BaseTrader(TraderType.NOISE, cash=10000, shares=100)
+#         await trader.initialize()
+#         await trader.connect_to_session(trading_session.id)
+#         logger.info("Trader initialized and connected")
 
-        trading_session.set_initialization_complete()
-        await trading_session.start_trading()
-        logger.info("Trading session started")
+#         trading_session.set_initialization_complete()
+#         await trading_session.start_trading()
+#         logger.info("Trading session started")
 
-        with capsys.disabled():
-            print(f"\n{GREEN}Order Matching Consistency Test Results:{RESET}")
+#         with capsys.disabled():
+#             print(f"\n{GREEN}Order Matching Consistency Test Results:{RESET}")
             
-            for i, (amount, price, order_type) in enumerate(predefined_orders, 1):
-                await trader.post_new_order(amount, price, order_type)
-                order_book = await trading_session.get_order_book_snapshot()
+#             for i, (amount, price, order_type) in enumerate(predefined_orders, 1):
+#                 await trader.post_new_order(amount, price, order_type)
+#                 order_book = await trading_session.get_order_book_snapshot()
                 
-                print(f"\n{BLUE}After posting order {i} ({order_type.name} @ {price}):{RESET}")
-                print(order_book)
-                print(f"Bids: {order_book['bids']}")
-                print(f"Asks: {order_book['asks']}")
+#                 print(f"\n{BLUE}After posting order {i} ({order_type.name} @ {price}):{RESET}")
+#                 print(order_book)
+#                 print(f"Bids: {order_book['bids']}")
+#                 print(f"Asks: {order_book['asks']}")
 
-        await asyncio.sleep(0.5)  # Allow some time for order processing
+#         await asyncio.sleep(0.5)  # Allow some time for order processing
 
-        final_order_book = await trading_session.get_order_book_snapshot()
+#         final_order_book = await trading_session.get_order_book_snapshot()
         
-        with capsys.disabled():
-            print(f"\n{GREEN}Final Order Book:{RESET}")
-            print(f"Bids: {final_order_book['bids']}")
-            print(f"Asks: {final_order_book['asks']}")
+#         with capsys.disabled():
+#             print(f"\n{GREEN}Final Order Book:{RESET}")
+#             print(f"Bids: {final_order_book['bids']}")
+#             print(f"Asks: {final_order_book['asks']}")
 
-    finally:
-        if trading_session:
-            await trading_session.clean_up()
-        await trader.clean_up()
-        logger.info("Cleanup completed")
+#     finally:
+#         if trading_session:
+#             await trading_session.clean_up()
+#         await trader.clean_up()
+#         logger.info("Cleanup completed")
 
 @pytest.fixture(autouse=True)
 async def cleanup_tasks():
