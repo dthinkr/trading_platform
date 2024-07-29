@@ -23,7 +23,7 @@ class BaseTrader:
     initial_cash = 0
     initial_shares = 0
 
-    def __init__(self, trader_type: TraderType, cash=0, shares=0):
+    def __init__(self, trader_type: TraderType, id, cash=0, shares=0):
 
         self.initial_shares = shares
         self.initial_cash = cash
@@ -34,7 +34,7 @@ class BaseTrader:
 
         self._stop_requested = asyncio.Event()  # this one we need only for traders which should be kept active in loop. For instance human traders don't need that
         self.trader_type = trader_type.value
-        self.id = f"{trader_type.name}_{str(uuid.uuid4())}" # added identifier of trader type
+        self.id = id
         logger.info(f"Trader of type {self.trader_type} created with UUID: {self.id}")
         self.connection = None
         self.channel = None
@@ -239,13 +239,14 @@ class BaseTrader:
                     return
                 self.shares -= amount
 
-        new_order = {
-            "action": ActionType.POST_NEW_ORDER.value,
-            "amount": amount,
-            "price": price,
-            "order_type": order_type,
-        }
-        await self.send_to_trading_system(new_order)
+        for _ in range(int(amount)):
+            new_order = {
+                "action": ActionType.POST_NEW_ORDER.value,
+                "amount": 1,
+                "price": price,
+                "order_type": order_type,
+            }
+            await self.send_to_trading_system(new_order)
 
     async def send_cancel_order_request(self, order_id: uuid.UUID) -> None:
         if not order_id:

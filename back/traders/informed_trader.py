@@ -9,6 +9,7 @@ logger = setup_custom_logger(__name__)
 class InformedTrader(BaseTrader):
     def __init__(
         self,
+        id: str,
         activity_frequency: int,
         default_price: int,
         informed_edge: int,
@@ -19,7 +20,7 @@ class InformedTrader(BaseTrader):
         get_signal_informed: callable,
         get_order_to_match: callable,
     ):
-        super().__init__(trader_type=TraderType.INFORMED)
+        super().__init__(trader_type=TraderType.INFORMED, id=id)
         self.activity_frequency = activity_frequency
         self.default_price = default_price
         self.informed_edge = informed_edge
@@ -126,18 +127,23 @@ class InformedTrader(BaseTrader):
     async def run(self) -> None:
         while not self._stop_requested.is_set():
             try:
-                await self.act()
-                print(  f"Action: {'Buying' if self.settings_informed['direction'] == TradeDirection.BUY else 'Selling'}, "
-                        f"Inventory: {self.shares} shares, "
-                        f"Cash: ${self.cash:,.2f}, "
-                        f"Sleep Time: {self.next_sleep_time:.2f} seconds"
-                )
+                remaining_time = self.get_remaining_time()
+                if remaining_time <= 0:
+                    logger.info("Trading session has ended. Stopping InformedTrader.")
+                    break
 
-                await asyncio.sleep(self.next_sleep_time)
+                await self.act()
+                print(f"Action: {'Buying' if self.settings_informed['direction'] == TradeDirection.BUY else 'Selling'}, "
+                      f"Inventory: {self.shares} shares, "
+                      f"Cash: ${self.cash:,.2f}, "
+                      f"Sleep Time: {self.next_sleep_time:.2f} seconds")
+
+                await asyncio.sleep(min(self.next_sleep_time, remaining_time))
             except asyncio.CancelledError:
                 logger.info("Run method cancelled, performing cleanup...")
-                await self.clean_up()
-                raise
+                break
             except Exception as e:
                 logger.error(f"An error occurred in InformedTrader run loop: {e}")
                 break
+
+        logger.info("InformedTrader has stopped.")
