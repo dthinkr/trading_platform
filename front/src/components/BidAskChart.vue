@@ -1,15 +1,22 @@
 <template>
-  <div class="bid-ask-chart-container">
-    <highcharts-chart
-      :constructor-type="'chart'"
-      :options="chartOptions"
-      :deepCopyOnUpdate="true"
-    ></highcharts-chart>
-  </div>
+  <v-card class="bid-ask-chart-container" elevation="3">
+    <v-card-title class="cardtitle-primary">
+      <v-icon left>mdi-chart-bar</v-icon>
+      Bid-Ask Distribution
+    </v-card-title>
+    <div class="chart-wrapper">
+      <highcharts-chart
+        :constructor-type="'chart'"
+        :options="chartOptions"
+        :deepCopyOnUpdate="true"
+      ></highcharts-chart>
+    </div>
+    
+  </v-card>
 </template>
 
 <script setup>
-import { reactive, watchEffect, ref } from "vue";
+import { reactive, watchEffect } from "vue";
 import { useTraderStore } from "@/store/app";
 import { storeToRefs } from "pinia";
 import { Chart as HighchartsChart } from "highcharts-vue";
@@ -19,31 +26,25 @@ import AnnotationsModule from 'highcharts/modules/annotations';
 AnnotationsModule(Highcharts);
 
 const { chartData, midPoint } = storeToRefs(useTraderStore());
-import { watch } from "vue";
 
 const chartOptions = reactive({
   chart: {
     type: "column",
     animation: false,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    backgroundColor: '#f5f5f5',
     style: {
       fontFamily: 'Roboto, Arial, sans-serif'
     },
-    height: 300
+    height: 250
   },
   title: {
-    text: "Order Book",
-    style: {
-      fontSize: '18px',
-      fontWeight: 'bold',
-      color: '#333'
-    }
+    text: null
   },
   annotations: [{
     labels: [{
       point: { x: 0, y: 0 },
       text: 'Bids',
-      backgroundColor: 'rgba(0, 120, 200, 0.8)',
+      backgroundColor: 'rgba(33, 150, 243, 0.8)',
       style: {
         color: "white",
         fontSize: '12px',
@@ -55,7 +56,7 @@ const chartOptions = reactive({
     {
       point: { x: 100000, y: 0 },
       text: 'Asks',
-      backgroundColor: 'rgba(200, 0, 0, 0.8)',
+      backgroundColor: 'rgba(244, 67, 54, 0.8)',
       style: {
         color: "white",
         fontSize: '12px',
@@ -72,7 +73,7 @@ const chartOptions = reactive({
     maxPadding: 0.1,
     labels: {
       formatter: function () {
-        return Math.round(this.value + 0.5).toString();
+        return this.value.toString();
       },
       align: 'center',
       x: 0,
@@ -131,24 +132,22 @@ const chartOptions = reactive({
   series: chartData.value
 });
 
-watch(chartData, (newChartData) => {
-  chartOptions.series = newChartData.map(series => ({
+watchEffect(() => {
+  chartOptions.series = chartData.value.map(series => ({
     ...series,
     pointPlacement: 0,
-    color: series.name === "Bids" ? 'rgba(0, 120, 200, 0.8)' : 'rgba(200, 0, 0, 0.8)',
-    borderColor: series.name === "Bids" ? 'rgba(0, 90, 150, 1)' : 'rgba(150, 0, 0, 1)'
+    color: series.name === "Bids" ? 'rgba(33, 150, 243, 0.8)' : 'rgba(244, 67, 54, 0.8)',
+    borderColor: series.name === "Bids" ? 'rgba(25, 118, 210, 1)' : 'rgba(211, 47, 47, 1)'
   }));
-}, { deep: true, immediate: true });
 
-watchEffect(() => {
   chartOptions.xAxis.plotBands = [{
     from: -Infinity,
     to: midPoint.value,
-    color: 'rgba(200, 230, 255, 0.2)'
+    color: 'rgba(33, 150, 243, 0.1)'
   }, {
     from: midPoint.value,
     to: Infinity,
-    color: 'rgba(255, 200, 200, 0.2)'
+    color: 'rgba(244, 67, 54, 0.1)'
   }];
 });
 </script>
@@ -156,16 +155,23 @@ watchEffect(() => {
 <style scoped>
 .bid-ask-chart-container {
   width: 100%;
-  height: 300px;
-  background: linear-gradient(to bottom, #f8f9fa, #ffffff);
-  border-radius: 8px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  background-color: #f5f5f5;
+}
+
+.chart-wrapper {
   padding: 16px;
-  transition: all 0.3s ease;
+}
+
+
+.cardtitle-primary {
+  color: black;
+  font-weight: bold;
+  padding: 12px 16px;
 }
 
 .bid-ask-chart-container:hover {
-  box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
   transform: translateY(-2px);
+  transition: all 0.3s ease;
 }
 </style>

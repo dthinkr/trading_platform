@@ -113,8 +113,8 @@ class InformedTrader(BaseTrader):
             sold_amount = initial_inventory - self.shares
             to_sell_amount = self.shares
 
-        print(f"Informed Trader: {'Buy' if trade_direction == TradeDirection.BUY else 'Sell'} | Traded: {sold_amount}/{initial_inventory} | Order: {'Y' if order_placed else 'N'}")
-        print(f"Sleep: {self.next_sleep_time:.2f}s | Time left: {remaining_time:.2f}s")
+        # print(f"Informed Trader: {'Buy' if trade_direction == TradeDirection.BUY else 'Sell'} | Traded: {sold_amount}/{initial_inventory} | Order: {'Y' if order_placed else 'N'}")
+        # print(f"Sleep: {self.next_sleep_time:.2f}s | Time left: {remaining_time:.2f}s")
 
     def get_best_price(self, order_side: OrderType) -> float:
         if order_side == OrderType.BID:
@@ -129,14 +129,14 @@ class InformedTrader(BaseTrader):
             try:
                 remaining_time = self.get_remaining_time()
                 if remaining_time <= 0:
-                    logger.info("Trading session has ended. Stopping InformedTrader.")
+                    # logger.info("Trading session has ended. Stopping InformedTrader.")
                     break
 
                 await self.act()
-                print(f"Action: {'Buying' if self.settings_informed['direction'] == TradeDirection.BUY else 'Selling'}, "
-                      f"Inventory: {self.shares} shares, "
-                      f"Cash: ${self.cash:,.2f}, "
-                      f"Sleep Time: {self.next_sleep_time:.2f} seconds")
+                # print(f"Action: {'Buying' if self.settings_informed['direction'] == TradeDirection.BUY else 'Selling'}, "
+                #       f"Inventory: {self.shares} shares, "
+                #       f"Cash: ${self.cash:,.2f}, "
+                #       f"Sleep Time: {self.next_sleep_time:.2f} seconds")
 
                 await asyncio.sleep(min(self.next_sleep_time, remaining_time))
             except asyncio.CancelledError:

@@ -48,21 +48,17 @@
       <v-container fluid class="pa-6">
         <v-row>
           <v-col cols="12" lg="6">
-            <v-card height="400" class="mb-6" elevation="3">
-              <v-card-title class="headline font-weight-bold">
-                <v-icon left color="primary">mdi-chart-bell-curve</v-icon>
-                Bid-Ask Chart
-              </v-card-title>
-              <BidAskChart />
+            <v-card class="mb-6" elevation="3">
+              <v-card-text class="pa-0">
+                <BidAskChart />
+              </v-card-text>
             </v-card>
           </v-col>
           <v-col cols="12" lg="6">
-            <v-card height="400" class="mb-6" elevation="3">
-              <v-card-title class="headline font-weight-bold">
-                <v-icon left color="primary">mdi-chart-timeline-variant</v-icon>
-                History Chart
-              </v-card-title>
-              <HistoryChart />
+            <v-card class="mb-6" elevation="3">
+              <v-card-text class="pa-0">
+                <HistoryChart />
+              </v-card-text>
             </v-card>
           </v-col>
         </v-row>
@@ -76,7 +72,6 @@
         </v-row>
       </v-container>
     </v-main>
-
     <v-navigation-drawer app right width="350" permanent class="elevation-4">
       <v-container fluid class="pa-4">
         <messageBlock class="mb-6" />
@@ -176,19 +171,13 @@ watch(
 
 
 <style scoped>
-.equal-height-columns>.v-col {
-  display: flex;
-  flex: 1;
-}
-</style>
-
-<style scoped>
 .trading-system {
   font-family: 'Roboto', sans-serif;
 }
 
 .v-card {
   transition: all 0.3s ease;
+  overflow: hidden;
 }
 
 .v-card:hover {
