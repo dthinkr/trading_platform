@@ -6,6 +6,7 @@ from structures import TraderType, ActionType
 @pytest.fixture
 def noise_trader_settings():
     return {
+        "id": "1",
         "activity_frequency": 1.0,
         "order_amount": 1,
         "settings": {"initial": 100},
