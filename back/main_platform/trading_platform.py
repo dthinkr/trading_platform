@@ -26,7 +26,7 @@ from structures import (
     TransactionModel,
 )
 
-mongodb_host = os.getenv("MONGODB_HOST", "localhost")
+mongodb_host = os.getenv("MONGODB_HOST", "mongodb")
 mongodb_port = os.getenv("MONGODB_PORT", "27017")
 mongodb_url = f"mongodb://{mongodb_host}:{mongodb_port}/trader?w=majority&wtimeoutMS=1000"
 
