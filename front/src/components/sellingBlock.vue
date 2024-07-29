@@ -16,7 +16,7 @@
           :key="'buy-' + index" 
           class="order-item bid"
           :class="{ 'best-price': price === bestAsk }"
-          @mousedown="startOrderAdjustment(1, price, $event)"
+          @mousedown.prevent="startOrderAdjustment(1, price, $event)"
           @touchstart.prevent="startOrderAdjustment(1, price, $event)"
         >
           <div class="order-content">
@@ -37,7 +37,7 @@
           :key="'sell-' + index" 
           class="order-item ask"
           :class="{ 'best-price': price === bestBid }"
-          @mousedown="startOrderAdjustment(-1, price, $event)"
+          @mousedown.prevent="startOrderAdjustment(-1, price, $event)"
           @touchstart.prevent="startOrderAdjustment(-1, price, $event)"
         >
           <div class="order-content">
@@ -50,13 +50,13 @@
     </div>
     
     <div v-if="isAdjusting" 
-         class="order-adjustment-overlay" 
-         @mousemove="adjustOrderAmount"
-         @touchmove.prevent="adjustOrderAmount"
-         @mouseup="finishOrder" 
-         @touchend.prevent="finishOrder"
-         @mouseleave="cancelOrder"
-         @touchcancel="cancelOrder">
+    class="order-adjustment-overlay" 
+       @mousemove.prevent="adjustOrderAmount"
+       @touchmove.prevent="adjustOrderAmount"
+       @mouseup.prevent="finishOrder" 
+       @touchend.prevent="finishOrder"
+       @mouseleave.prevent="cancelOrder"
+       @touchcancel.prevent="cancelOrder">
       <div class="order-adjustment-content" :class="orderType === 1 ? 'buy-order' : 'sell-order'">
         <h2>{{ orderType === 1 ? 'Buy' : 'Sell' }} Order</h2>
         <p class="price">Price: {{ formatPrice(orderPrice) }}</p>
@@ -111,6 +111,7 @@ const guideZones = [
 ];
 
 function startOrderAdjustment(type, price, event) {
+  event.preventDefault(); // Prevent default behavior
   isAdjusting.value = true;
   orderType.value = type;
   orderPrice.value = price;
@@ -170,6 +171,7 @@ function getButtonColor(price, orderType) {
     return price === bestBid.value ? "error" : "grey lighten-3";
   }
 }
+
 
 function formatPrice(price) {
   return price.toFixed(2);
@@ -246,7 +248,12 @@ onUnmounted(() => {
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   cursor: pointer;
   touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
 }
+
 
 .order-item:hover {
   transform: translateY(-2px);
@@ -295,6 +302,11 @@ onUnmounted(() => {
   justify-content: center;
   align-items: center;
   z-index: 1000;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
 }
 
 .order-adjustment-content {
