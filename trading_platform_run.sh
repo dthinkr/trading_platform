@@ -136,7 +136,6 @@ fi
 echo "Trading platform is now running!"
 echo "Your ngrok hostname is: $ngrok_hostname"
 
-# Function to clean up and exit
 cleanup() {
     echo "Stopping all services..."
     run_docker_compose down
@@ -144,15 +143,12 @@ cleanup() {
     exit 0
 }
 
-# Trap Ctrl+C and call cleanup()
 trap cleanup SIGINT
 
-# Show logs and keep the script running
-echo "Showing logs. Press Ctrl+C to stop."
-run_docker_compose logs -f &
+echo "Showing error logs. Press Ctrl+C to stop."
+run_docker_compose logs -f --tail=0 --level=ERROR &
 
-# Periodically check for updates
 while true; do
-  sleep 300  # Check every 5 minutes
+  sleep 300
   check_update_and_restart
 done
