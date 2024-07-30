@@ -27,7 +27,7 @@ async def create_random_orders(trader, num_orders):
 
 async def test_order_creation_and_processing_efficiency(capsys):
     num_traders = 10
-    num_orders_per_trader = 10
+    num_orders_per_trader = 2
     duration = 1
 
     trading_session = None

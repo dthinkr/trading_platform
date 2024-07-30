@@ -27,3 +27,32 @@ data/
 
 
 test.ipynb
+
+# Rust build directory
+rust_order_book/target/
+
+# Rust lock file (optional, but often ignored)
+rust_order_book/Cargo.lock
+
+# Python build artifacts
+rust_order_book/*.pyc
+rust_order_book/__pycache__/
+rust_order_book/*.pyd
+rust_order_book/*.so
+
+# Maturin build artifacts
+rust_order_book/*.whl
+
+# Pytest cache
+rust_order_book/.pytest_cache/
+
+# IDE files (if not already ignored)
+.vscode/
+.idea/
+
+# macOS system files
+.DS_Store
+
+# Appmap files
+tmp/
+appmap.yml
