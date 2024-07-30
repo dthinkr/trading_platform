@@ -102,7 +102,7 @@ class TraderCreationData(BaseModel):
         description="human_parameter",
     )
     depth_book_shown: int = Field(
-        default=3,
+        default=4,
         title="Depth Book Shown",
         description="human_parameter",
     )
