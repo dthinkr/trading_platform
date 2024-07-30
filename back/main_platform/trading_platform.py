@@ -15,6 +15,8 @@ from main_platform.custom_logger import setup_custom_logger
 from main_platform.utils import CustomEncoder, if_active, now
 from main_platform.order_book import OrderBook
 
+from uuid import UUID
+
 from structures import (
     Message,
     Order,
@@ -259,24 +261,28 @@ class TradingSession:
     @if_active
     async def handle_cancel_order(self, data: dict) -> Dict:
         order_id = data.get("order_id")
-        if not order_id:
-            return {"status": "failed", "reason": "No order_id provided"}
+        trader_id = data.get("trader_id")
+        
+        try:
+            uuid_order_id = UUID(order_id)
+        except ValueError:
+            return {"status": "failed", "reason": "Invalid order ID format"}
 
-        cancel_result = self.order_book.cancel_order(order_id)
+        cancel_result = self.order_book.cancel_order(uuid_order_id)
 
         if cancel_result:
             Message(
                 trading_session_id=self.id,
                 content={
                     "action": "order_cancelled",
-                    "order_id": order_id,
+                    "order_id": str(uuid_order_id),
                     "details": data.get("order_details"),
                 },
             ).save()
 
             return {
                 "status": "cancel success",
-                "order_id": order_id,
+                "order_id": str(uuid_order_id),
                 "type": "ORDER_CANCELLED",
                 "respond": True,
             }
