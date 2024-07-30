@@ -31,11 +31,13 @@ const priceGraph = ref(null);
 const chartOptions = reactive({
   chart: {
     height: 250,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#FFFFFF',
     style: {
       fontFamily: 'Roboto, sans-serif'
     },
-    animation: false
+    animation: false,
+    marginTop: 0,
+    marginBottom: 0
   },
   navigator: {
     enabled: false,
@@ -47,11 +49,15 @@ const chartOptions = reactive({
     enabled: false,
   },
   tooltip: {
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderWidth: 0,
-    shadow: true,
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E0E0E0',
+    borderWidth: 1,
+    shadow: false,
     useHTML: true,
-    pointFormat: '<span style="color:{point.color}">\u25CF</span> {series.name}: <b>{point.y:.2f}</b><br/>',
+    style: {
+      fontSize: '14px'
+    },
+    pointFormat: '<span style="color:{point.color}">\u25CF</span> {series.name}: <b>${point.y:.2f}</b><br/>',
     xDateFormat: '%Y-%m-%d %H:%M:%S'
   },
   xAxis: {
@@ -59,24 +65,39 @@ const chartOptions = reactive({
     ordinal: false,
     labels: {
       style: {
-        color: '#666',
-        fontSize: '11px'
+        color: '#333333',
+        fontSize: '12px'
       }
     },
-    lineColor: '#ccd6eb',
-    tickColor: '#ccd6eb',
+    lineWidth: 0,
+    tickWidth: 0,
     tickPixelInterval: 150
   },
   yAxis: {
+    gridLineWidth: 0,
     labels: {
       style: {
-        color: '#666',
-        fontSize: '11px'
-      }
+        color: '#333333',
+        fontSize: '12px'
+      },
+      formatter: function() {
+        return '$' + Math.round(this.value);
+      },
+      align: 'right',
+      x: -8,
+      y: 3
     },
-    lineColor: '#ccd6eb',
-    tickColor: '#ccd6eb',
-    tickWidth: 1
+    lineWidth: 1,
+    tickWidth: 1,
+    tickLength: 6,
+    tickPosition: 'outside',
+    opposite: true,
+    title: {
+      text: null
+    },
+    allowDecimals: false,
+    startOnTick: true,
+    endOnTick: true
   },
   title: { 
     text: null
@@ -89,11 +110,15 @@ const chartOptions = reactive({
       name: "Price",
       data: [],
       color: '#2196F3',
-      lineWidth: 2,
+      lineWidth: 1.5,
       marker: {
-        enabled: true,
-        radius: 3,
-        symbol: 'circle'
+        enabled: false,
+        states: {
+          hover: {
+            enabled: true,
+            radius: 3
+          }
+        }
       },
       animation: false
     },
@@ -111,14 +136,13 @@ const chartOptions = reactive({
   plotOptions: {
     series: {
       animation: false,
-      turboThreshold: 0
-    },
-    line: {
-      marker: {
-        enabled: true,
-        radius: 3,
-        symbol: 'circle'
-      },
+      turboThreshold: 0,
+      states: {
+        hover: {
+          enabled: true,
+          lineWidth: 2
+        }
+      }
     },
   },
 });
@@ -164,22 +188,28 @@ export default {
 <style scoped>
 .history-chart-container {
   width: 100%;
-  background-color: #f5f5f5;
+  background-color: #FFFFFF;
+  overflow: hidden;
 }
 
 .cardtitle-primary {
   color: black;
   font-weight: bold;
   padding: 12px 16px;
+  border-bottom: none;
 }
 
 .chart-wrapper {
-  padding: 0 16px 16px;
+  padding: 0;
 }
 
 .history-chart-container:hover {
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
   transform: translateY(-2px);
   transition: all 0.3s ease;
+}
+
+:deep(.highcharts-container) {
+  border-top: none !important;
 }
 </style>
