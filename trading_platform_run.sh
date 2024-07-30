@@ -4,7 +4,6 @@
 
 set -e
 
-# Function to read user input
 read_input() {
   local prompt="$1"
   local variable="$2"
@@ -42,14 +41,10 @@ check_update_and_restart() {
   LOCAL=$(git rev-parse HEAD)
   REMOTE=$(git rev-parse origin/deploy)
 
-  echo "Local commit: $LOCAL"
-  echo "Remote commit: $REMOTE"
-
   if [ "$LOCAL" != "$REMOTE" ]; then
     echo "Update available. Pulling changes..."
     git reset --hard origin/deploy
     NEW_LOCAL=$(git rev-parse HEAD)
-    echo "New local commit after reset: $NEW_LOCAL"
     
     if [ "$NEW_LOCAL" != "$LOCAL" ]; then
       echo "Restarting containers with new version..."
@@ -68,17 +63,14 @@ check_update_and_restart() {
   fi
 }
 
-# Check if Docker is installed
 if ! command -v docker &> /dev/null; then
     echo "Error: Docker is not installed. Please install Docker and try again."
     exit 1
 fi
 
-# Check Docker version
 docker_version=$(docker --version | awk '{print $3}' | cut -d',' -f1)
 echo "Docker version: $docker_version"
 
-# Check if Docker Compose is available
 if run_docker_compose version &> /dev/null; then
     compose_version=$(run_docker_compose version --short)
     echo "Docker Compose version: $compose_version"
@@ -87,7 +79,6 @@ else
     exit 1
 fi
 
-# Clone the repository if it doesn't exist, otherwise update it
 if [ ! -d "trading_platform" ]; then
   git clone https://github.com/dthinkr/trading_platform.git
   cd trading_platform || exit
@@ -96,18 +87,13 @@ else
   check_update_and_restart
 fi
 
-# Prompt for ngrok authtoken if ngrok.yml doesn't exist
 if [ ! -f "ngrok.yml" ]; then
-  # Prompt for ngrok authtoken
   read_input "Enter your ngrok authtoken:" ngrok_authtoken
 
-  # Set default hostname
   default_hostname="dthinkr.ngrok.app"
 
-  # Prompt for ngrok hostname with default option
   read_input "Enter your ngrok hostname (press Enter to use $default_hostname):" ngrok_hostname "$default_hostname"
 
-  # Create ngrok.yml file
   cat > ngrok.yml << EOL
 version: 2
 authtoken: $ngrok_authtoken
@@ -119,14 +105,12 @@ tunnels:
 EOL
 fi
 
-# Log in to Docker Hub
 echo "Logging in to Docker Hub..."
 if ! docker login; then
     echo "Error: Failed to log in to Docker Hub. Please check your credentials and try again."
     exit 1
 fi
 
-# Build and start the containers
 echo "Building and starting containers..."
 if ! run_docker_compose up --build -d; then
     echo "Error: Failed to build and start containers. Please check the Docker Compose file and try again."
