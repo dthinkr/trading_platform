@@ -1,6 +1,7 @@
 from sortedcontainers import SortedDict
 from structures import OrderStatus, OrderType
 from typing import Dict, List, Tuple, Optional
+from uuid import UUID
 
 class OrderBook:
     def __init__(self):
@@ -47,26 +48,39 @@ class OrderBook:
         self.asks.clear()
         self.all_orders.clear()
 
-
     def cancel_order(self, order_id: str) -> bool:
-        if order_id in self.all_orders:
-            order = self.all_orders[order_id]
-            price = order["price"]
-            order_type = order["order_type"]
+        try:
+            uuid_order_id = UUID(order_id)
+        except ValueError:
+            return False
 
-            if order_type == OrderType.BID:
+        if uuid_order_id not in self.all_orders:
+            return False
+        
+        order = self.all_orders[uuid_order_id]
+        price = order["price"]
+        order_type = order["order_type"]
+
+        if order_type == OrderType.BID.value:
+            if price in self.bids and order in self.bids[price]:
                 self.bids[price].remove(order)
                 if not self.bids[price]:
                     del self.bids[price]
             else:
+                return False
+        elif order_type == OrderType.ASK.value:
+            if price in self.asks and order in self.asks[price]:
                 self.asks[price].remove(order)
                 if not self.asks[price]:
                     del self.asks[price]
+            else:
+                return False
+        else:
+            return False
 
-            del self.all_orders[order_id]
-            return True
-        return False
-
+        del self.all_orders[uuid_order_id]
+        return True    
+            
     def get_spread(self) -> Tuple[Optional[float], Optional[float]]:
         if self.asks and self.bids:
             lowest_ask = self.asks.peekitem(0)[0]
@@ -82,27 +96,32 @@ class OrderBook:
 
     def clear_orders(self) -> List[Tuple[Dict, Dict, float]]:
         matched_orders = []
+        while self.bids and self.asks:
+            best_bid = max(self.bids.keys())
+            best_ask = min(self.asks.keys())
+            if best_bid >= best_ask:
+                bid = self.bids[best_bid][0]
+                ask = self.asks[best_ask][0]
+                transaction_price = (best_bid + best_ask) / 2
+                matched_orders.append((ask, bid, transaction_price))
+                
+                # Remove the matched orders from the price levels
+                self.bids[best_bid].pop(0)
+                self.asks[best_ask].pop(0)
+                
+                # Remove empty price levels
+                if not self.bids[best_bid]:
+                    del self.bids[best_bid]
+                if not self.asks[best_ask]:
+                    del self.asks[best_ask]
+            else:
+                break
         
-        while self.asks and self.bids:
-            best_ask = self.asks.peekitem(0)
-            best_bid = self.bids.peekitem(-1)
-
-            if best_ask[0] > best_bid[0]:
-                break  # No more matches possible
-
-            ask = self.asks[best_ask[0]].pop(0)
-            bid = self.bids[best_bid[0]].pop()
-
-            if not self.asks[best_ask[0]]:
-                del self.asks[best_ask[0]]
-            if not self.bids[best_bid[0]]:
-                del self.bids[best_bid[0]]
-
-            transaction_price = (best_ask[0] + best_bid[0]) / 2
-            matched_orders.append((ask, bid, transaction_price))
-
-            # Remove matched orders from self.all_orders
-            del self.all_orders[ask["id"]]
-            del self.all_orders[bid["id"]]
-
+        # Remove matched orders from self.all_orders after creating transactions
+        for ask, bid, _ in matched_orders:
+            if ask['id'] in self.all_orders:
+                del self.all_orders[ask['id']]
+            if bid['id'] in self.all_orders:
+                del self.all_orders[bid['id']]
+        
         return matched_orders

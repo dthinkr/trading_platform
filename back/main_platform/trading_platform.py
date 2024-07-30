@@ -263,13 +263,18 @@ class TradingSession:
     async def create_transaction(
         self, bid: Dict, ask: Dict, transaction_price: float
     ) -> Tuple[str, str, TransactionModel]:
-        self.all_orders[ask["id"]]["status"] = OrderStatus.EXECUTED.value
-        self.all_orders[bid["id"]]["status"] = OrderStatus.EXECUTED.value
+        bid_id = bid["id"]
+        ask_id = ask["id"]
+        
+        if bid_id in self.all_orders:
+            self.all_orders[bid_id]["status"] = OrderStatus.EXECUTED.value
+        if ask_id in self.all_orders:
+            self.all_orders[ask_id]["status"] = OrderStatus.EXECUTED.value
 
         transaction = TransactionModel(
             trading_session_id=self.id,
-            bid_order_id=bid["id"],
-            ask_order_id=ask["id"],
+            bid_order_id=bid_id,
+            ask_order_id=ask_id,
             price=transaction_price,
         )
 
@@ -281,14 +286,14 @@ class TradingSession:
             "type": "transaction_update",
             "transactions": [
                 {
-                    "id": ask["id"],
+                    "id": ask_id,
                     "price": transaction_price,
                     "type": "ask",
                     "amount": ask["amount"],
                     "trader_id": ask["trader_id"],
                 },
                 {
-                    "id": bid["id"],
+                    "id": bid_id,
                     "price": transaction_price,
                     "type": "bid",
                     "amount": bid["amount"],
@@ -344,13 +349,6 @@ class TradingSession:
         try:
             order = Order(status=OrderStatus.BUFFERED.value, session_id=self.id, **data)
             placed_order = self.place_order(order.model_dump())
-            
-            trader_id = placed_order["trader_id"]
-            price = placed_order["price"]
-            amount = placed_order["amount"]
-            order_type = "BID" if placed_order["order_type"] == OrderType.BID else "ASK"
-            print(f"Order added by trader {trader_id}: type={order_type}, price={price}, amount={amount}")
-            
         except ValidationError as e:
             logger.critical(f"Order validation failed: {e}")
             return {"status": "failed", "reason": str(e), "type": "order_failed"}
@@ -364,7 +362,6 @@ class TradingSession:
         resp = {"transactions": transactions, "type": "NEW_ORDER_ADDED", "content": "A", "respond": True}
         return resp
 
-
     def cancel_order(self, order_id: str) -> bool:
         return self.order_book.cancel_order(order_id)
 
@@ -373,8 +370,13 @@ class TradingSession:
         order_id = data.get("order_id")
         trader_id = data.get("trader_id")
         order_details = data.get("order_details")
+        
+        if not order_id:
+            return {"status": "failed", "reason": "No order_id provided"}
 
-        if self.order_book.cancel_order(order_id):
+        cancel_result = self.order_book.cancel_order(order_id)
+
+        if cancel_result:
             message_document = Message(
                 trading_session_id=self.id,
                 content={
@@ -385,17 +387,15 @@ class TradingSession:
             )
             message_document.save()
 
-            print(f"Order {order_id} successfully canceled by trader {trader_id}")
-
             return {
                 "status": "cancel success",
-                "order": order_id,
+                "order_id": order_id,
                 "type": "ORDER_CANCELLED",
                 "respond": True,
             }
 
-        return {"status": "failed", "reason": "Order cancellation failed"}
-
+        return {"status": "failed", "reason": "Order not found or cancellation failed"}
+        
     @if_active
     async def handle_register_me(self, msg_body: Dict) -> Dict:
         trader_id = msg_body.get("trader_id")
