@@ -27,7 +27,7 @@ async def create_random_orders(trader, num_orders):
 
 async def test_order_creation_and_processing_efficiency(capsys):
     num_traders = 10
-    num_orders_per_trader = 2
+    num_orders_per_trader = 10
     duration = 1
 
     trading_session = None
@@ -37,7 +37,7 @@ async def test_order_creation_and_processing_efficiency(capsys):
         await trading_session.initialize()
         logger.info("Trading session initialized")
 
-        traders = [BaseTrader(TraderType.NOISE, id='1', cash=10000, shares=100) for i in range(num_traders)]
+        traders = [BaseTrader(TraderType.NOISE, id=f'trader_{i}', cash=10000, shares=100) for i in range(num_traders)]
         for trader in traders:
             await trader.initialize()
             await trader.connect_to_session(trading_session.id)
@@ -90,6 +90,7 @@ async def test_order_matching_consistency(capsys):
         (1, 1998, OrderType.ASK),
         (1, 2001, OrderType.BID),
         (1, 2002, OrderType.BID),
+        (1, 2003, OrderType.BID),
         (1, 2003, OrderType.BID),
     ]
     

@@ -3,7 +3,6 @@ import json
 import os
 import uuid
 from asyncio import Event, Lock
-from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
 
@@ -11,13 +10,10 @@ import aio_pika
 import polars as pl
 from mongoengine import connect
 from pydantic import ValidationError
-import random
 
 from main_platform.custom_logger import setup_custom_logger
 from main_platform.utils import CustomEncoder, if_active, now
-from rust_order_book import OrderBook
-
-from functools import lru_cache
+from main_platform.order_book import OrderBook
 
 from structures import (
     Message,
@@ -28,27 +24,14 @@ from structures import (
     TransactionModel,
 )
 
-mongodb_host = os.getenv("MONGODB_HOST", "localhost")
-mongodb_port = os.getenv("MONGODB_PORT", "27017")
-mongodb_url = f"mongodb://{mongodb_host}:{mongodb_port}/trader?w=majority&wtimeoutMS=1000"
-
-connect(
-    host=mongodb_url,
-    uuidRepresentation="standard",
-)
+mongodb_url = f"mongodb://{os.getenv('MONGODB_HOST', 'localhost')}:{os.getenv('MONGODB_PORT', '27017')}/trader?w=majority&wtimeoutMS=1000"
+connect(host=mongodb_url, uuidRepresentation="standard")
 
 rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://localhost")
 logger = setup_custom_logger(__name__)
-print(f"Connecting to RabbitMQ at: {rabbitmq_url}")
 
 
 class TradingSession:
-    duration: int
-    active: bool
-    start_time: datetime
-    transactions = List[TransactionModel]
-    all_orders = Dict[uuid.UUID, Dict]
-
     def __init__(
         self,
         duration: int,
@@ -56,51 +39,31 @@ class TradingSession:
         default_spread: int = 10,
         punishing_constant: int = 1,
     ):
-        self.active = False
+        self.id = str(uuid.uuid4())
         self.duration = duration
         self.default_price = default_price
-
         self.default_spread = default_spread
         self.punishing_constant = punishing_constant
-
-        self._stop_requested = asyncio.Event()
-
-        self.id = str(uuid.uuid4())
-
+        self.active = False
+        self.start_time = None
         self.creation_time = now()
+        self.order_book = OrderBook()
+        self._last_transaction_price = None
+        self.connected_traders = {}
+        self.trader_responses = {}
+        self._stop_requested = asyncio.Event()
+        self.transaction_queue = asyncio.Queue()
+        self.initialization_complete = False
+        self.trading_started = False
+        self.lock = Lock()
+        self.release_event = Event()
+        self.current_price = 0
 
         self.broadcast_exchange_name = f"broadcast_{self.id}"
         self.queue_name = f"trading_system_queue_{self.id}"
         self.trader_exchange = None
 
-        self.connected_traders = {}
-        self.trader_responses = {}
-        self.release_task = None
-        self.lock = Lock()
-        self.release_event = Event()
-        self.current_price = 0  # handling non-defined attribute
-        self.transaction_processor_task = None  # handling non-defined attribute
-
-        self.transaction_queue = asyncio.Queue()
-
-        self.initialization_complete = False
-        self.trading_started = False
-
-        self.order_book = OrderBook()     
-        self._last_transaction_price: Optional[float] = None
-
-    @property
-    def all_orders(self):
-        return self.order_book.all_orders
-
-    @all_orders.setter
-    def all_orders(self, value):
-        self.order_book.clear()
-        for order_id, order in value.items():
-            self.order_book.place_order(order)
-
     def place_order(self, order_dict: Dict) -> Dict:
-        order_dict['id'] = str(order_dict['id'])
         return self.order_book.place_order(order_dict)
 
     @property
@@ -129,19 +92,14 @@ class TradingSession:
             "creation_time": self.creation_time,
             "active": self.active,
             "start_time": self.start_time,
-            "end_time": self.start_time + timedelta(minutes=self.duration),
+            "end_time": self.start_time + timedelta(minutes=self.duration)
+            if self.start_time
+            else None,
             "connected_traders": self.connected_traders,
         }
-        
-
-    @property
-    def active_orders(self) -> Dict:
-        return self.order_book.active_orders
-
 
     @property
     def transaction_price(self) -> Optional[float]:
-        """Returns the price of last transaction. If there are no transactions, returns None."""
         return self._last_transaction_price
 
     async def initialize(self) -> None:
@@ -159,74 +117,40 @@ class TradingSession:
         trader_queue = await self.channel.declare_queue(
             self.queue_name, auto_delete=True
         )
-        await trader_queue.bind(self.trader_exchange)  # bind the queue to the exchange
+        await trader_queue.bind(self.trader_exchange)
         await trader_queue.consume(self.on_individual_message)
-
         await trader_queue.purge()
 
     async def clean_up(self) -> None:
-        """
-        This one is mostly used for closing connections and channels opened by a trading session.
-        At this stage we also dump existing transactions and orders from the memory. In the future, we'll probably
-        dump them to a database.
-        """
-
         self._stop_requested.set()
         self.active = False
-        try:
-            # Unbind the queue from the exchange (optional, as auto_delete should handle this)
-            trader_queue = await self.channel.get_queue(self.queue_name)
-            await trader_queue.unbind(self.trader_exchange)
+        trader_queue = await self.channel.get_queue(self.queue_name)
+        await trader_queue.unbind(self.trader_exchange)
+        await self.channel.close()
+        await self.connection.close()
 
-            # Close the channel and connection
-            await self.channel.close()
-            logger.info(f"Trading System {self.id} channel closed")
-            await self.connection.close()
-            logger.info(f"Trading System {self.id} connection closed")
-        except Exception as e:
-            logger.error(f"An error occurred during cleanup: {e}")
-
-    def get_order_book_snapshot(self) -> Dict:
+    async def get_order_book_snapshot(self) -> Dict:
         return self.order_book.get_order_book_snapshot()
 
-    @lru_cache(maxsize=1)
     def get_transaction_history(self) -> List[Dict]:
-        return [transaction.to_mongo().to_dict() for transaction in TransactionModel.objects(trading_session_id=self.id)]
-
-    def invalidate_transaction_cache(self):
-        self.get_transaction_history.cache_clear()
-
-    def get_current_spread(self) -> Optional[float]:
-        result = self.order_book.get_spread()
-        if result is not None:
-            spread, _ = result
-            return spread
-        return None
-
-    def get_current_midpoint(self) -> Optional[float]:
-        result = self.order_book.get_spread()
-        if result is not None:
-            _, midpoint = result
-            return midpoint
-        return None
-
-    def get_last_transaction_price(self) -> Optional[float]:
-        return self._last_transaction_price
+        return [
+            transaction.to_mongo().to_dict()
+            for transaction in TransactionModel.objects(trading_session_id=self.id)
+        ]
 
     def get_active_orders_to_broadcast(self) -> List[Dict]:
-        active_orders_df = pl.DataFrame(list(self.active_orders.values()))
+        active_orders_df = pl.DataFrame(list(self.order_book.active_orders.values()))
         if active_orders_df.height == 0:
             return []
-        active_orders_df = active_orders_df.select(
+        return active_orders_df.select(
             ["id", "trader_id", "order_type", "amount", "price", "timestamp"]
-        )
-        return active_orders_df.to_dicts()
+        ).to_dicts()
 
     async def send_broadcast(
         self, message: dict, message_type="BOOK_UPDATED", incoming_message=None
     ) -> None:
         if "type" not in message:
-            message["type"] = message_type  # Only set default if not specified
+            message["type"] = message_type
 
         message.update(
             {
@@ -236,42 +160,24 @@ class TradingSession:
                 "order_book": await self.get_order_book_snapshot(),
                 "active_orders": self.get_active_orders_to_broadcast(),
                 "history": self.get_transaction_history(),
-                "spread": self.get_current_spread(),
-                "midpoint": self.get_current_midpoint(),
-                "transaction_price": self.get_last_transaction_price(),
+                "spread": self.order_book.get_spread()[0],
+                "midpoint": self.order_book.get_spread()[1],
+                "transaction_price": self.transaction_price,
                 "incoming_message": incoming_message,
-                "test_field": "test",
             }
         )
-        message_document = Message(trading_session_id=self.id, content=message)
-        message_document.save()
+        Message(trading_session_id=self.id, content=message).save()
 
         exchange = await self.channel.get_exchange(self.broadcast_exchange_name)
         await exchange.publish(
             aio_pika.Message(body=json.dumps(message, cls=CustomEncoder).encode()),
-            routing_key="",  # routing_key is typically ignored in FANOUT exchanges
+            routing_key="",
         )
-
-    @property
-    def list_active_orders(self) -> List[Dict]:
-        """Returns a list of all active orders. When we switch to real DB or mongo, we won't need it anymore."""
-        return list(self.active_orders.values())
-
-    def get_file_name(self) -> str:
-        # todo: rename this to get_message_file_name
-        """Returns file name for messages which is a trading platform id + datetime of creation with _ as spaces"""
-        return f"{self.id}_{self.creation_time.strftime('%Y-%m-%d_%H-%M-%S')}"
 
     async def create_transaction(
         self, bid: Dict, ask: Dict, transaction_price: float
     ) -> Tuple[str, str, TransactionModel]:
-        bid_id = bid["id"]
-        ask_id = ask["id"]
-        
-        if bid_id in self.all_orders:
-            self.all_orders[bid_id]["status"] = OrderStatus.EXECUTED.value
-        if ask_id in self.all_orders:
-            self.all_orders[ask_id]["status"] = OrderStatus.EXECUTED.value
+        bid_id, ask_id = bid["id"], ask["id"]
 
         transaction = TransactionModel(
             trading_session_id=self.id,
@@ -283,33 +189,22 @@ class TradingSession:
         await self.transaction_queue.put(transaction)
         logger.info(f"Transaction enqueued: {transaction}")
 
-        # Update the last transaction price
         self._last_transaction_price = transaction_price
 
-        self.invalidate_transaction_cache()
-
-        # Send transaction details to both traders
         transaction_details = {
             "type": "transaction_update",
             "transactions": [
                 {
-                    "id": ask_id,
+                    "id": order["id"],
                     "price": transaction_price,
-                    "type": "ask",
-                    "amount": ask["amount"],
-                    "trader_id": ask["trader_id"],
-                },
-                {
-                    "id": bid_id,
-                    "price": transaction_price,
-                    "type": "bid",
-                    "amount": bid["amount"],
-                    "trader_id": bid["trader_id"],
-                },
+                    "type": "ask" if order["order_type"] == OrderType.ASK else "bid",
+                    "amount": order["amount"],
+                    "trader_id": order["trader_id"],
+                }
+                for order in [ask, bid]
             ],
         }
 
-        # Publish transaction details to both traders
         exchange = await self.channel.get_exchange(self.broadcast_exchange_name)
         await exchange.publish(
             aio_pika.Message(
@@ -326,48 +221,27 @@ class TradingSession:
             await transaction.save_async()
             self.transaction_queue.task_done()
             logger.info(f"Transaction processed: {transaction}")
-            
-            # Update the last transaction price
+
             self._last_transaction_price = transaction.price
-            
-            self.invalidate_transaction_cache()
-
-
-    def create_order_heap(self, orders: List[Dict], is_ask: bool) -> List[Tuple[float, float, Dict]]:
-        return [
-            (order['price'] if is_ask else -order['price'], order['timestamp'].timestamp(), order)
-            for order in orders
-        ]
-
-    async def get_order_book_snapshot(self) -> Dict:
-        return self.order_book.get_order_book_snapshot()
-
-    def get_spread(self) -> Tuple[Optional[float], Optional[float]]:
-        return self.order_book.get_spread()
-
 
     async def clear_orders(self) -> Dict:
         matched_orders = self.order_book.clear_orders()
         res = {"transactions": [], "removed_active_orders": []}
-        
+
         for ask, bid, transaction_price in matched_orders:
             transaction = await self.create_transaction(bid, ask, transaction_price)
             res["transactions"].append(transaction)
-            res["removed_active_orders"].extend([ask['id'], bid['id']])
-        
+            res["removed_active_orders"].extend([ask["id"], bid["id"]])
+
         return res
-                    
+
+    @if_active
     async def handle_add_order(self, data: dict) -> Dict:
         data["order_type"] = int(data["order_type"])
-        try:
-            order = Order(status=OrderStatus.BUFFERED.value, session_id=self.id, **data)
-            order_dict = order.model_dump()
-            # Convert UUID to string
-            order_dict['id'] = str(order_dict['id'])
-            placed_order = self.place_order(order_dict)
-        except ValidationError as e:
-            logger.critical(f"Order validation failed: {e}")
-            return {"status": "failed", "reason": str(e), "type": "order_failed"}
+        order = Order(status=OrderStatus.BUFFERED.value, session_id=self.id, **data)
+        order_dict = order.model_dump()
+        order_dict["id"] = str(order_dict["id"])
+        placed_order = self.place_order(order_dict)
 
         matched_orders = self.order_book.clear_orders()
         transactions = []
@@ -375,33 +249,30 @@ class TradingSession:
             transaction = await self.create_transaction(bid, ask, transaction_price)
             transactions.append(transaction)
 
-        resp = {"transactions": transactions, "type": "NEW_ORDER_ADDED", "content": "A", "respond": True}
-        return resp
-
-    def cancel_order(self, order_id: str) -> bool:
-        return self.order_book.cancel_order(order_id)
+        return {
+            "transactions": transactions,
+            "type": "NEW_ORDER_ADDED",
+            "content": "A",
+            "respond": True,
+        }
 
     @if_active
     async def handle_cancel_order(self, data: dict) -> Dict:
         order_id = data.get("order_id")
-        trader_id = data.get("trader_id")
-        order_details = data.get("order_details")
-        
         if not order_id:
             return {"status": "failed", "reason": "No order_id provided"}
 
         cancel_result = self.order_book.cancel_order(order_id)
 
         if cancel_result:
-            message_document = Message(
+            Message(
                 trading_session_id=self.id,
                 content={
                     "action": "order_cancelled",
                     "order_id": order_id,
-                    "details": order_details,
+                    "details": data.get("order_details"),
                 },
-            )
-            message_document.save()
+            ).save()
 
             return {
                 "status": "cancel success",
@@ -421,29 +292,24 @@ class TradingSession:
         }
         self.trader_responses[trader_id] = False
 
-        return dict(
-            respond=True,
-            trader_id=trader_id,
-            message="Registered successfully",
-            individual=True,
-        )
+        return {
+            "respond": True,
+            "trader_id": trader_id,
+            "message": "Registered successfully",
+            "individual": True,
+        }
 
     async def on_individual_message(self, message: Dict) -> None:
         incoming_message = json.loads(message.body.decode())
-        logger.info(f"TS {self.id} received message: {incoming_message}")
         action = incoming_message.pop("action", None)
         trader_id = incoming_message.get("trader_id", None)
-        if incoming_message is None:
-            logger.critical(f"Invalid message format: {message}")
 
         if action:
             handler_method = getattr(self, f"handle_{action}", None)
             if handler_method:
                 result = await handler_method(incoming_message)
                 if result and result.pop("respond", None) and trader_id:
-                    # Check if the message is meant for individual or all traders
                     if not result.get("individual", False):
-                        # Determine the appropriate message type based on the action
                         message_type = f"{action.upper()}"
                         await self.send_broadcast(
                             message=dict(text=f"{action} update processed"),
@@ -451,15 +317,8 @@ class TradingSession:
                             incoming_message=incoming_message,
                         )
 
-            else:
-                logger.warning(f"No handler method found for action: {action}")
-        else:
-            logger.warning(f"No action found in message: {incoming_message}")
-
     async def close_existing_book(self) -> None:
-        """we create a counteroffer on behalf of the platform with a get_closure_price price. and then we
-        create a transaction out of it."""
-        for order_id, order in self.active_orders.items():
+        for order_id, order in self.order_book.active_orders.items():
             platform_order_type = (
                 OrderType.ASK.value
                 if order["order_type"] == OrderType.BID
@@ -491,9 +350,6 @@ class TradingSession:
         trader_id = data.get("trader_id")
         self.trader_responses[trader_id] = True
         trader_type = self.connected_traders[trader_id]["trader_type"]
-        logger.info(
-            f"Trader ({trader_type}):  {trader_id} has reported back their inventory: {data}"
-        )
         shares = data.get("shares", 0)
 
         if shares != 0:
@@ -514,6 +370,7 @@ class TradingSession:
             platform_order = Order(
                 trader_id=self.id, order_type=platform_order_type, **proto_order
             )
+
             self.place_order(platform_order.model_dump())
             self.place_order(trader_order.model_dump())
 
@@ -530,71 +387,38 @@ class TradingSession:
                     closure_price,
                 )
 
-            traders_to_transactions_lookup = defaultdict(list)
-            trader_order = trader_order.model_dump()
-            traders_to_transactions_lookup[trader_id].append(
-                {
-                    "id": trader_order["id"],
-                    "price": trader_order["price"],
-                    "type": trader_order["order_type"],
-                    "amount": trader_order["amount"],
-                }
-            )
+        return {}
 
-    async def wait_for_traders(self) -> None:
-        while not all(self.trader_responses.values()):
-            await asyncio.sleep(1)  # Check every second
-        logger.info("All traders have reported back their inventories.")
+    def set_initialization_complete(self):
+        self.initialization_complete = True
 
     async def start_trading(self):
-        if not self.initialization_complete:
-            logger.warning(
-                "Attempting to start trading before initialization is complete"
-            )
-            return
         self.start_time = now()
         self.active = True
         self.trading_started = True
-        logger.info(f"Trading session {self.id} started at {self.start_time}")
         await self.send_broadcast(
             {"type": "TRADING_STARTED", "content": "Market is open"}
         )
 
-    # Add a method to set initialization complete
-    def set_initialization_complete(self):
-        self.initialization_complete = True
-        logger.info(f"Trading session {self.id} initialization complete")
-
     async def run(self) -> None:
-        try:
-            start_time = now()
-            while not self._stop_requested.is_set():
-                self.transaction_processor_task = asyncio.create_task(
-                    self.process_transactions()
-                )
-                current_time = now()
-                elapsed_time = current_time - start_time
-                remaining_time = timedelta(minutes=self.duration) - elapsed_time
-
-                if self.start_time and current_time - self.start_time > timedelta(
-                    minutes=self.duration
-                ):
-                    logger.critical("Time limit reached, stopping...")
-                    self.active = False
-                    await self.close_existing_book()
-                    await self.send_broadcast({"type": "stop_trading"})
-                    await self.wait_for_traders()
-                    await self.send_broadcast({"type": "closure"})
-                    break
-                await asyncio.sleep(1)
-            logger.critical("Exited the run loop.")
-        except asyncio.CancelledError:
-            logger.info(
-                "Run method cancelled, performing cleanup of trading session..."
+        start_time = now()
+        while not self._stop_requested.is_set():
+            self.transaction_processor_task = asyncio.create_task(
+                self.process_transactions()
             )
-            raise
-        except Exception as e:
-            logger.error(f"Exception in trading session run: {e}")
-            raise
-        finally:
-            await self.clean_up()
+            current_time = now()
+            if self.start_time and current_time - self.start_time > timedelta(
+                minutes=self.duration
+            ):
+                self.active = False
+                await self.send_broadcast({"type": "stop_trading"})
+                await asyncio.gather(
+                    *[
+                        self.handle_inventory_report({"trader_id": trader_id})
+                        for trader_id in self.connected_traders
+                    ]
+                )
+                await self.send_broadcast({"type": "closure"})
+                break
+            await asyncio.sleep(1)
+        await self.clean_up()
