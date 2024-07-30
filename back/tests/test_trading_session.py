@@ -35,8 +35,8 @@ async def test_place_order():
 @pytest.mark.asyncio
 async def test_order_book_empty():
     session = TradingSession(duration=1, default_price=1000)
-    order_book = session.order_book
-    assert order_book == {
+    order_book_snapshot = await session.get_order_book_snapshot()
+    assert order_book_snapshot == {
         "bids": [],
         "asks": [],
     }, "Order book should be empty initially"
