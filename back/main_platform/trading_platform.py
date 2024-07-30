@@ -6,8 +6,6 @@ from asyncio import Event, Lock
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
-import heapq
-from sortedcontainers import SortedDict
 
 import aio_pika
 import polars as pl
@@ -17,7 +15,9 @@ import random
 
 from main_platform.custom_logger import setup_custom_logger
 from main_platform.utils import CustomEncoder, if_active, now
-from main_platform.order_book import OrderBook
+from rust_order_book import OrderBook
+
+from functools import lru_cache
 
 from structures import (
     Message,
@@ -86,7 +86,8 @@ class TradingSession:
         self.initialization_complete = False
         self.trading_started = False
 
-        self.order_book = OrderBook()        
+        self.order_book = OrderBook()     
+        self._last_transaction_price: Optional[float] = None
 
     @property
     def all_orders(self):
@@ -99,8 +100,8 @@ class TradingSession:
             self.order_book.place_order(order)
 
     def place_order(self, order_dict: Dict) -> Dict:
+        order_dict['id'] = str(order_dict['id'])
         return self.order_book.place_order(order_dict)
-
 
     @property
     def current_time(self) -> datetime:
@@ -141,15 +142,7 @@ class TradingSession:
     @property
     def transaction_price(self) -> Optional[float]:
         """Returns the price of last transaction. If there are no transactions, returns None."""
-        if not self.transactions or len(self.transactions) == 0:
-            return None
-        transactions = [
-            {"price": t["price"], "timestamp": t["timestamp"].timestamp()}
-            for t in self.transactions
-        ]
-        # sort by timestamp
-        transactions.sort(key=lambda x: x["timestamp"])
-        return transactions[-1]["price"]
+        return self._last_transaction_price
 
     async def initialize(self) -> None:
         self.start_time = now()
@@ -196,20 +189,29 @@ class TradingSession:
     def get_order_book_snapshot(self) -> Dict:
         return self.order_book.get_order_book_snapshot()
 
-
+    @lru_cache(maxsize=1)
     def get_transaction_history(self) -> List[Dict]:
-        return self.transactions
+        return [transaction.to_mongo().to_dict() for transaction in TransactionModel.objects(trading_session_id=self.id)]
+
+    def invalidate_transaction_cache(self):
+        self.get_transaction_history.cache_clear()
 
     def get_current_spread(self) -> Optional[float]:
-        spread, _ = self.order_book.get_spread()
-        return spread
+        result = self.order_book.get_spread()
+        if result is not None:
+            spread, _ = result
+            return spread
+        return None
 
     def get_current_midpoint(self) -> Optional[float]:
-        _, midpoint = self.order_book.get_spread()
-        return midpoint
+        result = self.order_book.get_spread()
+        if result is not None:
+            _, midpoint = result
+            return midpoint
+        return None
 
     def get_last_transaction_price(self) -> Optional[float]:
-        return self.transaction_price
+        return self._last_transaction_price
 
     def get_active_orders_to_broadcast(self) -> List[Dict]:
         active_orders_df = pl.DataFrame(list(self.active_orders.values()))
@@ -281,6 +283,11 @@ class TradingSession:
         await self.transaction_queue.put(transaction)
         logger.info(f"Transaction enqueued: {transaction}")
 
+        # Update the last transaction price
+        self._last_transaction_price = transaction_price
+
+        self.invalidate_transaction_cache()
+
         # Send transaction details to both traders
         transaction_details = {
             "type": "transaction_update",
@@ -319,6 +326,12 @@ class TradingSession:
             await transaction.save_async()
             self.transaction_queue.task_done()
             logger.info(f"Transaction processed: {transaction}")
+            
+            # Update the last transaction price
+            self._last_transaction_price = transaction.price
+            
+            self.invalidate_transaction_cache()
+
 
     def create_order_heap(self, orders: List[Dict], is_ask: bool) -> List[Tuple[float, float, Dict]]:
         return [
@@ -348,7 +361,10 @@ class TradingSession:
         data["order_type"] = int(data["order_type"])
         try:
             order = Order(status=OrderStatus.BUFFERED.value, session_id=self.id, **data)
-            placed_order = self.place_order(order.model_dump())
+            order_dict = order.model_dump()
+            # Convert UUID to string
+            order_dict['id'] = str(order_dict['id'])
+            placed_order = self.place_order(order_dict)
         except ValidationError as e:
             logger.critical(f"Order validation failed: {e}")
             return {"status": "failed", "reason": str(e), "type": "order_failed"}
@@ -395,7 +411,7 @@ class TradingSession:
             }
 
         return {"status": "failed", "reason": "Order not found or cancellation failed"}
-        
+
     @if_active
     async def handle_register_me(self, msg_body: Dict) -> Dict:
         trader_id = msg_body.get("trader_id")
