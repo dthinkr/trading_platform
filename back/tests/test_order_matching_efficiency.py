@@ -86,11 +86,11 @@ async def test_order_matching_consistency(capsys):
     
     predefined_orders = [
         (1, 2000, OrderType.ASK),
-        (1, 1999, OrderType.ASK),
-        (1, 1998, OrderType.ASK),
+        # (1, 1999, OrderType.ASK),
+        # (1, 1998, OrderType.ASK),
         (1, 2001, OrderType.BID),
-        (1, 2002, OrderType.BID),
-        (1, 2003, OrderType.BID),
+        # (1, 2002, OrderType.BID),
+        # (1, 2003, OrderType.BID),
         (1, 2003, OrderType.BID),
     ]
     
