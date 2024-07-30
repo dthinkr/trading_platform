@@ -2,7 +2,7 @@ import asyncio
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
-from enum import Enum, IntEnum, StrEnum
+from enum import Enum, IntEnum
 from typing import Optional
 from uuid import UUID, uuid4
 
@@ -10,6 +10,9 @@ from mongoengine import (BooleanField, DateTimeField, DictField, Document,
                          FloatField, IntField, ListField, UUIDField)
 from pydantic import BaseModel, ConfigDict, Field
 
+
+class StrEnum(str, Enum):
+    pass
 
 def now():
     """It is actually from utils.py but we need structures there so we do it here to avoid circular deps"""

@@ -17,6 +17,8 @@ import random
 
 from main_platform.custom_logger import setup_custom_logger
 from main_platform.utils import CustomEncoder, if_active, now
+from main_platform.order_book import OrderBook
+
 from structures import (
     Message,
     Order,
@@ -66,7 +68,6 @@ class TradingSession:
         self.id = str(uuid.uuid4())
 
         self.creation_time = now()
-        self.all_orders = {}
 
         self.broadcast_exchange_name = f"broadcast_{self.id}"
         self.queue_name = f"trading_system_queue_{self.id}"
@@ -85,8 +86,21 @@ class TradingSession:
         self.initialization_complete = False
         self.trading_started = False
 
-        self.bids = SortedDict()
-        self.asks = SortedDict()
+        self.order_book = OrderBook()        
+
+    @property
+    def all_orders(self):
+        return self.order_book.all_orders
+
+    @all_orders.setter
+    def all_orders(self, value):
+        self.order_book.clear()
+        for order_id, order in value.items():
+            self.order_book.place_order(order)
+
+    def place_order(self, order_dict: Dict) -> Dict:
+        return self.order_book.place_order(order_dict)
+
 
     @property
     def current_time(self) -> datetime:
@@ -117,47 +131,12 @@ class TradingSession:
             "end_time": self.start_time + timedelta(minutes=self.duration),
             "connected_traders": self.connected_traders,
         }
+        
 
     @property
     def active_orders(self) -> Dict:
-        return {
-            k: v
-            for k, v in self.all_orders.items()
-            if v["status"] == OrderStatus.ACTIVE
-        }
+        return self.order_book.active_orders
 
-    @property
-    def order_book(self) -> Dict:
-        active_orders_df = pl.DataFrame(list(self.active_orders.values()))
-
-        order_book = {"bids": [], "asks": []}
-        if active_orders_df.height == 0:
-            return order_book
-
-        active_bids = active_orders_df.filter(pl.col("order_type") == OrderType.BID)
-        active_asks = active_orders_df.filter(pl.col("order_type") == OrderType.ASK)
-
-        if not active_bids.is_empty():
-            bids_grouped = (
-                active_bids.group_by("price")
-                .agg([pl.col("amount").sum().alias("amount_sum")])
-                .sort(by="price", descending=True)
-            )
-            order_book["bids"] = bids_grouped.rename(
-                {"price": "x", "amount_sum": "y"}
-            ).to_dicts()
-
-        if not active_asks.is_empty():
-            asks_grouped = (
-                active_asks.group_by("price")
-                .agg([pl.col("amount").sum().alias("amount_sum")])
-                .sort(by="price")
-            )
-            order_book["asks"] = asks_grouped.rename(
-                {"price": "x", "amount_sum": "y"}
-            ).to_dicts()
-
-        return order_book
 
     @property
     def transaction_price(self) -> Optional[float]:
@@ -214,19 +193,19 @@ class TradingSession:
         except Exception as e:
             logger.error(f"An error occurred during cleanup: {e}")
 
-    async def get_order_book_snapshot(self) -> Dict:
-        async with self.lock:
-            return self.order_book.copy()
+    def get_order_book_snapshot(self) -> Dict:
+        return self.order_book.get_order_book_snapshot()
+
 
     def get_transaction_history(self) -> List[Dict]:
         return self.transactions
 
     def get_current_spread(self) -> Optional[float]:
-        spread, _ = self.get_spread()
+        spread, _ = self.order_book.get_spread()
         return spread
 
     def get_current_midpoint(self) -> Optional[float]:
-        _, midpoint = self.get_spread()
+        _, midpoint = self.order_book.get_spread()
         return midpoint
 
     def get_last_transaction_price(self) -> Optional[float]:
@@ -280,37 +259,6 @@ class TradingSession:
         # todo: rename this to get_message_file_name
         """Returns file name for messages which is a trading platform id + datetime of creation with _ as spaces"""
         return f"{self.id}_{self.creation_time.strftime('%Y-%m-%d_%H-%M-%S')}"
-
-    def get_spread(self) -> Tuple[Optional[float], Optional[float]]:
-        """
-        Returns the spread and the midpoint. If there are no overlapping orders, returns None, None.
-        """
-        asks = [
-            order
-            for order in self.active_orders.values()
-            if order["order_type"] == OrderType.ASK
-        ]
-        bids = [
-            order
-            for order in self.active_orders.values()
-            if order["order_type"] == OrderType.BID
-        ]
-
-        # Sort by price (lowest first for asks), and then by timestamp (oldest first - FIFO)
-        asks.sort(key=lambda x: (x["price"], x["timestamp"]))
-        # Sort by price (highest first for bids), and then by timestamp (oldest first)
-        bids.sort(key=lambda x: (-x["price"], x["timestamp"]))
-
-        # Calculate the spread
-        if asks and bids:
-            lowest_ask = asks[0]["price"]
-            highest_bid = bids[0]["price"]
-            spread = lowest_ask - highest_bid
-            mid_price = (lowest_ask + highest_bid) / 2
-            return spread, mid_price
-        else:
-            logger.info("No overlapping orders.")
-            return None, None
 
     async def create_transaction(
         self, bid: Dict, ask: Dict, transaction_price: float
@@ -373,88 +321,24 @@ class TradingSession:
             for order in orders
         ]
 
-    def place_order(self, order_dict: Dict) -> Dict:
-        order_id = order_dict["id"]
-        order_dict["status"] = OrderStatus.ACTIVE.value
-        self.all_orders[order_id] = order_dict
+    async def get_order_book_snapshot(self) -> Dict:
+        return self.order_book.get_order_book_snapshot()
 
-        price = order_dict["price"]
-        if order_dict["order_type"] == OrderType.BID:
-            if price not in self.bids:
-                self.bids[price] = []
-            self.bids[price].append(order_dict)
-        else:
-            if price not in self.asks:
-                self.asks[price] = []
-            self.asks[price].append(order_dict)
+    def get_spread(self) -> Tuple[Optional[float], Optional[float]]:
+        return self.order_book.get_spread()
 
-        return order_dict
 
     async def clear_orders(self) -> Dict:
+        matched_orders = self.order_book.clear_orders()
         res = {"transactions": [], "removed_active_orders": []}
         
-        if not self.asks or not self.bids:
-            return res
-
-        transactions = []
-        traders_to_transactions_lookup = defaultdict(list)
-
-        while self.asks and self.bids:
-            best_ask = self.asks.peekitem(0)
-            best_bid = self.bids.peekitem(-1)
-
-            if best_ask[0] > best_bid[0]:
-                break  # No more matches possible
-
-            ask = self.asks[best_ask[0]].pop(0)
-            bid = self.bids[best_bid[0]].pop()
-
-            if not self.asks[best_ask[0]]:
-                del self.asks[best_ask[0]]
-            if not self.bids[best_bid[0]]:
-                del self.bids[best_bid[0]]
-
-            transaction_price = (best_ask[0] + best_bid[0]) / 2
-            ask_trader_id = ask["trader_id"]
-            bid_trader_id = bid["trader_id"]
-
-            if self.connected_traders[ask_trader_id]["trader_type"] == TraderType.HUMAN.value and ask_trader_id == bid_trader_id:
-                logger.warning(f"Blocking self-execution for trader {ask_trader_id}")
-                continue
-
-            ask_trader_id, bid_trader_id, transaction = await self.create_transaction(
-                bid, ask, transaction_price
-            )
-
-            # Remove matched orders from self.active_orders
-            self.active_orders.pop(ask["id"], None)
-            self.active_orders.pop(bid["id"], None)
-
-            traders_to_transactions_lookup[ask_trader_id].append(
-                {
-                    "id": ask["id"],
-                    "price": ask["price"],
-                    "type": "ask",
-                    "amount": ask["amount"],
-                }
-            )
-            traders_to_transactions_lookup[bid_trader_id].append(
-                {
-                    "id": bid["id"],
-                    "price": bid["price"],
-                    "type": "bid",
-                    "amount": bid["amount"],
-                }
-            )
-
-            transactions.append(transaction)
-
-        if transactions:
-            res["subgroup_broadcast"] = traders_to_transactions_lookup
-            res["transactions"] = transactions
-
+        for ask, bid, transaction_price in matched_orders:
+            transaction = await self.create_transaction(bid, ask, transaction_price)
+            res["transactions"].append(transaction)
+            res["removed_active_orders"].extend([ask['id'], bid['id']])
+        
         return res
-            
+                    
     async def handle_add_order(self, data: dict) -> Dict:
         data["order_type"] = int(data["order_type"])
         try:
@@ -471,42 +355,44 @@ class TradingSession:
             logger.critical(f"Order validation failed: {e}")
             return {"status": "failed", "reason": str(e), "type": "order_failed"}
 
-        resp = await self.clear_orders()
-        subgroup_data = resp.pop("subgroup_broadcast", None)
-        resp.update({"type": "NEW_ORDER_ADDED", "content": "A", "respond": True})
+        matched_orders = self.order_book.clear_orders()
+        transactions = []
+        for ask, bid, transaction_price in matched_orders:
+            transaction = await self.create_transaction(bid, ask, transaction_price)
+            transactions.append(transaction)
+
+        resp = {"transactions": transactions, "type": "NEW_ORDER_ADDED", "content": "A", "respond": True}
         return resp
+
+
+    def cancel_order(self, order_id: str) -> bool:
+        return self.order_book.cancel_order(order_id)
 
     @if_active
     async def handle_cancel_order(self, data: dict) -> Dict:
-        order_id = uuid.UUID(data.get("order_id"))
+        order_id = data.get("order_id")
         trader_id = data.get("trader_id")
         order_details = data.get("order_details")
 
-        async with self.lock:
-            if order_id in self.active_orders:
-                existing_order = self.active_orders[order_id]
-                if existing_order["trader_id"] == trader_id and existing_order["status"] == OrderStatus.ACTIVE.value:
-                    message_document = Message(
-                        trading_session_id=self.id,
-                        content={
-                            "action": "order_cancelled",
-                            "order_id": str(order_id),
-                            "details": order_details,
-                        },
-                    )
-                    message_document.save()
+        if self.order_book.cancel_order(order_id):
+            message_document = Message(
+                trading_session_id=self.id,
+                content={
+                    "action": "order_cancelled",
+                    "order_id": order_id,
+                    "details": order_details,
+                },
+            )
+            message_document.save()
 
-                    self.all_orders[order_id]["status"] = OrderStatus.CANCELLED.value
-                    self.all_orders[order_id]["cancellation_timestamp"] = now()
+            print(f"Order {order_id} successfully canceled by trader {trader_id}")
 
-                    print(f"Order {order_id} successfully canceled by trader {trader_id}")
-
-                    return {
-                        "status": "cancel success",
-                        "order": order_id,
-                        "type": "ORDER_CANCELLED",
-                        "respond": True,
-                    }
+            return {
+                "status": "cancel success",
+                "order": order_id,
+                "type": "ORDER_CANCELLED",
+                "respond": True,
+            }
 
         return {"status": "failed", "reason": "Order cancellation failed"}
 
