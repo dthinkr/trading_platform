@@ -88,8 +88,19 @@ const hasAskData = computed(() => askData.value.length > 0);
 const hasBidData = computed(() => bidData.value.length > 0);
 const bestBid = computed(() => hasBidData.value ? Math.max(...bidData.value.map(bid => bid.x)) : null);
 const bestAsk = computed(() => hasAskData.value ? Math.min(...askData.value.map(ask => ask.x)) : null);
-const buyPrices = computed(() => bestAsk.value !== null ? Array.from({ length: 5 }, (_, i) => bestAsk.value - step.value * i) : []);
-const sellPrices = computed(() => bestBid.value !== null ? Array.from({ length: 5 }, (_, i) => bestBid.value + step.value * i) : []);
+
+const orderBookLevels = computed(() => gameParams.value.order_book_levels);
+
+const buyPrices = computed(() => {
+  if (bestAsk.value === null || !orderBookLevels.value) return [];
+  return Array.from({ length: orderBookLevels.value }, (_, i) => bestAsk.value - step.value * i);
+});
+
+const sellPrices = computed(() => {
+  if (bestBid.value === null || !orderBookLevels.value) return [];
+  return Array.from({ length: orderBookLevels.value }, (_, i) => bestBid.value + step.value * i);
+});
+
 const isBuyButtonDisabled = computed(() => !hasAskData.value);
 const isSellButtonDisabled = computed(() => !hasBidData.value);
 
@@ -174,7 +185,7 @@ function getButtonColor(price, orderType) {
 
 
 function formatPrice(price) {
-  return price.toFixed(2);
+  return Math.round(price).toString();
 }
 
 function checkMobile() {

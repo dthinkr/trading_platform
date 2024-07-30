@@ -6,10 +6,10 @@
     </v-card-title>
     
     <div class="orders-container">
-      <div v-for="(item, index) in paginatedOrders" :key="index" class="order-item" :class="item.order_type.toLowerCase()">
+      <div v-for="(item, index) in sortedOrders" :key="index" class="order-item" :class="item.order_type.toLowerCase()">
         <div class="order-header">
           <span class="order-type">{{ item.order_type }}</span>
-          <div class="price">{{ formatNumber(item.price) }}</div>
+          <div class="price">{{ Math.round(item.price).toFixed(0) }}</div>
         </div>
         <div class="order-details">
           <div class="amount">Amount: {{ item.totalAmount }}</div>
@@ -42,25 +42,6 @@
         ></v-progress-linear>
       </div>
     </div>
-    <div class="pagination">
-      <v-btn
-        icon
-        small
-        :disabled="currentPage === 1"
-        @click="currentPage--"
-      >
-        <v-icon>mdi-chevron-left</v-icon>
-      </v-btn>
-      <span class="page-info">{{ currentPage }} / {{ totalPages }}</span>
-      <v-btn
-        icon
-        small
-        :disabled="currentPage === totalPages"
-        @click="currentPage++"
-      >
-        <v-icon>mdi-chevron-right</v-icon>
-      </v-btn>
-    </div>
   </v-card>
 </template>
 
@@ -74,9 +55,6 @@ const { formatNumber } = useFormatNumber();
 const traderStore = useTraderStore();
 const { myOrders } = storeToRefs(traderStore);
 const { sendMessage } = traderStore;
-
-const currentPage = ref(1);
-const itemsPerPage = 4; // 2 rows, 2 items per row
 
 const localOrders = ref([]);
 
@@ -100,17 +78,9 @@ const maxAmount = computed(() => {
   return Math.max(...sortedOrders.value.map(order => order.totalAmount));
 });
 
-const totalPages = computed(() => Math.ceil(sortedOrders.value.length / itemsPerPage));
-
-const paginatedOrders = computed(() => {
-  const start = (currentPage.value - 1) * itemsPerPage;
-  const end = start + itemsPerPage;
-  return sortedOrders.value.slice(start, end);
-});
-
 const addOrder = (item) => {
   const newOrder = {
-    id: Date.now().toString(), // Temporary ID
+    id: Date.now().toString(),
     order_type: item.order_type,
     price: item.price,
     amount: 1,
@@ -132,23 +102,19 @@ const removeOrder = (item) => {
   }
 };
 
-// Initialize localOrders with myOrders
 watch(myOrders, (newOrders) => {
   localOrders.value = JSON.parse(JSON.stringify(newOrders));
 }, { immediate: true, deep: true });
 
-// Sync localOrders with server responses
 const syncOrders = (serverOrders) => {
   localOrders.value = serverOrders.map(order => ({
     ...order,
-    amount: order.amount || 1 // Ensure amount is at least 1
+    amount: order.amount || 1
   }));
 };
 
-// Watch for changes in myOrders (server updates)
 watch(myOrders, syncOrders, { deep: true });
 
-// Expose syncOrders to parent component if needed
 defineExpose({ syncOrders });
 </script>
 
@@ -170,7 +136,7 @@ defineExpose({ syncOrders });
   overflow-y: auto;
   padding: 16px;
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 16px;
 }
 
@@ -238,20 +204,5 @@ defineExpose({ syncOrders });
 
 .amount-progress {
   margin-top: 8px;
-}
-
-.pagination {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 12px;
-  background-color: white;
-  border-top: 1px solid #e0e0e0;
-}
-
-.page-info {
-  margin: 0 12px;
-  font-size: 0.9rem;
-  color: #666;
 }
 </style>

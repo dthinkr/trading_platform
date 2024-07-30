@@ -261,8 +261,14 @@ class BaseTrader:
 
         order_to_cancel = next((order for order in self.orders if order['id'] == order_id), None)
 
+        if self.trader_type != TraderType.NOISE.value:
+            if order_to_cancel["order_type"] == OrderType.BID:
+                self.cash += order_to_cancel["price"] * order_to_cancel["amount"]
+            elif order_to_cancel["order_type"] == OrderType.ASK:
+                self.shares += order_to_cancel["amount"]
+
         cancel_order_request = {
-            "action": ActionType.CANCEL_ORDER.value,  # Assuming you have an ActionType Enum
+            "action": ActionType.CANCEL_ORDER.value,
             "trader_id": self.id,
             "order_id": order_id,
             "amount": -order_to_cancel["amount"],
