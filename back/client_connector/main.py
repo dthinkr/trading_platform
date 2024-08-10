@@ -190,3 +190,49 @@ async def list_traders():
 async def root():
     return {"status": "trading is active",
             "comment": "this is only for accessing trading platform mostly via websockets"}
+
+
+from fastapi.responses import JSONResponse
+from pymongo import MongoClient
+import polars as pl
+import random
+from datetime import datetime
+from analysis.record_pm import calculate_time_series_metrics
+from fastapi.responses import StreamingResponse
+import io
+
+
+# Update these configurations
+MONGODB_HOST = "localhost"
+MONGODB_PORT = 27017
+DATASET = "trader"
+COLLECTION_NAME = "message"
+
+# Create a MongoDB client
+mongo_client = MongoClient(MONGODB_HOST, MONGODB_PORT)
+db = mongo_client[DATASET]
+collection = db[COLLECTION_NAME]
+
+
+@app.get("/session_metrics/trader/{trader_uuid}")
+async def get_session_metrics(trader_uuid: str):
+    # Get the session ID from the lookup
+    session_id = trader_to_session_lookup.get(trader_uuid)
+    
+    if not session_id:
+        raise HTTPException(status_code=404, detail="No session found for this trader")
+
+    # Query all documents for this session
+    df = pl.DataFrame(list(collection.find({"trading_session_id": session_id})))
+    
+    session_metrics = calculate_time_series_metrics(df)[session_id]
+    
+    csv_buffer = io.BytesIO()
+    session_metrics.write_csv(csv_buffer)
+    csv_buffer.seek(0)
+
+    return StreamingResponse(
+        csv_buffer,
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=session_metrics_{trader_uuid}.csv"}
+    )

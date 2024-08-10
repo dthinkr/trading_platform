@@ -98,6 +98,8 @@ def calculate_time_series_metrics(run_data: pl.DataFrame) -> Dict[str, pl.DataFr
     results = {}
     for group in grouped_data:
         session_id = group[0]
+        # Change this line:
+        session_id = session_id[0] if isinstance(session_id, tuple) else session_id
         session_data = group[1]
         session_metrics = process_session(session_data)
         results[session_id] = session_metrics.sort('seconds_into_session')

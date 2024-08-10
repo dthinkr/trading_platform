@@ -108,9 +108,8 @@ class NoiseTrader(BaseTrader):
     async def process_order(self, order) -> None:
         if order["action_type"] == ActionType.POST_NEW_ORDER.value:
             order_type = order["order_type"]
-            amount, price = self.order_amount, order["price"]
-            for _ in range(order["amount"]):
-                await self.post_new_order(amount, price, order_type)
+            amount, price = random.randint(1, self.order_amount), order["price"]
+            await self.post_new_order(amount, price, order_type)
 
             logger.info(
                 "POSTED %s AT %s AMOUNT %s * %s",
