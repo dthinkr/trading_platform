@@ -55,7 +55,7 @@ class TraderCreationData(BaseModel):
         ge=0,
     )
     trading_day_duration: int = Field(
-        default=3,
+        default=5,
         title="Trading Day Duration",
         description="model_parameter",
         gt=0,
@@ -66,15 +66,15 @@ class TraderCreationData(BaseModel):
         description="model_parameter",
     )
     activity_frequency: float = Field(
-        default=0.3,
+        default=1.0,
         title="Activity Frequency",
         description="noise_parameter",
         gt=0,
     )
     order_amount: int = Field(
-        default=1,
+        default=5,
         title="Order Amount",
-        description="model_parameter",
+        description="noise_parameter",
     )
     passive_order_probability: float = Field(
         default=0.7,

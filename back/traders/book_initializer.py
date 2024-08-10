@@ -27,7 +27,7 @@ class BookInitializer(BaseTrader):
         order_book_levels = self.trader_creation_data["order_book_levels"]
 
         max_price_deviation = step * order_book_levels
-        price_deviation = int(random.expovariate(1 / (max_price_deviation / 3)))
+        price_deviation = int(random.uniform(0, max_price_deviation))
 
         if is_bid:
             price = default_price - price_deviation
