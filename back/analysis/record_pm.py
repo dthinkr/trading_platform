@@ -4,6 +4,7 @@ from typing import Dict, List
 import numpy as np
 import matplotlib.pyplot as plt
 from . import load_config
+import io
 
 CONFIG = load_config()
 
@@ -106,9 +107,6 @@ def calculate_time_series_metrics(run_data: pl.DataFrame) -> Dict[str, pl.DataFr
 
     return results
 
-def get_time_series_metrics_for_sessions(session_ids: List[str] = None) -> Dict[str, pl.DataFrame]:
-    run_data = get_data_from_mongodb(session_ids)
-    return calculate_time_series_metrics(run_data)
 
 def plot_session_metrics(session_data: pl.DataFrame, session_id: str) -> None:
     session_data_pd = session_data.to_pandas()
@@ -149,11 +147,67 @@ def plot_session_metrics(session_data: pl.DataFrame, session_id: str) -> None:
         ax.tick_params(axis='x', rotation=45)
 
     plt.tight_layout()
-    plt.savefig(f"{CONFIG.DATA_DIR}/figs/time_series_plot_{session_id}.png")
-    plt.close()
 
+    # Use a context manager for BytesIO
+    with io.BytesIO() as buf:
+        # Save the plot to the buffer
+        plt.savefig(buf, format='svg', bbox_inches='tight')
+        
+        # Explicitly close the figure
+        plt.close(fig)
+        
+        # Get the SVG string
+        svg_string = buf.getvalue().decode('utf-8')
+
+    # Clear the current figure and close all plots
+    plt.clf()
+    plt.close('all')
+    
+    return svg_string
+
+def calculate_end_of_run_metrics(run_data: pl.DataFrame) -> Dict:
+    # Calculate volumes
+    total_volume = run_data.select(pl.col('content').struct.field('incoming_message').struct.field('amount')).sum()[0, 0]
+    
+    noise_volume = run_data.filter(
+        pl.col('content').struct.field('incoming_message').struct.field('trader_id').str.contains('NOISE')
+    ).select(pl.col('content').struct.field('incoming_message').struct.field('amount')).sum()[0, 0]
+    
+    informed_volume = total_volume - noise_volume
+
+    # Calculate prices
+    midprices = run_data.select(pl.col('content').struct.field('midpoint'))
+    initial_midprice = midprices[0, 0]
+    lowest_midprice = midprices.min()[0, 0]
+    final_midprice = midprices[-1, 0]
+
+    # Calculate VWAP for informed traders
+    informed_trades = run_data.filter(
+        pl.col('content').struct.field('incoming_message').struct.field('trader_id').str.contains('INFORMED')
+    )
+    informed_vwap = (
+        (informed_trades.select(pl.col('content').struct.field('incoming_message').struct.field('amount')) * 
+         informed_trades.select(pl.col('content').struct.field('transaction_price'))).sum()[0, 0] /
+        informed_trades.select(pl.col('content').struct.field('incoming_message').struct.field('amount')).sum()[0, 0]
+    )
+
+    metrics = {
+        "Total Volume": total_volume,
+        "Volume Noise": noise_volume,
+        "Volume Informed": informed_volume,
+        "Initial Midprice": initial_midprice,
+        "Lowest Midprice": lowest_midprice,
+        "Final Midprice": final_midprice,
+        "VWAP Informed": informed_vwap
+    }
+
+    return metrics
+ 
+ 
 if __name__ == "__main__":
-    time_series_metrics = get_time_series_metrics_for_sessions()
+    run_data = get_data_from_mongodb()
+    time_series_metrics = calculate_time_series_metrics(run_data)
+    end_of_run_metrics = calculate_end_of_run_metrics(run_data)
     for session_id, metrics_df in time_series_metrics.items():
         output_path = f"{CONFIG.DATA_DIR}/time_series_metrics_{session_id}.csv"
         metrics_df.write_csv(output_path)

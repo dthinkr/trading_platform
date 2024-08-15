@@ -1,34 +1,20 @@
 import json
-
-import duckdb
 import polars as pl
-
+from typing import Tuple
 from analysis import load_config
 from main_platform.utils import convert_to_book_format_new
-
 
 def load_configuration() -> dict:
     return load_config()
 
-
-def connect_to_database(config: dict) -> 1.DuckDBPyConnection:
-    return duckdb.connect(f"md:{config.DATASET}?motherduck_token={config.MD_TOKEN}")
-
-
-def fetch_data(
-    con: duckdb.DuckDBPyConnection, config: dict
-) -> tuple[pl.DataFrame, pl.DataFrame]:
-    query_ref = f"SELECT * FROM {config.TABLE_REF}"
-    query_res = f"SELECT * FROM {config.TABLE_RES}"
-    df_ref = pl.from_arrow(con.execute(query_ref).fetch_arrow_table())
-    df_res = pl.from_arrow(con.execute(query_res).fetch_arrow_table())
+def load_local_data(config: dict) -> Tuple[pl.DataFrame, pl.DataFrame]:
+    df_ref = pl.read_csv(f"{config.DATA_DIR}/reference_data.csv")
+    df_res = pl.read_csv(f"{config.DATA_DIR}/result_data.csv")
     return df_ref, df_res
-
 
 def parse_and_transform_active_orders(active_orders: str) -> pl.DataFrame:
     orders_list = json.loads(active_orders)
     return pl.DataFrame(orders_list)
-
 
 def lobster_book_transformation(df_res: pl.DataFrame) -> pl.DataFrame:
     active_orders_df = df_res["order_book"].str.json_decode()
@@ -42,7 +28,6 @@ def lobster_book_transformation(df_res: pl.DataFrame) -> pl.DataFrame:
 
     df_res = df_res.with_columns(book_format_series.alias("LOBSTER_BOOK"))
     return df_res
-
 
 def lobster_message_time(df_res: pl.DataFrame) -> pl.DataFrame:
     if "Time" not in df_res.columns:
@@ -77,7 +62,6 @@ def lobster_message_time(df_res: pl.DataFrame) -> pl.DataFrame:
         )
     return df_res
 
-
 def lobster_message_type(df_res: pl.DataFrame, config: dict) -> pl.DataFrame:
     type_mapping = config.TYPE_MAPPING
     df_res = df_res.with_columns(
@@ -86,7 +70,6 @@ def lobster_message_type(df_res: pl.DataFrame, config: dict) -> pl.DataFrame:
         .alias("Event Type")
     )
     return df_res
-
 
 def lobster_message_other(df_res: pl.DataFrame) -> pl.DataFrame:
     df_res = df_res.with_columns(
@@ -100,19 +83,15 @@ def lobster_message_other(df_res: pl.DataFrame) -> pl.DataFrame:
     )
     return df_res
 
-
-def prepare_data() -> tuple[pl.DataFrame, pl.DataFrame]:
+def prepare_data() -> Tuple[pl.DataFrame, pl.DataFrame]:
     config = load_configuration()
-    con = connect_to_database(config)
-    df_ref, df_res = fetch_data(con, config)
+    df_ref, df_res = load_local_data(config)
     df_res = lobster_book_transformation(df_res)
     df_res = lobster_message_time(df_res)
     df_res = lobster_message_type(df_res, config)
     df_res = lobster_message_other(df_res)
     return df_ref, df_res
 
-
 if __name__ == "__main__":
     df_ref, df_res = prepare_data()
-    # print(df_ref)
     print(df_res)
