@@ -128,8 +128,8 @@ cleanup() {
 
 trap cleanup SIGINT
 
-echo "Showing error logs. Press Ctrl+C to stop."
-run_docker_compose logs -f --tail=0 --level=ERROR &
+echo "Showing all logs. Press Ctrl+C to stop."
+run_docker_compose logs -f &
 
 while true; do
   sleep 300
