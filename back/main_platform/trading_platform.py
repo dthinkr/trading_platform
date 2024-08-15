@@ -60,6 +60,7 @@ class TradingSession:
         self.lock = Lock()
         self.release_event = Event()
         self.current_price = 0
+        self.is_finished = False
 
         self.broadcast_exchange_name = f"broadcast_{self.id}"
         self.queue_name = f"trading_system_queue_{self.id}"
@@ -425,6 +426,7 @@ class TradingSession:
                     ]
                 )
                 await self.send_broadcast({"type": "closure"})
+                self.is_finished = True  # new attribute that indicates if the trading session is finished
                 break
             await asyncio.sleep(1)
         await self.clean_up()
