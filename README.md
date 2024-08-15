@@ -2,7 +2,6 @@
   <img src="front/src/assets/trading_platform_logo.svg" alt="Trading Platform Logo" width="200"/>
 </p>
 
-
 <h1 align="center">Trading Platform</h1>
 
 <p align="center">
@@ -17,7 +16,7 @@
   <a href="https://github.com/dthinkr/trading_platform/graphs/contributors"><img alt="GitHub contributors" src="https://img.shields.io/github/contributors/dthinkr/trading_platform?color=2b9348"></a>
   <a href="https://github.com/dthinkr/trading_platform/blob/master/LICENSE"><img src="https://img.shields.io/github/license/dthinkr/trading_platform?color=2b9348" alt="License Badge"/></a>
 </p>
-  
+
 <p align="center">
   <a href="#key-features">Key Features</a> •
   <a href="#installation">Installation</a> •
@@ -120,11 +119,19 @@ trading_platform/
 
 ## Recent Updates
 
-### July 29, 2024 (v1.0.2)
+### August 16, 2024 (v1.1.0)
+
+- 🔄 Implemented background processing for multiple trading sessions
+- 📁 Improved CSV export functionality
+- 🖼️ Added visual summary of time-series results
+
+### August 1, 2024 (v1.0.2)
+
 - 🎨 Redesigned platform frontend and backend
 - 🔄 Updated order matching logic for improved efficiency
 
 ### July 26, 2024 (v1.0.1)
+
 - 🧭 Improved instruction flow with navigation buttons and auto-generated content
 - 📊 Enhanced pre-market information display
 - 💱 Calibrated exchange rate from liras to GBP

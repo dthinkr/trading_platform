@@ -10,8 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Planned
 
 - Make all Control Questions mandatory and show correct answers with explanations
-- Review and adjust initial midprice and tick size
 - Adjust profits to range from 5 to 15 GBP
+
+## [1.1.0] - 2024-08-16
+
+### Added
+- Background processing for multiple trading sessions
+- Visual summary of time-series results directly on the platform
+
+### Changed
+- Review and adjust initial midprice and tick size
 
 ## [1.0.2] - 2024-08-01
 
@@ -96,6 +104,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Customizable trading scenarios
 - Basic data analysis tools
 
+
+[1.1.0]: https://github.com/dthinkr/trading_platform/compare/v1.0.2...v1.1.0
 [1.0.1]: https://github.com/dthinkr/trading_platform/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/dthinkr/trading_platform/compare/v0.2.0...v1.0.0
 [0.2.0]: https://github.com/dthinkr/trading_platform/compare/v0.1.0...v0.2.0
