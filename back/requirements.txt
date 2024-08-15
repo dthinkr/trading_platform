@@ -1,6 +1,6 @@
 aio_pika==9.4.0
 fastapi==0.110.0
-numpy==1.24.3
+numpy==1.26.4
 pandas==2.2.1
 pydantic==2.6.3
 starlette==0.36.3
@@ -14,3 +14,4 @@ duckdb==1.0.0
 SALib==1.4.7
 sortedcontainers==2.4.0
 maturin==1.7.0 
+pyyaml==6.0.1
