@@ -35,7 +35,6 @@ class NoiseTrader(BaseTrader):
         self.shares = math.inf
         
 
-
     def cooling_interval(self, target: float) -> float:
         interval = np.random.gamma(shape=1,scale=1/target)
         return interval
