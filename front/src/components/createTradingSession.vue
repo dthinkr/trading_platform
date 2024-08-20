@@ -360,8 +360,10 @@ onMounted(fetchData);
 }
 
 .session-plot {
-  width: 33%;
-  height: 33vh;
+  width: 25%;
+  height: 25vh;
+  max-width: 300px;
+  margin: 0 auto;
 }
 
 @media (max-width: 600px) {

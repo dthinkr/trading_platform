@@ -72,7 +72,7 @@ class TraderCreationData(BaseModel):
         gt=0,
     )
     order_amount: int = Field(
-        default=5,
+        default=9,
         title="Order Amount",
         description="noise_parameter",
     )
