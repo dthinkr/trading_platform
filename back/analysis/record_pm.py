@@ -297,10 +297,10 @@ def calculate_end_of_run_metrics(run_data: pl.DataFrame) -> Dict:
 
     run_data = run_data.with_columns(
         pl.struct(
-            best_bid=pl.col("content").struct.field("order_book").map_elements(lambda x: extract_best_bid_ask(x)[0]),
-            best_ask=pl.col("content").struct.field("order_book").map_elements(lambda x: extract_best_bid_ask(x)[1]),
-            best_bid_size=pl.col("content").struct.field("order_book").map_elements(lambda x: extract_best_bid_ask(x)[2]),
-            best_ask_size=pl.col("content").struct.field("order_book").map_elements(lambda x: extract_best_bid_ask(x)[3])
+            best_bid=pl.col("content").struct.field("order_book").map_elements(lambda x: extract_best_bid_ask(x)[0], return_dtype=pl.Float64),
+            best_ask=pl.col("content").struct.field("order_book").map_elements(lambda x: extract_best_bid_ask(x)[1], return_dtype=pl.Float64),
+            best_bid_size=pl.col("content").struct.field("order_book").map_elements(lambda x: extract_best_bid_ask(x)[2], return_dtype=pl.Float64),
+            best_ask_size=pl.col("content").struct.field("order_book").map_elements(lambda x: extract_best_bid_ask(x)[3], return_dtype=pl.Float64)
         ).alias("best_bid_ask")
     ).with_columns([
         pl.col("best_bid_ask").struct.field("best_bid").alias("best_bid"),
@@ -308,62 +308,38 @@ def calculate_end_of_run_metrics(run_data: pl.DataFrame) -> Dict:
         pl.col("best_bid_ask").struct.field("best_bid_size").alias("best_bid_size"),
         pl.col("best_bid_ask").struct.field("best_ask_size").alias("best_ask_size")
     ])
-        # Method 1: Using transaction_price
-    def calculate_volumes_transaction(df, trader_filter=None):
-        base_condition = (pl.col("content").struct.field("transaction_price").is_not_null())
+
+    is_matched_order = (
+        (pl.col("best_ask") == pl.col("best_ask").shift(1))
+        & (pl.col("best_ask_size") < pl.col("best_ask_size").shift(1))
+    ) | (
+        (pl.col("best_bid") == pl.col("best_bid").shift(1))
+        & (pl.col("best_bid_size") < pl.col("best_bid_size").shift(1))
+    ) | (pl.col("best_bid") < pl.col("best_bid").shift(1)) | (pl.col("best_ask") > pl.col("best_ask").shift(1))
+
+    def calculate_volumes(df, trader_filter=None):
+        base_condition = (pl.col("content").struct.field("incoming_message").struct.field("amount") != -1)
         
         if trader_filter is not None:
             filter_condition = base_condition & trader_filter
         else:
             filter_condition = base_condition
         
-        traded_volume = df.filter(filter_condition).select(
+        traded_volume = df.filter(is_matched_order & filter_condition).select(
             pl.col("content").struct.field("incoming_message").struct.field("amount")
         ).sum()[0, 0]
         
-        order_volume = df.filter(pl.col("content").struct.field("incoming_message").struct.field("amount") != -1).select(
-            pl.col("content").struct.field("incoming_message").struct.field("amount")
-        ).sum()[0, 0]
-        
-        return f"{traded_volume}/{order_volume}"
-
-    # Method 2: Using order book changes
-    def calculate_volumes_order_book(df, trader_filter=None):
-        is_matched_order = (
-            (pl.col("best_ask") == pl.col("best_ask").shift(1))
-            & (pl.col("best_ask_size") < pl.col("best_ask_size").shift(1))
-        ) | (
-            (pl.col("best_bid") == pl.col("best_bid").shift(1))
-            & (pl.col("best_bid_size") < pl.col("best_bid_size").shift(1))
-        ) | (pl.col("best_bid") < pl.col("best_bid").shift(1)) | (pl.col("best_ask") > pl.col("best_ask").shift(1))
-
-        base_condition = is_matched_order & (pl.col("content").struct.field("incoming_message").struct.field("amount") != -1)
-        
-        if trader_filter is not None:
-            filter_condition = base_condition & trader_filter
-        else:
-            filter_condition = base_condition
-        
-        traded_volume = df.filter(filter_condition).select(
-            pl.col("content").struct.field("incoming_message").struct.field("amount")
-        ).sum()[0, 0]
-        
-        order_volume = df.filter(pl.col("content").struct.field("incoming_message").struct.field("amount") != -1).select(
+        order_volume = df.filter(filter_condition).select(
             pl.col("content").struct.field("incoming_message").struct.field("amount")
         ).sum()[0, 0]
         
         return f"{traded_volume}/{order_volume}"
 
-    # Calculate volumes using both methods
-    total_volume_transaction = calculate_volumes_transaction(run_data)
-    noise_volume_transaction = calculate_volumes_transaction(run_data, pl.col("content").struct.field("incoming_message").struct.field("trader_id").str.contains("NOISE"))
-    informed_volume_transaction = calculate_volumes_transaction(run_data, pl.col("content").struct.field("incoming_message").struct.field("trader_id").str.contains("INFORMED"))
-    book_initializer_volume_transaction = calculate_volumes_transaction(run_data, pl.col("content").struct.field("incoming_message").struct.field("trader_id").str.contains("BOOK_INITIALIZER"))
-
-    total_volume_order_book = calculate_volumes_order_book(run_data)
-    noise_volume_order_book = calculate_volumes_order_book(run_data, pl.col("content").struct.field("incoming_message").struct.field("trader_id").str.contains("NOISE"))
-    informed_volume_order_book = calculate_volumes_order_book(run_data, pl.col("content").struct.field("incoming_message").struct.field("trader_id").str.contains("INFORMED"))
-    book_initializer_volume_order_book = calculate_volumes_order_book(run_data, pl.col("content").struct.field("incoming_message").struct.field("trader_id").str.contains("BOOK_INITIALIZER"))
+    # Calculate volumes
+    total_volume = calculate_volumes(run_data)
+    noise_volume = calculate_volumes(run_data, pl.col("content").struct.field("incoming_message").struct.field("trader_id").str.contains("NOISE"))
+    informed_volume = calculate_volumes(run_data, pl.col("content").struct.field("incoming_message").struct.field("trader_id").str.contains("INFORMED"))
+    book_initializer_volume = calculate_volumes(run_data, pl.col("content").struct.field("incoming_message").struct.field("trader_id").str.contains("BOOK_INITIALIZER"))
 
     # Calculate prices
     midprices = run_data.select(pl.col("content").struct.field("midpoint"))
@@ -372,7 +348,7 @@ def calculate_end_of_run_metrics(run_data: pl.DataFrame) -> Dict:
 
     # Calculate VWAP for informed traders
     informed_trades = run_data.filter(
-        (pl.col("content").struct.field("transaction_price").is_not_null())
+        is_matched_order
         & (pl.col("content").struct.field("incoming_message").struct.field("trader_id").str.contains("INFORMED"))
     )
     informed_vwap = (
@@ -380,7 +356,7 @@ def calculate_end_of_run_metrics(run_data: pl.DataFrame) -> Dict:
             informed_trades.select(
                 pl.col("content").struct.field("incoming_message").struct.field("amount")
             )
-            * informed_trades.select(pl.col("content").struct.field("transaction_price"))
+            * informed_trades.select(pl.col("content").struct.field("midpoint"))
         ).sum()[0, 0]
         / informed_trades.select(
             pl.col("content").struct.field("incoming_message").struct.field("amount")
@@ -388,14 +364,10 @@ def calculate_end_of_run_metrics(run_data: pl.DataFrame) -> Dict:
     ) if informed_trades.select(pl.col("content").struct.field("incoming_message").struct.field("amount")).sum()[0, 0] > 0 else None
 
     metrics = {
-        "Total Volume (Traded/Order) - Transaction Price": total_volume_transaction,
-        "Noise Volume (Traded/Order) - Transaction Price": noise_volume_transaction,
-        "Informed Volume (Traded/Order) - Transaction Price": informed_volume_transaction,
-        "Book Initializer Volume (Traded/Order) - Transaction Price": book_initializer_volume_transaction,
-        "Total Volume (Traded/Order) - Order Book": total_volume_order_book,
-        "Noise Volume (Traded/Order) - Order Book": noise_volume_order_book,
-        "Informed Volume (Traded/Order) - Order Book": informed_volume_order_book,
-        "Book Initializer Volume (Traded/Order) - Order Book": book_initializer_volume_order_book,
+        "Total Volume (Traded/Order)": total_volume,
+        "Noise Volume (Traded/Order)": noise_volume,
+        "Informed Volume (Traded/Order)": informed_volume,
+        "Book Initializer Volume (Traded/Order)": book_initializer_volume,
         "Lowest Midprice": lowest_midprice,
         "Final Midprice": final_midprice,
         "VWAP Informed": informed_vwap,
