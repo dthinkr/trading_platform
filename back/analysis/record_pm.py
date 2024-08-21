@@ -280,13 +280,17 @@ def plot_session_metrics(session_data: pl.DataFrame, session_id: str) -> None:
     return svg_string
 
 def calculate_end_of_run_metrics(run_data: pl.DataFrame) -> Dict:
-    # Calculate volumes
-    total_volume = run_data.select(
+    # Filter for matched orders (trades)
+    trades = run_data.filter(pl.col("content").struct.field("transaction_price").is_not_null())
+
+    # Calculate total traded volume
+    total_volume = trades.select(
         pl.col("content").struct.field("incoming_message").struct.field("amount")
     ).sum()[0, 0]
 
+    # Calculate noise traded volume
     noise_volume = (
-        run_data.filter(
+        trades.filter(
             pl.col("content")
             .struct.field("incoming_message")
             .struct.field("trader_id")
@@ -298,51 +302,84 @@ def calculate_end_of_run_metrics(run_data: pl.DataFrame) -> Dict:
         .sum()[0, 0]
     )
 
-    informed_volume = total_volume - noise_volume
+    # Calculate informed traded volume
+    informed_volume = (
+        trades.filter(
+            pl.col("content")
+            .struct.field("incoming_message")
+            .struct.field("trader_id")
+            .str.contains("INFORMED")
+        )
+        .select(
+            pl.col("content").struct.field("incoming_message").struct.field("amount")
+        )
+        .sum()[0, 0]
+    )
+
+    # Calculate book initializer traded volume
+    book_initializer_volume = (
+        trades.filter(
+            pl.col("content")
+            .struct.field("incoming_message")
+            .struct.field("trader_id")
+            .str.contains("BOOK_INITIALIZER")
+        )
+        .select(
+            pl.col("content").struct.field("incoming_message").struct.field("amount")
+        )
+        .sum()[0, 0]
+    )
 
     # Calculate prices
     midprices = run_data.select(pl.col("content").struct.field("midpoint"))
-    initial_midprice = midprices[0, 0]
     lowest_midprice = midprices.min()[0, 0]
     final_midprice = midprices[-1, 0]
 
     # Calculate VWAP for informed traders
-    informed_trades = run_data.filter(
+    informed_trades = trades.filter(
         pl.col("content")
         .struct.field("incoming_message")
         .struct.field("trader_id")
         .str.contains("INFORMED")
     )
     informed_vwap = (
-        informed_trades.select(
+        (
+            informed_trades.select(
+                pl.col("content").struct.field("incoming_message").struct.field("amount")
+            )
+            * informed_trades.select(pl.col("content").struct.field("transaction_price"))
+        ).sum()[0, 0]
+        / informed_trades.select(
             pl.col("content").struct.field("incoming_message").struct.field("amount")
-        )
-        * informed_trades.select(pl.col("content").struct.field("transaction_price"))
-    ).sum()[0, 0] / informed_trades.select(
-        pl.col("content").struct.field("incoming_message").struct.field("amount")
-    ).sum()[
-        0, 0
-    ]
+        ).sum()[0, 0]
+    ) if informed_trades.select(pl.col("content").struct.field("incoming_message").struct.field("amount")).sum()[0, 0] > 0 else None
 
     metrics = {
-        "Total Volume": total_volume,
-        "Volume Noise": noise_volume,
-        "Volume Informed": informed_volume,
-        "Initial Midprice": initial_midprice,
+        "Total Traded Volume": total_volume,
+        "Traded Volume Noise": noise_volume,
+        "Traded Volume Informed": informed_volume,
+        "Traded Volume Book Initializer": book_initializer_volume,
         "Lowest Midprice": lowest_midprice,
         "Final Midprice": final_midprice,
         "VWAP Informed": informed_vwap,
     }
 
     return metrics
-
-
+    
 if __name__ == "__main__":
     run_data = get_data_from_mongodb()
     time_series_metrics = calculate_time_series_metrics(run_data)
     end_of_run_metrics = calculate_end_of_run_metrics(run_data)
+    
+    # Print end-of-run metrics
+    print("End of Run Metrics:")
+    for key, value in end_of_run_metrics.items():
+        print(f"{key}: {value}")
+    
+    print("\nTime Series Metrics:")
     for session_id, metrics_df in time_series_metrics.items():
         output_path = f"{CONFIG.DATA_DIR}/time_series_metrics_{session_id}.csv"
         # metrics_df.write_csv(output_path)
+        print(f"\nSession ID: {session_id}")
         print(metrics_df.head())
         plot_session_metrics(metrics_df, session_id)
