@@ -171,7 +171,6 @@ class ActionType(str, Enum):
     UPDATE_BOOK_STATUS = "update_book_status"
     REGISTER = "register_me"
 
-
 class OrderType(IntEnum):
     ASK = -1  # the price a seller is willing to accept for a security
     BID = 1  # the price a buyer is willing to pay for a security
