@@ -42,7 +42,7 @@ class TraderManager:
 
         # Create traders with descriptive names
         self.noise_traders = self._create_noise_traders(n_noise_traders, params, settings, settings_noise)
-        self.informed_traders = self._create_informed_traders(n_informed_traders, params)
+        self.informed_traders = self._create_informed_traders(n_informed_traders, params, self.noise_traders[0])
         self.human_traders = self._create_human_traders(n_human_traders, cash, shares)
 
         self.traders = {t.id: t for t in self.noise_traders + self.informed_traders + self.human_traders + [self.book_initializer]}
@@ -77,10 +77,11 @@ class TraderManager:
         ) for i in range(n_noise_traders)]
 
 
-    def _create_informed_traders(self, n_informed_traders, params):
+    def _create_informed_traders(self, n_informed_traders, params, noise_trader):
         return [InformedTrader(
             id=f"INFORMED_{i+1}",
-            params=params
+            params=params,
+            noise_trader=noise_trader
         ) for i in range(n_informed_traders)]
 
     def _create_human_traders(self, n_human_traders, cash, shares):

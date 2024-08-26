@@ -55,7 +55,7 @@ class TraderCreationData(BaseModel):
         ge=0,
     )
     trading_day_duration: int = Field(
-        default=1,
+        default=5,
         title="Trading Day Duration",
         description="model_parameter",
         gt=0,
@@ -92,7 +92,7 @@ class TraderCreationData(BaseModel):
         description="noise_parameter",
     )
     informed_trade_intensity: float = Field(
-        default=0.1,
+        default=0.4,
         title="Trade Intensity",
         description="informed_parameter",
     )

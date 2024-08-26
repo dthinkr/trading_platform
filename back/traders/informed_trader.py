@@ -2,6 +2,7 @@ import asyncio
 from structures import OrderType, TraderType, TradeDirection
 from main_platform.custom_logger import setup_custom_logger
 from .base_trader import BaseTrader
+from .noise_trader import NoiseTrader
 
 logger = setup_custom_logger(__name__)
 
@@ -10,45 +11,57 @@ class InformedTrader(BaseTrader):
     def __init__(
         self,
         id: str,
-        params: dict
+        params: dict,
+        noise_trader: NoiseTrader
     ):
         super().__init__(trader_type=TraderType.INFORMED, id=id)
-        self.noise_activity_frequency = params.get("noise_activity_frequency", 1)
         self.default_price = params.get("default_price", 2000)
         self.informed_edge = params.get("informed_edge", 5)
         self.next_sleep_time = params.get("noise_activity_frequency", 1)
-        self.initialize_inventory(params)
+        self.noise_trader = noise_trader
+        self.params = params
+        self.goal = self.initialize_inventory(params)
 
     def initialize_inventory(self, params: dict) -> None:
-        print('informed intiialziing')
+        expected_noise_amount_per_action = (1 + params['max_order_amount']) / 2
+        expected_noise_number_of_actions = params["trading_day_duration"] * 60 / params["noise_activity_frequency"]
+        expected_noise_volume = expected_noise_amount_per_action * expected_noise_number_of_actions * (1 - params["noise_passive_probability"])
+        x = params["informed_trade_intensity"]
+        
+        expected_informed_volume = int((x / (1 - x)) * expected_noise_volume)
+
         if params["informed_trade_direction"] == TradeDirection.BUY:
+            goal = expected_informed_volume * params["default_price"]
             self.shares = 0
-            self.cash = 1e6
-        elif params["informed_trade_direction"] == TradeDirection.SELL:
-            self.shares = 
-            self.cash = 0
+            self.cash = goal
+            
         else:
-            raise ValueError(f"Invalid direction: {settings['direction']}")
+            goal = expected_informed_volume
+            self.shares = goal
+            self.cash = 0
+        
+        return goal
+        
 
     def get_remaining_time(self) -> float:
-        return self.settings["total_seconds"] - self.get_elapsed_time()
+        return self.params["trading_day_duration"] * 60 - self.get_elapsed_time()
 
     def calculate_sleep_time(self, remaining_time: float) -> float:
         # buying case
-        if self.settings["informed_trade_direction"] == TradeDirection.BUY:
-            if self.shares >= self.settings["inv"]:
+        if self.params["informed_trade_direction"] == TradeDirection.BUY:
+            if self.shares >= self.goal:
                 # target reached
                 return remaining_time
             else:
                 # calculate time
-                shares_needed = self.settings["inv"] - self.shares
+                shares_needed = self.goal - self.shares
                 return (
                     (remaining_time - 5)
                     / max(shares_needed, 1)
                 )
 
         # selling case
-        elif self.settings["informed_trade_direction"] == TradeDirection.SELL:
+        elif self.params["informed_trade_direction"] == TradeDirection.SELL:
             if self.shares == 0:
                 # all sold
                 return remaining_time
@@ -67,7 +80,7 @@ class InformedTrader(BaseTrader):
         if remaining_time <= 0:
             return
 
-        trade_direction = self.settings["informed_trade_direction"]
+        trade_direction = self.params["informed_trade_direction"]
         order_side = (
             OrderType.BID if trade_direction == TradeDirection.BUY else OrderType.ASK
         )
@@ -90,7 +103,7 @@ class InformedTrader(BaseTrader):
         self.next_sleep_time = self.calculate_sleep_time(remaining_time)
 
         # Print information about the trader's actions
-        initial_inventory = self.settings.get("inv", 0)
+        initial_inventory = self.goal
         if trade_direction == TradeDirection.BUY:
             sold_amount = self.shares
             to_sell_amount = initial_inventory - self.shares
@@ -117,8 +130,8 @@ class InformedTrader(BaseTrader):
                     # logger.info("Trading session has ended. Stopping InformedTrader.")
                     break
 
-                # await self.act()
-                # print(f"Action: {'Buying' if self.settings['direction'] == TradeDirection.BUY else 'Selling'}, "
+                await self.act()
+                # print(f"Action: {'Buying' if self.params['informed_trade_direction'] == TradeDirection.BUY else 'Selling'}, "
                 #       f"Inventory: {self.shares} shares, "
                 #       f"Cash: ${self.cash:,.2f}, "
                 #       f"Sleep Time: {self.next_sleep_time:.2f} seconds")
