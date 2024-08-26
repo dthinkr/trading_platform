@@ -10,13 +10,13 @@ class NoiseTrader(BaseTrader):
     def __init__(
         self,
         id: str,
-        activity_frequency: float,
+        noise_activity_frequency: float,
         max_order_amount: int,
         settings: dict,
         settings_noise: dict,
     ):
         super().__init__(trader_type=TraderType.NOISE, id=id)
-        self.activity_frequency = activity_frequency
+        self.noise_activity_frequency = noise_activity_frequency
         self.max_order_amount = max_order_amount
         self.settings = settings
         self.settings_noise = settings_noise
@@ -74,16 +74,12 @@ class NoiseTrader(BaseTrader):
         best_ask = self.order_book["asks"][0]["x"]
         midpoint = (best_bid + best_ask) // 2  # Integer midpoint
 
-        print(f"Midpoint: {midpoint}, Placing {amt} non-executable orders")
-
         for _ in range(amt):
             side = "bid" if random.random() < self.settings_noise["pr_bid"] else "ask"
             if side == "bid":
                 price = midpoint - random.randint(1, levels_n) * step
-                print(f"PLACING NON-EXECUTABLE BID ORDER: {price}")
             else:
                 price = midpoint + random.randint(1, levels_n) * step
-                print(f"PLACING NON-EXECUTABLE ASK ORDER: {price}")
 
             await self.post_new_order(
                 1, price, OrderType.BID if side == "bid" else OrderType.ASK
@@ -111,15 +107,11 @@ class NoiseTrader(BaseTrader):
         else:
             return
 
-        print(f"Base price: {base_price}, Placing {amt} orders on empty {side} side")
-
         for _ in range(amt):
             if side == "bid":
                 price = base_price - random.randint(1, levels_n) * step
-                print(f"PLACING BID ORDER ON EMPTY SIDE: {price}")
             else:
                 price = base_price + random.randint(1, levels_n) * step
-                print(f"PLACING ASK ORDER ON EMPTY SIDE: {price}")
 
             await self.post_new_order(
                 1, price, OrderType.BID if side == "bid" else OrderType.ASK
@@ -127,7 +119,6 @@ class NoiseTrader(BaseTrader):
             self.historical_placed_orders += 1
 
     async def act(self) -> None:
-        print("ACTING")
         if not self.order_book:
             return
 
@@ -150,20 +141,18 @@ class NoiseTrader(BaseTrader):
             await self.place_aggressive_orders(amt)
             action = "executable"
 
-        print(self.settings_noise)
-
-        print(f"NoiseTrader {self.id} - Action: {action}, Amount: {amt}")
-        print(f"Historical Cancelled Orders: {self.historical_cancelled_orders}")
-        print(f"Historical Placed Orders: {self.historical_placed_orders}")
-        print(f"Historical Matched Orders: {self.historical_matched_orders}")
-        print("--------------------")
+        # print(f"NoiseTrader {self.id} - Action: {action}, Amount: {amt}")
+        # print(f"Historical Cancelled Orders: {self.historical_cancelled_orders}")
+        # print(f"Historical Placed Orders: {self.historical_placed_orders}")
+        # print(f"Historical Matched Orders: {self.historical_matched_orders}")
+        # print("--------------------")
 
     async def run(self) -> None:
         while not self._stop_requested.is_set():
             try:
                 await self.act()
                 await asyncio.sleep(
-                    self.cooling_interval(target=self.activity_frequency)
+                    self.cooling_interval(target=self.noise_activity_frequency)
                 )
             except asyncio.CancelledError:
                 await self.clean_up()

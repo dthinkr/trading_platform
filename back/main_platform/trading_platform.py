@@ -267,6 +267,37 @@ class TradingSession:
             }
 
     @if_active
+    async def handle_cancel_order(self, data: dict) -> Dict:
+        order_id = data.get("order_id")
+        trader_id = data.get("trader_id")
+        
+        try:
+            uuid_order_id = UUID(order_id)
+        except ValueError:
+            return {"status": "failed", "reason": "Invalid order ID format"}
+
+        cancel_result = self.order_book.cancel_order(uuid_order_id)
+
+        if cancel_result:
+            Message(
+                trading_session_id=self.id,
+                content={
+                    "action": "order_cancelled",
+                    "order_id": str(uuid_order_id),
+                    "details": data.get("order_details"),
+                },
+            ).save()
+
+            return {
+                "status": "cancel success",
+                "order_id": str(uuid_order_id),
+                "type": "ORDER_CANCELLED",
+                "respond": True,
+            }
+
+        return {"status": "failed", "reason": "Order not found or cancellation failed"}
+
+    @if_active
     async def handle_register_me(self, msg_body: Dict) -> Dict:
         trader_id = msg_body.get("trader_id")
         trader_type = msg_body.get("trader_type")

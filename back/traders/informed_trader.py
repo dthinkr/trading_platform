@@ -10,59 +10,45 @@ class InformedTrader(BaseTrader):
     def __init__(
         self,
         id: str,
-        activity_frequency: int,
-        default_price: int,
-        informed_edge: int,
-        settings: dict,
-        settings_informed: dict,
-        informed_time_plan: dict,
-        informed_state: dict,
-        get_signal_informed: callable,
-        get_order_to_match: callable,
+        params: dict
     ):
         super().__init__(trader_type=TraderType.INFORMED, id=id)
-        self.activity_frequency = activity_frequency
-        self.default_price = default_price
-        self.informed_edge = informed_edge
-        self.settings = settings
-        self.settings_informed = settings_informed
-        self.informed_time_plan = informed_time_plan
-        self.informed_state = informed_state
-        self.get_signal_informed = get_signal_informed
-        self.get_order_to_match = get_order_to_match
-        self.next_sleep_time = activity_frequency
-        self.initialize_inventory(settings_informed)
+        self.noise_activity_frequency = params.get("noise_activity_frequency", 1)
+        self.default_price = params.get("default_price", 2000)
+        self.informed_edge = params.get("informed_edge", 5)
+        self.next_sleep_time = params.get("noise_activity_frequency", 1)
+        self.initialize_inventory(params)
 
-    def initialize_inventory(self, settings_informed: dict) -> None:
-        if settings_informed["direction"] == TradeDirection.BUY:
+    def initialize_inventory(self, params: dict) -> None:
+        print('informed intiialziing')
+        if params["informed_trade_direction"] == TradeDirection.BUY:
             self.shares = 0
             self.cash = 1e6
-        elif settings_informed["direction"] == TradeDirection.SELL:
-            self.shares = settings_informed["inv"]
+        elif params["informed_trade_direction"] == TradeDirection.SELL:
+            self.shares = 
             self.cash = 0
         else:
-            raise ValueError(f"Invalid direction: {settings_informed['direction']}")
+            raise ValueError(f"Invalid direction: {settings['direction']}")
 
     def get_remaining_time(self) -> float:
-        return self.settings_informed["total_seconds"] - self.get_elapsed_time()
+        return self.settings["total_seconds"] - self.get_elapsed_time()
 
     def calculate_sleep_time(self, remaining_time: float) -> float:
         # buying case
-        if self.settings_informed["direction"] == TradeDirection.BUY:
-            if self.shares >= self.settings_informed["inv"]:
+        if self.settings["informed_trade_direction"] == TradeDirection.BUY:
+            if self.shares >= self.settings["inv"]:
                 # target reached
                 return remaining_time
             else:
                 # calculate time
-                shares_needed = self.settings_informed["inv"] - self.shares
+                shares_needed = self.settings["inv"] - self.shares
                 return (
                     (remaining_time - 5)
                     / max(shares_needed, 1)
-                    # * self.settings_informed["trade_intensity"]
                 )
 
         # selling case
-        elif self.settings_informed["direction"] == TradeDirection.SELL:
+        elif self.settings["informed_trade_direction"] == TradeDirection.SELL:
             if self.shares == 0:
                 # all sold
                 return remaining_time
@@ -71,7 +57,6 @@ class InformedTrader(BaseTrader):
                 return (
                     remaining_time
                     / max(self.shares, 1)
-                    # * self.settings_informed["trade_intensity"]
                 )
 
         # default case
@@ -82,7 +67,7 @@ class InformedTrader(BaseTrader):
         if remaining_time <= 0:
             return
 
-        trade_direction = self.settings_informed["direction"]
+        trade_direction = self.settings["informed_trade_direction"]
         order_side = (
             OrderType.BID if trade_direction == TradeDirection.BUY else OrderType.ASK
         )
@@ -105,7 +90,7 @@ class InformedTrader(BaseTrader):
         self.next_sleep_time = self.calculate_sleep_time(remaining_time)
 
         # Print information about the trader's actions
-        initial_inventory = self.settings_informed.get("inv", 0)
+        initial_inventory = self.settings.get("inv", 0)
         if trade_direction == TradeDirection.BUY:
             sold_amount = self.shares
             to_sell_amount = initial_inventory - self.shares
@@ -132,8 +117,8 @@ class InformedTrader(BaseTrader):
                     # logger.info("Trading session has ended. Stopping InformedTrader.")
                     break
 
-                await self.act()
-                # print(f"Action: {'Buying' if self.settings_informed['direction'] == TradeDirection.BUY else 'Selling'}, "
+                # await self.act()
+                # print(f"Action: {'Buying' if self.settings['direction'] == TradeDirection.BUY else 'Selling'}, "
                 #       f"Inventory: {self.shares} shares, "
                 #       f"Cash: ${self.cash:,.2f}, "
                 #       f"Sleep Time: {self.next_sleep_time:.2f} seconds")

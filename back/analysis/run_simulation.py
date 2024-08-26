@@ -119,7 +119,7 @@ def generate_parameters(bounds):
         for values in param_values:
             param_dict = {}
             for name, value in zip(problem['names'], values):
-                if name == "trade_direction_informed":
+                if name == "informed_trade_direction":
                     param_dict[name] = "buy" if round(value) == 1 else "sell"
                 elif isinstance(bounds[name][0], int) and isinstance(bounds[name][1], int):
                     param_dict[name] = int(round(value))

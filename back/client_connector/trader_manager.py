@@ -7,7 +7,6 @@ so they can communicate with them.
 from structures import TraderCreationData, OrderType, ActionType, TraderType
 from typing import List
 from traders import HumanTrader, NoiseTrader, InformedTrader, BookInitializer
-from external_traders.informed_naive import get_signal_informed, get_order_to_match, settings_informed, update_settings_informed
 from main_platform import TradingSession
 import asyncio
 from main_platform.custom_logger import setup_custom_logger
@@ -40,11 +39,10 @@ class TraderManager:
         # Prepare settings
         settings = self._prepare_settings(params)
         settings_noise = self._prepare_noise_settings(params, settings)
-        updated_settings_informed, informed_time_plan, informed_state = self._prepare_informed_settings(params, settings_noise)
 
         # Create traders with descriptive names
         self.noise_traders = self._create_noise_traders(n_noise_traders, params, settings, settings_noise)
-        self.informed_traders = self._create_informed_traders(n_informed_traders, params, settings, updated_settings_informed, informed_time_plan, informed_state)
+        self.informed_traders = self._create_informed_traders(n_informed_traders, params)
         self.human_traders = self._create_human_traders(n_human_traders, cash, shares)
 
         self.traders = {t.id: t for t in self.noise_traders + self.informed_traders + self.human_traders + [self.book_initializer]}
@@ -69,35 +67,20 @@ class TraderManager:
             'step': settings['step']
         }
 
-    def _prepare_informed_settings(self, params, settings_noise):
-        settings_informed['time_period_in_min'] = params.get('trading_day_duration')
-        settings_informed['trade_intensity'] = params.get('trade_intensity_informed')
-        settings_informed['direction'] = params.get('trade_direction_informed')
-        settings_informed['NoiseTrader_frequency_activity'] = params.get('activity_frequency')
-        settings_informed['pr_passive'] = settings_noise['pr_passive']
-        return update_settings_informed(settings_informed)
-
     def _create_noise_traders(self, n_noise_traders, params, settings, settings_noise):
         return [NoiseTrader(
             id=f"NOISE_{i+1}",
-            activity_frequency=params.get('activity_frequency'),
+            noise_activity_frequency=params.get('noise_activity_frequency'),
             max_order_amount=params.get('max_order_amount'),
             settings=settings,
             settings_noise=settings_noise
         ) for i in range(n_noise_traders)]
 
-    def _create_informed_traders(self, n_informed_traders, params, settings, updated_settings_informed, informed_time_plan, informed_state):
+
+    def _create_informed_traders(self, n_informed_traders, params):
         return [InformedTrader(
             id=f"INFORMED_{i+1}",
-            activity_frequency=params.get('activity_frequency'),
-            default_price=params.get('default_price'),
-            informed_edge=params.get('informed_edge'),
-            settings=settings,
-            settings_informed=updated_settings_informed,
-            informed_time_plan=informed_time_plan,
-            informed_state=informed_state,
-            get_signal_informed=get_signal_informed,
-            get_order_to_match=get_order_to_match
+            params=params
         ) for i in range(n_informed_traders)]
 
     def _create_human_traders(self, n_human_traders, cash, shares):
