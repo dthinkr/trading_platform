@@ -263,8 +263,7 @@ async def get_experiment_status(trading_session_id: str):
             "is_finished": is_finished
         }
     }
-
-
+    
 @app.get("/experiment/time_series_metrics/{trading_session_id}")
 async def get_time_series_metrics(trading_session_id: str):
     trader_manager = trader_managers.get(trading_session_id)

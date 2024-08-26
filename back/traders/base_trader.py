@@ -277,7 +277,6 @@ class BaseTrader:
         }
 
         await self.send_to_trading_system(cancel_order_request)
-        logger.info(f"Trader {self.id} sent cancel order request: {cancel_order_request}")
 
     async def run(self):
         # Placeholder method for compatibility with the trading system

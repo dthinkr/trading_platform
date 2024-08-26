@@ -49,13 +49,13 @@ class TraderCreationData(BaseModel):
         ge=0,
     )
     num_informed_traders: int = Field(
-        default=1,
+        default=0,
         title="Number of Informed Traders",
         description="model_parameter",
         ge=0,
     )
     trading_day_duration: int = Field(
-        default=5,
+        default=1,
         title="Trading Day Duration",
         description="model_parameter",
         gt=0,
@@ -71,14 +71,24 @@ class TraderCreationData(BaseModel):
         description="noise_parameter",
         gt=0,
     )
-    order_amount: int = Field(
+    max_order_amount: int = Field(
         default=9,
         title="Order Amount",
         description="noise_parameter",
     )
-    passive_order_probability: float = Field(
+    noise_passive_probability: float = Field(
         default=0.7,
         title="Passive Order Probability",
+        description="noise_parameter",
+    )
+    noise_cancel_probability: float = Field(
+        default=0.1,
+        title="Cancel Order Probability",
+        description="noise_parameter",
+    )
+    noise_bid_probability: float = Field(
+        default=0.5,
+        title="Bid Order Probability",
         description="noise_parameter",
     )
     trade_intensity_informed: float = Field(
