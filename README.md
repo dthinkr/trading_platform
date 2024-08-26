@@ -119,11 +119,18 @@ trading_platform/
 
 ## Recent Updates
 
+### August 26, 2024 (v1.1.1)
+
+- 🔧 Fixed noise trader behavior to accurately reflect expected order execution rates
+- 📊 Corrected informed trader's trading volume calculation
+- 🔍 Enhanced trade execution recording in time series data and added detailed price information (bid, ask) to output
+
 ### August 16, 2024 (v1.1.0)
 
 - 🔄 Implemented background processing for multiple trading sessions
 - 📁 Improved CSV export functionality
 - 🖼️ Added visual summary of time-series results
+- known issue: order book log does not update correclty when there is matched trade
 
 ### August 1, 2024 (v1.0.2)
 

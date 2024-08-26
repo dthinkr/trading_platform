@@ -12,6 +12,7 @@ from client_connector.trader_manager import TraderManager
 from structures import TraderCreationData
 from main_platform.custom_logger import setup_custom_logger
 from analysis.record_pm import calculate_time_series_metrics, calculate_end_of_run_metrics, plot_session_metrics
+import traceback
 
 logger = setup_custom_logger(__name__)
 
@@ -22,6 +23,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Disposition"]
 )
 
 trader_managers = {}
@@ -224,7 +226,8 @@ async def get_session_metrics(id: str):
     return StreamingResponse(
         csv_buffer,
         media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename=session_metrics_{session_id}.csv"}
+        headers={"Content-Disposition": f"attachment; filename=session_metrics_{session_id}.csv",
+                    "Access-Control-Expose-Headers": "Content-Disposition"}
     )
 
 
@@ -260,8 +263,7 @@ async def get_experiment_status(trading_session_id: str):
             "is_finished": is_finished
         }
     }
-
-
+    
 @app.get("/experiment/time_series_metrics/{trading_session_id}")
 async def get_time_series_metrics(trading_session_id: str):
     trader_manager = trader_managers.get(trading_session_id)
@@ -310,5 +312,10 @@ async def get_session_plot(trading_session_id: str):
 
         return Response(content=svg_string, media_type="image/svg+xml")
     except Exception as e:
-        logger.error(f"Error generating session plot: {str(e)}")
-        raise HTTPException(status_code=500, detail="Error generating session plot")
+        error_details = {
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }
+        print(error_details)
+        logger.error(f"Error generating session plot: {error_details}")
+        raise HTTPException(status_code=500, detail=error_details)

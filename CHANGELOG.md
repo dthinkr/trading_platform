@@ -12,13 +12,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Make all Control Questions mandatory and show correct answers with explanations
 - Adjust profits to range from 5 to 15 GBP
 
-## [1.1.0] - 2024-08-16
+## [1.1.1][1.1.1] - 2024-08-26
+
+### Fixed
+
+- Corrected noise trader behavior to match expected order execution rate
+- Fixed informed trader's trading volume calculation
+- Improved trade execution recording in time series data
+- Added columns for bid, ask, and actual trade price in time series output
+- Refined num_trades column to accurately reflect executed trades
+
+### Known Issue
+
+- Order book log does not update correctly when there is matched trade
+
+## [1.1.0][1.1.0] - 2024-08-16
 
 ### Added
+
 - Background processing for multiple trading sessions
 - Visual summary of time-series results directly on the platform
 
 ### Changed
+
 - Review and adjust initial midprice and tick size
 
 ## [1.0.2] - 2024-08-01
@@ -104,7 +120,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Customizable trading scenarios
 - Basic data analysis tools
 
-
+[1.1.1]: https://github.com/dthinkr/trading_platform/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/dthinkr/trading_platform/compare/v1.0.2...v1.1.0
 [1.0.1]: https://github.com/dthinkr/trading_platform/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/dthinkr/trading_platform/compare/v0.2.0...v1.0.0

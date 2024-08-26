@@ -42,15 +42,15 @@ class TraderCreationData(BaseModel):
         description="model_parameter",
         ge=0,
     )
-    start_of_book_num_order_per_level: int = Field(
-        default=7,
-        title="Orders per Level at Book Start",
-        description="model_parameter",
-        ge=0,
-    )
     num_informed_traders: int = Field(
         default=1,
         title="Number of Informed Traders",
+        description="model_parameter",
+        ge=0,
+    )
+    start_of_book_num_order_per_level: int = Field(
+        default=7,
+        title="Orders per Level at Book Start",
         description="model_parameter",
         ge=0,
     )
@@ -65,28 +65,38 @@ class TraderCreationData(BaseModel):
         title="Step for New Orders",
         description="model_parameter",
     )
-    activity_frequency: float = Field(
+    noise_activity_frequency: float = Field(
         default=1.0,
         title="Activity Frequency",
         description="noise_parameter",
         gt=0,
     )
-    order_amount: int = Field(
-        default=5,
+    max_order_amount: int = Field(
+        default=9,
         title="Order Amount",
         description="noise_parameter",
     )
-    passive_order_probability: float = Field(
+    noise_passive_probability: float = Field(
         default=0.7,
         title="Passive Order Probability",
         description="noise_parameter",
     )
-    trade_intensity_informed: float = Field(
+    noise_cancel_probability: float = Field(
         default=0.1,
+        title="Cancel Order Probability",
+        description="noise_parameter",
+    )
+    noise_bid_probability: float = Field(
+        default=0.5,
+        title="Bid Order Probability",
+        description="noise_parameter",
+    )
+    informed_trade_intensity: float = Field(
+        default=0.4,
         title="Trade Intensity",
         description="informed_parameter",
     )
-    trade_direction_informed: TradeDirection = Field(
+    informed_trade_direction: TradeDirection = Field(
         default=TradeDirection.SELL,
         title="Trade Direction",
         description="informed_parameter",
@@ -139,6 +149,16 @@ class TraderCreationData(BaseModel):
         description="human_parameter",
         gt=0,
     )
+    
+    def dump_params_by_description(self) -> dict:
+        """Dump parameters into a dict of dict indexed by description."""
+        result = {}
+        for field_name, field_info in self.model_fields.items():
+            description = field_info.description
+            if description not in result:
+                result[description] = {}
+            result[description][field_name] = getattr(self, field_name)
+        return result
 
 
 class LobsterEventType(IntEnum):
@@ -161,11 +181,9 @@ class ActionType(str, Enum):
     UPDATE_BOOK_STATUS = "update_book_status"
     REGISTER = "register_me"
 
-
 class OrderType(IntEnum):
     ASK = -1  # the price a seller is willing to accept for a security
     BID = 1  # the price a buyer is willing to pay for a security
-
 
 # let's write an inverse correspondence between the order type and the string
 str_to_order_type = {"ask": OrderType.ASK, "bid": OrderType.BID}
