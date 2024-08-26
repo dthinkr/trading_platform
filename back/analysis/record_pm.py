@@ -104,6 +104,7 @@ def process_session(
                     pl.col("content").struct.field("incoming_message").struct.field("amount").cast(pl.Int64).cast(pl.Utf8) + "," +
                     pl.col("content").struct.field("incoming_message").struct.field("order_type").cast(pl.Int64).cast(pl.Utf8)
                 ).alias("incoming_message"),
+                pl.col("content").struct.field("type").alias("message_type"),
             ]
         ).sort("seconds_into_session")
 
@@ -114,7 +115,7 @@ def process_session(
             (pl.col("adjusted_amount") == -1).cum_sum().alias("total_cancellations"),
             (pl.col("order_type") == 1).cum_sum().alias("total_buy_orders"),
             (pl.col("order_type") == -1).cum_sum().alias("total_sell_orders"),
-            pl.col("transaction_price").is_not_null().cum_sum().alias("num_trades"),
+            (pl.col("message_type") == "FILLED_ORDER").cum_sum().alias("num_trades"),
             (pl.col("transaction_price") * pl.col("adjusted_amount"))
             .cum_sum()
             .alias("total_volume"),
@@ -134,6 +135,8 @@ def process_session(
             pl.col("order_book")
             .map_elements(calculate_order_book_imbalance, return_dtype=pl.Float64)
             .alias("order_book_imbalance"),
+            pl.col("order_book").map_elements(lambda x: json.dumps(x) if x else None).alias("order_book_str"),
+
             (
                 pl.when(pl.col("num_trades") > 0)
                 .then(pl.col("total_volume") / pl.col("num_trades"))
@@ -160,8 +163,10 @@ def process_session(
 
     columns_to_keep = [
         "source",
-        "seconds_into_session",
+        "message_type",
         "incoming_message",
+        "order_book_str",
+        "seconds_into_session",
         "total_orders",
         "total_cancellations",
         "total_buy_orders",
@@ -186,7 +191,7 @@ def process_session(
     return time_series_metrics.select(
         [
             pl.col(col).cast(pl.Float64).round(2)
-            if schema[col] in [pl.Float32, pl.Float64]
+            if schema[col] in [pl.Float32, pl.Float64] and col != "order_book"
             else pl.col(col)
             for col in columns_to_keep
         ]
@@ -342,7 +347,7 @@ if __name__ == "__main__":
     print("\nTime Series Metrics:")
     for session_id, metrics_df in time_series_metrics.items():
         output_path = f"{CONFIG.DATA_DIR}/time_series_metrics_{session_id}.csv"
-        # metrics_df.write_csv(output_path)
+        metrics_df.write_csv(output_path)
         print(f"\nSession ID: {session_id}")
         print(metrics_df.head())
         plot_session_metrics(metrics_df, session_id)
