@@ -2,16 +2,8 @@ import asyncio
 import random
 import numpy as np
 from structures import OrderType, TraderType, ActionType
-from main_platform.utils import (
-    convert_to_book_format_new,
-    convert_to_noise_state,
-    convert_to_trader_actions,
-)
-from main_platform.custom_logger import setup_custom_logger
 from .base_trader import BaseTrader
 import math
-
-logger = setup_custom_logger(__name__)
 
 
 class NoiseTrader(BaseTrader):
@@ -19,131 +11,162 @@ class NoiseTrader(BaseTrader):
         self,
         id: str,
         activity_frequency: float,
-        order_amount: int,
+        max_order_amount: int,
         settings: dict,
         settings_noise: dict,
     ):
-        super().__init__(trader_type=TraderType.NOISE, id = id)
+        super().__init__(trader_type=TraderType.NOISE, id=id)
         self.activity_frequency = activity_frequency
-        self.order_amount = order_amount
+        self.max_order_amount = max_order_amount
         self.settings = settings
         self.settings_noise = settings_noise
-        self.step = self.settings_noise["step"]
-        self.initial_value = self.settings["initial"]
-
         self.cash = math.inf
         self.shares = math.inf
-        
+
+        # Historical tracking
+        self.historical_cancelled_orders = 0
+        self.historical_placed_orders = 0
+        self.historical_matched_orders = 0
 
     def cooling_interval(self, target: float) -> float:
-        interval = np.random.gamma(shape=1,scale=1/target)
-        return interval
+        return np.random.gamma(shape=1, scale=1 / target)
 
-    def get_noise_order(self, book_format, pr_bid):
-        order = {"bid": {}, "ask": {}}
+    async def cancel_orders(self, amt):
+        if not self.orders:
+            return
+
+        orders_to_cancel = random.sample(self.orders, min(amt, len(self.orders)))
+        for order in orders_to_cancel:
+            await self.send_cancel_order_request(order["id"])
+            self.historical_cancelled_orders += 1
+
+    async def place_aggressive_orders(self, amt):
+        remaining_amt = amt
+        side = random.choice(["bid", "ask"])
+        opposite_side = "asks" if side == "bid" else "bids"
+        price_levels = sorted(
+            self.order_book[opposite_side],
+            key=lambda x: x["x"],
+            reverse=(side == "bid"),
+        )
+
+        for level in price_levels:
+            price = level["x"]
+            available_volume = level["y"]
+            order_volume = min(remaining_amt, available_volume)
+            if order_volume > 0:
+                await self.post_new_order(
+                    order_volume,
+                    price,
+                    OrderType.BID if side == "bid" else OrderType.ASK,
+                )
+                self.historical_placed_orders += order_volume
+                self.historical_matched_orders += order_volume
+                remaining_amt -= order_volume
+            if remaining_amt == 0:
+                break
+
+    async def place_passive_orders(self, amt):
         levels_n = self.settings_noise["levels_n"]
         step = self.settings_noise["step"]
-        pr_passive = self.settings_noise["pr_passive"]
-        pr_cancel = self.settings_noise["pr_cancel"]
 
-        pr_passive_signal = np.random.uniform(0, 1) < pr_passive
-        pr_bid_signal = np.random.uniform(0, 1) < pr_bid
-        pr_cancel_signal = np.random.uniform(0, 1) < pr_cancel
+        best_bid = self.order_book["bids"][0]["x"]
+        best_ask = self.order_book["asks"][0]["x"]
+        midpoint = (best_bid + best_ask) // 2  # Integer midpoint
 
-        if pr_passive_signal:
-            if pr_bid_signal:
-                best_ask = book_format[0]
-                prices_to_choose = [best_ask - i for i in range(step, step * levels_n)]
-                price = random.choice(prices_to_choose)
-                amount = self.order_amount
-                order["bid"] = {price: [amount]}
+        print(f"Midpoint: {midpoint}, Placing {amt} non-executable orders")
+
+        for _ in range(amt):
+            side = "bid" if random.random() < self.settings_noise["pr_bid"] else "ask"
+            if side == "bid":
+                price = midpoint - random.randint(1, levels_n) * step
+                print(f"PLACING NON-EXECUTABLE BID ORDER: {price}")
             else:
-                best_bid = book_format[2]
-                prices_to_choose = [best_bid + i for i in range(step, step * levels_n)]
-                price = random.choice(prices_to_choose)
-                amount = self.order_amount
-                order["ask"] = {price: [amount]}
+                price = midpoint + random.randint(1, levels_n) * step
+                print(f"PLACING NON-EXECUTABLE ASK ORDER: {price}")
+
+            await self.post_new_order(
+                1, price, OrderType.BID if side == "bid" else OrderType.ASK
+            )
+            self.historical_placed_orders += 1
+
+    async def place_orders_on_empty_side(self, amt):
+        levels_n = self.settings_noise["levels_n"]
+        step = self.settings_noise["step"]
+
+        if not self.order_book["bids"]:
+            side = "bid"
+            base_price = (
+                self.order_book["asks"][0]["x"]
+                if self.order_book["asks"]
+                else self.settings["default_price"]
+            )
+        elif not self.order_book["asks"]:
+            side = "ask"
+            base_price = (
+                self.order_book["bids"][0]["x"]
+                if self.order_book["bids"]
+                else self.settings["default_price"]
+            )
         else:
-            if pr_bid_signal:
-                best_ask = book_format[0]
-                price = best_ask 
-                amount = self.order_amount
-                order["bid"] = {price: [amount]}
+            return
+
+        print(f"Base price: {base_price}, Placing {amt} orders on empty {side} side")
+
+        for _ in range(amt):
+            if side == "bid":
+                price = base_price - random.randint(1, levels_n) * step
+                print(f"PLACING BID ORDER ON EMPTY SIDE: {price}")
             else:
-                best_bid = book_format[2]
-                price = best_bid 
-                amount = self.order_amount
-                order["ask"] = {price: [amount]}
+                price = base_price + random.randint(1, levels_n) * step
+                print(f"PLACING ASK ORDER ON EMPTY SIDE: {price}")
 
-        if pr_cancel_signal:
-            direction_to_cancel = random.choice(["ask", "bid"])
-            order[direction_to_cancel][None] = [-1]
-
-        return order
+            await self.post_new_order(
+                1, price, OrderType.BID if side == "bid" else OrderType.ASK
+            )
+            self.historical_placed_orders += 1
 
     async def act(self) -> None:
+        print("ACTING")
         if not self.order_book:
             return
 
-        book_format = convert_to_book_format_new(self.order_book)
+        amt = random.randint(1, self.max_order_amount)
 
-        bid_count = len(self.order_book["bids"])
-        ask_count = len(self.order_book["asks"])
+        if not self.order_book["bids"] or not self.order_book["asks"]:
+            await self.place_orders_on_empty_side(amt)
+            action = "empty_side"
 
-        pr_bid = self.settings_noise["pr_bid"]
+        rand_val = random.random()
+        if rand_val < self.settings_noise["pr_cancel"]:
+            await self.cancel_orders(amt)
+            action = "cancel"
 
-        if bid_count == 0:
-            pr_bid = 1  # Force a bid
-        elif ask_count == 0:
-            pr_bid = 0  # Force an ask
+        random_val = random.random()
+        if random_val < self.settings_noise["pr_passive"]:
+            await self.place_passive_orders(amt)
+            action = "non_executable"
+        else:
+            await self.place_aggressive_orders(amt)
+            action = "executable"
 
-        noise_orders = self.get_noise_order(book_format, pr_bid)
-        orders = convert_to_trader_actions(noise_orders)
+        print(self.settings_noise)
 
-        for order in orders:
-            await self.process_order(order)
-    
-
-    async def process_order(self, order) -> None:
-        if order["action_type"] == ActionType.POST_NEW_ORDER.value:
-            order_type = order["order_type"]
-            amount, price = random.randint(1, self.order_amount), order["price"]
-            await self.post_new_order(amount, price, order_type)
-
-            logger.info(
-                "POSTED %s AT %s AMOUNT %s * %s",
-                order["order_type"],
-                price,
-                self.order_amount,
-                order["amount"],
-            )
-
-        elif order["action_type"] == ActionType.CANCEL_ORDER.value:
-            await self.cancel_random_order()
-
-    async def cancel_random_order(self) -> None:
-        if not self.orders:
-            logger.info("No orders to cancel.")
-            return
-
-        order_to_cancel = random.choice(self.orders)
-        order_id = order_to_cancel["id"]
-        await self.send_cancel_order_request(order_id)
-        logger.info(f"Canceled order ID {order_id[:10]}")
+        print(f"NoiseTrader {self.id} - Action: {action}, Amount: {amt}")
+        print(f"Historical Cancelled Orders: {self.historical_cancelled_orders}")
+        print(f"Historical Placed Orders: {self.historical_placed_orders}")
+        print(f"Historical Matched Orders: {self.historical_matched_orders}")
+        print("--------------------")
 
     async def run(self) -> None:
         while not self._stop_requested.is_set():
             try:
                 await self.act()
-                # await self.post_orders_from_list()
-                await asyncio.sleep(self.cooling_interval(target=self.activity_frequency))
-            except asyncio.CancelledError:
-                logger.info(
-                    "Run method cancelled, performing cleanup of %s...",
-                    self.trader_type,
+                await asyncio.sleep(
+                    self.cooling_interval(target=self.activity_frequency)
                 )
+            except asyncio.CancelledError:
                 await self.clean_up()
                 raise
-            except Exception as e:
-                logger.error("An error occurred in NoiseTrader run loop: %s", e)
+            except Exception:
                 break

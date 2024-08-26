@@ -56,16 +56,16 @@ class TraderManager:
     def _prepare_settings(self, params):
         return {
             'levels_n': params.get('order_book_levels'),
-            'initial': params.get('default_price'),
+            'default_price': params.get('default_price'),
             'step': params.get('step')
         }
 
     def _prepare_noise_settings(self, params, settings):
         return {
             'levels_n': settings['levels_n'],
-            'pr_passive': params.get('passive_order_probability'),
-            'pr_cancel': 0.1,
-            'pr_bid': 0.5,
+            'pr_passive': params.get('noise_passive_probability'),
+            'pr_cancel': params.get('noise_cancel_probability'),
+            'pr_bid': params.get('noise_bid_probability'),
             'step': settings['step']
         }
 
@@ -81,7 +81,7 @@ class TraderManager:
         return [NoiseTrader(
             id=f"NOISE_{i+1}",
             activity_frequency=params.get('activity_frequency'),
-            order_amount=params.get('order_amount'),
+            max_order_amount=params.get('max_order_amount'),
             settings=settings,
             settings_noise=settings_noise
         ) for i in range(n_noise_traders)]
