@@ -12,10 +12,10 @@ from main_platform import TradingSession
 async def test_accelerated_experiment():
     params = TraderCreationData(
         default_price=1000,
-        trade_intensity_informed=0.2,
+        informed_trade_intensity=0.2,
         trading_day_duration=5,
         num_noise_traders=2,
-        activity_frequency=1,
+        noise_activity_frequency=1,
         order_amount=100,
         step=1,
         order_book_levels=5,

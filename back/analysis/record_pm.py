@@ -279,99 +279,53 @@ def plot_session_metrics(session_data: pl.DataFrame, session_id: str) -> None:
 
     return svg_string
 
+def calculate_volumes(df, trader_type):
+    filtered = df.filter(pl.col("content").struct.field("incoming_message").struct.field("trader_id").str.contains(trader_type))
+
+    filled_orders = filtered.filter(pl.col("content").struct.field("type") == "FILLED_ORDER")
+    filled = filled_orders.select(pl.col("content").struct.field("incoming_message").struct.field("amount")).sum()[0, 0]
+    added = filtered.filter(pl.col("content").struct.field("type") == "ADDED_ORDER").select(pl.col("content").struct.field("incoming_message").struct.field("amount")).sum()[0, 0]
+    canceled = filtered.filter(pl.col("content").struct.field("type") == "ORDER_CANCELLED").select(pl.col("content").struct.field("incoming_message").struct.field("amount")).sum()[0, 0]
+
+    denominator = filled + added - abs(canceled)
+    ratio = filled / denominator if denominator != 0 else 0
+
+    return f"{filled} / {filled} + {added} - {abs(canceled)} = {ratio:.4f}"
+
+
 def calculate_end_of_run_metrics(run_data: pl.DataFrame) -> Dict:
-    # Extract best bid and ask information from order book
-    def extract_best_bid_ask(order_book):
-        if order_book is None:
-            return [None, None, None, None]
-        
-        bids = order_book.get('bids', [])
-        asks = order_book.get('asks', [])
-        
-        best_bid = max(bids, key=lambda x: x['x'])['x'] if bids else None
-        best_ask = min(asks, key=lambda x: x['x'])['x'] if asks else None
-        best_bid_size = max(bids, key=lambda x: x['x'])['y'] if bids else None
-        best_ask_size = min(asks, key=lambda x: x['x'])['y'] if asks else None
-        
-        return [best_bid, best_ask, best_bid_size, best_ask_size]
 
-    run_data = run_data.with_columns(
-        pl.struct(
-            best_bid=pl.col("content").struct.field("order_book").map_elements(lambda x: extract_best_bid_ask(x)[0], return_dtype=pl.Float64),
-            best_ask=pl.col("content").struct.field("order_book").map_elements(lambda x: extract_best_bid_ask(x)[1], return_dtype=pl.Float64),
-            best_bid_size=pl.col("content").struct.field("order_book").map_elements(lambda x: extract_best_bid_ask(x)[2], return_dtype=pl.Float64),
-            best_ask_size=pl.col("content").struct.field("order_book").map_elements(lambda x: extract_best_bid_ask(x)[3], return_dtype=pl.Float64)
-        ).alias("best_bid_ask")
-    ).with_columns([
-        pl.col("best_bid_ask").struct.field("best_bid").alias("best_bid"),
-        pl.col("best_bid_ask").struct.field("best_ask").alias("best_ask"),
-        pl.col("best_bid_ask").struct.field("best_bid_size").alias("best_bid_size"),
-        pl.col("best_bid_ask").struct.field("best_ask_size").alias("best_ask_size")
-    ])
-
-    is_matched_order = (
-        (pl.col("best_ask") == pl.col("best_ask").shift(1))
-        & (pl.col("best_ask_size") < pl.col("best_ask_size").shift(1))
-    ) | (
-        (pl.col("best_bid") == pl.col("best_bid").shift(1))
-        & (pl.col("best_bid_size") < pl.col("best_bid_size").shift(1))
-    ) | (pl.col("best_bid") < pl.col("best_bid").shift(1)) | (pl.col("best_ask") > pl.col("best_ask").shift(1))
-
-    def calculate_volumes(df, trader_filter=None):
-        base_condition = (pl.col("content").struct.field("incoming_message").struct.field("amount") != -1)
-        
-        if trader_filter is not None:
-            filter_condition = base_condition & trader_filter
-        else:
-            filter_condition = base_condition
-        
-        traded_volume = df.filter(is_matched_order & filter_condition).select(
-            pl.col("content").struct.field("incoming_message").struct.field("amount")
-        ).sum()[0, 0]
-        
-        order_volume = df.filter(filter_condition).select(
-            pl.col("content").struct.field("incoming_message").struct.field("amount")
-        ).sum()[0, 0]
-        
-        return f"{traded_volume}/{order_volume}"
-
-    # Calculate volumes
-    total_volume = calculate_volumes(run_data)
-    noise_volume = calculate_volumes(run_data, pl.col("content").struct.field("incoming_message").struct.field("trader_id").str.contains("NOISE"))
-    informed_volume = calculate_volumes(run_data, pl.col("content").struct.field("incoming_message").struct.field("trader_id").str.contains("INFORMED"))
-    book_initializer_volume = calculate_volumes(run_data, pl.col("content").struct.field("incoming_message").struct.field("trader_id").str.contains("BOOK_INITIALIZER"))
+    metrics = {
+        "Total Volume [filled / (filled + unfilled - canceled)]": calculate_volumes(run_data, ""),
+        "Noise Volume [filled / (filled + unfilled - canceled)]": calculate_volumes(run_data, "NOISE"),
+        "Informed Volume [filled / (filled + unfilled - canceled)]": calculate_volumes(run_data, "INFORMED"),
+        "Book Initializer Volume [filled / (filled + unfilled - canceled)]": calculate_volumes(run_data, "BOOK_INITIALIZER"),
+    }
 
     # Calculate prices
-    midprices = run_data.select(pl.col("content").struct.field("midpoint"))
-    lowest_midprice = midprices.min()[0, 0]
-    final_midprice = midprices[-1, 0]
+    def calculate_midpoint(order_book):
+        if order_book and order_book['bids'] and order_book['asks']:
+            return (order_book['bids'][0]['x'] + order_book['asks'][0]['x']) / 2
+        return None
+
+    midprices = run_data.select(pl.col("content").struct.field("order_book").map_elements(calculate_midpoint, return_dtype=pl.Float64).alias("midpoint"))
+    metrics["Lowest Midprice"] = midprices.min()[0, 0]
+    metrics["Final Midprice"] = midprices.tail(1)[0, 0]
 
     # Calculate VWAP for informed traders
     informed_trades = run_data.filter(
-        is_matched_order
-        & (pl.col("content").struct.field("incoming_message").struct.field("trader_id").str.contains("INFORMED"))
+        (pl.col("content").struct.field("type") == "FILLED_ORDER") & 
+        pl.col("content").struct.field("incoming_message").struct.field("trader_id").str.contains("INFORMED")
     )
-    informed_vwap = (
-        (
-            informed_trades.select(
-                pl.col("content").struct.field("incoming_message").struct.field("amount")
-            )
-            * informed_trades.select(pl.col("content").struct.field("midpoint"))
+    if informed_trades.height > 0:
+        vwap_numerator = (
+            informed_trades.select(pl.col("content").struct.field("incoming_message").struct.field("amount")) * 
+            informed_trades.select(pl.col("content").struct.field("order_book").map_elements(calculate_midpoint, return_dtype=pl.Float64))
         ).sum()[0, 0]
-        / informed_trades.select(
-            pl.col("content").struct.field("incoming_message").struct.field("amount")
-        ).sum()[0, 0]
-    ) if informed_trades.select(pl.col("content").struct.field("incoming_message").struct.field("amount")).sum()[0, 0] > 0 else None
-
-    metrics = {
-        "Total Volume (Traded/Order)": total_volume,
-        "Noise Volume (Traded/Order)": noise_volume,
-        "Informed Volume (Traded/Order)": informed_volume,
-        "Book Initializer Volume (Traded/Order)": book_initializer_volume,
-        "Lowest Midprice": lowest_midprice,
-        "Final Midprice": final_midprice,
-        "VWAP Informed": informed_vwap,
-    }
+        vwap_denominator = informed_trades.select(pl.col("content").struct.field("incoming_message").struct.field("amount")).sum()[0, 0]
+        metrics["VWAP Informed"] = vwap_numerator / vwap_denominator if vwap_denominator != 0 else None
+    else:
+        metrics["VWAP Informed"] = None
 
     return metrics
 
