@@ -244,51 +244,27 @@ class TradingSession:
         order = Order(status=OrderStatus.BUFFERED.value, session_id=self.id, **data)
         order_dict = order.model_dump()
         order_dict["id"] = str(order_dict["id"])
-        placed_order = self.place_order(order_dict)
+        placed_order, immediately_matched = self.order_book.place_order(order_dict)
 
-        matched_orders = self.order_book.clear_orders()
-        transactions = []
-        for ask, bid, transaction_price in matched_orders:
-            transaction = await self.create_transaction(bid, ask, transaction_price)
-            transactions.append(transaction)
-
-        return {
-            "transactions": transactions,
-            "type": "NEW_ORDER_ADDED",
-            "content": "A",
-            "respond": True,
-        }
-
-    @if_active
-    async def handle_cancel_order(self, data: dict) -> Dict:
-        order_id = data.get("order_id")
-        trader_id = data.get("trader_id")
-        
-        try:
-            uuid_order_id = UUID(order_id)
-        except ValueError:
-            return {"status": "failed", "reason": "Invalid order ID format"}
-
-        cancel_result = self.order_book.cancel_order(uuid_order_id)
-
-        if cancel_result:
-            Message(
-                trading_session_id=self.id,
-                content={
-                    "action": "order_cancelled",
-                    "order_id": str(uuid_order_id),
-                    "details": data.get("order_details"),
-                },
-            ).save()
+        if immediately_matched:
+            matched_orders = self.order_book.clear_orders()
+            transactions = []
+            for ask, bid, transaction_price in matched_orders:
+                transaction = await self.create_transaction(bid, ask, transaction_price)
+                transactions.append(transaction)
 
             return {
-                "status": "cancel success",
-                "order_id": str(uuid_order_id),
-                "type": "ORDER_CANCELLED",
+                "transactions": transactions,
+                "type": "FILLED_ORDER",
+                "content": "F",
                 "respond": True,
             }
-
-        return {"status": "failed", "reason": "Order not found or cancellation failed"}
+        else:
+            return {
+                "type": "ADDED_ORDER",
+                "content": "A",
+                "respond": True,
+            }
 
     @if_active
     async def handle_register_me(self, msg_body: Dict) -> Dict:
@@ -317,7 +293,7 @@ class TradingSession:
                 result = await handler_method(incoming_message)
                 if result and result.pop("respond", None) and trader_id:
                     if not result.get("individual", False):
-                        message_type = f"{action.upper()}"
+                        message_type = result.get("type", f"{action.upper()}")
                         await self.send_broadcast(
                             message=dict(text=f"{action} update processed"),
                             message_type=message_type,
