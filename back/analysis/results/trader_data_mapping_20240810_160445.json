@@ -2,7 +2,7 @@
   "sobol_problem": {
     "num_vars": 2,
     "names": [
-      "trade_intensity_informed",
+      "informed_trade_intensity",
       "passive_order_probability"
     ],
     "bounds": [

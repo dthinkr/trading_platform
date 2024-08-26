@@ -9,7 +9,7 @@ def informed_trader_settings():
 
     return {
         "id": "1",
-        "activity_frequency": 10,
+        "noise_activity_frequency": 10,
         "default_price": 100,
         "informed_edge": 1,
         "settings": {
@@ -33,7 +33,7 @@ def informed_trader(informed_trader_settings):
     return InformedTrader(**informed_trader_settings)
 
 def test_initialization(informed_trader):
-    assert informed_trader.activity_frequency == 10
+    assert informed_trader.noise_activity_frequency == 10
     assert informed_trader.default_price == 100
     assert informed_trader.informed_edge == 1
     assert informed_trader.settings["initial_price"] == 100

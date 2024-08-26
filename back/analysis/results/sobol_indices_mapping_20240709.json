@@ -1,6 +1,6 @@
 {
   "parameters": [
-    "trade_intensity_informed",
+    "informed_trade_intensity",
     "passive_order_probability"
   ],
   "S1": [

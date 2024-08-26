@@ -20,7 +20,7 @@ class OrderBook:
     def __setitem__(self, key, value):
         self.all_orders[key] = value
 
-    def place_order(self, order_dict: Dict) -> Dict:
+    def place_order(self, order_dict: Dict) -> Tuple[Dict, bool]:
         order_id = order_dict["id"]
         order_dict["status"] = OrderStatus.ACTIVE.value
         self.all_orders[order_id] = order_dict
@@ -35,7 +35,15 @@ class OrderBook:
                 self.asks[price] = []
             self.asks[price].append(order_dict)
 
-        return order_dict
+        # Check if the order can be immediately matched
+        immediately_matched = self.can_be_matched(order_dict)
+        return order_dict, immediately_matched
+
+    def can_be_matched(self, order: Dict) -> bool:
+        if order["order_type"] == OrderType.BID.value:
+            return bool(self.asks and min(self.asks.keys()) <= order["price"])
+        else:
+            return bool(self.bids and max(self.bids.keys()) >= order["price"])
 
     def get_order_book_snapshot(self) -> Dict:
         return {
