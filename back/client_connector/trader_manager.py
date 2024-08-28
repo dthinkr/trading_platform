@@ -6,7 +6,7 @@ so they can communicate with them.
 
 from structures import TraderCreationData, OrderType, ActionType, TraderType
 from typing import List
-from traders import HumanTrader, NoiseTrader, InformedTrader, BookInitializer
+from traders import HumanTrader, NoiseTrader, InformedTrader, BookInitializer, SimpleOrderTrader
 from main_platform import TradingSession
 import asyncio
 from main_platform.custom_logger import setup_custom_logger
@@ -36,30 +36,48 @@ class TraderManager:
         # Initialize traders
         self.book_initializer = self._create_book_initializer(params)
 
+        self.simple_order_traders = self._create_simple_order_traders()
+
         # Create traders with descriptive names
         self.noise_traders = self._create_noise_traders(n_noise_traders, params)
-        self.informed_traders = self._create_informed_traders(n_informed_traders, params, self.noise_traders[0])
+        self.informed_traders = self._create_informed_traders(n_informed_traders, params)
         self.human_traders = self._create_human_traders(n_human_traders, cash, shares)
 
-        self.traders = {t.id: t for t in self.noise_traders + self.informed_traders + self.human_traders + [self.book_initializer]}
+        self.traders = {t.id: t for t in self.noise_traders + self.informed_traders + self.human_traders + [self.book_initializer] + self.simple_order_traders}
         self.trading_session = TradingSession(duration=params['trading_day_duration'], default_price=params.get('default_price'))
+
+    def _create_simple_order_traders(self):
+        trader1_orders = [
+            {'amount': 1, 'price': 100, 'order_type': OrderType.BID},
+            {'amount': 1, 'price': 101, 'order_type': OrderType.BID},
+            {'amount': 1, 'price': 102, 'order_type': OrderType.BID},
+        ]
+        trader2_orders = [
+            {'amount': 1, 'price': 100, 'order_type': OrderType.ASK},
+            {'amount': 1, 'price': 101, 'order_type': OrderType.ASK},
+            {'amount': 1, 'price': 102, 'order_type': OrderType.ASK},
+        ]
+        return [
+            SimpleOrderTrader(id="SIMPLE_ORDER_1", orders=trader1_orders),
+            SimpleOrderTrader(id="SIMPLE_ORDER_2", orders=trader2_orders)
+        ]
 
     def _create_book_initializer(self, params):
         return BookInitializer(id="BOOK_INITIALIZER", trader_creation_data=params)
 
 
+
     def _create_noise_traders(self, n_noise_traders, params):
         return [NoiseTrader(
             id=f"NOISE_{i+1}",
-            params=params
+            params=params,
         ) for i in range(n_noise_traders)]
 
 
-    def _create_informed_traders(self, n_informed_traders, params, noise_trader):
+    def _create_informed_traders(self, n_informed_traders, params):
         return [InformedTrader(
             id=f"INFORMED_{i+1}",
             params=params,
-            noise_trader=noise_trader
         ) for i in range(n_informed_traders)]
 
     def _create_human_traders(self, n_human_traders, cash, shares):

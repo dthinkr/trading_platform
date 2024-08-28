@@ -74,10 +74,11 @@ class NoiseTrader(BaseTrader):
     async def place_aggressive_orders(self, amt: int, side: str) -> None:
         remaining_amt = amt
         self.historical_matches_intended += amt
+        opposite_side = "asks" if side == "bids" else "bids"
         price_levels = sorted(
-            self.order_book[side],
+            self.order_book[opposite_side],
             key=lambda x: x["x"],
-            reverse=(side == "bids"),
+            reverse=(side != "bids"),
         )
 
         for level in price_levels:

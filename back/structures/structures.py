@@ -37,13 +37,13 @@ class TraderCreationData(BaseModel):
         ge=0,
     )
     num_noise_traders: int = Field(
-        default=1,
+        default=0,
         title="Number of Noise Traders",
         description="model_parameter",
         ge=0,
     )
     num_informed_traders: int = Field(
-        default=1,
+        default=0,
         title="Number of Informed Traders",
         description="model_parameter",
         ge=0,
@@ -213,6 +213,7 @@ class TraderType(str, Enum):
     INFORMED = "INFORMED"
     HUMAN = "HUMAN"
     INITIAL_ORDER_BOOK = "INITIAL_ORDER_BOOK"
+    SIMPLE_ORDER = "SIMPLE_ORDER"
 
 class Order(BaseModel):
     id: UUID = Field(default_factory=uuid4)
