@@ -55,7 +55,7 @@ class TraderCreationData(BaseModel):
         ge=0,
     )
     trading_day_duration: int = Field(
-        default=5,
+        default=1,
         title="Trading Day Duration",
         description="model_parameter",
         gt=0,
@@ -101,6 +101,21 @@ class TraderCreationData(BaseModel):
         title="Trade Direction",
         description="informed_parameter",
     )
+    informed_edge: int = Field(
+        default=2,
+        title="Informed Edge",
+        description="informed_parameter",
+    )
+    informed_order_book_levels: int = Field(
+        default=3,
+        title="Informed Order Book Levels",
+        description="informed_parameter",
+    )
+    informed_order_book_depth: int = Field(
+        default=10,
+        title="Informed Order Book Depth",
+        description="informed_parameter",
+    )
     initial_cash: float = Field(
         default=100000,
         title="Initial Cash",
@@ -126,11 +141,7 @@ class TraderCreationData(BaseModel):
         title="Default Price",
         description="model_parameter",
     )
-    informed_edge: int = Field(
-        default=2,
-        title="Informed Edge",
-        description="informed_parameter",
-    )
+
     num_rounds: int = Field(
         default=3,
         title="Number of Rounds (Placeholder, not used yet)",

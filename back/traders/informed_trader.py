@@ -1,10 +1,8 @@
 import asyncio
 from structures import OrderType, TraderType, TradeDirection
-from main_platform.custom_logger import setup_custom_logger
+
 from .base_trader import BaseTrader
 from .noise_trader import NoiseTrader
-
-logger = setup_custom_logger(__name__)
 
 
 class InformedTrader(BaseTrader):
@@ -21,6 +19,11 @@ class InformedTrader(BaseTrader):
         self.noise_trader = noise_trader
         self.params = params
         self.goal = self.initialize_inventory(params)
+        self.aggressive_orders_count = 0
+        self.total_orders_count = 0
+        self.passive_orders = {}
+        self.informed_order_book_levels = params.get("informed_order_book_levels", 3)
+        self.informed_order_book_depth = params.get("informed_order_book_depth", 10)
 
     def initialize_inventory(self, params: dict) -> None:
         expected_noise_amount_per_action = (1 + params['max_order_amount']) / 2
@@ -81,38 +84,45 @@ class InformedTrader(BaseTrader):
             return
 
         trade_direction = self.params["informed_trade_direction"]
-        order_side = (
-            OrderType.BID if trade_direction == TradeDirection.BUY else OrderType.ASK
-        )
+        order_side = OrderType.BID if trade_direction == TradeDirection.BUY else OrderType.ASK
         
         top_bid = self.get_best_price(OrderType.BID)
         top_ask = self.get_best_price(OrderType.ASK)
         
-        order_placed = False
-        if order_side == OrderType.BID:
-            proposed_price = top_bid + self.informed_edge
-            if proposed_price >= top_ask:
-                await self.post_new_order(1, proposed_price, order_side)
-                order_placed = True
-        else:  # OrderType.ASK
-            proposed_price = top_ask - self.informed_edge
-            if top_bid + self.informed_edge >= proposed_price:
-                await self.post_new_order(1, proposed_price, order_side)
-                order_placed = True
+        if self.should_place_aggressive_order(order_side, top_bid, top_ask):
+            order_placed = await self.place_aggressive_order(order_side, top_bid, top_ask)
+            self.aggressive_orders_count += 1
+            self.total_orders_count += 1
+        else:
+            self.total_orders_count += 1
 
         self.next_sleep_time = self.calculate_sleep_time(remaining_time)
 
-        # Print information about the trader's actions
-        initial_inventory = self.goal
-        if trade_direction == TradeDirection.BUY:
-            sold_amount = self.shares
-            to_sell_amount = initial_inventory - self.shares
-        else:  # TradeDirection.SELL
-            sold_amount = initial_inventory - self.shares
-            to_sell_amount = self.shares
+        print(f"Informed Trader Goal: {self.goal}, Aggressive Orders: {self.aggressive_orders_count}, Total Orders: {self.total_orders_count}")
 
-        # print(f"Informed Trader: {'Buy' if trade_direction == TradeDirection.BUY else 'Sell'} | Traded: {sold_amount}/{initial_inventory} | Order: {'Y' if order_placed else 'N'}")
-        # print(f"Sleep: {self.next_sleep_time:.2f}s | Time left: {remaining_time:.2f}s")
+        # if trade_direction == TradeDirection.BUY:
+        #     sold_amount = self.shares
+        #     to_sell_amount = self.goal - self.shares
+        # else:  # TradeDirection.SELL
+        #     sold_amount = self.goal - self.shares
+        #     to_sell_amount = self.shares
+
+    def should_place_aggressive_order(self, order_side: OrderType, top_bid: float, top_ask: float) -> bool:
+        if order_side == OrderType.BID:
+            proposed_price = top_bid + self.informed_edge
+            return proposed_price >= top_ask
+        else:  # OrderType.ASK
+            proposed_price = top_ask - self.informed_edge
+            return top_bid + self.informed_edge >= proposed_price
+
+    async def place_aggressive_order(self, order_side: OrderType, top_bid: float, top_ask: float) -> bool:
+        if order_side == OrderType.BID:
+            proposed_price = top_bid + self.informed_edge
+        else:  # OrderType.ASK
+            proposed_price = top_ask - self.informed_edge
+        
+        await self.post_new_order(1, proposed_price, order_side)
+        return True
 
     def get_best_price(self, order_side: OrderType) -> float:
         if order_side == OrderType.BID:
@@ -127,21 +137,16 @@ class InformedTrader(BaseTrader):
             try:
                 remaining_time = self.get_remaining_time()
                 if remaining_time <= 0:
-                    # logger.info("Trading session has ended. Stopping InformedTrader.")
                     break
 
                 await self.act()
-                # print(f"Action: {'Buying' if self.params['informed_trade_direction'] == TradeDirection.BUY else 'Selling'}, "
-                #       f"Inventory: {self.shares} shares, "
-                #       f"Cash: ${self.cash:,.2f}, "
-                #       f"Sleep Time: {self.next_sleep_time:.2f} seconds")
 
                 await asyncio.sleep(min(self.next_sleep_time, remaining_time))
             except asyncio.CancelledError:
-                logger.info("Run method cancelled, performing cleanup...")
+                print("Run method cancelled, performing cleanup...")
                 break
             except Exception as e:
-                logger.error(f"An error occurred in InformedTrader run loop: {e}")
+                print(f"An error occurred in InformedTrader run loop: {e}")
                 break
 
-        logger.info("InformedTrader has stopped.")
+        print("InformedTrader has stopped.")
