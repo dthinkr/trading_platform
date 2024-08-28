@@ -1,4 +1,4 @@
-from pymongo import MongoClient
+from pymongo import MongoClient, DESCENDING
 import polars as pl
 from typing import Dict, List
 import numpy as np
@@ -10,7 +10,7 @@ import json
 CONFIG = load_config()
 
 
-def get_data_from_mongodb(session_ids: List[str] = None) -> pl.DataFrame:
+def get_data_from_mongodb(session_ids: List[str] = None, limit: int = None) -> pl.DataFrame:
     client = MongoClient(CONFIG.MONGODB_HOST, CONFIG.MONGODB_PORT)
     db = client[CONFIG.DATASET]
     collection = db[CONFIG.COLLECTION_NAME]
@@ -18,10 +18,22 @@ def get_data_from_mongodb(session_ids: List[str] = None) -> pl.DataFrame:
     if session_ids:
         query = {"trading_session_id": {"$in": session_ids}}
     else:
-        random_session = collection.aggregate([{"$sample": {"size": 1}}]).next()
-        query = {"trading_session_id": random_session["trading_session_id"]}
+        # Get the most recent session ID
+        latest_session = collection.find_one(sort=[("_id", DESCENDING)])
+        query = {"trading_session_id": latest_session["trading_session_id"]}
 
-    data = list(collection.find(query))
+    # Sort by _id in descending order to get the latest documents first
+    cursor = collection.find(query).sort("_id", DESCENDING)
+
+    # Apply limit if specified
+    if limit:
+        cursor = cursor.limit(limit)
+
+    data = list(cursor)
+    
+    # Reverse the list to maintain chronological order
+    data.reverse()
+
     return pl.DataFrame(data)
 
 

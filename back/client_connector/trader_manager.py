@@ -36,12 +36,8 @@ class TraderManager:
         # Initialize traders
         self.book_initializer = self._create_book_initializer(params)
 
-        # Prepare settings
-        settings = self._prepare_settings(params)
-        settings_noise = self._prepare_noise_settings(params, settings)
-
         # Create traders with descriptive names
-        self.noise_traders = self._create_noise_traders(n_noise_traders, params, settings, settings_noise)
+        self.noise_traders = self._create_noise_traders(n_noise_traders, params)
         self.informed_traders = self._create_informed_traders(n_informed_traders, params, self.noise_traders[0])
         self.human_traders = self._create_human_traders(n_human_traders, cash, shares)
 
@@ -51,29 +47,11 @@ class TraderManager:
     def _create_book_initializer(self, params):
         return BookInitializer(id="BOOK_INITIALIZER", trader_creation_data=params)
 
-    def _prepare_settings(self, params):
-        return {
-            'levels_n': params.get('order_book_levels'),
-            'default_price': params.get('default_price'),
-            'step': params.get('step')
-        }
 
-    def _prepare_noise_settings(self, params, settings):
-        return {
-            'levels_n': settings['levels_n'],
-            'pr_passive': params.get('noise_passive_probability'),
-            'pr_cancel': params.get('noise_cancel_probability'),
-            'pr_bid': params.get('noise_bid_probability'),
-            'step': settings['step']
-        }
-
-    def _create_noise_traders(self, n_noise_traders, params, settings, settings_noise):
+    def _create_noise_traders(self, n_noise_traders, params):
         return [NoiseTrader(
             id=f"NOISE_{i+1}",
-            noise_activity_frequency=params.get('noise_activity_frequency'),
-            max_order_amount=params.get('max_order_amount'),
-            settings=settings,
-            settings_noise=settings_noise
+            params=params
         ) for i in range(n_noise_traders)]
 
 
