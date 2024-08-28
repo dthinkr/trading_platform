@@ -57,6 +57,9 @@ class BaseTrader:
 
         self.start_time = asyncio.get_event_loop().time()
 
+        self.filled_orders = []  # New attribute to track filled orders
+
+
 
     def get_elapsed_time(self) -> float:
         """Returns the elapsed time in seconds since the trader was initialized."""
@@ -172,11 +175,49 @@ class BaseTrader:
                 transactions_relevant_to_self.append(transaction)
         return transactions_relevant_to_self
 
+    def update_filled_orders(self, transactions):
+        """
+        Update the list of filled orders based on the transactions.
+        This method handles both sides of a transaction.
+        """
+        for transaction in transactions:
+            # Check if this trader is involved in the transaction
+            if transaction['trader_id'] == self.id:
+                filled_order = {
+                    'id': transaction['id'],
+                    'price': transaction['price'],
+                    'amount': transaction['amount'],
+                    'type': transaction['type'],
+                    'timestamp': transaction.get('timestamp', None)
+                }
+                self.filled_orders.append(filled_order)
+                
+                logger.info(f"Trader {self.id}: Order filled - {filled_order}")
+
+                # Update inventory based on the filled order
+                if transaction['type'] == 'bid':
+                    self.shares += transaction['amount']
+                    self.cash -= transaction['price'] * transaction['amount']
+                else:  # ask
+                    self.shares -= transaction['amount']
+                    self.cash += transaction['price'] * transaction['amount']
+
+                # Update PNL data
+                self.update_data_for_pnl(
+                    transaction['amount'] if transaction['type'] == 'bid' else -transaction['amount'],
+                    transaction['price']
+                )
+
     async def on_message_from_system(self, message):
         try:
             json_message = json.loads(message.body.decode())
             action_type = json_message.get('type')
             data = json_message
+
+            if action_type == 'transaction_update':
+                transactions = data.get('transactions', [])
+                self.update_filled_orders(transactions)
+
             
             if action_type == 'transaction_update' and self.trader_type != TraderType.NOISE.value:
                 transactions_relevant_to_self = self.check_if_relevant(data['transactions'])
@@ -226,38 +267,42 @@ class BaseTrader:
         """
         pass
 
-    async def post_new_order(self, amount: int, price: int, order_type: OrderType) -> None:
+    async def post_new_order(self, amount: int, price: int, order_type: OrderType) -> str:
         if self.trader_type != TraderType.NOISE.value:
             if order_type == OrderType.BID:
                 if self.cash < price * amount:
                     logger.critical(f"Trader {self.id} does not have enough cash to place bid order.")
-                    return
+                    return None
                 self.cash -= price * amount
             elif order_type == OrderType.ASK:
                 if self.shares < amount:
                     logger.critical(f"Trader {self.id} does not have enough shares to place ask order.")
-                    return
+                    return None
                 self.shares -= amount
 
+        order_id = str(uuid.uuid4())  # Generate a unique order ID
         for _ in range(int(amount)):
             new_order = {
                 "action": ActionType.POST_NEW_ORDER.value,
                 "amount": 1,
                 "price": price,
                 "order_type": order_type,
+                "order_id": order_id,  # Include the order ID in the message
             }
             await self.send_to_trading_system(new_order)
 
-    async def send_cancel_order_request(self, order_id: uuid.UUID) -> None:
+        return order_id  # Return the order ID
+
+    async def send_cancel_order_request(self, order_id: uuid.UUID) -> bool:
         if not order_id:
             logger.error(f"Order ID is not provided")
-            return
+            return False
         if not self.orders:
             logger.error(f"Trader {self.id} has no active orders")
-            return
+            return False
         if order_id not in [order['id'] for order in self.orders]:
             logger.error(f"Trader {self.id} has no order with ID {order_id}")
-            return
+            return False
 
         order_to_cancel = next((order for order in self.orders if order['id'] == order_id), None)
 
@@ -276,7 +321,12 @@ class BaseTrader:
             "order_type": order_to_cancel["order_type"],
         }
 
-        await self.send_to_trading_system(cancel_order_request)
+        try:
+            await self.send_to_trading_system(cancel_order_request)
+            return True
+        except Exception as e:
+            logger.error(f"Failed to send cancel order request: {e}")
+            return False
 
     async def run(self):
         # Placeholder method for compatibility with the trading system
