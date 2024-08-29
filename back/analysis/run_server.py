@@ -25,6 +25,7 @@ def stop_servers(servers: list[CustomUvicornServer]) -> None:
     for server in servers:
         server.should_exit = True
 
+
 def start_servers(number_of_servers: int, starting_port: int):
     servers = []
     threads = []

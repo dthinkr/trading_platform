@@ -10,11 +10,7 @@ from datetime import datetime, timedelta
 
 
 class NoiseTrader(BaseTrader):
-    def __init__(
-        self,
-        id: str,
-        params: dict
-        ):
+    def __init__(self, id: str, params: dict):
         super().__init__(trader_type=TraderType.NOISE, id=id)
         self.params = params
         self.cash = math.inf
@@ -24,14 +20,16 @@ class NoiseTrader(BaseTrader):
         self.historical_cancelled_orders = 0
         self.historical_placed_orders = 0
         self.historical_matched_orders = 0
-        self.historical_matches_intended = 0 
+        self.historical_matches_intended = 0
         self.action_counter = 0
 
         # Internal clock
         self.start_time = datetime.now()
         self.session_duration = timedelta(minutes=self.params["trading_day_duration"])
         self.activity_frequency = self.params["noise_activity_frequency"]
-        self.target_actions = int(self.session_duration.total_seconds() * self.activity_frequency)
+        self.target_actions = int(
+            self.session_duration.total_seconds() * self.activity_frequency
+        )
 
     @property
     def elapsed_time(self) -> float:
@@ -55,7 +53,7 @@ class NoiseTrader(BaseTrader):
         if action_difference > 0:
             # We're behind, need to catch up
             return 0.1  # Minimum interval to catch up quickly
-        elif action_difference < 0: 
+        elif action_difference < 0:
             # We're ahead, need to slow down
             return 2 / self.activity_frequency  # Wait for 2 expected intervals
         else:
@@ -106,7 +104,11 @@ class NoiseTrader(BaseTrader):
         midpoint = (best_bid + best_ask) // 2  # Integer midpoint
 
         for _ in range(amt):
-            side = "bids" if random.random() < self.params["noise_bid_probability"] else "asks"
+            side = (
+                "bids"
+                if random.random() < self.params["noise_bid_probability"]
+                else "asks"
+            )
             if side == "bids":
                 price = midpoint - random.randint(1, order_book_levels) * step
             else:
@@ -124,7 +126,7 @@ class NoiseTrader(BaseTrader):
 
         for i in range(amt):
             side = random.choice(["bids", "asks"])
-            
+
             if side == "bids":
                 price = default_price - random.randint(1, order_book_levels) * step
             else:
@@ -139,7 +141,7 @@ class NoiseTrader(BaseTrader):
         if not self.order_book:
             return
 
-        amt = random.randint(1, self.params['max_order_amount'])
+        amt = random.randint(1, self.params["max_order_amount"])
 
         # Cancel orders
         if random.random() < self.params["noise_cancel_probability"]:
@@ -148,13 +150,14 @@ class NoiseTrader(BaseTrader):
 
         # Place orders on empty side
         while not self.order_book["bids"] or not self.order_book["asks"]:
-            await self.place_orders_on_empty_side(self.params['max_order_amount'])
+            await self.place_orders_on_empty_side(self.params["max_order_amount"])
             action = "empty_side"
 
         # Place orders
-        amt = random.randint(1, self.params['max_order_amount'])
-        side = 'bids' if random.random() < self.params["noise_bid_probability"] else 'asks'
-
+        amt = random.randint(1, self.params["max_order_amount"])
+        side = (
+            "bids" if random.random() < self.params["noise_bid_probability"] else "asks"
+        )
 
         # Proceed with regular order placement
         if random.random() < self.params["noise_passive_probability"]:
@@ -180,9 +183,7 @@ class NoiseTrader(BaseTrader):
         while not self._stop_requested.is_set():
             try:
                 await self.act()
-                await asyncio.sleep(
-                    self.calculate_cooling_interval()
-                )
+                await asyncio.sleep(self.calculate_cooling_interval())
             except asyncio.CancelledError:
                 await self.clean_up()
                 raise

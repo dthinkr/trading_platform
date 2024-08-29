@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, patch
 from main_platform import TradingSession
 from structures import OrderStatus, OrderType
 
+
 @pytest.mark.asyncio
 async def test_initialize():
     session = TradingSession(duration=1, default_price=1000)
@@ -17,6 +18,7 @@ async def test_initialize():
         session.channel.declare_exchange.assert_awaited()
         assert session.active is True
         assert session.start_time == "2023-04-01T00:00:00Z"
+
 
 @pytest.mark.asyncio
 async def test_place_order():
@@ -32,6 +34,7 @@ async def test_place_order():
     assert placed_order["status"] == OrderStatus.ACTIVE.value
     assert session.order_book.all_orders["test_order_id"] == placed_order
 
+
 @pytest.mark.asyncio
 async def test_order_book_empty():
     session = TradingSession(duration=1, default_price=1000)
@@ -41,92 +44,117 @@ async def test_order_book_empty():
         "asks": [],
     }, "Order book should be empty initially"
 
+
 @pytest.mark.asyncio
 async def test_order_book_with_only_bids():
     session = TradingSession(duration=1, default_price=1000)
-    session.order_book.place_order({
-        "id": "bid_order_1",
-        "order_type": OrderType.BID.value,
-        "price": 1000,
-        "amount": 10,
-        "status": OrderStatus.ACTIVE.value,
-    })
-    session.order_book.place_order({
-        "id": "bid_order_2",
-        "order_type": OrderType.BID.value,
-        "price": 1010,
-        "amount": 5,
-        "status": OrderStatus.ACTIVE.value,
-    })
+    session.order_book.place_order(
+        {
+            "id": "bid_order_1",
+            "order_type": OrderType.BID.value,
+            "price": 1000,
+            "amount": 10,
+            "status": OrderStatus.ACTIVE.value,
+        }
+    )
+    session.order_book.place_order(
+        {
+            "id": "bid_order_2",
+            "order_type": OrderType.BID.value,
+            "price": 1010,
+            "amount": 5,
+            "status": OrderStatus.ACTIVE.value,
+        }
+    )
     order_book = await session.get_order_book_snapshot()
     assert order_book["asks"] == [], "Expect no asks in the order book"
     assert len(order_book["bids"]) == 2, "Expect two bids in the order book"
-    assert order_book["bids"][0]["x"] == 1010, "The first bid should have the highest price"
+    assert (
+        order_book["bids"][0]["x"] == 1010
+    ), "The first bid should have the highest price"
+
 
 @pytest.mark.asyncio
 async def test_order_book_with_only_asks():
     session = TradingSession(duration=1, default_price=1000)
-    session.order_book.place_order({
-        "id": "ask_order_1",
-        "order_type": OrderType.ASK.value,
-        "price": 1020,
-        "amount": 10,
-        "status": OrderStatus.ACTIVE.value,
-    })
-    session.order_book.place_order({
-        "id": "ask_order_2",
-        "order_type": OrderType.ASK.value,
-        "price": 1005,
-        "amount": 5,
-        "status": OrderStatus.ACTIVE.value,
-    })
+    session.order_book.place_order(
+        {
+            "id": "ask_order_1",
+            "order_type": OrderType.ASK.value,
+            "price": 1020,
+            "amount": 10,
+            "status": OrderStatus.ACTIVE.value,
+        }
+    )
+    session.order_book.place_order(
+        {
+            "id": "ask_order_2",
+            "order_type": OrderType.ASK.value,
+            "price": 1005,
+            "amount": 5,
+            "status": OrderStatus.ACTIVE.value,
+        }
+    )
     order_book = await session.get_order_book_snapshot()
     assert order_book["bids"] == [], "Expect no bids in the order book"
     assert len(order_book["asks"]) == 2, "Expect two asks in the order book"
-    assert order_book["asks"][0]["x"] == 1005, "The first ask should have the lowest price"
+    assert (
+        order_book["asks"][0]["x"] == 1005
+    ), "The first ask should have the lowest price"
+
 
 @pytest.mark.asyncio
 async def test_order_book_with_bids_and_asks():
     session = TradingSession(duration=1, default_price=1000)
-    session.order_book.place_order({
-        "id": "bid_order",
-        "order_type": OrderType.BID.value,
-        "price": 1000,
-        "amount": 10,
-        "status": OrderStatus.ACTIVE.value,
-    })
-    session.order_book.place_order({
-        "id": "ask_order",
-        "order_type": OrderType.ASK.value,
-        "price": 1020,
-        "amount": 5,
-        "status": OrderStatus.ACTIVE.value,
-    })
+    session.order_book.place_order(
+        {
+            "id": "bid_order",
+            "order_type": OrderType.BID.value,
+            "price": 1000,
+            "amount": 10,
+            "status": OrderStatus.ACTIVE.value,
+        }
+    )
+    session.order_book.place_order(
+        {
+            "id": "ask_order",
+            "order_type": OrderType.ASK.value,
+            "price": 1020,
+            "amount": 5,
+            "status": OrderStatus.ACTIVE.value,
+        }
+    )
     order_book = await session.get_order_book_snapshot()
     assert len(order_book["bids"]) == 1, "Expect one bid in the order book"
     assert len(order_book["asks"]) == 1, "Expect one ask in the order book"
     assert order_book["bids"][0]["x"] == 1000, "The bid price should match"
     assert order_book["asks"][0]["x"] == 1020, "The ask price should match"
 
+
 @pytest.mark.asyncio
 async def test_get_spread():
     session = TradingSession(duration=1, default_price=1000)
-    session.order_book.place_order({
-        "id": "ask_order",
-        "order_type": OrderType.ASK.value,
-        "price": 1010,
-        "amount": 5,
-        "status": OrderStatus.ACTIVE.value,
-    })
-    session.order_book.place_order({
-        "id": "bid_order",
-        "order_type": OrderType.BID.value,
-        "price": 1000,
-        "amount": 5,
-        "status": OrderStatus.ACTIVE.value,
-    })
+    session.order_book.place_order(
+        {
+            "id": "ask_order",
+            "order_type": OrderType.ASK.value,
+            "price": 1010,
+            "amount": 5,
+            "status": OrderStatus.ACTIVE.value,
+        }
+    )
+    session.order_book.place_order(
+        {
+            "id": "bid_order",
+            "order_type": OrderType.BID.value,
+            "price": 1000,
+            "amount": 5,
+            "status": OrderStatus.ACTIVE.value,
+        }
+    )
     spread, _ = session.order_book.get_spread()
     assert spread == 10
+
 
 @pytest.mark.asyncio
 async def test_clean_up():

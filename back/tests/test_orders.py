@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, patch, PropertyMock
 from main_platform import TradingSession
 
+
 @pytest.mark.asyncio
 async def test_accelerated_experiment():
     params = TraderCreationData(
@@ -19,19 +20,22 @@ async def test_accelerated_experiment():
         order_amount=100,
         step=1,
         order_book_levels=5,
-        passive_order_probability=0.5
+        passive_order_probability=0.5,
     )
 
     start_time = datetime(2023, 4, 1, 0, 0, 0)  # Use a fixed start time for consistency
 
     with time_machine.travel(start_time, tick=False) as traveller:
         # Initialize the TradingSession
-        session = TradingSession(duration=params.trading_day_duration, default_price=params.default_price)
+        session = TradingSession(
+            duration=params.trading_day_duration, default_price=params.default_price
+        )
         session.connection = AsyncMock()
         session.channel = AsyncMock()
-        
+
         with patch("aio_pika.connect_robust", return_value=session.connection), patch(
-            "main_platform.trading_platform.now", return_value=start_time.isoformat() + "Z"
+            "main_platform.trading_platform.now",
+            return_value=start_time.isoformat() + "Z",
         ):
             await session.initialize()
             session.connection.channel.assert_awaited()
@@ -43,7 +47,9 @@ async def test_accelerated_experiment():
         for i in range(5):  # Place 5 orders
             order_dict = {
                 "id": f"test_order_{i}",
-                "order_type": OrderType.BID.value if i % 2 == 0 else OrderType.ASK.value,
+                "order_type": OrderType.BID.value
+                if i % 2 == 0
+                else OrderType.ASK.value,
                 "amount": 100,
                 "price": params.default_price + (i * 10),
                 "status": OrderStatus.BUFFERED.value,
@@ -54,9 +60,12 @@ async def test_accelerated_experiment():
 
         # Accelerate time
         traveller.shift(timedelta(minutes=params.trading_day_duration))
-        
+
         # Simulate the run method's time check
-        with patch('main_platform.trading_platform.now', return_value=start_time + timedelta(minutes=params.trading_day_duration)):
+        with patch(
+            "main_platform.trading_platform.now",
+            return_value=start_time + timedelta(minutes=params.trading_day_duration),
+        ):
             # Call the run method directly, but don't wait for it to complete
             run_task = asyncio.create_task(session.run())
             # Wait a short time to allow the run method to process

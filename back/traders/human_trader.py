@@ -12,22 +12,26 @@ logger = setup_custom_logger(__name__)
 class HumanTrader(BaseTrader):
     websocket = None
     socket_status = False
-    inventory = {'shares': 0, 'cash': 1000}  # TODO.PHILIPP. WRite something sensible here. placeholder for now.
-    
+    inventory = {
+        "shares": 0,
+        "cash": 1000,
+    }  # TODO.PHILIPP. WRite something sensible here. placeholder for now.
+
     def __init__(self, *args, **kwargs):
         super().__init__(trader_type=TraderType.HUMAN, *args, **kwargs)
         self.goal = random.choice(GOALS)
+
     def get_trader_params_as_dict(self):
         return {
-            'id': self.id,
-            'type': self.trader_type,
-            'initial_cash': self.initial_cash,
-            'initial_shares': self.initial_shares,
-            'goal': self.goal
+            "id": self.id,
+            "type": self.trader_type,
+            "initial_cash": self.initial_cash,
+            "initial_shares": self.initial_shares,
+            "goal": self.goal,
         }
 
     async def post_processing_server_message(self, json_message):
-        message_type = json_message.pop('type', None)
+        message_type = json_message.pop("type", None)
         if message_type:
             await self.send_message_to_client(message_type, **json_message)
 
@@ -37,8 +41,10 @@ class HumanTrader(BaseTrader):
         await self.register()
 
     async def send_message_to_client(self, message_type, **kwargs):
-
-        if not self.websocket or self.websocket.client_state != WebSocketState.CONNECTED:
+        if (
+            not self.websocket
+            or self.websocket.client_state != WebSocketState.CONNECTED
+        ):
             logger.warning("WebSocket is closed or not set yet. Skipping message send.")
             return
 
@@ -47,24 +53,23 @@ class HumanTrader(BaseTrader):
             return  # Skip sending the message or handle accordingly
 
         trader_orders = self.orders or []
-        order_book = self.order_book or {'bids': [], 'asks': []}
-        kwargs['trader_orders'] = trader_orders
+        order_book = self.order_book or {"bids": [], "asks": []}
+        kwargs["trader_orders"] = trader_orders
         try:
             return await self.websocket.send_json(
-                {"shares": self.shares,
-                 "cash": self.cash,
-                 "pnl": self.get_current_pnl(),
-
-                 'type': message_type,
-                 'inventory': dict(shares=self.shares, cash=self.cash),
-
-                 **kwargs,
-                 'order_book': order_book,
-                 'initial_cash': self.initial_cash,
-                 'initial_shares': self.initial_shares,
-                 'sum_dinv': self.sum_dinv,
-                 'vwap': self.get_vwap()
-                 }
+                {
+                    "shares": self.shares,
+                    "cash": self.cash,
+                    "pnl": self.get_current_pnl(),
+                    "type": message_type,
+                    "inventory": dict(shares=self.shares, cash=self.cash),
+                    **kwargs,
+                    "order_book": order_book,
+                    "initial_cash": self.initial_cash,
+                    "initial_shares": self.initial_shares,
+                    "sum_dinv": self.sum_dinv,
+                    "vwap": self.get_vwap(),
+                }
             )
         except WebSocketDisconnect:
             self.socket_status = False
@@ -81,36 +86,40 @@ class HumanTrader(BaseTrader):
         try:
             json_message = json.loads(message)
 
-            action_type = json_message.get('type')
-            data = json_message.get('data')
-            handler = getattr(self, f'handle_{action_type}', None)
+            action_type = json_message.get("type")
+            data = json_message.get("data")
+            handler = getattr(self, f"handle_{action_type}", None)
             if handler:
                 await handler(data)
             else:
-                logger.critical(f"Do not recognice the type: {action_type}. Invalid message format: {message}")
+                logger.critical(
+                    f"Do not recognice the type: {action_type}. Invalid message format: {message}"
+                )
         except json.JSONDecodeError:
             logger.critical(f"Error decoding message: {message}")
 
     async def handle_add_order(self, data):
-        order_type = data.get('type')  # TODO: Philipp. This is a string. We need to convert it to an enum.
+        order_type = data.get(
+            "type"
+        )  # TODO: Philipp. This is a string. We need to convert it to an enum.
 
-
-        price = data.get('price')
-        amount = data.get('amount',
-                          1)  # TODO. Philipp. This is a placeholder. We need to get the amount from the client.
+        price = data.get("price")
+        amount = data.get(
+            "amount", 1
+        )  # TODO. Philipp. This is a placeholder. We need to get the amount from the client.
         await self.post_new_order(amount, price, order_type)
 
     async def handle_cancel_order(self, data):
-        order_uuid = data.get('id')
+        order_uuid = data.get("id")
         logger.info(f"Cancel order request received: {data}")
 
-        if order_uuid in [order['id'] for order in self.orders]:
+        if order_uuid in [order["id"] for order in self.orders]:
             await self.send_cancel_order_request(order_uuid)
         else:
             # Handle the case where the order UUID does not exist
             logger.warning(f"Order with UUID {order_uuid} not found.")
 
     async def handle_closure(self, data):
-        logger.critical('Human trader is closing')
+        logger.critical("Human trader is closing")
         await self.post_processing_server_message(data)
         await super().handle_closure(data)
