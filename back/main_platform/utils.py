@@ -51,7 +51,7 @@ def if_active(func):
             logger.critical(
                 f"{func.__name__} is skipped because the trading session is not active."
             )
-            return None 
+            return None
 
         return await func(self, *args, **kwargs)
 

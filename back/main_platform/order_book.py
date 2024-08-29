@@ -3,6 +3,7 @@ from structures import OrderStatus, OrderType
 from typing import Dict, List, Tuple, Optional, Union
 from uuid import UUID
 
+
 class OrderBook:
     def __init__(self):
         self.bids = SortedDict()
@@ -10,10 +11,16 @@ class OrderBook:
         self.all_orders = {}
 
     def __getitem__(self, key):
-        if key == 'bids':
-            return [{"x": k, "y": sum(order['amount'] for order in v)} for k, v in reversed(self.bids.items())]
-        elif key == 'asks':
-            return [{"x": k, "y": sum(order['amount'] for order in v)} for k, v in self.asks.items()]
+        if key == "bids":
+            return [
+                {"x": k, "y": sum(order["amount"] for order in v)}
+                for k, v in reversed(self.bids.items())
+            ]
+        elif key == "asks":
+            return [
+                {"x": k, "y": sum(order["amount"] for order in v)}
+                for k, v in self.asks.items()
+            ]
         else:
             return self.all_orders[key]
 
@@ -47,8 +54,8 @@ class OrderBook:
 
     def get_order_book_snapshot(self) -> Dict:
         return {
-            "bids": self['bids'],
-            "asks": self['asks'],
+            "bids": self["bids"],
+            "asks": self["asks"],
         }
 
     def clear(self):
@@ -56,12 +63,12 @@ class OrderBook:
         self.asks.clear()
         self.all_orders.clear()
 
-    def cancel_order(self, order_id: UUID) -> bool:
-        order = self.all_orders.get(order_id) or self.all_orders.get(str(order_id))
-        
+    def cancel_order(self, order_id: str) -> bool:
+        order = self.all_orders.get(order_id)
+
         if not order:
             return False
-        
+
         price = order["price"]
         order_type = order["order_type"]
 
@@ -82,8 +89,7 @@ class OrderBook:
         else:
             return False
 
-        self.all_orders.pop(order_id, None)
-        self.all_orders.pop(str(order_id), None)
+        del self.all_orders[order_id]
         return True
 
     def get_spread(self) -> Tuple[Optional[float], Optional[float]]:
@@ -97,7 +103,11 @@ class OrderBook:
 
     @property
     def active_orders(self) -> Dict:
-        return {k: v for k, v in self.all_orders.items() if v["status"] == OrderStatus.ACTIVE.value}
+        return {
+            k: v
+            for k, v in self.all_orders.items()
+            if v["status"] == OrderStatus.ACTIVE.value
+        }
 
     def clear_orders(self) -> List[Tuple[Dict, Dict, float]]:
         matched_orders = []
@@ -109,11 +119,11 @@ class OrderBook:
                 ask = self.asks[best_ask][0]
                 transaction_price = (best_bid + best_ask) / 2
                 matched_orders.append((ask, bid, transaction_price))
-                
+
                 # Remove the matched orders from the price levels
                 self.bids[best_bid].pop(0)
                 self.asks[best_ask].pop(0)
-                
+
                 # Remove empty price levels
                 if not self.bids[best_bid]:
                     del self.bids[best_bid]
@@ -121,12 +131,12 @@ class OrderBook:
                     del self.asks[best_ask]
             else:
                 break
-        
+
         # Remove matched orders from self.all_orders after creating transactions
         for ask, bid, _ in matched_orders:
-            if ask['id'] in self.all_orders:
-                del self.all_orders[ask['id']]
-            if bid['id'] in self.all_orders:
-                del self.all_orders[bid['id']]
-        
+            if ask["id"] in self.all_orders:
+                del self.all_orders[ask["id"]]
+            if bid["id"] in self.all_orders:
+                del self.all_orders[bid["id"]]
+
         return matched_orders

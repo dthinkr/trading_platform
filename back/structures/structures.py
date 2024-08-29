@@ -6,13 +6,23 @@ from enum import Enum, IntEnum
 from typing import Optional
 from uuid import UUID, uuid4
 
-from mongoengine import (BooleanField, DateTimeField, DictField, Document,
-                         FloatField, IntField, ListField, UUIDField)
+from mongoengine import (
+    BooleanField,
+    DateTimeField,
+    DictField,
+    Document,
+    FloatField,
+    IntField,
+    ListField,
+    UUIDField,
+    StringField,
+)
 from pydantic import BaseModel, ConfigDict, Field
 
 
 class StrEnum(str, Enum):
     pass
+
 
 def now():
     """It is actually from utils.py but we need structures there so we do it here to avoid circular deps"""
@@ -37,19 +47,25 @@ class TraderCreationData(BaseModel):
         ge=0,
     )
     num_noise_traders: int = Field(
-        default=0,
+        default=1,
         title="Number of Noise Traders",
         description="model_parameter",
         ge=0,
     )
     num_informed_traders: int = Field(
-        default=0,
+        default=1,
         title="Number of Informed Traders",
         description="model_parameter",
         ge=0,
     )
+    num_simple_order_traders: int = Field(
+        default=0,
+        title="Number of Simple Order Traders",
+        description="model_parameter",
+        ge=0,
+    )
     start_of_book_num_order_per_level: int = Field(
-        default=7,
+        default=5,
         title="Orders per Level at Book Start",
         description="model_parameter",
         ge=0,
@@ -94,6 +110,11 @@ class TraderCreationData(BaseModel):
     informed_trade_intensity: float = Field(
         default=0.4,
         title="Trade Intensity",
+        description="informed_parameter",
+    )
+    informed_urgency_factor: float = Field(
+        default=3,
+        title="Urgency Factor",
         description="informed_parameter",
     )
     informed_trade_direction: TradeDirection = Field(
@@ -153,14 +174,14 @@ class TraderCreationData(BaseModel):
         title="Lira-GBP Conversion Rate",
         description="model_parameter",
         gt=0,
-    )   
+    )
     cancel_time: int = Field(
         default=1,
         title="Seconds Locked Until Cancelation (Placeholder, not used yet)",
         description="human_parameter",
         gt=0,
     )
-    
+
     def dump_params_by_description(self) -> dict:
         """Dump parameters into a dict of dict indexed by description."""
         result = {}
@@ -192,9 +213,11 @@ class ActionType(str, Enum):
     UPDATE_BOOK_STATUS = "update_book_status"
     REGISTER = "register_me"
 
+
 class OrderType(IntEnum):
     ASK = -1  # the price a seller is willing to accept for a security
     BID = 1  # the price a buyer is willing to pay for a security
+
 
 # let's write an inverse correspondence between the order type and the string
 str_to_order_type = {"ask": OrderType.ASK, "bid": OrderType.BID}
@@ -215,8 +238,9 @@ class TraderType(str, Enum):
     INITIAL_ORDER_BOOK = "INITIAL_ORDER_BOOK"
     SIMPLE_ORDER = "SIMPLE_ORDER"
 
+
 class Order(BaseModel):
-    id: UUID = Field(default_factory=uuid4)
+    id: Optional[str] = None  # Make id optional
     status: OrderStatus
     amount: float = 1
     price: float
@@ -231,9 +255,9 @@ class Order(BaseModel):
 
 class TransactionModel(Document):
     id = UUIDField(primary_key=True, default=uuid.uuid4, binary=False)
-    trading_session_id = UUIDField(required=True, binary=False)
-    bid_order_id = UUIDField(required=True, binary=False)
-    ask_order_id = UUIDField(required=True, binary=False)
+    trading_session_id = StringField(required=True)
+    bid_order_id = StringField(required=False)
+    ask_order_id = StringField(required=False)
     timestamp = DateTimeField(default=datetime.now)
     price = FloatField(required=True)
 
@@ -246,3 +270,4 @@ class Message(Document):
     trading_session_id = UUIDField(required=True, binary=False)
     content = DictField(required=True)
     timestamp = DateTimeField(default=datetime.now)
+    matched_orders = DictField(required=False)

@@ -76,6 +76,7 @@ def generate_and_store_parameters(
     else:
         return validated_params, unscaled_params, sobol_problem
 
+
 def plot_parameters(parameters: List[Dict[str, float]]) -> None:
     data = []
     for param in parameters:

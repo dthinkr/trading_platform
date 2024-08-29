@@ -4,17 +4,21 @@ from typing import Tuple
 from analysis import load_config
 from main_platform.utils import convert_to_book_format_new
 
+
 def load_configuration() -> dict:
     return load_config()
+
 
 def load_local_data(config: dict) -> Tuple[pl.DataFrame, pl.DataFrame]:
     df_ref = pl.read_csv(f"{config.DATA_DIR}/reference_data.csv")
     df_res = pl.read_csv(f"{config.DATA_DIR}/result_data.csv")
     return df_ref, df_res
 
+
 def parse_and_transform_active_orders(active_orders: str) -> pl.DataFrame:
     orders_list = json.loads(active_orders)
     return pl.DataFrame(orders_list)
+
 
 def lobster_book_transformation(df_res: pl.DataFrame) -> pl.DataFrame:
     active_orders_df = df_res["order_book"].str.json_decode()
@@ -28,6 +32,7 @@ def lobster_book_transformation(df_res: pl.DataFrame) -> pl.DataFrame:
 
     df_res = df_res.with_columns(book_format_series.alias("LOBSTER_BOOK"))
     return df_res
+
 
 def lobster_message_time(df_res: pl.DataFrame) -> pl.DataFrame:
     if "Time" not in df_res.columns:
@@ -62,6 +67,7 @@ def lobster_message_time(df_res: pl.DataFrame) -> pl.DataFrame:
         )
     return df_res
 
+
 def lobster_message_type(df_res: pl.DataFrame, config: dict) -> pl.DataFrame:
     type_mapping = config.TYPE_MAPPING
     df_res = df_res.with_columns(
@@ -70,6 +76,7 @@ def lobster_message_type(df_res: pl.DataFrame, config: dict) -> pl.DataFrame:
         .alias("Event Type")
     )
     return df_res
+
 
 def lobster_message_other(df_res: pl.DataFrame) -> pl.DataFrame:
     df_res = df_res.with_columns(
@@ -83,6 +90,7 @@ def lobster_message_other(df_res: pl.DataFrame) -> pl.DataFrame:
     )
     return df_res
 
+
 def prepare_data() -> Tuple[pl.DataFrame, pl.DataFrame]:
     config = load_configuration()
     df_ref, df_res = load_local_data(config)
@@ -91,6 +99,7 @@ def prepare_data() -> Tuple[pl.DataFrame, pl.DataFrame]:
     df_res = lobster_message_type(df_res, config)
     df_res = lobster_message_other(df_res)
     return df_ref, df_res
+
 
 if __name__ == "__main__":
     df_ref, df_res = prepare_data()

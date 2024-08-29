@@ -169,6 +169,11 @@ class TradingSession:
                 "incoming_message": incoming_message,
             }
         )
+
+        # If this is a filled order, add matched_orders to the message
+        if message_type == "FILLED_ORDER" and incoming_message:
+            message["matched_orders"] = incoming_message.get("matched_orders")
+
         Message(trading_session_id=self.id, content=message).save()
 
         exchange = await self.channel.get_exchange(self.broadcast_exchange_name)
@@ -206,6 +211,10 @@ class TradingSession:
                 }
                 for order in [ask, bid]
             ],
+            "matched_orders": {
+                "bid_order_id": str(bid_id),
+                "ask_order_id": str(ask_id),
+            },
         }
 
         exchange = await self.channel.get_exchange(self.broadcast_exchange_name)
@@ -241,9 +250,18 @@ class TradingSession:
     @if_active
     async def handle_add_order(self, data: dict) -> Dict:
         data["order_type"] = int(data["order_type"])
+
+        # Use the order_id from the incoming data if it exists
+        order_id = data.get("order_id")
+        if order_id:
+            data["id"] = order_id
+
         order = Order(status=OrderStatus.BUFFERED.value, session_id=self.id, **data)
         order_dict = order.model_dump()
+
+        # Ensure the order_id is a string
         order_dict["id"] = str(order_dict["id"])
+
         placed_order, immediately_matched = self.order_book.place_order(order_dict)
 
         if immediately_matched:
@@ -253,11 +271,18 @@ class TradingSession:
                 transaction = await self.create_transaction(bid, ask, transaction_price)
                 transactions.append(transaction)
 
+            # Add matched_orders to the data (incoming_message)
+            data["matched_orders"] = {
+                "bid_order_id": str(bid["id"]),
+                "ask_order_id": str(ask["id"]),
+            }
+
             return {
                 "transactions": transactions,
                 "type": "FILLED_ORDER",
                 "content": "F",
                 "respond": True,
+                "incoming_message": data,  # Include the updated data as incoming_message
             }
         else:
             return {
@@ -268,34 +293,36 @@ class TradingSession:
 
     @if_active
     async def handle_cancel_order(self, data: dict) -> Dict:
-        order_id = data.get("order_id")
-        trader_id = data.get("trader_id")
-        
         try:
-            uuid_order_id = UUID(order_id)
-        except ValueError:
-            return {"status": "failed", "reason": "Invalid order ID format"}
+            order_id = data.get("order_id")
+            trader_id = data.get("trader_id")
 
-        cancel_result = self.order_book.cancel_order(uuid_order_id)
+            cancel_result = self.order_book.cancel_order(order_id)
 
-        if cancel_result:
-            Message(
-                trading_session_id=self.id,
-                content={
-                    "action": "order_cancelled",
-                    "order_id": str(uuid_order_id),
-                    "details": data.get("order_details"),
-                },
-            ).save()
+            if cancel_result:
+                Message(
+                    trading_session_id=self.id,
+                    content={
+                        "action": "order_cancelled",
+                        "order_id": str(order_id),
+                        "details": data.get("order_details"),
+                    },
+                ).save()
+
+                return {
+                    "status": "cancel success",
+                    "order_id": str(order_id),
+                    "type": "ORDER_CANCELLED",
+                    "respond": True,
+                }
 
             return {
-                "status": "cancel success",
-                "order_id": str(uuid_order_id),
-                "type": "ORDER_CANCELLED",
-                "respond": True,
+                "status": "failed",
+                "reason": "Order not found or cancellation failed",
             }
-
-        return {"status": "failed", "reason": "Order not found or cancellation failed"}
+        except Exception as e:
+            print(f"Failed to send cancel order request: {e}")
+            return {"status": "failed", "reason": str(e)}
 
     @if_active
     async def handle_register_me(self, msg_body: Dict) -> Dict:
@@ -328,7 +355,9 @@ class TradingSession:
                         await self.send_broadcast(
                             message=dict(text=f"{action} update processed"),
                             message_type=message_type,
-                            incoming_message=incoming_message,
+                            incoming_message=result.get(
+                                "incoming_message", incoming_message
+                            ),
                         )
 
     async def close_existing_book(self) -> None:

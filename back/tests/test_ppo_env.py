@@ -7,33 +7,32 @@ from traders.ppo_env import TradingEnvironment
 from main_platform.trading_platform import TradingSession
 from structures import OrderType, OrderStatus, Order
 
+
 class TestTradingEnvironment(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.trading_session = TradingSession(
-            duration=60,
-            default_price=100,
-            default_spread=10,
-            punishing_constant=1
+            duration=60, default_price=100, default_spread=10, punishing_constant=1
         )
         self.trading_session.order_book = MagicMock()
         self.trading_session.send_broadcast = AsyncMock()
         self.trading_session.create_transaction = AsyncMock()
         self.trading_session.place_order = MagicMock()
-        self.trading_session.get_order_book_snapshot = MagicMock(return_value={
-            'bids': [{'price': 100, 'amount': 10}] * 5,
-            'asks': [{'price': 101, 'amount': 10}] * 5
-        })
-        self.trading_session.get_transaction_history = MagicMock(return_value=[
-            {'price': 100, 'amount': 1},
-            {'price': 101, 'amount': 1}
-        ])
-        
+        self.trading_session.get_order_book_snapshot = MagicMock(
+            return_value={
+                "bids": [{"price": 100, "amount": 10}] * 5,
+                "asks": [{"price": 101, "amount": 10}] * 5,
+            }
+        )
+        self.trading_session.get_transaction_history = MagicMock(
+            return_value=[{"price": 100, "amount": 1}, {"price": 101, "amount": 1}]
+        )
+
         # Mock the transaction_price property
         type(self.trading_session).transaction_price = PropertyMock(return_value=100.5)
-        
+
         # Mock the mid_price property
         type(self.trading_session).mid_price = PropertyMock(return_value=100.5)
-        
+
         self.trading_session.cash = 10000
         self.trading_session.shares = 100
         self.trading_session.get_elapsed_time = MagicMock(return_value=1800)
@@ -53,17 +52,20 @@ class TestTradingEnvironment(unittest.IsolatedAsyncioTestCase):
     async def test_get_observation(self):
         obs = self.env._get_observation()
         self.assertIsInstance(obs, dict)
-        self.assertEqual(set(obs.keys()), {'order_book', 'transactions', 'market_stats', 'trader_state', 'time'})
-        
-        np.testing.assert_array_equal(obs['order_book']['best_bid'], [100, 10])
-        np.testing.assert_array_equal(obs['order_book']['best_ask'], [101, 10])
-        self.assertEqual(obs['order_book']['depth'].shape, (10, 2))
-        np.testing.assert_array_equal(obs['transactions']['last_price'], [100.5])
-        np.testing.assert_array_equal(obs['market_stats']['mid_price'], [100.5])
-        np.testing.assert_array_equal(obs['market_stats']['spread'], [1])
-        np.testing.assert_array_equal(obs['trader_state']['cash'], [10000])
-        np.testing.assert_array_equal(obs['trader_state']['shares'], [100])
-        np.testing.assert_array_equal(obs['time']['elapsed'], [1800])
+        self.assertEqual(
+            set(obs.keys()),
+            {"order_book", "transactions", "market_stats", "trader_state", "time"},
+        )
+
+        np.testing.assert_array_equal(obs["order_book"]["best_bid"], [100, 10])
+        np.testing.assert_array_equal(obs["order_book"]["best_ask"], [101, 10])
+        self.assertEqual(obs["order_book"]["depth"].shape, (10, 2))
+        np.testing.assert_array_equal(obs["transactions"]["last_price"], [100.5])
+        np.testing.assert_array_equal(obs["market_stats"]["mid_price"], [100.5])
+        np.testing.assert_array_equal(obs["market_stats"]["spread"], [1])
+        np.testing.assert_array_equal(obs["trader_state"]["cash"], [10000])
+        np.testing.assert_array_equal(obs["trader_state"]["shares"], [100])
+        np.testing.assert_array_equal(obs["time"]["elapsed"], [1800])
 
     # async def test_step(self):
     #     # Set up initial conditions
@@ -122,7 +124,7 @@ class TestTradingEnvironment(unittest.IsolatedAsyncioTestCase):
     #     if abs(reward - expected_reward) > 1e-4:
     #         print("\nReward calculation mismatch:")
     #         print(f"Difference: {abs(reward - expected_reward)}")
-            
+
     #     # Additional checks
     #     self.assertAlmostEqual(portfolio_value_change, 150.5, places=4)
     #     self.assertAlmostEqual(transaction_cost, 0.1005, places=4)
@@ -131,7 +133,7 @@ class TestTradingEnvironment(unittest.IsolatedAsyncioTestCase):
 
     #     print("\nObservation:")
     #     print(obs)
-        
+
     async def test_reset(self):
         obs = self.env.reset()  # Remove await
         self.assertIsInstance(obs, dict)
@@ -139,21 +141,17 @@ class TestTradingEnvironment(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.env.previous_portfolio_value, 10000 + 100 * 100.5)
         self.assertEqual(self.env.last_action_shares, 0)
 
-
     def test_calculate_vwap(self):
         transactions = [
-            {'price': 100, 'amount': 1},
-            {'price': 101, 'amount': 2},
-            {'price': 102, 'amount': 3}
+            {"price": 100, "amount": 1},
+            {"price": 101, "amount": 2},
+            {"price": 102, "amount": 3},
         ]
         vwap = self.env._calculate_vwap(transactions)
         self.assertAlmostEqual(vwap, 101.3333, places=4)
 
     def test_calculate_imbalance(self):
-        order_book = {
-            'bids': [{'amount': 10}] * 5,
-            'asks': [{'amount': 5}] * 5
-        }
+        order_book = {"bids": [{"amount": 10}] * 5, "asks": [{"amount": 5}] * 5}
         imbalance = self.env._calculate_imbalance(order_book)
         self.assertAlmostEqual(imbalance, 0.3333, places=4)
 
@@ -167,5 +165,6 @@ class TestTradingEnvironment(unittest.IsolatedAsyncioTestCase):
         expected_change = (10000 + 100 * 100.5) - 20000
         self.assertAlmostEqual(value_change, expected_change, places=4)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

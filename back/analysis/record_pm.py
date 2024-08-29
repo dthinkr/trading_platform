@@ -10,7 +10,9 @@ import json
 CONFIG = load_config()
 
 
-def get_data_from_mongodb(session_ids: List[str] = None, limit: int = None) -> pl.DataFrame:
+def get_data_from_mongodb(
+    session_ids: List[str] = None, limit: int = None
+) -> pl.DataFrame:
     client = MongoClient(CONFIG.MONGODB_HOST, CONFIG.MONGODB_PORT)
     db = client[CONFIG.DATASET]
     collection = db[CONFIG.COLLECTION_NAME]
@@ -30,7 +32,7 @@ def get_data_from_mongodb(session_ids: List[str] = None, limit: int = None) -> p
         cursor = cursor.limit(limit)
 
     data = list(cursor)
-    
+
     # Reverse the list to maintain chronological order
     data.reverse()
 
@@ -82,44 +84,65 @@ def process_session(
     filtered_data = filter_valid_data(session_data)
 
     preprocessed_data = filtered_data.with_columns(
-            [
-                pl.col("timestamp").cast(pl.Datetime),
+        [
+            pl.col("timestamp").cast(pl.Datetime),
+            (
                 (
-                    (
-                        pl.col("timestamp").cast(pl.Datetime)
-                        - pl.col("timestamp").cast(pl.Datetime).min()
-                    ).dt.total_milliseconds()
-                    / 1e3
-                )
-                .cast(pl.Float32)
-                .alias("seconds_into_session"),
-                pl.col("content")
-                .struct.field("incoming_message")
-                .struct.field("trader_id")
-                .alias("source"),
-                pl.col("content")
-                .struct.field("transaction_price")
-                .alias("transaction_price"),
+                    pl.col("timestamp").cast(pl.Datetime)
+                    - pl.col("timestamp").cast(pl.Datetime).min()
+                ).dt.total_milliseconds()
+                / 1e3
+            )
+            .cast(pl.Float32)
+            .alias("seconds_into_session"),
+            pl.col("content")
+            .struct.field("incoming_message")
+            .struct.field("trader_id")
+            .alias("source"),
+            pl.col("content")
+            .struct.field("transaction_price")
+            .alias("transaction_price"),
+            pl.col("content")
+            .struct.field("incoming_message")
+            .struct.field("price")
+            .alias("order_price"),
+            pl.col("content")
+            .struct.field("incoming_message")
+            .struct.field("order_type")
+            .alias("order_type"),
+            pl.col("content").struct.field("spread").alias("spread"),
+            pl.col("content").struct.field("midpoint").alias("midpoint"),
+            pl.col("content").struct.field("order_book").alias("order_book"),
+            (
                 pl.col("content")
                 .struct.field("incoming_message")
                 .struct.field("price")
-                .alias("order_price"),
-                pl.col("content")
+                .cast(pl.Int64)
+                .cast(pl.Utf8)
+                + ","
+                + pl.col("content")
+                .struct.field("incoming_message")
+                .struct.field("amount")
+                .cast(pl.Int64)
+                .cast(pl.Utf8)
+                + ","
+                + pl.col("content")
                 .struct.field("incoming_message")
                 .struct.field("order_type")
-                .alias("order_type"),
-                pl.col("content").struct.field("spread").alias("spread"),
-                pl.col("content").struct.field("midpoint").alias("midpoint"),
-                pl.col("content").struct.field("order_book").alias("order_book"),
-                (
-                    pl.col("content").struct.field("incoming_message").struct.field("price").cast(pl.Int64).cast(pl.Utf8) + "," +
-                    pl.col("content").struct.field("incoming_message").struct.field("amount").cast(pl.Int64).cast(pl.Utf8) + "," +
-                    pl.col("content").struct.field("incoming_message").struct.field("order_type").cast(pl.Int64).cast(pl.Utf8)
-                ).alias("incoming_message"),
-                pl.col("content").struct.field("type").alias("message_type"),
-            ]
-        ).sort("seconds_into_session")
-
+                .cast(pl.Int64)
+                .cast(pl.Utf8)
+            ).alias("incoming_message"),
+            pl.col("content").struct.field("type").alias("message_type"),
+            pl.col("content")
+            .struct.field("matched_orders")
+            .struct.field("bid_order_id")
+            .alias("matched_bid_order_id"),
+            pl.col("content")
+            .struct.field("matched_orders")
+            .struct.field("ask_order_id")
+            .alias("matched_ask_order_id"),
+        ]
+    ).sort("seconds_into_session")
 
     cumulative_metrics = preprocessed_data.with_columns(
         [
@@ -147,8 +170,9 @@ def process_session(
             pl.col("order_book")
             .map_elements(calculate_order_book_imbalance, return_dtype=pl.Float64)
             .alias("order_book_imbalance"),
-            pl.col("order_book").map_elements(lambda x: json.dumps(x) if x else None).alias("order_book_str"),
-
+            pl.col("order_book")
+            .map_elements(lambda x: json.dumps(x) if x else None)
+            .alias("order_book_str"),
             (
                 pl.when(pl.col("num_trades") > 0)
                 .then(pl.col("total_volume") / pl.col("num_trades"))
@@ -174,11 +198,13 @@ def process_session(
     )
 
     columns_to_keep = [
+        "seconds_into_session",
         "source",
         "message_type",
         "incoming_message",
         "order_book_str",
-        "seconds_into_session",
+        "matched_bid_order_id",
+        "matched_ask_order_id",
         "total_orders",
         "total_cancellations",
         "total_buy_orders",
@@ -296,13 +322,35 @@ def plot_session_metrics(session_data: pl.DataFrame, session_id: str) -> None:
 
     return svg_string
 
-def calculate_volumes(df, trader_type):
-    filtered = df.filter(pl.col("content").struct.field("incoming_message").struct.field("trader_id").str.contains(trader_type))
 
-    filled_orders = filtered.filter(pl.col("content").struct.field("type") == "FILLED_ORDER")
-    filled = filled_orders.select(pl.col("content").struct.field("incoming_message").struct.field("amount")).sum()[0, 0]
-    added = filtered.filter(pl.col("content").struct.field("type") == "ADDED_ORDER").select(pl.col("content").struct.field("incoming_message").struct.field("amount")).sum()[0, 0]
-    canceled = filtered.filter(pl.col("content").struct.field("type") == "ORDER_CANCELLED").select(pl.col("content").struct.field("incoming_message").struct.field("amount")).sum()[0, 0]
+def calculate_volumes(df, trader_type):
+    filtered = df.filter(
+        pl.col("content")
+        .struct.field("incoming_message")
+        .struct.field("trader_id")
+        .str.contains(trader_type)
+    )
+
+    filled_orders = filtered.filter(
+        pl.col("content").struct.field("type") == "FILLED_ORDER"
+    )
+    filled = filled_orders.select(
+        pl.col("content").struct.field("incoming_message").struct.field("amount")
+    ).sum()[0, 0]
+    added = (
+        filtered.filter(pl.col("content").struct.field("type") == "ADDED_ORDER")
+        .select(
+            pl.col("content").struct.field("incoming_message").struct.field("amount")
+        )
+        .sum()[0, 0]
+    )
+    canceled = (
+        filtered.filter(pl.col("content").struct.field("type") == "ORDER_CANCELLED")
+        .select(
+            pl.col("content").struct.field("incoming_message").struct.field("amount")
+        )
+        .sum()[0, 0]
+    )
 
     denominator = filled + added - abs(canceled)
     ratio = filled / denominator if denominator != 0 else 0
@@ -310,52 +358,163 @@ def calculate_volumes(df, trader_type):
     return f"{filled} / {filled} + {added} - {abs(canceled)} = {ratio:.4f}"
 
 
-def calculate_end_of_run_metrics(run_data: pl.DataFrame) -> Dict:
+def calculate_trader_metrics(df: pl.DataFrame, trader_type: str) -> Dict[str, int]:
+    # Filter for the specific trader type
+    trader_filter = (
+        pl.col("content")
+        .struct.field("incoming_message")
+        .struct.field("trader_id")
+        .str.contains(trader_type)
+    )
 
-    metrics = {
-        "Total Volume [filled / (filled + unfilled - canceled)]": calculate_volumes(run_data, ""),
-        "Noise Volume [filled / (filled + unfilled - canceled)]": calculate_volumes(run_data, "NOISE"),
-        "Informed Volume [filled / (filled + unfilled - canceled)]": calculate_volumes(run_data, "INFORMED"),
-        "Book Initializer Volume [filled / (filled + unfilled - canceled)]": calculate_volumes(run_data, "BOOK_INITIALIZER"),
+    # Calculate filled orders
+    filled_orders = df.filter(pl.col("content").struct.field("type") == "FILLED_ORDER")
+    filled_amount = (
+        filled_orders.filter(
+            (
+                pl.col("content")
+                .struct.field("matched_orders")
+                .struct.field("bid_order_id")
+                .str.contains(trader_type)
+            )
+            | (
+                pl.col("content")
+                .struct.field("matched_orders")
+                .struct.field("ask_order_id")
+                .str.contains(trader_type)
+            )
+        )
+        .select(
+            pl.col("content").struct.field("incoming_message").struct.field("amount")
+        )
+        .sum()[0, 0]
+    )
+
+    # Calculate passive orders (ADDED_ORDER)
+    passive_amount = (
+        df.filter(
+            (pl.col("content").struct.field("type") == "ADDED_ORDER") & trader_filter
+        )
+        .select(
+            pl.col("content").struct.field("incoming_message").struct.field("amount")
+        )
+        .sum()[0, 0]
+    )
+
+    # Calculate aggressive orders (FILLED_ORDER where the trader is the incoming order)
+    aggressive_amount = (
+        filled_orders.filter(trader_filter)
+        .select(
+            pl.col("content").struct.field("incoming_message").struct.field("amount")
+        )
+        .sum()[0, 0]
+    )
+
+    # Calculate canceled orders
+    canceled_amount = (
+        df.filter(
+            (pl.col("content").struct.field("type") == "ORDER_CANCELLED")
+            & trader_filter
+        )
+        .select(
+            pl.col("content").struct.field("incoming_message").struct.field("amount")
+        )
+        .sum()[0, 0]
+    )
+
+    return {
+        "filled": int(filled_amount),
+        "passive": int(passive_amount),
+        "aggressive": int(aggressive_amount),
+        "canceled": int(canceled_amount),
     }
+
+
+def calculate_end_of_run_metrics(run_data: pl.DataFrame) -> Dict:
+    metrics = {}
+
+    trader_types = ["NOISE", "INFORMED", "BOOK_INITIALIZER"]
+    total_metrics = {"filled": 0, "passive": 0, "aggressive": 0, "canceled": 0}
+
+    for trader_type in trader_types:
+        trader_metrics = calculate_trader_metrics(run_data, trader_type)
+        metrics[
+            f"{trader_type} Volume"
+        ] = f"{trader_metrics['filled']} | {trader_metrics['aggressive']} | {trader_metrics['passive']} | {abs(trader_metrics['canceled'])}, FILLED | AGGRESSIVE | PASSIVE | CANCELED"
+
+        # Update total metrics
+        for key in total_metrics:
+            total_metrics[key] += trader_metrics[key]
+
+    # Add total volume
+    metrics[
+        "Total Volume"
+    ] = f"{total_metrics['filled']} | {total_metrics['aggressive']} | {total_metrics['passive']} | {abs(total_metrics['canceled'])}, FILLED | AGGRESSIVE | PASSIVE | CANCELED"
 
     # Calculate prices
     def calculate_midpoint(order_book):
-        if order_book and order_book['bids'] and order_book['asks']:
-            return (order_book['bids'][0]['x'] + order_book['asks'][0]['x']) / 2
+        if order_book and order_book["bids"] and order_book["asks"]:
+            return (order_book["bids"][0]["x"] + order_book["asks"][0]["x"]) / 2
         return None
 
-    midprices = run_data.select(pl.col("content").struct.field("order_book").map_elements(calculate_midpoint, return_dtype=pl.Float64).alias("midpoint"))
+    midprices = run_data.select(
+        pl.col("content")
+        .struct.field("order_book")
+        .map_elements(calculate_midpoint, return_dtype=pl.Float64)
+        .alias("midpoint")
+    )
     metrics["Lowest Midprice"] = midprices.min()[0, 0]
     metrics["Final Midprice"] = midprices.tail(1)[0, 0]
 
     # Calculate VWAP for informed traders
     informed_trades = run_data.filter(
-        (pl.col("content").struct.field("type") == "FILLED_ORDER") & 
-        pl.col("content").struct.field("incoming_message").struct.field("trader_id").str.contains("INFORMED")
+        (pl.col("content").struct.field("type") == "FILLED_ORDER")
+        & (
+            pl.col("content")
+            .struct.field("matched_orders")
+            .struct.field("bid_order_id")
+            .str.contains("INFORMED")
+            | pl.col("content")
+            .struct.field("matched_orders")
+            .struct.field("ask_order_id")
+            .str.contains("INFORMED")
+        )
     )
     if informed_trades.height > 0:
         vwap_numerator = (
-            informed_trades.select(pl.col("content").struct.field("incoming_message").struct.field("amount")) * 
-            informed_trades.select(pl.col("content").struct.field("order_book").map_elements(calculate_midpoint, return_dtype=pl.Float64))
+            informed_trades.select(
+                pl.col("content")
+                .struct.field("incoming_message")
+                .struct.field("amount")
+            )
+            * informed_trades.select(
+                pl.col("content")
+                .struct.field("order_book")
+                .map_elements(calculate_midpoint, return_dtype=pl.Float64)
+            )
         ).sum()[0, 0]
-        vwap_denominator = informed_trades.select(pl.col("content").struct.field("incoming_message").struct.field("amount")).sum()[0, 0]
-        metrics["VWAP Informed"] = vwap_numerator / vwap_denominator if vwap_denominator != 0 else None
+        vwap_denominator = informed_trades.select(
+            pl.col("content").struct.field("incoming_message").struct.field("amount")
+        ).sum()[0, 0]
+        metrics["VWAP Informed"] = (
+            vwap_numerator / vwap_denominator if vwap_denominator != 0 else None
+        )
     else:
         metrics["VWAP Informed"] = None
 
     return metrics
 
+
 if __name__ == "__main__":
     run_data = get_data_from_mongodb()
     time_series_metrics = calculate_time_series_metrics(run_data)
     end_of_run_metrics = calculate_end_of_run_metrics(run_data)
-    
+
     # Print end-of-run metrics
     print("End of Run Metrics:")
     for key, value in end_of_run_metrics.items():
         print(f"{key}: {value}")
-    
+
     print("\nTime Series Metrics:")
     for session_id, metrics_df in time_series_metrics.items():
         output_path = f"{CONFIG.DATA_DIR}/time_series_metrics_{session_id}.csv"

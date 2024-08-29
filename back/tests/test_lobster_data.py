@@ -20,7 +20,7 @@
 
 #     for i in range(len(lobster_data)):
 #         lobster_value = lobster_data['LOBSTER_BOOK_0'][i]
-        
+
 #         if lobster_value is not True:
 #             # If NaN, append True
 #             comparison_results.append(True)
