@@ -82,6 +82,7 @@ def process_session(
     session_data: pl.DataFrame, window_size: int = CONFIG.ROLLING_WINDOW_SIZE
 ) -> pl.DataFrame:
     filtered_data = filter_valid_data(session_data)
+    print(session_data.head())
 
     preprocessed_data = filtered_data.with_columns(
         [
