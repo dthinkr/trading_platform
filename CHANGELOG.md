@@ -12,6 +12,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Make all Control Questions mandatory and show correct answers with explanations
 - Adjust profits to range from 5 to 15 GBP
 
+### Known Issues
+
+* [ ] Informed Trader now achieves approximately 1.3 times its expected goal
+* [ ] Order book log does not update correctly when there is matched trade
+
+## [1.2.0][1.2.0] - 2024-08-29
+
+### Added
+
+- Enhanced metrics to show both sides of each matched order
+- Improved Order ID system for better traceability
+- New Informed Trader behavior with dynamic passive order management
+- Refined Noise Trader with dynamically consistent activity frequency and internal clock
+
+### Known Issue
+
+- Informed Trader now achieves approximately 1.3 times its expected goal
+
 ## [1.1.1][1.1.1] - 2024-08-26
 
 ### Fixed
