@@ -24,6 +24,20 @@ class InformedTrader(BaseTrader):
 
         self.goal = self.initialize_inventory(params)
 
+        self.check_frequency = 1  # Check every second
+        self.urgency_factor = params.get("informed_urgency_factor", 1.0)
+    
+    def adjust_urgency(self):
+        target_progress = self.get_elapsed_time() / (self.params["trading_day_duration"] * 60)
+        progress_difference = self.progress - target_progress
+
+        if progress_difference < -0.05:  # Behind schedule
+            self.urgency_factor = min(2.0, self.urgency_factor * 1.1)
+        elif progress_difference > 0.05:  # Ahead of schedule
+            self.urgency_factor = max(0.5, self.urgency_factor * 0.9)
+        else:  # On track
+            self.urgency_factor = self.params.get("informed_urgency_factor", 1.0)
+
     @property
     def outstanding_levels(self) -> dict:
         """
@@ -109,20 +123,6 @@ class InformedTrader(BaseTrader):
     def get_remaining_time(self) -> float:
         return self.params["trading_day_duration"] * 60 - self.get_elapsed_time()
 
-    def calculate_sleep_time(self, remaining_time: float) -> float:
-        if self.progress >= 1:
-            # Goal reached
-            asyncio.create_task(self.cancel_all_outstanding_orders())
-            return remaining_time
-
-        urgency_factor = self.params["informed_urgency_factor"]
-        remaining_amount = self.goal - (self.progress * self.goal)
-        estimated_actions = max(1, remaining_amount / self.informed_order_book_depth)
-        target_sleep_time = (remaining_time / estimated_actions) / urgency_factor
-        randomness = random.uniform(0.8, 1.2)
-        sleep_time = target_sleep_time * randomness
-
-        return max(0.1, min(sleep_time, remaining_time))
 
     def should_place_aggressive_order(
         self, order_side: OrderType, top_bid: float, top_ask: float
@@ -200,42 +200,36 @@ class InformedTrader(BaseTrader):
 
     async def act(self) -> None:
         remaining_time = self.get_remaining_time()
-        if remaining_time <= 0:
+        if remaining_time <= 0 or self.progress >= 1:
+            await self.cancel_all_outstanding_orders()
+            print("Informed trader is done trading with progress: ", self.progress)
             return
 
+        self.adjust_urgency()
         await self.manage_passive_orders()
 
         trade_direction = self.params["informed_trade_direction"]
-        order_side = (
-            OrderType.BID if trade_direction == TradeDirection.BUY else OrderType.ASK
-        )
+        order_side = OrderType.BID if trade_direction == TradeDirection.BUY else OrderType.ASK
 
         top_bid = self.get_best_price(OrderType.BID)
         top_ask = self.get_best_price(OrderType.ASK)
 
+        # Adjust aggressive order placement based on urgency
         if self.should_place_aggressive_order(order_side, top_bid, top_ask):
-            await self.place_aggressive_order(order_side, top_bid, top_ask)
+            aggressive_order_count = max(1, int(self.urgency_factor * 2))
+            for _ in range(aggressive_order_count):
+                await self.place_aggressive_order(order_side, top_bid, top_ask)
 
-        self.next_sleep_time = self.calculate_sleep_time(remaining_time)
-
-        print(
-            "outstanding_levels: ",
-            {
-                level: data["total_amount"]
-                for level, data in self.outstanding_levels.items()
-            },
-        )
-        print(f"Desired levels: {self.order_placement_levels}")
-        print(f"Next sleep time: {self.next_sleep_time}")
+        print(f"Urgency factor: {self.urgency_factor}")
         print(f"Progress: {self.progress}")
+        print(f"Outstanding levels: {self.outstanding_levels}")
+        print(f"Desired levels: {self.order_placement_levels}")
 
     async def run(self) -> None:
         while not self._stop_requested.is_set():
             try:
                 await self.act()
-                await asyncio.sleep(
-                    min(self.next_sleep_time, self.get_remaining_time())
-                )
+                await asyncio.sleep(self.check_frequency)
             except asyncio.CancelledError:
                 print("Run method cancelled, performing cleanup...")
                 break
@@ -244,4 +238,5 @@ class InformedTrader(BaseTrader):
                 traceback.print_exc()
                 break
 
+        await self.cancel_all_outstanding_orders()
         print("InformedTrader has stopped.")
