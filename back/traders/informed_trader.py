@@ -26,17 +26,6 @@ class InformedTrader(BaseTrader):
 
         self.check_frequency = 1  # Check every second
         self.urgency_factor = params.get("informed_urgency_factor", 1.0)
-    
-    def adjust_urgency(self):
-        target_progress = self.get_elapsed_time() / (self.params["trading_day_duration"] * 60)
-        progress_difference = self.progress - target_progress
-
-        if progress_difference < -0.05:  # Behind schedule
-            self.urgency_factor = min(2.0, self.urgency_factor * 1.1)
-        elif progress_difference > 0.05:  # Ahead of schedule
-            self.urgency_factor = max(0.5, self.urgency_factor * 0.9)
-        else:  # On track
-            self.urgency_factor = self.params.get("informed_urgency_factor", 1.0)
 
     @property
     def outstanding_levels(self) -> dict:
@@ -62,6 +51,10 @@ class InformedTrader(BaseTrader):
         return filled_amount / self.goal if self.goal > 0 else 1
 
     @property
+    def target_progress(self) -> float:
+        return self.get_elapsed_time() / (self.params["trading_day_duration"] * 60)
+
+    @property
     def order_placement_levels(self) -> list:
         trade_direction = self.params["informed_trade_direction"]
         order_side = (
@@ -84,6 +77,17 @@ class InformedTrader(BaseTrader):
                 levels.append(level_price)
 
         return levels
+
+    def adjust_urgency(self):
+        progress_difference = self.progress - self.target_progress
+
+        if progress_difference < -0.05:  # Behind schedule
+            self.urgency_factor = min(2.0, self.urgency_factor * 1.1)
+        elif progress_difference > 0.05:  # Ahead of schedule
+            self.urgency_factor = max(0.5, self.urgency_factor * 0.9)
+        else:  # On track
+            pass
+
 
     def initialize_inventory(self, params: dict) -> int:
         expected_noise_amount_per_action = (1 + params["max_order_amount"]) / 2
@@ -198,7 +202,7 @@ class InformedTrader(BaseTrader):
                 if amount_to_add > 0:
                     await self.place_order(amount_to_add, level_price, order_side)
 
-    async def act(self) -> None:
+    async def check(self) -> None:
         remaining_time = self.get_remaining_time()
         if remaining_time <= 0 or self.progress >= 1:
             await self.cancel_all_outstanding_orders()
@@ -228,7 +232,7 @@ class InformedTrader(BaseTrader):
     async def run(self) -> None:
         while not self._stop_requested.is_set():
             try:
-                await self.act()
+                await self.check()
                 await asyncio.sleep(self.check_frequency)
             except asyncio.CancelledError:
                 print("Run method cancelled, performing cleanup...")
