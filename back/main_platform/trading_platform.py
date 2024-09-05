@@ -167,6 +167,7 @@ class TradingSession:
                 "midpoint": self.order_book.get_spread()[1],
                 "transaction_price": self.transaction_price,
                 "incoming_message": incoming_message,
+                "informed_trader_progress": incoming_message.get("informed_trader_progress") if incoming_message else None,
             }
         )
 
@@ -192,6 +193,7 @@ class TradingSession:
             bid_order_id=bid_id,
             ask_order_id=ask_id,
             price=transaction_price,
+            informed_trader_progress=bid.get("informed_trader_progress") or ask.get("informed_trader_progress")
         )
 
         await self.transaction_queue.put(transaction)
@@ -251,6 +253,9 @@ class TradingSession:
     async def handle_add_order(self, data: dict) -> Dict:
         data["order_type"] = int(data["order_type"])
 
+        # Extract informed_trader_progress from the incoming data
+        informed_trader_progress = data.get("informed_trader_progress")
+
         # Use the order_id from the incoming data if it exists
         order_id = data.get("order_id")
         if order_id:
@@ -258,6 +263,10 @@ class TradingSession:
 
         order = Order(status=OrderStatus.BUFFERED.value, session_id=self.id, **data)
         order_dict = order.model_dump()
+
+        # Add informed_trader_progress if present in the data
+        if informed_trader_progress is not None:
+            order_dict["informed_trader_progress"] = informed_trader_progress
 
         # Ensure the order_id is a string
         order_dict["id"] = str(order_dict["id"])
@@ -283,12 +292,14 @@ class TradingSession:
                 "content": "F",
                 "respond": True,
                 "incoming_message": data,  # Include the updated data as incoming_message
+                "informed_trader_progress": informed_trader_progress,  # Add informed_trader_progress to the return value
             }
         else:
             return {
                 "type": "ADDED_ORDER",
                 "content": "A",
                 "respond": True,
+                "informed_trader_progress": informed_trader_progress,  # Add informed_trader_progress to the return value
             }
 
     @if_active

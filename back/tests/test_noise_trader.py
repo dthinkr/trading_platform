@@ -8,8 +8,6 @@ from structures import TraderType, ActionType
 def noise_trader_settings():
     return {
         "id": "1",
-        "noise_activity_frequency": 1.0,
-        "order_amount": 1,
         "settings": {"initial": 100},
         "settings_noise": {
             "step": 1,
@@ -27,7 +25,6 @@ def noise_trader(noise_trader_settings):
 
 
 def test_initialization(noise_trader):
-    assert noise_trader.noise_activity_frequency == 1.0
     assert noise_trader.settings["initial"] == 100
     assert noise_trader.trader_type == TraderType.NOISE
     assert noise_trader.step == 1

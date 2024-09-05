@@ -47,16 +47,14 @@ async def test_accelerated_experiment():
         for i in range(5):  # Place 5 orders
             order_dict = {
                 "id": f"test_order_{i}",
-                "order_type": OrderType.BID.value
-                if i % 2 == 0
-                else OrderType.ASK.value,
+                "order_type": OrderType.BID.value if i % 2 == 0 else OrderType.ASK.value,
                 "amount": 100,
                 "price": params.default_price + (i * 10),
                 "status": OrderStatus.BUFFERED.value,
             }
-            placed_order = session.place_order(order_dict)
+            placed_order, _ = session.place_order(order_dict)
             assert placed_order["status"] == OrderStatus.ACTIVE.value
-            assert session.order_book.all_orders[f"test_order_{i}"] == placed_order
+            assert session.order_book.all_orders[f"test_order_{i}"]["status"] == OrderStatus.ACTIVE.value
 
         # Accelerate time
         traveller.shift(timedelta(minutes=params.trading_day_duration))

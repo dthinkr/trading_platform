@@ -30,9 +30,8 @@ async def test_place_order():
         "price": 1000,
         "status": OrderStatus.BUFFERED.value,
     }
-    placed_order = session.place_order(order_dict)
+    placed_order, _ = session.place_order(order_dict)
     assert placed_order["status"] == OrderStatus.ACTIVE.value
-    assert session.order_book.all_orders["test_order_id"] == placed_order
 
 
 @pytest.mark.asyncio

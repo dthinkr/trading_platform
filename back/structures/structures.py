@@ -248,6 +248,7 @@ class Order(BaseModel):
     timestamp: datetime = Field(default_factory=now)
     session_id: str
     trader_id: str
+    informed_trader_progress: Optional[str] = None  # New field
 
     class ConfigDict:
         use_enum_values = True
@@ -260,6 +261,7 @@ class TransactionModel(Document):
     ask_order_id = StringField(required=False)
     timestamp = DateTimeField(default=datetime.now)
     price = FloatField(required=True)
+    informed_trader_progress = StringField(required=False)  # New field
 
     async def save_async(self):
         loop = asyncio.get_running_loop()
