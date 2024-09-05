@@ -325,6 +325,12 @@ class BaseTrader:
                 "order_type": order_type,
                 "order_id": order_id,
             }
+
+            # Record progress if this is an InformedTrader
+            if self.trader_type == TraderType.INFORMED.value:
+                new_order["informed_trader_progress"] = f"{self.progress} | {self.goal}"
+
+
             await self.send_to_trading_system(new_order)
             placed_order_ids.append(order_id)
 

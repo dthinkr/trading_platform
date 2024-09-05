@@ -17,11 +17,7 @@ import polars as pl
 from client_connector.trader_manager import TraderManager
 from structures import TraderCreationData
 from main_platform.custom_logger import setup_custom_logger
-from analysis.record_pm import (
-    calculate_time_series_metrics,
-    calculate_end_of_run_metrics,
-    plot_session_metrics,
-)
+from analysis.record_message import get_data_from_mongodb, process_session, calculate_end_of_run_metrics
 import traceback
 
 logger = setup_custom_logger(__name__)
@@ -222,37 +218,6 @@ async def root():
     }
 
 
-@app.get("/session_metrics/{id}")
-async def get_session_metrics(id: str):
-    if id in trader_managers:
-        session_id = id
-    else:
-        session_id = trader_to_session_lookup.get(id)
-
-    if not session_id:
-        raise HTTPException(status_code=404, detail="No session found for this ID")
-
-    df = pl.DataFrame(list(collection.find({"trading_session_id": session_id})))
-
-    if df.is_empty():
-        raise HTTPException(status_code=404, detail="No data found for this session")
-
-    session_metrics = calculate_time_series_metrics(df)[session_id]
-
-    csv_buffer = io.BytesIO()
-    session_metrics.write_csv(csv_buffer)
-    csv_buffer.seek(0)
-
-    return StreamingResponse(
-        csv_buffer,
-        media_type="text/csv",
-        headers={
-            "Content-Disposition": f"attachment; filename=session_metrics_{session_id}.csv",
-            "Access-Control-Expose-Headers": "Content-Disposition",
-        },
-    )
-
-
 @app.post("/experiment/start")
 async def start_experiment(
     params: TraderCreationData, background_tasks: BackgroundTasks
@@ -297,54 +262,38 @@ async def get_time_series_metrics(trading_session_id: str):
             status_code=400, detail="Trading session is not finished yet"
         )
 
-    return await get_session_metrics(trading_session_id)
+    run_data = get_data_from_mongodb([trading_session_id])
+    processed_data = process_session(run_data)
+    
+    return JSONResponse(content={"status": "success", "data": processed_data})
 
 
 @app.get("/experiment/end_metrics/{trading_session_id}")
 async def get_end_metrics(trading_session_id: str):
     try:
-        # Fetch the data for the specific trading session
-        df = pl.DataFrame(
-            list(collection.find({"trading_session_id": trading_session_id}))
-        )
-
-        if df.is_empty():
+        run_data = get_data_from_mongodb([trading_session_id])
+        
+        if run_data.is_empty():
             raise HTTPException(
                 status_code=404, detail="No data found for this session"
             )
 
-        # Calculate the end-of-run metrics
-        metrics = calculate_end_of_run_metrics(df)
+        # Calculate the end-of-run metrics (currently returns an empty dict)
+        metrics = calculate_end_of_run_metrics(run_data)
 
-        return JSONResponse(content={"status": "success", "data": metrics})
+        # Create an empty CSV (you can modify this later to include actual metrics)
+        csv_buffer = io.StringIO()
+        csv_buffer.write("")  # Write an empty string
+        csv_buffer.seek(0)
+
+        return StreamingResponse(
+            csv_buffer,
+            media_type="text/csv",
+            headers={
+                "Content-Disposition": f"attachment; filename=end_metrics_{trading_session_id}.csv",
+                "Access-Control-Expose-Headers": "Content-Disposition",
+            },
+        )
     except Exception as e:
         logger.error(f"Error calculating end-of-run metrics: {str(e)}")
         raise HTTPException(status_code=500, detail="Error calculating metrics")
-
-
-@app.get("/experiment/time_series_plot/{trading_session_id}")
-async def get_session_plot(trading_session_id: str):
-    try:
-        # Fetch the data for the specific trading session
-        data = list(collection.find({"trading_session_id": trading_session_id}))
-
-        df = pl.DataFrame(data)
-
-        if df.is_empty():
-            raise HTTPException(
-                status_code=404, detail="No data found for this session"
-            )
-
-        # Calculate time series metrics
-        time_series_metrics = calculate_time_series_metrics(df)
-        session_metrics = time_series_metrics[trading_session_id]
-
-        # Generate the plot
-        svg_string = plot_session_metrics(session_metrics, trading_session_id)
-
-        return Response(content=svg_string, media_type="image/svg+xml")
-    except Exception as e:
-        error_details = {"error": str(e), "traceback": traceback.format_exc()}
-        print(error_details)
-        logger.error(f"Error generating session plot: {error_details}")
-        raise HTTPException(status_code=500, detail=error_details)
