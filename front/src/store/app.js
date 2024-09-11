@@ -162,7 +162,6 @@ export const useTraderStore = defineStore("trader", {
         this.gameParams = formState;
         // Store the formState separately as well
         this.formState = formState;
-        console.log("Store formState after initialization:", this.formState); // Debug log
         // Connect to WebSocket or perform other actions
       } catch (error) {
         console.error("Error initializing trading system:", error);
@@ -174,11 +173,8 @@ export const useTraderStore = defineStore("trader", {
       const httpUrl = import.meta.env.VITE_HTTP_URL;
       try {
         const response = await axios.get(`${httpUrl}trading_session/${tradingSessionUUID}`);
-        console.debug(response.data.data);
         this.tradingSessionData = response.data.data;
-        console.log("Store formState in getTradingSessionData:", this.formState); // Debug log
       } catch (error) {
-        console.error("Error fetching trading session data:", error);
         throw error; // Rethrow the error so it can be caught in the component
       }
     },
@@ -201,15 +197,11 @@ export const useTraderStore = defineStore("trader", {
     },
     handle_update(data) {
       if (data.type === "time_update") {
-        console.log("data:", data);
         this.$patch({
           currentTime: new Date(data.data.current_time),
           isTradingStarted: data.data.is_trading_started,
           remainingTime: data.data.remaining_time
         });
-        console.log("currentTime:", this.currentTime);
-        console.log("isTradingStarted:", this.isTradingStarted);
-        console.log("remainingTime:", this.remainingTime);
         return;
       }
       const {

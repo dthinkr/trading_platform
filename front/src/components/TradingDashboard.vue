@@ -50,32 +50,32 @@
           <v-col cols="12" lg="6">
             <v-card class="mb-6" elevation="3">
               <v-card-text class="pa-0">
-                <BidAskChart />
+                <BidAskDistribution />
               </v-card-text>
             </v-card>
           </v-col>
           <v-col cols="12" lg="6">
             <v-card class="mb-6" elevation="3">
               <v-card-text class="pa-0">
-                <HistoryChart />
+                <PriceHistory />
               </v-card-text>
             </v-card>
           </v-col>
         </v-row>
         <v-row>
           <v-col cols="12" lg="6">
-            <myOrdersTable />
+            <ActiveOrders />
           </v-col>
           <v-col cols="12" lg="6">
-            <sellingBlock />
+            <OrderPanel />
           </v-col>
         </v-row>
       </v-container>
     </v-main>
     <v-navigation-drawer app right width="350" permanent class="elevation-4">
       <v-container fluid class="pa-4">
-        <messageBlock class="mb-6" />
-        <staticInfoBlock />
+        <OrderHistory class="mb-6" />
+        <MarketIndicators />
       </v-container>
     </v-navigation-drawer>
 
@@ -91,13 +91,15 @@
 const props = defineProps({
   traderUuid: String,
 });
-import commandTool from "@/components/commandToolBar.vue";
-import myOrdersTable from "@/components/myOrders.vue";
-import BidAskChart from "@/components/BidAskChart.vue";
-import HistoryChart from "@/components/HistoryChart.vue";
-import sellingBlock from "./sellingBlock.vue";
-import messageBlock from "./messageBlock.vue";
-import staticInfoBlock from "./staticInfoBlock.vue";
+
+// Updated imports
+import BidAskDistribution from "@charts/BidAskDistribution.vue";
+import PriceHistory from "@charts/PriceHistory.vue";
+import OrderPanel from "@trading/OrderPanel.vue";
+import OrderHistory from "@trading/OrderHistory.vue";
+import ActiveOrders from "@trading/ActiveOrders.vue";
+import MarketIndicators from "./MarketIndicators.vue";
+
 import { onMounted, computed } from "vue";
 import { useRouter } from "vue-router";
 import { useFormatNumber } from "@/composables/utils";
@@ -111,24 +113,19 @@ const { initializeTrader } = useTraderStore();
 const { gameParams, goalMessage, shares, cash, sum_dinv, initial_shares, dayOver, pnl, vwap, remainingTime, isTradingStarted } =
   storeToRefs(useTraderStore());
 
-// const remainingTime = computed(() => {
-//   const currentTime = new Date().getTime();
-//   const endTime = new Date(gameParams.value.end_time).getTime();
-//   return endTime - currentTime;
-// });
 onMounted(() => {
   initializeTrader(props.traderUuid);
 });
-const formatDelta = computed(() => {
 
-  if (sum_dinv == undefined) {
+const formatDelta = computed(() => {
+  if (sum_dinv.value == undefined) {
     return "";
   }
   return sum_dinv.value >= 0 ? "+" + sum_dinv.value : sum_dinv.value;
 });
 
 const finalizingDay = () => {
-  router.push({ name: "DayOver", params: { traderUuid: props.traderUuid } });
+  router.push({ name: "summary", params: { traderUuid: props.traderUuid } });
 };
 
 watch(
@@ -168,7 +165,6 @@ watch(
   }
 );
 </script>
-
 
 <style scoped>
 .trading-system {
