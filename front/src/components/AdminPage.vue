@@ -29,7 +29,7 @@
                   Trading Session Parameters
                 </v-expansion-panel-title>
                 <v-expansion-panel-text>
-                  <v-simple-table>
+                  <v-table>
                     <template v-slot:default>
                       <thead>
                         <tr>
@@ -44,7 +44,7 @@
                         </tr>
                       </tbody>
                     </template>
-                  </v-simple-table>
+                  </v-table>
                 </v-expansion-panel-text>
               </v-expansion-panel>
             </v-expansion-panels>
@@ -124,7 +124,7 @@ const startTraderSession = (traderId) => {
     numRounds: tradingSessionParameters.value.num_rounds
   };
   router.push({ 
-    name: 'TraderLanding', 
+    name: 'onboarding',  // Change this from 'TraderLanding' to 'onboarding'
     params: { 
       traderUuid: params.traderUuid,
       duration: params.duration,

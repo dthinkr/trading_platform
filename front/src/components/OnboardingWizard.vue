@@ -117,8 +117,14 @@ const prevPage = () => {
 };
 
 const startTrading = () => {
-  router.push({ name: 'TradingSystem', params: { traderUuid: traderUuid.value } });
+  router.push({ 
+    name: 'trading', // Changed from 'TradingSystem' to 'trading'
+    params: { 
+      traderUuid: traderUuid.value 
+    } 
+  });
 };
+
 </script>
 
 <style>

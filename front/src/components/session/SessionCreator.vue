@@ -41,9 +41,9 @@
           <v-card-text>
             <v-list>
               <v-list-item v-for="session in sessions" :key="session.id">
-                <v-list-item-content>
-                  <v-list-item-title class="font-weight-medium">Session ID: {{ session.id.slice(0, 8) }}...</v-list-item-title>
-                  <v-list-item-subtitle>Status: {{ session.status }}</v-list-item-subtitle>
+                <v-list-item-title class="font-weight-medium">Session ID: {{ session.id.slice(0, 8) }}...</v-list-item-title>
+                <v-list-item-subtitle>Status: {{ session.status }}</v-list-item-subtitle>
+                <template #append>
                   <v-row class="mt-2">
                     <v-col cols="6">
                       <v-btn
@@ -70,7 +70,7 @@
                       </v-btn>
                     </v-col>
                   </v-row>
-                </v-list-item-content>
+                </template>
               </v-list-item>
             </v-list>
           </v-card-text>
@@ -91,41 +91,37 @@
           <v-row>
             <v-col cols="12" md="6">
               <h3>Parameters</h3>
-              <v-simple-table dense>
-                <template v-slot:default>
-                  <thead>
-                    <tr>
-                      <th>Parameter</th>
-                      <th>Value</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="(value, key) in selectedSession.parameters" :key="key">
-                      <td>{{ key }}</td>
-                      <td>{{ value }}</td>
-                    </tr>
-                  </tbody>
-                </template>
-              </v-simple-table>
+              <v-table density="compact">
+                <thead>
+                  <tr>
+                    <th>Parameter</th>
+                    <th>Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(value, key) in selectedSession.parameters" :key="key">
+                    <td>{{ key }}</td>
+                    <td>{{ value }}</td>
+                  </tr>
+                </tbody>
+              </v-table>
             </v-col>
             <v-col cols="12" md="6">
               <h3>End Metrics</h3>
-              <v-simple-table dense v-if="selectedSession.endMetrics">
-                <template v-slot:default>
-                  <thead>
-                    <tr>
-                      <th>Metric</th>
-                      <th>Value</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="(value, key) in selectedSession.endMetrics" :key="key">
-                      <td>{{ key }}</td>
-                      <td>{{ value }}</td>
-                    </tr>
-                  </tbody>
-                </template>
-              </v-simple-table>
+              <v-table density="compact" v-if="selectedSession.endMetrics">
+                <thead>
+                  <tr>
+                    <th>Metric</th>
+                    <th>Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(value, key) in selectedSession.endMetrics" :key="key">
+                    <td>{{ key }}</td>
+                    <td>{{ value }}</td>
+                  </tr>
+                </tbody>
+              </v-table>
               <p v-else>No end metrics available</p>
             </v-col>
           </v-row>
@@ -157,7 +153,6 @@ const timeSeriesMetricsUrl = `${httpUrl}experiment/time_series_metrics`;
 const endMetricsUrl = `${httpUrl}experiment/end_metrics`;
 const statusUrl = `${httpUrl}experiment/status`;
 const plotUrl = `${httpUrl}experiment/time_series_plot`;
-const parametersUrl = `${httpUrl}experiment/parameters`;
 
 const traderStore = useTraderStore();
 const router = useRouter();
@@ -170,6 +165,96 @@ const selectedSession = ref(null);
 const showResultDialog = ref(false);
 
 const { tradingSessionData } = storeToRefs(useTraderStore());
+
+const groupedFields = computed(() => {
+  const groups = {};
+  formFields.value.forEach((field) => {
+    const hint = field.hint || 'other';
+    if (!groups[hint]) {
+      groups[hint] = [];
+    }
+    groups[hint].push(field);
+  });
+  return groups;
+});
+
+const getFieldType = (field) => {
+  if (!field || !field.type) return 'text';
+  return ['number', 'integer'].includes(field.type) ? 'number' : 'text';
+};
+
+const fetchData = async () => {
+  try {
+    const response = await axios.get(defaultsUrl);
+    const data = response.data.data;
+    
+    for (const [key, value] of Object.entries(data)) {
+      formState.value[key] = value.default;
+      formFields.value.push({ name: key, ...value });
+    }
+    serverActive.value = true;
+  } catch (error) {
+    serverActive.value = false;
+    console.error("Failed to fetch form defaults:", error);
+  }
+};
+
+const initializeTrader = async () => {
+  try {
+    await traderStore.initializeTradingSystem(formState.value);
+    const tradingSessionUUID = tradingSessionData.value.trading_session_uuid;
+    if (!tradingSessionUUID) {
+      throw new Error('Trading session UUID is undefined');
+    }
+    await router.push({
+      name: "admin",
+      params: { tradingSessionUUID: tradingSessionUUID }
+    });
+  } catch (error) {
+    console.error("Error initializing trading system:", error);
+    // You might want to show an error message to the user here
+  }
+};
+
+const startExperiment = async () => {
+  try {
+    const response = await axios.post(experimentUrl, formState.value);
+    const sessionId = response.data.data.trading_session_uuid;
+    const duration = formState.value.duration;
+    sessions.value.push({ 
+      id: sessionId, 
+      status: 'running', 
+      duration,
+      parameters: { ...formState.value }
+    });
+    setTimeout(() => checkExperimentStatus(sessionId), duration * 60 * 1000);
+  } catch (error) {
+    console.error("Error starting experiment:", error);
+  }
+};
+
+const checkExperimentStatus = async (sessionId) => {
+  const checkStatus = async () => {
+    try {
+      const response = await axios.get(`${statusUrl}/${sessionId}`);
+      const session = sessions.value.find(s => s.id === sessionId);
+      if (session) {
+        session.status = response.data.data.is_finished ? 'finished' : 'running';
+        if (response.data.data.is_finished) {
+          // Fetch end metrics when session is finished
+          const endMetricsResponse = await axios.get(`${endMetricsUrl}/${sessionId}`);
+          session.endMetrics = endMetricsResponse.data.data;
+        } else {
+          setTimeout(checkStatus, 10000);
+        }
+      }
+    } catch (error) {
+      console.error("Error checking experiment status:", error);
+    }
+  };
+
+  checkStatus();
+};
 
 const downloadCombinedCSV = async (sessionId) => {
   try {
@@ -243,91 +328,6 @@ const closeResultDialog = () => {
   showResultDialog.value = false;
   selectedSession.value = null;
   svgPlot.value = '';
-};
-
-const initializeTrader = async () => {
-  try {
-    await traderStore.initializeTradingSystem(formState.value);
-    router.push({
-      name: "AdminPage",
-      params: { tradingSessionUUID: tradingSessionData.value.trading_session_uuid }
-    });
-  } catch (error) {
-    console.error("Error initializing trading system:", error);
-  }
-};
-
-const startExperiment = async () => {
-  try {
-    const response = await axios.post(experimentUrl, formState.value);
-    const sessionId = response.data.data.trading_session_uuid;
-    const duration = formState.value.duration;
-    sessions.value.push({ 
-      id: sessionId, 
-      status: 'running', 
-      duration,
-      parameters: { ...formState.value }
-    });
-    setTimeout(() => checkExperimentStatus(sessionId), duration * 60 * 1000);
-  } catch (error) {
-    console.error("Error starting experiment:", error);
-  }
-};
-
-const checkExperimentStatus = async (sessionId) => {
-  const checkStatus = async () => {
-    try {
-      const response = await axios.get(`${statusUrl}/${sessionId}`);
-      const session = sessions.value.find(s => s.id === sessionId);
-      if (session) {
-        session.status = response.data.data.is_finished ? 'finished' : 'running';
-        if (response.data.data.is_finished) {
-          // Fetch end metrics when session is finished
-          const endMetricsResponse = await axios.get(`${endMetricsUrl}/${sessionId}`);
-          session.endMetrics = endMetricsResponse.data.data;
-        } else {
-          setTimeout(checkStatus, 10000);
-        }
-      }
-    } catch (error) {
-      console.error("Error checking experiment status:", error);
-    }
-  };
-
-  checkStatus();
-};
-
-const groupedFields = computed(() => {
-  const groups = {};
-  formFields.value.forEach((field) => {
-    const hint = field.hint || 'other';
-    if (!groups[hint]) {
-      groups[hint] = [];
-    }
-    groups[hint].push(field);
-  });
-  return groups;
-});
-
-const getFieldType = (field) => {
-  if (!field || !field.type) return 'text';
-  return ['number', 'integer'].includes(field.type) ? 'number' : 'text';
-};
-
-const fetchData = async () => {
-  try {
-    const response = await axios.get(defaultsUrl);
-    const data = response.data.data;
-    
-    for (const [key, value] of Object.entries(data)) {
-      formState.value[key] = value.default;
-      formFields.value.push({ name: key, ...value });
-    }
-    serverActive.value = true;
-  } catch (error) {
-    serverActive.value = false;
-    console.error("Failed to fetch form defaults:", error);
-  }
 };
 
 onMounted(fetchData);

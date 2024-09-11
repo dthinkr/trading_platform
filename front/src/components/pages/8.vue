@@ -126,7 +126,7 @@ const initialShares = computed(() => {
 const initialCash = computed(() => currentTraderData.value?.initial_cash ?? 'Loading...');
 
 const startPractice = () => {
-  router.push({ name: 'TradingSystem', params: { traderUuid: route.params.traderUuid } });
+  router.push({ name: 'trading', params: { traderUuid: route.params.traderUuid } });
 };
 
 onMounted(async () => {

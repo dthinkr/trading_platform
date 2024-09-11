@@ -1,32 +1,22 @@
-// Plugins
-import Components from 'unplugin-vue-components/vite'
-import Vue from '@vitejs/plugin-vue'
-import Vuetify, { transformAssetUrls } from 'vite-plugin-vuetify'
-import ViteFonts from 'unplugin-fonts/vite'
-import Layouts from 'vite-plugin-vue-layouts'
-
-
-// Utilities
 import { defineConfig } from 'vite'
+import vue from '@vitejs/plugin-vue'
+import vuetify, { transformAssetUrls } from 'vite-plugin-vuetify'
+import ViteFonts from 'unplugin-fonts/vite'
 import { fileURLToPath, URL } from 'node:url'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  assetsInclude: ['**/*.md'],
   plugins: [
-     
-    Layouts(),
-    Vue({
+    vue({
       template: { transformAssetUrls }
     }),
     // https://github.com/vuetifyjs/vuetify-loader/tree/master/packages/vite-plugin#readme
-    Vuetify({
+    vuetify({
       autoImport: true,
       styles: {
         configFile: 'src/styles/settings.scss',
       },
     }),
-    Components(),
     ViteFonts({
       google: {
         families: [{
@@ -36,10 +26,15 @@ export default defineConfig({
       },
     }),
   ],
+
   define: { 'process.env': {} },
   resolve: {
     alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url))
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
+      '@components': fileURLToPath(new URL('./src/components', import.meta.url)),
+      '@charts': fileURLToPath(new URL('./src/components/charts', import.meta.url)),
+      '@trading': fileURLToPath(new URL('./src/components/trading', import.meta.url)),
+      '@session': fileURLToPath(new URL('./src/components/session', import.meta.url)),
     },
     extensions: [
       '.js',

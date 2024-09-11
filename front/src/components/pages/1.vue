@@ -69,7 +69,7 @@ const router = useRouter();
 const traderStore = useTraderStore();
 
 const startTrading = () => {
-  router.push({ name: 'TradingSystem', params: { traderUuid: traderStore.traderUuid } });
+  router.push({ name: 'trading', params: { traderUuid: traderStore.traderUuid } });
 };
 
 console.log('Props in 1.vue:', props); // Debug log
