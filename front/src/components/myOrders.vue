@@ -6,18 +6,21 @@
     </v-card-title>
     
     <div class="orders-container">
-      <div v-for="(item, index) in sortedOrders" :key="index" class="order-item" :class="item.order_type.toLowerCase()">
+      <div v-for="(level, price) in orderLevels" :key="price" class="order-level" :class="level.type.toLowerCase()">
         <div class="order-header">
-          <span class="order-type">{{ item.order_type }}</span>
-          <div class="price">{{ Math.round(item.price).toFixed(0) }}</div>
+          <span class="order-type">{{ level.type }}</span>
+          <div class="price">{{ formatPrice(price) }}</div>
         </div>
         <div class="order-details">
-          <div class="amount">Amount: {{ item.totalAmount }}</div>
+          <div class="amount">
+            Active: {{ level.active }}
+            Pending: {{ level.pending }}
+          </div>
           <div class="order-actions">
             <v-btn
               icon
               x-small
-              @click="addOrder(item)"
+              @click="addOrder(level.type, price)"
               color="success"
               class="action-btn"
             >
@@ -26,7 +29,7 @@
             <v-btn
               icon
               x-small
-              @click="removeOrder(item)"
+              @click="cancelOrder(level.type, price)"
               color="error"
               class="action-btn"
             >
@@ -35,8 +38,8 @@
           </div>
         </div>
         <v-progress-linear
-          :value="(item.totalAmount / maxAmount) * 100"
-          :color="item.order_type === 'BID' ? 'success' : 'error'"
+          :value="(level.active + level.pending) / maxAmount * 100"
+          :color="level.type === 'BID' ? 'success' : 'error'"
           height="4"
           class="amount-progress"
         ></v-progress-linear>
@@ -46,76 +49,63 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from "vue";
+import { computed } from 'vue';
 import { useTraderStore } from "@/store/app";
 import { storeToRefs } from "pinia";
-import { useFormatNumber } from '@/composables/utils';
 
-const { formatNumber } = useFormatNumber();
 const traderStore = useTraderStore();
-const { myOrders } = storeToRefs(traderStore);
-const { sendMessage } = traderStore;
+const { placedOrders } = storeToRefs(traderStore);
 
-const localOrders = ref([]);
-
-const combinedOrders = computed(() => {
-  const orderMap = new Map();
-  localOrders.value.forEach(order => {
-    const key = `${order.order_type}-${order.price}`;
-    if (!orderMap.has(key)) {
-      orderMap.set(key, { ...order, totalAmount: 0 });
+const orderLevels = computed(() => {
+  const levels = {};
+  placedOrders.value.forEach(order => {
+    if (!levels[order.price]) {
+      levels[order.price] = { type: order.order_type, active: 0, pending: 0 };
     }
-    orderMap.get(key).totalAmount += order.amount;
+    if (order.status === 'active') {
+      levels[order.price].active += order.amount;
+    } else if (order.status === 'pending') {
+      levels[order.price].pending += order.amount;
+    }
   });
-  return Array.from(orderMap.values());
-});
-
-const sortedOrders = computed(() => {
-  return [...combinedOrders.value].sort((a, b) => b.price - a.price);
+  return Object.entries(levels)
+    .sort(([priceA], [priceB]) => Number(priceB) - Number(priceA))
+    .reduce((acc, [price, level]) => {
+      acc[price] = level;
+      return acc;
+    }, {});
 });
 
 const maxAmount = computed(() => {
-  return Math.max(...sortedOrders.value.map(order => order.totalAmount));
+  return Math.max(...Object.values(orderLevels.value).map(level => level.active + level.pending), 1);
 });
 
-const addOrder = (item) => {
+function formatPrice(price) {
+  return Math.round(Number(price)).toFixed(0);
+}
+
+function addOrder(type, price) {
   const newOrder = {
     id: Date.now().toString(),
-    order_type: item.order_type,
-    price: item.price,
+    order_type: type, // Keep as 'BID' or 'ASK' for frontend use
+    price: Number(price),
     amount: 1,
-    status: 'active'
+    status: 'pending'
   };
-  localOrders.value.push(newOrder);
-  sendMessage("add_order", { type: item.order_type === 'ASK' ? -1 : 1, price: item.price, amount: 1 });
-};
+  traderStore.addOrder(newOrder);
+}
 
-const removeOrder = (item) => {
-  const orderToRemove = localOrders.value.find(order => 
-    order.order_type === item.order_type && 
-    order.price === item.price &&
+function cancelOrder(type, price) {
+  const orderToCancel = placedOrders.value.find(order => 
+    order.order_type === type && 
+    order.price === Number(price) &&
     order.status === 'active'
   );
-  if (orderToRemove) {
-    orderToRemove.status = 'cancelled';
-    sendMessage("cancel_order", { id: orderToRemove.id });
+  if (orderToCancel) {
+    traderStore.cancelOrder(orderToCancel.id);
   }
-};
+}
 
-watch(myOrders, (newOrders) => {
-  localOrders.value = JSON.parse(JSON.stringify(newOrders));
-}, { immediate: true, deep: true });
-
-const syncOrders = (serverOrders) => {
-  localOrders.value = serverOrders.map(order => ({
-    ...order,
-    amount: order.amount || 1
-  }));
-};
-
-watch(myOrders, syncOrders, { deep: true });
-
-defineExpose({ syncOrders });
 </script>
 
 <style scoped>
@@ -135,30 +125,28 @@ defineExpose({ syncOrders });
   flex-grow: 1;
   overflow-y: auto;
   padding: 16px;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 16px;
 }
 
-.order-item {
+.order-level {
   background-color: white;
   border-radius: 8px;
   padding: 12px;
+  margin-bottom: 12px;
   position: relative;
   transition: all 0.3s ease;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-.order-item:hover {
+.order-level:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 8px rgba(0,0,0,0.15);
 }
 
-.order-item.bid {
+.order-level.bid {
   border-left: 4px solid #2196F3;
 }
 
-.order-item.ask {
+.order-level.ask {
   border-left: 4px solid #F44336;
 }
 

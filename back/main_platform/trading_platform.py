@@ -142,13 +142,33 @@ class TradingSession:
         ]
 
     def get_active_orders_to_broadcast(self) -> List[Dict]:
-        active_orders_df = pl.DataFrame(list(self.order_book.active_orders.values()))
-        if active_orders_df.height == 0:
+        active_orders = list(self.order_book.active_orders.values())
+        processed_orders = []
+        
+        for order in active_orders:
+            processed_order = {
+                "id": str(order["id"]),
+                "trader_id": str(order["trader_id"]),
+                "order_type": int(order["order_type"]),
+                "amount": float(order["amount"]),
+                "price": float(order["price"]),
+                "timestamp": str(order["timestamp"])
+            }
+            processed_orders.append(processed_order)
+        
+        if not processed_orders:
             return []
-        return active_orders_df.select(
-            ["id", "trader_id", "order_type", "amount", "price", "timestamp"]
-        ).to_dicts()
-
+        
+        try:
+            active_orders_df = pl.DataFrame(processed_orders)
+            return active_orders_df.select(
+                ["id", "trader_id", "order_type", "amount", "price", "timestamp"]
+            ).to_dicts()
+        except Exception as e:
+            logger.error(f"Error creating DataFrame: {e}")
+            logger.error(f"Problematic orders: {processed_orders}")
+            return []
+            
     async def send_broadcast(
         self, message: dict, message_type="BOOK_UPDATED", incoming_message=None
     ) -> None:

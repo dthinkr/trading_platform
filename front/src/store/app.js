@@ -83,7 +83,8 @@ export const useTraderStore = defineStore("trader", {
     sum_dinv: 0,
     initial_shares: 0,
     current_price: null,
-    myOrders: [],
+    placedOrders: [],
+    executedOrders: [],
     showSnackbar: false,
     snackbarText: "",
   }),
@@ -108,8 +109,8 @@ export const useTraderStore = defineStore("trader", {
     ws_path: (state) => {
       return `${import.meta.env.VITE_WS_URL}trader/${state.traderUuid}`;
     },
-    activeOrdersCount: (state) =>
-      state.myOrders.filter((order) => order.status === "active").length,
+    activeOrders: (state) => state.placedOrders.filter(order => order.status === 'active'),
+    pendingOrders: (state) => state.placedOrders.filter(order => order.status === 'pending'),
     hasExceededMaxShortShares: (state) => {
       if (state.gameParams.max_short_shares < 0) return false;
       return (
@@ -125,7 +126,7 @@ export const useTraderStore = defineStore("trader", {
       );
     },
     hasReachedMaxActiveOrders(state) {
-      return this.activeOrdersCount >= state.gameParams.max_active_orders;
+      return this.activeOrders.length >= state.gameParams.max_active_orders;
     },
     getSnackState(state) {
       if (
@@ -234,18 +235,12 @@ export const useTraderStore = defineStore("trader", {
         this.updateExtraParams(market_level_data);
       }
     
-      const orderTypeMapping = {
-        '-1': 'ask',
-        '1': 'bid'
-      };
-      if (trader_orders && trader_orders.length > 0) {
-        const remappedOrders = trader_orders.map(order => ({
+      if (trader_orders) {
+        this.placedOrders = trader_orders.map(order => ({
           ...order,
-          order_type: orderTypeMapping[order.order_type.toString()],
+          order_type: order.order_type === 1 ? 'BID' : 'ASK',
           status: 'active'
         }));
-        console.debug('OLD ORDERS', trader_orders, 'NEW ORDERS', remappedOrders)
-        this.myOrders = remappedOrders;
       }
     
       if (inventory) {
@@ -329,6 +324,36 @@ export const useTraderStore = defineStore("trader", {
       } else if (this.hasExceededMaxShortShares) {
         this.snackbarText = `You are not allowed to short more than ${this.gameParams.max_short_shares} shares`;
         this.showSnackbar = true;
+      }
+    },
+    addOrder(order) {
+      this.placedOrders.push(order);
+      this.sendMessage("add_order", { 
+        type: order.order_type === 'BID' ? 1 : -1, // Convert to integer
+        price: order.price,
+        amount: order.amount 
+      });
+    },
+    
+    cancelOrder(orderId) {
+      const orderIndex = this.placedOrders.findIndex(order => order.id === orderId);
+      if (orderIndex !== -1) {
+        const order = this.placedOrders[orderIndex];
+        this.sendMessage("cancel_order", { id: orderId });
+        this.placedOrders.splice(orderIndex, 1);
+      }
+    },
+    
+    updateOrderStatus(orderId, newStatus) {
+      const orderIndex = this.placedOrders.findIndex(order => order.id === orderId);
+      if (orderIndex !== -1) {
+        const order = this.placedOrders[orderIndex];
+        order.status = newStatus;
+        
+        if (newStatus === 'executed') {
+          this.executedOrders.push({ ...order });
+          this.placedOrders.splice(orderIndex, 1);
+        }
       }
     },
   },

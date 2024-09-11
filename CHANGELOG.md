@@ -11,6 +11,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Make all Control Questions mandatory and show correct answers with explanations
 - Adjust profits to range from 5 to 15 GBP
+- Ensure trading platform starts only after participant completes all questions and clicks "Start Market"
+- Implement manual setting of goals for each human trader
+- Add options to set trader as Informed or Speculator
+- For informed traders, determine number of shares by participation rate (informed intensity)
+- Implement random generation of direction (sell or buy task)
+- Remove market updates messages from top left of trading platform
+- Simplify order sending process to use button clicks
+- Implement correct counting of shares needed to reach the goal
+- Update display of bought/sold shares at top right of platform
+- Improve My Orders Page with faster updates of outstanding orders
+- Fix display of sell order goals at end of page
+- Add VWAP to metrics in Day Overview
+- Implement goal achievement calculations:
+  - For unfulfilled sell goals: remaining orders * initial midprice * 0.5
+  - For unfulfilled buy goals: remaining orders * initial midprice * 1.5
+- Add Market Earnings calculation and display
+- Remove potentially confusing metrics (initial cash, final cash, etc.)
+- Remove dollar sign from initial and final shares display
 
 ### Known Issues
 

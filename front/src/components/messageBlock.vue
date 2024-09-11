@@ -1,68 +1,44 @@
 <template>
   <v-card height="100%" elevation="3" class="message-board">
     <v-card-title class="cardtitle">
-      <v-icon left color="white">mdi-bell-outline</v-icon>
-      Market Updates
+      <v-icon left color="white">mdi-history</v-icon>
+      Order History
     </v-card-title>
     <v-card-text class="message-container" ref="messageContainer">
-      <v-container>
+      <v-container v-if="executedOrders.length">
         <TransitionGroup name="message" tag="div" class="messages-container">
           <div 
             class="message"
-            v-for="(message, index) in messages" 
-            :key="index" 
-            :ref="setRef" 
-            :id="`message_${index}`"
+            v-for="order in executedOrders" 
+            :key="order.id" 
+            :ref="setRef"
           >
-            <v-icon left small :color="getMessageColor(message)" class="mr-2">{{ getMessageIcon(message) }}</v-icon>
-            {{ message }}
+            <v-icon left small :color="getOrderColor(order)" class="mr-2">mdi-check-circle</v-icon>
+            {{ formatOrderMessage(order) }}
           </div>
         </TransitionGroup>
       </v-container>
+      <div v-else class="no-orders-message">
+        No executed orders yet.
+      </div>
     </v-card-text>
   </v-card>
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick } from "vue";
+import { ref, onMounted, nextTick, watch } from "vue";
+import { useTraderStore } from "@/store/app";
+import { storeToRefs } from "pinia";
 
-const tradingMessages = [
-  "Your buy order for AAPL has been executed.",
-  "Market alert: BTC has dropped by 5% in the last hour.",
-  "Reminder: Your portfolio review is due next week.",
-  "Trade successful: 100 shares of TSLA sold at $720.00.",
-  "Market update: NASDAQ has risen by 0.5% today.",
-  "Funds settled: $1,500.00 has been deposited into your account.",
-  "Order placed: Buy order for 50 shares of AMZN at $3,100.00.",
-  "Warning: Your margin balance is below 20%.",
-  "Earnings report: MSFT beats Q3 expectations, shares jump.",
-  "Dividend received: $250.00 from KO.",
-  "New research report available: Analysis on the recent trends in the EV market.",
-  "Price alert: Gold has reached a new 6-month high.",
-  "Your limit order to sell 200 shares of NFLX at $550.00 has been placed.",
-  "Portfolio update: Your investments have gained 2.5% in value this month.",
-  "Reminder: Check out the latest investment strategies on our blog.",
-  "Dividend announcement: JNJ has declared a $1.05 per share dividend.",
-  "Economic update: The Federal Reserve hints at possible rate hikes next quarter.",
-  "Your watchlist update: AMD stock has increased by over 10% this week.",
-  "Security notice: Remember to update your password regularly to protect your account.",
-  "System maintenance: The platform will be temporarily unavailable from 2 AM to 4 AM this Saturday."
-];
+const traderStore = useTraderStore();
+const { executedOrders } = storeToRefs(traderStore);
 
-const messages = ref([]);
 const messageRefs = ref([]);
 
 const setRef = (el) => {
   if (el) {
     messageRefs.value.push(el);
   }
-};
-
-const addMessage = async () => {
-  const randomMessage = tradingMessages[Math.floor(Math.random() * tradingMessages.length)];
-  messages.value.push(randomMessage);
-  await nextTick();
-  scrollToLastMessage();
 };
 
 const scrollToLastMessage = () => {
@@ -72,21 +48,20 @@ const scrollToLastMessage = () => {
   }
 };
 
-const getMessageColor = (message) => {
-  if (message.includes("alert") || message.includes("Warning")) return "error";
-  if (message.includes("successful") || message.includes("executed")) return "success";
-  return "primary";
+const getOrderColor = (order) => {
+  return order.order_type === 'BID' ? "success" : "error";
 };
 
-const getMessageIcon = (message) => {
-  if (message.includes("alert") || message.includes("Warning")) return "mdi-alert-circle-outline";
-  if (message.includes("successful") || message.includes("executed")) return "mdi-check-circle-outline";
-  return "mdi-information-outline";
+const formatOrderMessage = (order) => {
+  const action = order.order_type === 'BID' ? 'Buy' : 'Sell';
+  return `${action} order executed: ${order.amount} @ $${order.price}`;
 };
 
 onMounted(() => {
-  const n = 4; // Number of seconds between messages
-  setInterval(addMessage, n * 1000); 
+  watch(executedOrders, async () => {
+    await nextTick();
+    scrollToLastMessage();
+  });
 });
 </script>
 
@@ -144,5 +119,11 @@ onMounted(() => {
 .message-enter-to, .message-leave-from {
   opacity: 1;
   transform: translateY(0);
+}
+
+.no-orders-message {
+  text-align: center;
+  color: #666;
+  padding: 20px;
 }
 </style>

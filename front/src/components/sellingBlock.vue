@@ -163,7 +163,14 @@ function zoneStyle(zone) {
 
 function finishOrder() {
   if (isAdjusting.value && orderAmount.value !== 0) {
-    sendMessage("add_order", { type: orderType.value, price: orderPrice.value, amount: Math.abs(orderAmount.value) });
+    const newOrder = {
+      id: Date.now().toString(),
+      order_type: orderType.value === 1 ? 'BID' : 'ASK', // Keep as string for frontend use
+      price: orderPrice.value,
+      amount: Math.abs(orderAmount.value),
+      status: 'pending'
+    };
+    tradingStore.addOrder(newOrder);
   }
   cancelOrder();
 }
