@@ -13,11 +13,13 @@
     "@mdi/font": "7.0.96",
     "@vueuse/core": "^10.7.2",
     "animate.css": "^4.1.1",
+    "apexcharts": "^3.53.0",
     "axios": "^1.6.5",
     "highcharts": "^11.3.0",
     "highcharts-vue": "^1.4.3",
     "papaparse": "^5.4.1",
     "vue": "3",
+    "vue3-apexcharts": "^1.6.0",
     "vuetify": "^3.7.0"
   },
   "devDependencies": {

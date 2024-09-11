@@ -99,15 +99,14 @@ class HumanTrader(BaseTrader):
             logger.critical(f"Error decoding message: {message}")
 
     async def handle_add_order(self, data):
-        order_type = data.get(
-            "type"
-        )  # TODO: Philipp. This is a string. We need to convert it to an enum.
-
+        order_type = data.get("type")
         price = data.get("price")
-        amount = data.get(
-            "amount", 1
-        )  # TODO. Philipp. This is a placeholder. We need to get the amount from the client.
+        amount = data.get("amount", 1)
+        
+        logger.info(f"Adding new order: Type: {order_type}, Price: {price}, Amount: {amount}")
+        
         await self.post_new_order(amount, price, order_type)
+        logger.info(f"Order added successfully: Type: {order_type}, Price: {price}, Amount: {amount}")
 
     async def handle_cancel_order(self, data):
         order_uuid = data.get("id")
@@ -115,9 +114,9 @@ class HumanTrader(BaseTrader):
 
         if order_uuid in [order["id"] for order in self.orders]:
             await self.send_cancel_order_request(order_uuid)
+            logger.info(f"Order cancellation request sent for UUID: {order_uuid}")
         else:
-            # Handle the case where the order UUID does not exist
-            logger.warning(f"Order with UUID {order_uuid} not found.")
+            logger.warning(f"Order with UUID {order_uuid} not found. Cancellation failed.")
 
     async def handle_closure(self, data):
         logger.critical("Human trader is closing")

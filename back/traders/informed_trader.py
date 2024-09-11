@@ -206,7 +206,7 @@ class InformedTrader(BaseTrader):
         remaining_time = self.get_remaining_time()
         if remaining_time <= 0 or self.progress >= 1:
             await self.cancel_all_outstanding_orders()
-            print("Informed trader is done trading with progress: ", self.progress)
+            # print("Informed trader is done trading with progress: ", self.progress)
             return
 
         self.adjust_urgency()
@@ -224,10 +224,10 @@ class InformedTrader(BaseTrader):
             for _ in range(aggressive_order_count):
                 await self.place_aggressive_order(order_side, top_bid, top_ask)
 
-        print(f"Urgency factor: {self.urgency_factor}")
-        print(f"Progress: {self.progress}")
-        print(f"Outstanding levels: {self.outstanding_levels}")
-        print(f"Desired levels: {self.order_placement_levels}")
+        # print(f"Urgency factor: {self.urgency_factor}")
+        # print(f"Progress: {self.progress}")
+        # print(f"Outstanding levels: {self.outstanding_levels}")
+        # print(f"Desired levels: {self.order_placement_levels}")
 
     async def run(self) -> None:
         while not self._stop_requested.is_set():
@@ -243,4 +243,3 @@ class InformedTrader(BaseTrader):
                 break
 
         await self.cancel_all_outstanding_orders()
-        print("InformedTrader has stopped.")
