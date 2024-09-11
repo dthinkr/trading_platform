@@ -16,14 +16,13 @@
           :key="'buy-' + index" 
           class="order-item bid"
           :class="{ 'best-price': price === bestAsk }"
-          @mousedown.prevent="startOrderAdjustment(1, price, $event)"
-          @touchstart.prevent="startOrderAdjustment(1, price, $event)"
         >
           <div class="order-content">
             <span class="order-type">BUY</span>
             <div class="price">{{ formatPrice(price) }}</div>
             <v-icon v-if="price === bestAsk" color="primary" small>mdi-star</v-icon>
           </div>
+          <v-btn @click="sendOrder('BUY', price)" color="primary" small>Buy</v-btn>
         </div>
       </div>
       
@@ -37,37 +36,13 @@
           :key="'sell-' + index" 
           class="order-item ask"
           :class="{ 'best-price': price === bestBid }"
-          @mousedown.prevent="startOrderAdjustment(-1, price, $event)"
-          @touchstart.prevent="startOrderAdjustment(-1, price, $event)"
         >
           <div class="order-content">
             <span class="order-type">SELL</span>
             <div class="price">{{ formatPrice(price) }}</div>
             <v-icon v-if="price === bestBid" color="error" small>mdi-star</v-icon>
           </div>
-        </div>
-      </div>
-    </div>
-    
-    <div v-if="isAdjusting" 
-    class="order-adjustment-overlay" 
-       @mousemove.prevent="adjustOrderAmount"
-       @touchmove.prevent="adjustOrderAmount"
-       @mouseup.prevent="finishOrder" 
-       @touchend.prevent="finishOrder"
-       @mouseleave.prevent="cancelOrder"
-       @touchcancel.prevent="cancelOrder">
-      <div class="order-adjustment-content" :class="orderType === 1 ? 'buy-order' : 'sell-order'">
-        <h2>{{ orderType === 1 ? 'Buy' : 'Sell' }} Order</h2>
-        <p class="price">Price: {{ formatPrice(orderPrice) }}</p>
-        <p class="amount">Amount: {{ Math.abs(orderAmount) }}</p>
-        <div class="adjustment-guide">
-          <div class="guide-line"></div>
-          <div class="guide-center"></div>
-          <div class="guide-cursor" :style="{ left: cursorPosition.x + 'px', top: cursorPosition.y + 'px' }"></div>
-          <div class="guide-zones">
-            <div v-for="(zone, index) in guideZones" :key="index" class="guide-zone" :style="zoneStyle(zone)"></div>
-          </div>
+          <v-btn @click="sendOrder('SELL', price)" color="error" small>Sell</v-btn>
         </div>
       </div>
     </div>
@@ -106,80 +81,15 @@ const isSellButtonDisabled = computed(() => !hasBidData.value);
 
 const isMobile = ref(false);
 
-const isAdjusting = ref(false);
-const orderType = ref(null);
-const orderPrice = ref(null);
-const orderAmount = ref(0);
-const startX = ref(0);
-const startY = ref(0);
-const cursorPosition = ref({ x: 100, y: 100 });
-const guideZones = [
-  { radius: 40, amount: 0 },
-  { radius: 60, amount: 1 },
-  { radius: 80, amount: 5 },
-  { radius: 90, amount: 10 },
-  { radius: 100, amount: 15 },
-];
-
-function startOrderAdjustment(type, price, event) {
-  event.preventDefault(); // Prevent default behavior
-  isAdjusting.value = true;
-  orderType.value = type;
-  orderPrice.value = price;
-  orderAmount.value = 0;
-  const clientX = event.clientX || (event.touches && event.touches[0].clientX);
-  const clientY = event.clientY || (event.touches && event.touches[0].clientY);
-  startX.value = clientX;
-  startY.value = clientY;
-  cursorPosition.value = { x: 100, y: 100 };
-}
-
-function adjustOrderAmount(event) {
-  if (!isAdjusting.value) return;
-  const clientX = event.clientX || (event.touches && event.touches[0].clientX);
-  const clientY = event.clientY || (event.touches && event.touches[0].clientY);
-  const deltaX = clientX - startX.value;
-  const deltaY = startY.value - clientY;
-  const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-  const angle = Math.atan2(deltaY, deltaX);
-  
-  const zoneIndex = guideZones.findIndex(zone => distance <= zone.radius);
-  orderAmount.value = (zoneIndex >= 0 ? guideZones[zoneIndex].amount : guideZones[guideZones.length - 1].amount) * (orderType.value === 1 ? 1 : -1);
-  
-  cursorPosition.value = {
-    x: 100 + Math.cos(angle) * Math.min(distance, 100),
-    y: 100 - Math.sin(angle) * Math.min(distance, 100)
+function sendOrder(orderType, price) {
+  const newOrder = {
+    id: Date.now().toString(),
+    order_type: orderType,
+    price: price,
+    amount: 1, // You may want to adjust this or add an input for amount
+    status: 'pending'
   };
-}
-
-function zoneStyle(zone) {
-  return {
-    width: `${zone.radius * 2}px`,
-    height: `${zone.radius * 2}px`,
-    left: `${100 - zone.radius}px`,
-    top: `${100 - zone.radius}px`,
-  };
-}
-
-function finishOrder() {
-  if (isAdjusting.value && orderAmount.value !== 0) {
-    const newOrder = {
-      id: Date.now().toString(),
-      order_type: orderType.value === 1 ? 'BID' : 'ASK', // Keep as string for frontend use
-      price: orderPrice.value,
-      amount: Math.abs(orderAmount.value),
-      status: 'pending'
-    };
-    tradingStore.addOrder(newOrder);
-  }
-  cancelOrder();
-}
-
-function cancelOrder() {
-  isAdjusting.value = false;
-  orderType.value = null;
-  orderPrice.value = null;
-  orderAmount.value = 0;
+  tradingStore.addOrder(newOrder);
 }
 
 function getButtonColor(price, orderType) {
@@ -202,16 +112,10 @@ function checkMobile() {
 onMounted(() => {
   checkMobile();
   window.addEventListener('resize', checkMobile);
-  if (!isMobile.value) {
-    document.addEventListener('mouseleave', cancelOrder);
-  }
 });
 
 onUnmounted(() => {
   window.removeEventListener('resize', checkMobile);
-  if (!isMobile.value) {
-    document.removeEventListener('mouseleave', cancelOrder);
-  }
 });
 </script>
 
@@ -270,6 +174,9 @@ onUnmounted(() => {
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 
@@ -291,9 +198,7 @@ onUnmounted(() => {
 }
 
 .order-content {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-grow: 1;
 }
 
 .order-type {
@@ -307,86 +212,5 @@ onUnmounted(() => {
   font-size: 1.1rem;
   font-weight: bold;
   color: #333;
-}
-
-.order-adjustment-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.7);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-}
-
-.order-adjustment-content {
-  background-color: white;
-  padding: 20px;
-  border-radius: 8px;
-  text-align: center;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-  max-width: 90%;
-  max-height: 90%;
-  overflow: auto;
-}
-
-.buy-order {
-  border-left: 4px solid #2196F3;
-}
-
-.sell-order {
-  border-left: 4px solid #F44336;
-}
-
-.adjustment-guide {
-  position: relative;
-  width: 200px;
-  height: 200px;
-  margin: 20px auto;
-  border: 2px solid #ccc;
-  border-radius: 50%;
-}
-
-.guide-line, .guide-center, .guide-cursor, .guide-zone {
-  position: absolute;
-}
-
-.guide-line {
-  top: 50%;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background-color: #ccc;
-}
-
-.guide-center {
-  top: 50%;
-  left: 50%;
-  width: 10px;
-  height: 10px;
-  background-color: #333;
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-}
-
-.guide-cursor {
-  width: 20px;
-  height: 20px;
-  background-color: #2196F3;
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-}
-
-.guide-zone {
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 50%;
 }
 </style>

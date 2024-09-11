@@ -1,19 +1,22 @@
 import { createApp } from 'vue'
-import { createVuetify } from 'vuetify'
-import { registerPlugins } from '@/plugins'
+import { createPinia } from 'pinia'
 import App from './App.vue'
+import { registerPlugins } from '@/plugins'
+import VueApexCharts from "vue3-apexcharts"
 import VueCountdown from '@chenfengyuan/vue-countdown'
 
-// Import Vuetify styles
+// Vuetify
 import 'vuetify/styles'
-import 'animate.css'
+import { createVuetify } from 'vuetify'
+import * as components from 'vuetify/components'
+import * as directives from 'vuetify/directives'
 
 const myCustomLightTheme = {
   dark: false,
   colors: {
-    background: '#F3F4F6',
+    background: '#FFFFFF',
     surface: '#FFFFFF',
-    primary: '#1E40AF',
+    primary: '#3B82F6',
     'primary-darken-1': '#1E3A8A',
     secondary: '#10B981',
     'secondary-darken-1': '#059669',
@@ -41,6 +44,8 @@ const vuetify = createVuetify({
       myCustomLightTheme,
     },
   },
+  components,
+  directives,
   defaults: {
     VCard: {
       elevation: 2,
@@ -58,9 +63,13 @@ const vuetify = createVuetify({
 })
 
 const app = createApp(App)
+const pinia = createPinia()
 
-app.component(VueCountdown.name, VueCountdown)
+app.use(pinia)
+app.use(vuetify)
+app.use(VueApexCharts)
+app.component(VueCountdown.name, VueCountdown)  // Register Vue-Countdown globally
+
 registerPlugins(app)
 
-app.use(vuetify)
 app.mount('#app')
