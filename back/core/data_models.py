@@ -3,7 +3,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from enum import Enum, IntEnum
-from typing import Optional
+from typing import Optional, List
 from uuid import UUID, uuid4
 
 from mongoengine import (
@@ -19,20 +19,8 @@ from mongoengine import (
 )
 from pydantic import BaseModel, ConfigDict, Field
 
-
 class StrEnum(str, Enum):
     pass
-
-
-def now():
-    """It is actually from utils.py but we need structures there so we do it here to avoid circular deps"""
-    return datetime.now(timezone.utc)
-
-
-GOALS = [-10, 0, 10]  # for now let's try a naive hardcoded approach to the goals
-
-executor = ThreadPoolExecutor()
-
 
 class TradeDirection(str, Enum):
     BUY = "buy"
@@ -169,6 +157,13 @@ class TraderCreationData(BaseModel):
         description="human_parameter",
         ge=0,
     )
+    human_goal: List[int] = Field(
+        default=[-10, 0, 10],
+        title="Goal Values",
+        description="human_parameter",
+        min_items=3,
+        max_items=3
+    )
     conversion_rate: float = Field(
         default=42.52,
         title="Lira-GBP Conversion Rate",
@@ -245,7 +240,7 @@ class Order(BaseModel):
     amount: float = 1
     price: float
     order_type: OrderType
-    timestamp: datetime = Field(default_factory=now)
+    timestamp: datetime = Field(default_factory=datetime.now)
     session_id: str
     trader_id: str
     informed_trader_progress: Optional[str] = None  # New field
@@ -253,13 +248,14 @@ class Order(BaseModel):
     class ConfigDict:
         use_enum_values = True
 
+executor = ThreadPoolExecutor()
 
 class TransactionModel(Document):
     id = UUIDField(primary_key=True, default=uuid.uuid4, binary=False)
     trading_session_id = StringField(required=True)
     bid_order_id = StringField(required=False)
     ask_order_id = StringField(required=False)
-    timestamp = DateTimeField(default=datetime.now)
+    timestamp = DateTimeField(default=datetime.now(timezone.utc))
     price = FloatField(required=True)
     informed_trader_progress = StringField(required=False)  # New field
 

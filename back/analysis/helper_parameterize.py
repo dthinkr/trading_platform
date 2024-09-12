@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from SALib.sample import sobol
 from sklearn.decomposition import PCA
 
-from structures.structures import TradeDirection, TraderCreationData
+from core.data_models.data_models import TradeDirection, TraderCreationData
 
 
 def generate_sobol_parameters(

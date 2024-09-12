@@ -1,7 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
-from client_connector.main import app
-from structures import TraderCreationData
+from api.endpoints import app
+from core.data_models import TraderCreationData
 from datetime import datetime, timedelta
 from starlette.websockets import WebSocketDisconnect
 
@@ -68,18 +68,18 @@ def mock_trader_manager(monkeypatch):
 
     mock = MockTraderManager()
     monkeypatch.setattr(
-        "client_connector.main.TraderManager", lambda *args, **kwargs: mock
+        "api.endpoints.TraderManager", lambda *args, **kwargs: mock
     )
-    monkeypatch.setattr("client_connector.main.trader_manager", mock)
+    monkeypatch.setattr("api.endpoints.trader_manager", mock)
     monkeypatch.setattr(
-        "client_connector.main.trader_managers", {"mock-session-id": mock}
+        "api.endpoints.trader_managers", {"mock-session-id": mock}
     )
     monkeypatch.setattr(
-        "client_connector.main.trader_to_session_lookup",
+        "api.endpoints.trader_to_session_lookup",
         {"mock-trader-id": "mock-session-id"},
     )
     monkeypatch.setattr(
-        "client_connector.main.get_manager_by_trader",
+        "api.endpoints.get_manager_by_trader",
         lambda uuid: mock if uuid == "mock-trader-id" else None,
     )
     return mock

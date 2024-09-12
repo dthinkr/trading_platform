@@ -3,7 +3,7 @@ import threading
 import uvicorn
 from fastapi import FastAPI
 
-from client_connector.main import app
+from api.endpoints import app
 
 from . import load_config
 

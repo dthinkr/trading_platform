@@ -2,17 +2,16 @@ import asyncio
 import aio_pika
 import json
 import uuid
-from structures import OrderType, ActionType, TraderType
+from core.data_models import OrderType, ActionType, TraderType
 import os
 from abc import abstractmethod
 
-from main_platform.custom_logger import setup_custom_logger
-from main_platform.utils import CustomEncoder
+from utils.utils import setup_custom_logger
+from utils.utils import CustomEncoder
 
 rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://localhost")
 
 logger = setup_custom_logger(__name__)
-
 
 class BaseTrader:
     orders: list = []

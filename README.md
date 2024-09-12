@@ -81,7 +81,7 @@ Access at `http://localhost:3000`
 
 ```bash
 cd back
-uvicorn client_connector.main:app --reload
+uvicorn api.endpoints:app --reload
 ```
 
 API available at `http://localhost:8000`
@@ -109,10 +109,10 @@ trading_platform/
 │   ├── public/
 │   └── package.json
 ├── back/                  # FastAPI backend
-│   ├── client_connector/
-│   ├── main_platform/
+│   ├── api/
+│   ├── core/
 │   ├── traders/
-│   ├── structures/
+│   ├── data_models/
 │   └── analysis/
 └── README.md
 ```
