@@ -4,7 +4,7 @@ Upon the request of a client, it launches new trading sessions and/or helps find
 so they can communicate with them.
 """
 
-from structures import TraderCreationData, OrderType, ActionType, TraderType
+from .data_models import TraderCreationData, OrderType, ActionType, TraderType
 from typing import List
 from traders import (
     HumanTrader,
@@ -13,12 +13,11 @@ from traders import (
     BookInitializer,
     SimpleOrderTrader,
 )
-from main_platform import TradingSession
+from core import TradingSession
 import asyncio
-from main_platform.custom_logger import setup_custom_logger
+from utils import setup_custom_logger
 
 logger = setup_custom_logger(__name__)
-
 
 class TraderManager:
     params: TraderCreationData
@@ -50,7 +49,7 @@ class TraderManager:
         self.informed_traders = self._create_informed_traders(
             n_informed_traders, params
         )
-        self.human_traders = self._create_human_traders(n_human_traders, cash, shares)
+        self.human_traders = self._create_human_traders(n_human_traders, cash, shares, params)
 
         self.traders = {
             t.id: t
@@ -107,9 +106,9 @@ class TraderManager:
             for i in range(n_informed_traders)
         ]
 
-    def _create_human_traders(self, n_human_traders, cash, shares):
+    def _create_human_traders(self, n_human_traders, cash, shares, params):
         return [
-            HumanTrader(id=f"HUMAN_{i+1}", cash=cash, shares=shares)
+            HumanTrader(id=f"HUMAN_{i+1}", cash=cash, shares=shares, params=params)
             for i in range(n_human_traders)
         ]
 

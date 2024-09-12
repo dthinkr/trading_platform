@@ -11,13 +11,13 @@ import polars as pl
 from mongoengine import connect
 from pydantic import ValidationError
 
-from main_platform.custom_logger import setup_custom_logger
-from main_platform.utils import CustomEncoder, if_active, now
-from main_platform.order_book import OrderBook
+from utils import setup_custom_logger
+from utils import CustomEncoder, if_active
+from core.order_book import OrderBook
 
 from uuid import UUID
 
-from structures import (
+from core.data_models import (
     Message,
     Order,
     OrderStatus,
@@ -48,7 +48,7 @@ class TradingSession:
         self.punishing_constant = punishing_constant
         self.active = False
         self.start_time = None
-        self.creation_time = now()
+        self.creation_time = datetime.now(timezone.utc)
         self.order_book = OrderBook()
         self._last_transaction_price = None
         self.connected_traders = {}
@@ -106,7 +106,7 @@ class TradingSession:
         return self._last_transaction_price
 
     async def initialize(self) -> None:
-        self.start_time = now()
+        self.start_time = datetime.now(timezone.utc)
         self.active = True
         self.connection = await aio_pika.connect_robust(rabbitmq_url)
         self.channel = await self.connection.channel()
@@ -467,7 +467,7 @@ class TradingSession:
         self.initialization_complete = True
 
     async def start_trading(self):
-        self.start_time = now()
+        self.start_time = datetime.now(timezone.utc)
         self.active = True
         self.trading_started = True
         await self.send_broadcast(
@@ -475,12 +475,12 @@ class TradingSession:
         )
 
     async def run(self) -> None:
-        start_time = now()
+        start_time = datetime.now(timezone.utc)
         while not self._stop_requested.is_set():
             self.transaction_processor_task = asyncio.create_task(
                 self.process_transactions()
             )
-            current_time = now()
+            current_time = datetime.now(timezone.utc)
             if self.start_time and current_time - self.start_time > timedelta(
                 minutes=self.duration
             ):

@@ -1,8 +1,8 @@
 import pytest
 import asyncio
 from unittest.mock import AsyncMock, patch
-from main_platform import TradingSession
-from structures import OrderStatus, OrderType
+from core import TradingSession
+from core.data_models import OrderStatus, OrderType
 
 
 @pytest.mark.asyncio
@@ -11,7 +11,7 @@ async def test_initialize():
     session.connection = AsyncMock()
     session.channel = AsyncMock()
     with patch("aio_pika.connect_robust", return_value=session.connection), patch(
-        "main_platform.trading_platform.now", return_value="2023-04-01T00:00:00Z"
+        "core.trading_platform.now", return_value="2023-04-01T00:00:00Z"
     ):
         await session.initialize()
         session.connection.channel.assert_awaited()

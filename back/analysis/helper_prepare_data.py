@@ -2,7 +2,7 @@ import json
 import polars as pl
 from typing import Tuple
 from analysis import load_config
-from main_platform.utils import convert_to_book_format_new
+from utils import convert_to_book_format_new
 
 
 def load_configuration() -> dict:

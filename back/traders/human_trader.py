@@ -3,8 +3,8 @@ from starlette.websockets import WebSocketDisconnect, WebSocketState
 import random
 import json
 
-from structures import TraderType, OrderType, GOALS
-from main_platform.custom_logger import setup_custom_logger
+from core.data_models import TraderType, OrderType
+from utils import setup_custom_logger
 
 logger = setup_custom_logger(__name__)
 
@@ -15,11 +15,12 @@ class HumanTrader(BaseTrader):
     inventory = {
         "shares": 0,
         "cash": 1000,
-    }  # TODO.PHILIPP. WRite something sensible here. placeholder for now.
+    }
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(trader_type=TraderType.HUMAN, *args, **kwargs)
-        self.goal = random.choice(GOALS)
+    def __init__(self, id, cash, shares, params, *args, **kwargs):
+        super().__init__(trader_type=TraderType.HUMAN, id=id, cash=cash, shares=shares, *args, **kwargs)
+        self.params = params
+        self.goal = random.choice(params.get('goal', [-10, 0, 10]))
 
     def get_trader_params_as_dict(self):
         return {

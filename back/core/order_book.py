@@ -1,8 +1,7 @@
 from sortedcontainers import SortedDict
-from structures import OrderStatus, OrderType
+from core.data_models import OrderStatus, OrderType
 from typing import Dict, List, Tuple, Optional, Union
 from uuid import UUID
-
 
 class OrderBook:
     def __init__(self):

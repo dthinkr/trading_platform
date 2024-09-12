@@ -1,13 +1,14 @@
 import asyncio
-from structures import OrderType, TraderType
+from core.data_models import OrderType, TraderType
 from .base_trader import BaseTrader
-from main_platform.custom_logger import setup_custom_logger
+from utils import setup_custom_logger
 import math
 
 logger = setup_custom_logger(__name__)
 
 
 class SimpleOrderTrader(BaseTrader):
+    # for testing purposes
     def __init__(self, id: str, orders: list):
         super().__init__(TraderType.SIMPLE_ORDER, id=id)
         self.orders_to_place = orders

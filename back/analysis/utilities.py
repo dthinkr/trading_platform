@@ -13,9 +13,7 @@ from pymongo import MongoClient
 def tuple_constructor(loader, node):
     return tuple(loader.construct_sequence(node))
 
-
 yaml.SafeLoader.add_constructor("!python/tuple", tuple_constructor)
-
 
 # config
 def load_config():

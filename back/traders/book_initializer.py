@@ -1,6 +1,6 @@
 import math
 import random
-from structures import OrderType, TraderType
+from core.data_models import OrderType, TraderType
 from . import BaseTrader
 
 

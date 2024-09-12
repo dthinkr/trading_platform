@@ -1,7 +1,7 @@
 import asyncio
 import random
 import numpy as np
-from structures import OrderType, TraderType, ActionType
+from core.data_models import OrderType, TraderType, ActionType
 from .base_trader import BaseTrader
 import math
 import sys

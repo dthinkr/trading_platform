@@ -3,7 +3,7 @@ import random
 import traceback
 from typing import List, Dict, Union
 
-from structures import OrderType, TraderType, TradeDirection
+from core.data_models import OrderType, TraderType, TradeDirection
 from .base_trader import BaseTrader
 
 

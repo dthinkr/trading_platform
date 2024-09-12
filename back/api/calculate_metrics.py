@@ -3,7 +3,7 @@ import polars as pl
 from typing import Dict, List
 import numpy as np
 import matplotlib.pyplot as plt
-from . import load_config
+from utils import load_config
 import io
 import json
 import csv

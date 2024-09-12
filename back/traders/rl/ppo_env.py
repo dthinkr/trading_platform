@@ -1,7 +1,7 @@
 import gym
 import numpy as np
 from gym import spaces
-from structures import OrderType
+from core.data_models import OrderType
 
 
 class TradingEnvironment(gym.Env):

@@ -17,10 +17,10 @@ from fastapi.responses import JSONResponse, StreamingResponse, Response
 from pymongo import MongoClient
 import polars as pl
 
-from client_connector.trader_manager import TraderManager
-from structures import TraderCreationData, UserRegistration
-from main_platform.custom_logger import setup_custom_logger
-from analysis.record_message import get_data_from_mongodb, process_session, calculate_end_of_run_metrics
+from core.trader_manager import TraderManager
+from core.data_models import TraderCreationData, UserRegistration
+from utils import setup_custom_logger
+from .calculate_metrics import get_data_from_mongodb, process_session, calculate_end_of_run_metrics
 import traceback
 
 logger = setup_custom_logger(__name__)
