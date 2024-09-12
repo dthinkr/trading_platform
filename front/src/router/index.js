@@ -5,13 +5,19 @@ import { useTraderStore } from "@/store/app";
 const routes = [
   {
     path: "/",
-    redirect: "/CreateTradingSession",
+    redirect: "/register",
+  },
+  {
+    path: "/register",
+    name: "Register",
+    component: () => import("@/components/Auth.vue"),
   },
   {
     path: "/CreateTradingSession",
     name: "CreateTradingSession",
     component: () => import("@/components/session/SessionCreator.vue"),
-    props: true
+    props: true,
+    meta: { requiresAuth: true }
   },
   {
     path: "/admin/:tradingSessionUUID",
@@ -60,15 +66,14 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   const traderStore = useTraderStore();
 
-  if (to.name === "trading" && !to.params.traderUuid) {
-    next({ name: "CreateTradingSession" });
-  } else if (to.name === "summary" && from.name !== "trading") {
-    next({ name: "CreateTradingSession" });
-  } else if (from.name === undefined || routeGraph.hasEdge(from.name, to.name) || to.name === from.name) {
-    next();
+  if (to.matched.some(record => record.meta.requiresAuth)) {
+    if (!traderStore.isAuthenticated) {
+      next({ name: 'Register' });
+    } else {
+      next();
+    }
   } else {
-    console.warn(`Invalid navigation from ${from.name} to ${to.name}`);
-    next(false);
+    next();
   }
 });
 

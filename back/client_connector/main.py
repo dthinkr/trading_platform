@@ -8,14 +8,17 @@ from fastapi import (
     HTTPException,
     WebSocketDisconnect,
     BackgroundTasks,
+    Depends,
 )
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from starlette.status import HTTP_401_UNAUTHORIZED, HTTP_400_BAD_REQUEST
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse, Response
 from pymongo import MongoClient
 import polars as pl
 
 from client_connector.trader_manager import TraderManager
-from structures import TraderCreationData
+from structures import TraderCreationData, UserRegistration
 from main_platform.custom_logger import setup_custom_logger
 from analysis.record_message import get_data_from_mongodb, process_session, calculate_end_of_run_metrics
 import traceback
@@ -23,6 +26,7 @@ import traceback
 logger = setup_custom_logger(__name__)
 
 app = FastAPI()
+security = HTTPBasic()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -45,6 +49,51 @@ mongo_client = MongoClient(MONGODB_HOST, MONGODB_PORT)
 db = mongo_client[DATASET]
 collection = db[COLLECTION_NAME]
 
+# In-memory user store (replace with database in production)
+users = {
+    "admin": {"password": "admin123", "is_admin": True},
+    "user1": {"password": "password1", "is_admin": False},
+    "user2": {"password": "password2", "is_admin": False}
+}
+
+def authenticate(credentials: HTTPBasicCredentials = Depends(security)):
+    username = credentials.username
+    password = credentials.password
+    if username in users and users[username]["password"] == password:
+        return username
+    raise HTTPException(
+        status_code=HTTP_401_UNAUTHORIZED,
+        detail="Invalid credentials",
+        headers={"WWW-Authenticate": "Basic"},
+    )
+
+@app.post("/login")
+async def login(username: str = Depends(authenticate)):
+    return {
+        "status": "success",
+        "message": "Login successful",
+        "data": {
+            "username": username,
+            "is_admin": users[username]["is_admin"]
+        }
+    }
+
+@app.post("/register")
+async def register(user: UserRegistration):
+    if user.username in users:
+        raise HTTPException(
+            status_code=HTTP_400_BAD_REQUEST,
+            detail="Username already exists"
+        )
+    users[user.username] = {"password": user.password, "is_admin": False}
+    return {
+        "status": "success",
+        "message": "User registered successfully",
+        "data": {
+            "username": user.username,
+            "is_admin": False
+        }
+    }
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
