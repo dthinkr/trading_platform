@@ -124,14 +124,65 @@ class TradingSession:
         await trader_queue.consume(self.on_individual_message)
         await trader_queue.purge()
 
+
+    async def __aenter__(self):
+        await self.initialize()
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.clean_up()
+
     async def clean_up(self) -> None:
         self._stop_requested.set()
         self.active = False
-        trader_queue = await self.channel.get_queue(self.queue_name)
-        await trader_queue.unbind(self.trader_exchange)
-        await self.channel.close()
-        await self.connection.close()
+        
+        # Cancel the transaction processor task
+        if hasattr(self, 'transaction_processor_task'):
+            self.transaction_processor_task.cancel()
+            try:
+                await self.transaction_processor_task
+            except asyncio.CancelledError:
+                pass
 
+        # Close RabbitMQ resources
+        if hasattr(self, 'channel') and self.channel:
+            try:
+                trader_queue = await self.channel.get_queue(self.queue_name)
+                await trader_queue.unbind(self.trader_exchange)
+                await self.channel.close()
+            except Exception as e:
+                logger.error(f"Error closing channel: {e}")
+
+        if hasattr(self, 'connection') and self.connection:
+            try:
+                await self.connection.close()
+            except Exception as e:
+                logger.error(f"Error closing connection: {e}")
+
+        # Clear all queues
+        if hasattr(self, 'transaction_queue'):
+            while not self.transaction_queue.empty():
+                try:
+                    self.transaction_queue.get_nowait()
+                    self.transaction_queue.task_done()
+                except asyncio.QueueEmpty:
+                    break
+
+        # Reset session-specific attributes
+        self.order_book.clear()
+        self.connected_traders.clear()
+        self.trader_responses.clear()
+        self._last_transaction_price = None
+
+        # Cancel any remaining tasks
+        for task in asyncio.all_tasks():
+            if task is not asyncio.current_task():
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+                
     async def get_order_book_snapshot(self) -> Dict:
         return self.order_book.get_order_book_snapshot()
 
@@ -475,25 +526,27 @@ class TradingSession:
         )
 
     async def run(self) -> None:
-        start_time = datetime.now(timezone.utc)
-        while not self._stop_requested.is_set():
-            self.transaction_processor_task = asyncio.create_task(
-                self.process_transactions()
-            )
-            current_time = datetime.now(timezone.utc)
-            if self.start_time and current_time - self.start_time > timedelta(
-                minutes=self.duration
-            ):
-                self.active = False
-                await self.send_broadcast({"type": "stop_trading"})
-                await asyncio.gather(
-                    *[
-                        self.handle_inventory_report({"trader_id": trader_id})
-                        for trader_id in self.connected_traders
-                    ]
+        try:
+            start_time = datetime.now(timezone.utc)
+            while not self._stop_requested.is_set():
+                self.transaction_processor_task = asyncio.create_task(
+                    self.process_transactions()
                 )
-                await self.send_broadcast({"type": "closure"})
-                self.is_finished = True  # new attribute that indicates if the trading session is finished
-                break
-            await asyncio.sleep(1)
-        await self.clean_up()
+                current_time = datetime.now(timezone.utc)
+                if self.start_time and current_time - self.start_time > timedelta(
+                    minutes=self.duration
+                ):
+                    self.active = False
+                    await self.send_broadcast({"type": "stop_trading"})
+                    await asyncio.gather(
+                        *[
+                            self.handle_inventory_report({"trader_id": trader_id})
+                            for trader_id in self.connected_traders
+                        ]
+                    )
+                    await self.send_broadcast({"type": "closure"})
+                    self.is_finished = True
+                    break
+                await asyncio.sleep(1)
+        finally:
+            await self.clean_up()

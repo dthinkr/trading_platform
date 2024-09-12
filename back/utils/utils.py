@@ -22,9 +22,6 @@ CUR_LEVEL = logging.CRITICAL
 dict_keys = type({}.keys())
 dict_values = type({}.values())
 
-logger = setup_custom_logger(__name__)
-config = load_config()
-
 class CustomFormatter(logging.Formatter):
     COLORS = {
         "WARNING": "yellow",
@@ -63,6 +60,11 @@ def tuple_constructor(loader, node):
     return tuple(loader.construct_sequence(node))
 
 yaml.SafeLoader.add_constructor("!python/tuple", tuple_constructor)
+
+
+logger = setup_custom_logger(__name__)
+CONFIG = load_config()
+
 
 def if_active(func):
     @functools.wraps(func)

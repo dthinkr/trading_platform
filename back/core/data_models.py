@@ -161,8 +161,8 @@ class TraderCreationData(BaseModel):
         default=[-10, 0, 10],
         title="Goal Values",
         description="human_parameter",
-        min_items=3,
-        max_items=3
+        min_length=3,
+        max_length=3
     )
     conversion_rate: float = Field(
         default=42.52,
