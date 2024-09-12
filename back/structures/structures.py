@@ -273,3 +273,8 @@ class Message(Document):
     content = DictField(required=True)
     timestamp = DateTimeField(default=datetime.now)
     matched_orders = DictField(required=False)
+
+
+class UserRegistration(BaseModel):
+    username: str
+    password: str

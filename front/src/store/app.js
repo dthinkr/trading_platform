@@ -87,6 +87,9 @@ export const useTraderStore = defineStore("trader", {
     executedOrders: [],
     showSnackbar: false,
     snackbarText: "",
+    user: null,
+    isAuthenticated: false,
+    isAdmin: false,
   }),
   getters: {
     goalMessage: (state) => {
@@ -347,6 +350,53 @@ export const useTraderStore = defineStore("trader", {
           this.placedOrders.splice(orderIndex, 1);
         }
       }
+    },
+    async login(username, password) {
+      try {
+        const response = await axios.post('http://localhost:8000/login', {}, {
+          auth: {
+            username: username,
+            password: password
+          }
+        });
+        
+        if (response.data.status === 'success') {
+          this.user = response.data.data.username;
+          this.isAuthenticated = true;
+          this.isAdmin = response.data.data.is_admin;
+          return this.isAdmin;
+        } else {
+          throw new Error('Login failed');
+        }
+      } catch (error) {
+        console.error('Login failed:', error);
+        throw error;
+      }
+    },
+    async register(username, password) {
+      try {
+        const response = await axios.post('http://localhost:8000/register', {
+          username: username,
+          password: password
+        });
+        
+        if (response.data.status === 'success') {
+          this.user = response.data.data.username;
+          this.isAuthenticated = true;
+          this.isAdmin = response.data.data.is_admin;
+          return this.isAdmin;
+        } else {
+          throw new Error('Registration failed');
+        }
+      } catch (error) {
+        console.error('Registration failed:', error);
+        throw error;
+      }
+    },
+    logout() {
+      this.user = null;
+      this.isAuthenticated = false;
+      this.isAdmin = false;
     },
   },
 });

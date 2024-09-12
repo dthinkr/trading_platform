@@ -98,7 +98,7 @@ import PriceHistory from "@charts/PriceHistory.vue";
 import OrderPanel from "@trading/OrderPanel.vue";
 import OrderHistory from "@trading/OrderHistory.vue";
 import ActiveOrders from "@trading/ActiveOrders.vue";
-import MarketIndicators from "./MarketIndicators.vue";
+import MarketIndicators from "@trading/MarketIndicators.vue";
 
 import { onMounted, computed } from "vue";
 import { useRouter } from "vue-router";
