@@ -20,6 +20,36 @@
             >
               Sign in with Google
             </v-btn>
+            <v-divider class="my-4"></v-divider>
+            <v-form @submit.prevent="adminLogin" v-if="showAdminLogin">
+              <v-text-field
+                v-model="adminUsername"
+                label="Admin Username"
+                required
+              ></v-text-field>
+              <v-text-field
+                v-model="adminPassword"
+                label="Admin Password"
+                type="password"
+                required
+              ></v-text-field>
+              <v-btn
+                block
+                color="primary"
+                type="submit"
+                size="large"
+                class="mt-4"
+              >
+                Admin Login
+              </v-btn>
+            </v-form>
+            <v-btn
+              text
+              @click="showAdminLogin = !showAdminLogin"
+              class="mt-4"
+            >
+              {{ showAdminLogin ? 'Hide Admin Login' : 'Admin Login' }}
+            </v-btn>
           </v-card-text>
         </v-card>
       </v-col>
@@ -28,26 +58,47 @@
 </template>
 
 <script setup>
+import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { getAuth, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { useAuthStore } from '@/store/auth';
 import logo from '@/assets/trading_platform_logo.png';
 
 const router = useRouter();
 const auth = getAuth();
+const authStore = useAuthStore();
+
+const showAdminLogin = ref(false);
+const adminUsername = ref('');
+const adminPassword = ref('');
 
 const signInWithGoogle = async () => {
   try {
     const provider = new GoogleAuthProvider();
     const result = await signInWithPopup(auth, provider);
     console.log("Google sign-in successful", result.user);
-    router.push('/trading/CreateTradingSession');
+    
+    const idToken = await result.user.getIdToken();
+    await authStore.login(idToken);
+    
+    router.push('/OnboardingWizard');
   } catch (error) {
     console.error("Google sign-in error:", error);
-    console.error("Error code:", error.code);
-    console.error("Error message:", error.message);
-    if (error.customData) {
-      console.error("Custom data:", error.customData);
-    }
+    // Handle error (show error message to user, etc.)
+  }
+};
+
+const adminLogin = async () => {
+  try {
+    console.log('Attempting admin login with:', { username: adminUsername.value, password: adminPassword.value });
+    await authStore.adminLogin({
+      username: adminUsername.value,
+      password: adminPassword.value
+    });
+    router.push('/SessionCreator');
+  } catch (error) {
+    console.error("Admin login error:", error);
+    // Handle error (show error message to user, etc.)
   }
 };
 </script>

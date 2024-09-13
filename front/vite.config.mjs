@@ -6,7 +6,6 @@ import { fileURLToPath, URL } from 'node:url'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  base: '/trading/',
   plugins: [
     vue(),
     vuetify({ 
@@ -46,7 +45,8 @@ export default defineConfig({
     hmr: {
       host: 'localhost',
       protocol: 'ws'
-    }
+    },
+    cors: true  // Enable CORS for development server
   },
   css: {
     preprocessorOptions: {
@@ -54,5 +54,20 @@ export default defineConfig({
         additionalData: `@import "@/styles/variables.scss";`
       }
     }
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            return 'vendor';
+          }
+        }
+      }
+    },
+    chunkSizeWarningLimit: 1000,  // Increase the chunk size warning limit
+  },
+  optimizeDeps: {
+    include: ['vue', 'vuetify']
   }
 })

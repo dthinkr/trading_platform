@@ -2,13 +2,22 @@ FROM node:20.12.2
 
 WORKDIR /app
 
+# Install Firebase CLI and inotify-tools
+RUN apt-get update && apt-get install -y inotify-tools
+RUN npm install -g firebase-tools
+
 # Copy package.json and yarn.lock (if you're using Yarn)
-COPY package.json yarn.lock* ./
+COPY package.json yarn.lock ./
+
+# Install dependencies
 RUN yarn install
 
 # Copy the rest of your app's source code
 COPY . .
 
-EXPOSE 3000
+# Make the firebase-dev.sh script executable
+COPY firebase-dev.sh .
+RUN chmod +x firebase-dev.sh
 
-CMD ["yarn", "dev", "--host", "0.0.0.0"]
+# Serve the app
+CMD ["./firebase-dev.sh"]
