@@ -7,14 +7,6 @@ import { fileURLToPath, URL } from 'node:url'
 // https://vitejs.dev/config/
 export default defineConfig({
   base: '/trading/', // Add this line
-  server: {
-    host: '0.0.0.0',
-    port: 3000,
-    strictPort: true,
-    hmr: {
-      clientPort: 80 // This should match the port Nginx is listening on
-    }
-  },
   plugins: [
     vue({
       template: { transformAssetUrls }
@@ -54,5 +46,8 @@ export default defineConfig({
       '.tsx',
       '.vue',
     ],
+  },
+  server: {
+    port: 3000,
   },
 })

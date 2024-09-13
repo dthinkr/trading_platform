@@ -1,4 +1,14 @@
 handlers:
+  # Handle the Google verification file
   - route: /googlea18ef84f2b8dd1e6.html
     static_files: googlea18ef84f2b8dd1e6.html
     upload: googlea18ef84f2b8dd1e6.html
+
+  # Serve static assets from a directory (adjust the path as needed)
+  - route: /static
+    static_dir: static
+
+  # Catch-all handler to route all other requests to index.html
+  - route: /.*
+    static_files: index.html
+    upload: index.html
