@@ -5,7 +5,7 @@ from uuid import UUID, uuid4
 
 from fastapi import (
     FastAPI, WebSocket, HTTPException, WebSocketDisconnect, 
-    BackgroundTasks, Depends, status
+    BackgroundTasks, Depends, status, Request
 )
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from starlette.status import HTTP_401_UNAUTHORIZED, HTTP_400_BAD_REQUEST
@@ -21,6 +21,7 @@ from utils import setup_custom_logger
 from .calculate_metrics import get_data_from_mongodb, process_session, calculate_end_of_run_metrics
 from .auth import get_current_user, get_current_admin_user
 from firebase_admin import auth as firebase_auth
+import secrets
 
 logger = setup_custom_logger(__name__)
 
@@ -50,13 +51,51 @@ db = mongo_client[DATASET]
 collection = db[COLLECTION_NAME]
 
 @app.post("/login")
-async def login(current_user: dict = Depends(get_current_user)):
+async def login(request: Request):
+    auth_header = request.headers.get('Authorization')
+    
+    if auth_header and auth_header.startswith('Basic '):
+        # This is an admin login attempt
+        credentials = HTTPBasicCredentials.parse(auth_header)
+        return await admin_login(credentials)
+    
+    elif auth_header and auth_header.startswith('Bearer '):
+        # This is a regular user login with Firebase token
+        try:
+            token = auth_header.split('Bearer ')[1]
+            decoded_token = firebase_auth.verify_id_token(token)
+            uid = decoded_token['uid']
+            return {
+                "status": "success",
+                "message": "Login successful",
+                "data": {
+                    "username": decoded_token.get('email'),
+                    "is_admin": False
+                }
+            }
+        except Exception as e:
+            raise HTTPException(status_code=401, detail="Invalid authentication credentials")
+    
+    else:
+        raise HTTPException(status_code=401, detail="Invalid authentication method")
+
+@app.post("/admin/login")
+async def admin_login(credentials: HTTPBasicCredentials = Depends(security)):
+    correct_username = secrets.compare_digest(credentials.username, "admin")
+    correct_password = secrets.compare_digest(credentials.password, "admin")
+    print(credentials.username, credentials.password)
+    if not (correct_username and correct_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Basic"},
+        )
     return {
         "status": "success",
-        "message": "Login successful",
+        "message": "Admin login successful",
         "data": {
-            "username": current_user.get('email'),
-            "is_admin": current_user.get('admin', False)
+            "username": "admin",
+            "is_admin": True
         }
     }
 

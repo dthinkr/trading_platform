@@ -9,24 +9,19 @@ services:
     volumes:
       - ./front:/app
       - /app/node_modules
+    environment:
+      - FIREBASE_TOKEN=${FIREBASE_TOKEN}
+      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
     ports:
-      - "3000:3000"
-    # Remove the command line here
-    networks:
-      - app-network
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
- 
+      - "5001:5000"  # Changed from 5000:5000
+      - "9005:9005"  # Firebase emulator UI
+    command: sh -c "chmod +x ./firebase-dev.sh && ./firebase-dev.sh"
   back:
     build:
       context: ./back
       dockerfile: ../docker/Dockerfile.back
     volumes:
       - ./back:/app
-      
       - ./firebase-service-account.json:/app/firebase-service-account.json:ro
     ports:
       - "8000:8000"
@@ -35,7 +30,7 @@ services:
       - RABBITMQ_URL=${RABBITMQ_URL}
       - MONGODB_HOST=${MONGODB_HOST}
       - MONGODB_PORT=${MONGODB_PORT}
-      - ROOT_PATH=/trading/api
+      - ROOT_PATH=/api
       - FIREBASE_API_KEY=${FIREBASE_API_KEY}
       - FIREBASE_AUTH_DOMAIN=${FIREBASE_AUTH_DOMAIN}
       - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
@@ -47,7 +42,6 @@ services:
     depends_on:
       - rabbitmq
       - mongodb
-    # Remove the command line here
     networks:
       - app-network
     logging:
@@ -63,7 +57,6 @@ services:
     volumes:
       - ./docker/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
-      - front
       - back
     networks:
       - app-network
@@ -73,6 +66,7 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
   ngrok:
     image: ngrok/ngrok:latest
     command: 
@@ -83,11 +77,11 @@ services:
     volumes:
       - ./docker/ngrok.yml:/etc/ngrok.yml
     ports:
-      - "4040:4040" 
+      - "4040:4040"
     depends_on:
       - nginx
     networks:
-      - app-network  # Add this line
+      - app-network
     logging: *default-logging
 
   rabbitmq:
@@ -104,7 +98,7 @@ services:
       retries: 5
     restart: unless-stopped
     networks:
-      - app-network  # Add this line
+      - app-network
     logging: *default-logging
 
   mongodb:
@@ -114,7 +108,7 @@ services:
     volumes:
       - mongodb_data:/data/db
     networks:
-      - app-network  # Add this line
+      - app-network
     logging: *default-logging
 
 volumes:
