@@ -1,3 +1,6 @@
 ngrok.yml
 trading_platform
 appmap.log
+*.json
+*.yml
+*.env

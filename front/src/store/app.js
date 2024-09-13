@@ -2,6 +2,12 @@
 import { defineStore } from "pinia";
 import axios from "axios";
 import { useWebSocket } from "@vueuse/core";
+import { auth } from '@/firebaseConfig'
+import { 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut 
+} from "firebase/auth";
 
 const wsROOT = "ws://localhost:8000/trader";
 function findMidpoint(bids, asks) {
@@ -25,6 +31,8 @@ function findMidpoint(bids, asks) {
 
 export const useTraderStore = defineStore("trader", {
   state: () => ({
+    isAuthenticated: false,
+    intendedRoute: null,
     dayOver: false,
     midPoint: 0,
     pnl: 0,
@@ -88,7 +96,6 @@ export const useTraderStore = defineStore("trader", {
     showSnackbar: false,
     snackbarText: "",
     user: null,
-    isAuthenticated: false,
     isAdmin: false,
   }),
   getters: {
@@ -351,52 +358,51 @@ export const useTraderStore = defineStore("trader", {
         }
       }
     },
-    async login(username, password) {
+    async login(email, password) {
       try {
-        const response = await axios.post('http://localhost:8000/login', {}, {
-          auth: {
-            username: username,
-            password: password
-          }
-        });
-        
-        if (response.data.status === 'success') {
-          this.user = response.data.data.username;
-          this.isAuthenticated = true;
-          this.isAdmin = response.data.data.is_admin;
-          return this.isAdmin;
-        } else {
-          throw new Error('Login failed');
-        }
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        this.user = userCredential.user;
+        this.isAuthenticated = true;
+        this.isAdmin = userCredential.user.is_admin;
+        return this.isAdmin;
       } catch (error) {
         console.error('Login failed:', error);
         throw error;
       }
     },
-    async register(username, password) {
+    async register(email, password) {
       try {
-        const response = await axios.post('http://localhost:8000/register', {
-          username: username,
-          password: password
-        });
-        
-        if (response.data.status === 'success') {
-          this.user = response.data.data.username;
-          this.isAuthenticated = true;
-          this.isAdmin = response.data.data.is_admin;
-          return this.isAdmin;
-        } else {
-          throw new Error('Registration failed');
-        }
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        this.user = userCredential.user;
+        this.isAuthenticated = true;
+        this.isAdmin = userCredential.user.is_admin;
+        return this.isAdmin;
       } catch (error) {
         console.error('Registration failed:', error);
         throw error;
       }
     },
-    logout() {
-      this.user = null;
-      this.isAuthenticated = false;
-      this.isAdmin = false;
+    async logout() {
+      try {
+        await signOut(auth);
+        this.user = null;
+        this.isAuthenticated = false;
+        this.isAdmin = false;
+      } catch (error) {
+        console.error('Logout failed:', error);
+        throw error;
+      }
+    },
+    setAuthenticated(value) {
+      this.isAuthenticated = value;
+    },
+    setIntendedRoute(route) {
+      this.intendedRoute = route;
+    },
+    getIntendedRoute() {
+      const route = this.intendedRoute;
+      this.intendedRoute = null; // Clear the intended route after retrieving it
+      return route;
     },
   },
 });

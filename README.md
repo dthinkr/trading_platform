@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="front/src/assets/trading_platform_logo.svg" alt="Trading Platform Logo" width="200"/>
+  <img src="front/src/assets/trading_platform_logo.png" alt="Trading Platform Logo" width="200"/>
 </p>
 
 <h1 align="center">Trading Platform</h1>
@@ -35,8 +35,8 @@
 
 - 🚀 Real-time trading simulation
 - 🌐 WebSocket-based communication
-- 🖥️ Vue.js frontend with Vuetify
-- ⚡ FastAPI backend
+- 🖥️ Vue.js front with Vuetify
+- ⚡ FastAPI back
 - 🔧 Customizable trading scenarios
 - 📊 Advanced data analysis tools
 
@@ -50,14 +50,14 @@ bash <(curl -sSL https://raw.githubusercontent.com/dthinkr/trading_platform/main
 
 ### Manual Setup
 
-#### Frontend
+#### front
 
 ```bash
 cd front
 npm install
 ```
 
-#### Backend
+#### back
 
 ```bash
 cd back
@@ -68,7 +68,7 @@ pip install -r requirements.txt
 
 ### Development Server
 
-#### Frontend
+#### front
 
 ```bash
 cd front
@@ -77,7 +77,7 @@ npm run dev
 
 Access at `http://localhost:3000`
 
-#### Backend
+#### back
 
 ```bash
 cd back
@@ -97,7 +97,7 @@ npm run build
 
 ```
 trading_platform/
-├── front/                 # Vue.js frontend
+├── front/                 # Vue.js front
 │   ├── src/
 │   │   ├── assets/
 │   │   ├── components/
@@ -108,7 +108,7 @@ trading_platform/
 │   │   └── styles/
 │   ├── public/
 │   └── package.json
-├── back/                  # FastAPI backend
+├── back/                  # FastAPI back
 │   ├── api/
 │   ├── core/
 │   ├── traders/
@@ -125,7 +125,7 @@ Key highlights from previous releases:
 
 - 🔄 Background processing for multiple trading sessions
 - 🖼️ Visual summary of time-series results
-- 🎨 Redesigned platform frontend and backend
+- 🎨 Redesigned platform front and back
 - 🧭 Improved instruction flow with navigation buttons
 - 🌐 Public access link and one-liner self-host command
 - 📊 Expanded evaluation framework (20+ metrics)

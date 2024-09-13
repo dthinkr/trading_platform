@@ -4,7 +4,7 @@ Upon the request of a client, it launches new trading sessions and/or helps find
 so they can communicate with them.
 """
 
-from .data_models import TraderCreationData, OrderType, ActionType, TraderType
+from .data_models import TradingParameters, OrderType, ActionType, TraderType
 from typing import List
 from traders import (
     HumanTrader,
@@ -20,14 +20,14 @@ from utils import setup_custom_logger
 logger = setup_custom_logger(__name__)
 
 class TraderManager:
-    params: TraderCreationData
+    params: TradingParameters
     trading_system: TradingSession = None
     traders = {}
     human_traders = List[HumanTrader]
     noise_traders = List[NoiseTrader]
     informed_traders = List[InformedTrader]
 
-    def __init__(self, params: TraderCreationData):
+    def __init__(self, params: TradingParameters):
         self.params = params
         params = params.model_dump()
         self.tasks = []

@@ -1,29 +1,29 @@
 import asyncio
 import io
-from datetime import timedelta
+from datetime import timedelta, datetime
+from uuid import UUID, uuid4
 
 from fastapi import (
-    FastAPI,
-    WebSocket,
-    HTTPException,
-    WebSocketDisconnect,
-    BackgroundTasks,
-    Depends,
+    FastAPI, WebSocket, HTTPException, WebSocketDisconnect, 
+    BackgroundTasks, Depends, status
 )
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from starlette.status import HTTP_401_UNAUTHORIZED, HTTP_400_BAD_REQUEST
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse, Response
 from pymongo import MongoClient
 import polars as pl
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 from core.trader_manager import TraderManager
-from core.data_models import TraderCreationData, UserRegistration
+from core.data_models import TradingParameters, UserRegistration
 from utils import setup_custom_logger
 from .calculate_metrics import get_data_from_mongodb, process_session, calculate_end_of_run_metrics
-import traceback
+from .auth import get_current_user, get_current_admin_user
+from firebase_admin import auth as firebase_auth
 
 logger = setup_custom_logger(__name__)
+
 
 app = FastAPI()
 security = HTTPBasic()
@@ -49,63 +49,20 @@ mongo_client = MongoClient(MONGODB_HOST, MONGODB_PORT)
 db = mongo_client[DATASET]
 collection = db[COLLECTION_NAME]
 
-# In-memory user store (replace with database in production)
-users = {
-    "admin": {"password": "admin123", "is_admin": True},
-    "user1": {"password": "password1", "is_admin": False},
-    "user2": {"password": "password2", "is_admin": False}
-}
-
-def authenticate(credentials: HTTPBasicCredentials = Depends(security)):
-    username = credentials.username
-    password = credentials.password
-    if username in users and users[username]["password"] == password:
-        return username
-    raise HTTPException(
-        status_code=HTTP_401_UNAUTHORIZED,
-        detail="Invalid credentials",
-        headers={"WWW-Authenticate": "Basic"},
-    )
-
 @app.post("/login")
-async def login(username: str = Depends(authenticate)):
+async def login(current_user: dict = Depends(get_current_user)):
     return {
         "status": "success",
         "message": "Login successful",
         "data": {
-            "username": username,
-            "is_admin": users[username]["is_admin"]
+            "username": current_user.get('email'),
+            "is_admin": current_user.get('admin', False)
         }
     }
-
-@app.post("/register")
-async def register(user: UserRegistration):
-    if user.username in users:
-        raise HTTPException(
-            status_code=HTTP_400_BAD_REQUEST,
-            detail="Username already exists"
-        )
-    users[user.username] = {"password": user.password, "is_admin": False}
-    return {
-        "status": "success",
-        "message": "User registered successfully",
-        "data": {
-            "username": user.username,
-            "is_admin": False
-        }
-    }
-
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
-    while True:
-        data = await websocket.receive_text()
-        await websocket.send_text(f"Message text was: {data}")
-
 
 @app.get("/traders/defaults")
 async def get_trader_defaults():
-    schema = TraderCreationData.model_json_schema()
+    schema = TradingParameters.model_json_schema()
     defaults = {
         field: {
             "default": props.get("default"),
@@ -120,7 +77,7 @@ async def get_trader_defaults():
 
 @app.post("/trading/initiate")
 async def create_trading_session(
-    params: TraderCreationData, background_tasks: BackgroundTasks
+    params: TradingParameters, background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)
 ):
     trader_manager = TraderManager(params)
     background_tasks.add_task(trader_manager.launch)
@@ -149,7 +106,7 @@ def get_manager_by_trader(trader_uuid: str):
 
 
 @app.get("/trader/{trader_uuid}")
-async def get_trader(trader_uuid: str):
+async def get_trader(trader_uuid: str, current_user: dict = Depends(get_current_user)):
     trader_manager = get_manager_by_trader(trader_uuid)
     if not trader_manager:
         raise HTTPException(status_code=404, detail="Trader not found")
@@ -163,7 +120,7 @@ async def get_trader(trader_uuid: str):
 
 
 @app.get("/trader_info/{trader_uuid}")
-async def get_trader_info(trader_uuid: str):
+async def get_trader_info(trader_uuid: str, current_user: dict = Depends(get_current_user)):
     trader_manager = get_manager_by_trader(trader_uuid)
     if not trader_manager:
         raise HTTPException(status_code=404, detail="Trader not found")
@@ -184,7 +141,7 @@ async def get_trader_info(trader_uuid: str):
 
 
 @app.get("/trading_session/{trading_session_id}")
-async def get_trading_session(trading_session_id: str):
+async def get_trading_session(trading_session_id: str, current_user: dict = Depends(get_current_user)):
     trader_manager = trader_managers.get(trading_session_id)
     if not trader_manager:
         raise HTTPException(status_code=404, detail="Trading session not found")
@@ -204,54 +161,63 @@ async def get_trading_session(trading_session_id: str):
 @app.websocket("/trader/{trader_uuid}")
 async def websocket_trader_endpoint(websocket: WebSocket, trader_uuid: str):
     await websocket.accept()
-
-    trader_manager = get_manager_by_trader(trader_uuid)
-    if not trader_manager:
-        await websocket.send_json(
-            {"status": "error", "message": "Trader not found", "data": {}}
-        )
-        await websocket.close()
-        return
-
-    trader = trader_manager.get_trader(trader_uuid)
-    await trader.connect_to_socket(websocket)
-
-    logger.info(f"Trader {trader_uuid} connected to websocket")
-
     try:
-        while True:
+        # Receive the token from the client
+        token = await websocket.receive_text()
+        # Verify the token
+        decoded_token = firebase_auth.verify_id_token(token)
+        
+        trader_manager = get_manager_by_trader(trader_uuid)
+        if not trader_manager:
             await websocket.send_json(
-                {
-                    "type": "time_update",
-                    "data": {
-                        "current_time": trader_manager.trading_session.current_time.isoformat(),
-                        "is_trading_started": trader_manager.trading_session.trading_started,
-                        "remaining_time": (
-                            trader_manager.trading_session.start_time
-                            + timedelta(minutes=trader_manager.trading_session.duration)
-                            - trader_manager.trading_session.current_time
-                        ).total_seconds()
-                        if trader_manager.trading_session.trading_started
-                        else None,
-                    },
-                }
+                {"status": "error", "message": "Trader not found", "data": {}}
             )
-            await asyncio.sleep(1)
+            await websocket.close()
+            return
 
-            try:
-                message = await asyncio.wait_for(websocket.receive_text(), timeout=0.1)
-                await trader.on_message_from_client(message)
-            except asyncio.TimeoutError:
-                pass
-    except WebSocketDisconnect:
-        logger.critical(f"Trader {trader_uuid} disconnected")
-    except asyncio.CancelledError:
-        logger.warning("Task cancelled")
-        await trader_manager.cleanup()
+        trader = trader_manager.get_trader(trader_uuid)
+        await trader.connect_to_socket(websocket)
+
+        logger.info(f"Trader {trader_uuid} connected to websocket")
+
+        try:
+            while True:
+                await websocket.send_json(
+                    {
+                        "type": "time_update",
+                        "data": {
+                            "current_time": trader_manager.trading_session.current_time.isoformat(),
+                            "is_trading_started": trader_manager.trading_session.trading_started,
+                            "remaining_time": (
+                                trader_manager.trading_session.start_time
+                                + timedelta(minutes=trader_manager.trading_session.duration)
+                                - trader_manager.trading_session.current_time
+                            ).total_seconds()
+                            if trader_manager.trading_session.trading_started
+                            else None,
+                        },
+                    }
+                )
+                await asyncio.sleep(1)
+
+                try:
+                    message = await asyncio.wait_for(websocket.receive_text(), timeout=0.1)
+                    await trader.on_message_from_client(message)
+                except asyncio.TimeoutError:
+                    pass
+        except WebSocketDisconnect:
+            logger.critical(f"Trader {trader_uuid} disconnected")
+        except asyncio.CancelledError:
+            logger.warning("Task cancelled")
+            await trader_manager.cleanup()
+    except Exception as e:
+        logger.error(f"WebSocket authentication error: {str(e)}")
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
 
 
 @app.get("/traders/list")
-async def list_traders():
+async def list_traders(current_user: dict = Depends(get_current_admin_user)):
     return {
         "status": "success",
         "message": "List of traders",
@@ -269,7 +235,7 @@ async def root():
 
 @app.post("/experiment/start")
 async def start_experiment(
-    params: TraderCreationData, background_tasks: BackgroundTasks
+    params: TradingParameters, background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_admin_user)
 ):
     trader_manager = TraderManager(params)
     background_tasks.add_task(trader_manager.launch)
@@ -287,7 +253,7 @@ async def start_experiment(
 
 
 @app.get("/experiment/status/{trading_session_id}")
-async def get_experiment_status(trading_session_id: str):
+async def get_experiment_status(trading_session_id: str, current_user: dict = Depends(get_current_user)):
     trader_manager = trader_managers.get(trading_session_id)
     if not trader_manager:
         raise HTTPException(status_code=404, detail="Trading session not found")
@@ -301,7 +267,7 @@ async def get_experiment_status(trading_session_id: str):
 
 
 @app.get("/experiment/time_series_metrics/{trading_session_id}")
-async def get_time_series_metrics(trading_session_id: str):
+async def get_time_series_metrics(trading_session_id: str, current_user: dict = Depends(get_current_user)):
     trader_manager = trader_managers.get(trading_session_id)
     if not trader_manager:
         raise HTTPException(status_code=404, detail="Trading session not found")
@@ -318,7 +284,7 @@ async def get_time_series_metrics(trading_session_id: str):
 
 
 @app.get("/experiment/end_metrics/{trading_session_id}")
-async def get_end_metrics(trading_session_id: str):
+async def get_end_metrics(trading_session_id: str, current_user: dict = Depends(get_current_user)):
     try:
         run_data = get_data_from_mongodb([trading_session_id])
         

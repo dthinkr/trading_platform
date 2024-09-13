@@ -26,8 +26,28 @@ class TradeDirection(str, Enum):
     BUY = "buy"
     SELL = "sell"
 
+class User(BaseModel):
+    id: UUID = Field(default_factory=uuid4)
+    username: str
+    is_admin: bool = False
 
-class TraderCreationData(BaseModel):
+class Trader(BaseModel):
+    id: UUID = Field(default_factory=uuid4)
+    user_id: UUID
+    trading_session_id: UUID
+    is_ready: bool = False
+
+class TradingSession(BaseModel):
+    id: UUID = Field(default_factory=uuid4)
+    status: str = "waiting"
+    traders: List[UUID] = []
+
+class UserRegistration(BaseModel):
+    username: str
+    password: str
+
+
+class TradingParameters(BaseModel):
     num_human_traders: int = Field(
         default=6,
         title="Number of Human Traders",
@@ -217,7 +237,6 @@ class OrderType(IntEnum):
 # let's write an inverse correspondence between the order type and the string
 str_to_order_type = {"ask": OrderType.ASK, "bid": OrderType.BID}
 
-
 class OrderStatus(str, Enum):
     BUFFERED = "buffered"
     ACTIVE = "active"
@@ -269,8 +288,3 @@ class Message(Document):
     content = DictField(required=True)
     timestamp = DateTimeField(default=datetime.now)
     matched_orders = DictField(required=False)
-
-
-class UserRegistration(BaseModel):
-    username: str
-    password: str

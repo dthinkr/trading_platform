@@ -1,3 +1,4 @@
 handlers:
-  - route: /*
-    serve: /index.html
+  - route: /googlea18ef84f2b8dd1e6.html
+    static_files: googlea18ef84f2b8dd1e6.html
+    upload: googlea18ef84f2b8dd1e6.html

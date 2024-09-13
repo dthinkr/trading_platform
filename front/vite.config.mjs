@@ -6,6 +6,7 @@ import { fileURLToPath, URL } from 'node:url'
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  base: '/trading/', // Add this line
   plugins: [
     vue({
       template: { transformAssetUrls }

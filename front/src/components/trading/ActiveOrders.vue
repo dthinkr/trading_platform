@@ -87,7 +87,7 @@ function formatPrice(price) {
 function addOrder(type, price) {
   const newOrder = {
     id: Date.now().toString(),
-    order_type: type, // Keep as 'BID' or 'ASK' for frontend use
+    order_type: type, // Keep as 'BID' or 'ASK' for front use
     price: Number(price),
     amount: 1,
     status: 'pending'

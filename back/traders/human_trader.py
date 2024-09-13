@@ -8,7 +8,6 @@ from utils import setup_custom_logger
 
 logger = setup_custom_logger(__name__)
 
-
 class HumanTrader(BaseTrader):
     websocket = None
     socket_status = False

@@ -77,7 +77,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Redesigned both frontend and backend of the trading platform
+- Redesigned both front and back of the trading platform
 - Updated order matching logic for improved efficiency and accuracy
 - Fix order cancellation not removing orders from the table
 - Correct share count updates when buying/selling
@@ -107,7 +107,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Major overhaul of the trading platform for improved evaluation and understanding
-- Integrated front and backend with a cleaner structure
+- Integrated front and back with a cleaner structure
 - Refactored codebase for better maintainability and scalability
 
 ### Improved
@@ -142,7 +142,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Timer and agents now do not act until the order book is initialized
-- Frontend timer now syncs with the backend
+- front timer now syncs with the back
 
 ## [0.1.0][0.1.0] - 2024-07-01
 
@@ -151,8 +151,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial fork of the Trading Platform from [chapkovski/trader_london](https://github.com/chapkovski/trader_london)
 - Real-time trading simulation
 - WebSocket-based communication
-- Vue.js frontend with Vuetify
-- FastAPI backend
+- Vue.js front with Vuetify
+- FastAPI back
 - Customizable trading scenarios
 - Basic data analysis tools
 
