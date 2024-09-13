@@ -202,8 +202,6 @@ export const useTraderStore = defineStore("trader", {
         console.error(error);
       }
 
-
-
     },
     handle_update(data) {
       if (data.type === "time_update") {

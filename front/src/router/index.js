@@ -1,5 +1,4 @@
 import { createRouter, createWebHistory } from "vue-router";
-import { useTraderStore } from "@/store/app";
 import { auth } from '@/firebaseConfig';  // Import Firebase auth
 
 const routes = [
@@ -45,22 +44,13 @@ const routes = [
   },
 ];
 
-// Add any additional routes from routeGraph that aren't already defined
-routeGraph.nodes().forEach(node => {
-  if (!routes.some(route => route.name === node)) {
-    const nodeData = routeGraph.node(node);
-    routes.push({
-      path: `/${node}`,
-      name: node,
-      component: nodeData.component,
-      props: true
-    });
-  }
-});
+console.log('Routes:', routes);
+console.log('Is array:', Array.isArray(routes));
+console.log('Has forEach:', typeof routes.forEach === 'function');
 
 const router = createRouter({
   history: createWebHistory('/trading/'),
-  routes
+  routes: Array.from(routes) // Explicitly create a new array
 });
 
 // Navigation guard for authentication

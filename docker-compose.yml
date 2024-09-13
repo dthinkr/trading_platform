@@ -19,13 +19,14 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-
+ 
   back:
     build:
       context: ./back
       dockerfile: ../docker/Dockerfile.back
     volumes:
       - ./back:/app
+      
       - ./firebase-service-account.json:/app/firebase-service-account.json:ro
     ports:
       - "8000:8000"
@@ -67,8 +68,11 @@ services:
     networks:
       - app-network
     restart: always
-    logging: *default-logging
-
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
   ngrok:
     image: ngrok/ngrok:latest
     command: 
