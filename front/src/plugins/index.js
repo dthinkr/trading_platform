@@ -11,7 +11,7 @@ import * as directives from 'vuetify/directives'
 import 'vuetify/styles'
 import { createPinia } from 'pinia'
 import { createRouter, createWebHistory } from 'vue-router'
-import routes from '@/router'  // Import routes, not the router instance
+import router from '@/router'  // Import the router instance directly
 import { auth } from '@/firebaseConfig'
 
 const myCustomLightTheme = {
@@ -67,12 +67,13 @@ const vuetify = createVuetify({
 
 const pinia = createPinia()
 
-// Create the router here with the correct base
-const router = createRouter({
-  history: createWebHistory('/trading/'),  // Set the base path here
-  routes
-})
+// Remove this block as we're now importing the router directly
+// const router = createRouter({
+//   history: createWebHistory('/trading/'),  // Set the base path here
+//   routes
+// })
 
+// Keep the beforeEach guard
 router.beforeEach(async (to, from, next) => {
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
   const currentUser = auth.currentUser

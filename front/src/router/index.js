@@ -44,13 +44,9 @@ const routes = [
   },
 ];
 
-console.log('Routes:', routes);
-console.log('Is array:', Array.isArray(routes));
-console.log('Has forEach:', typeof routes.forEach === 'function');
-
 const router = createRouter({
   history: createWebHistory('/trading/'),
-  routes: Array.from(routes) // Explicitly create a new array
+  routes: routes // Explicitly use the routes array
 });
 
 // Navigation guard for authentication
