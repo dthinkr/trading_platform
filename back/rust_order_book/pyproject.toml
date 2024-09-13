@@ -1,6 +1,6 @@
 [build-system]
 requires = ["maturin>=1.7,<2.0"]
-build-backend = "maturin"
+build-back = "maturin"
 
 [project]
 name = "rust_order_book"

@@ -1,35 +1,73 @@
+x-logging: &default-logging
+  driver: "none"
+
 services:
-  frontend:
+  front:
     build:
       context: ./front
-      dockerfile: Dockerfile
-    expose:
-      - "3000"
+      dockerfile: ../docker/Dockerfile.front
+    volumes:
+      - ./front:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    # Remove the command line here
+    networks:
+      - app-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-  backend:
+  back:
     build:
       context: ./back
-      dockerfile: Dockerfile
-    expose:
-      - "8000"
+      dockerfile: ../docker/Dockerfile.back
+    volumes:
+      - ./back:/app
+      - ./firebase-service-account.json:/app/firebase-service-account.json:ro
+    ports:
+      - "8000:8000"
     environment:
       - PORT=8000
-      - RABBITMQ_URL=amqp://rabbitmq:5672/
-      - MONGODB_HOST=mongodb
-      - MONGODB_PORT=27017
+      - RABBITMQ_URL=${RABBITMQ_URL}
+      - MONGODB_HOST=${MONGODB_HOST}
+      - MONGODB_PORT=${MONGODB_PORT}
+      - ROOT_PATH=/trading/api
+      - FIREBASE_API_KEY=${FIREBASE_API_KEY}
+      - FIREBASE_AUTH_DOMAIN=${FIREBASE_AUTH_DOMAIN}
+      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
+      - FIREBASE_STORAGE_BUCKET=${FIREBASE_STORAGE_BUCKET}
+      - FIREBASE_MESSAGING_SENDER_ID=${FIREBASE_MESSAGING_SENDER_ID}
+      - FIREBASE_APP_ID=${FIREBASE_APP_ID}
+      - FIREBASE_MEASUREMENT_ID=${FIREBASE_MEASUREMENT_ID}
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/firebase-service-account.json
     depends_on:
       - rabbitmq
       - mongodb
+    # Remove the command line here
+    networks:
+      - app-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   nginx:
     image: nginx:latest
     ports:
       - "80:80"
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
-      - frontend
-      - backend
+      - front
+      - back
+    networks:
+      - app-network
+    restart: always
+    logging: *default-logging
 
   ngrok:
     image: ngrok/ngrok:latest
@@ -39,11 +77,14 @@ services:
       - "--config"
       - "/etc/ngrok.yml"
     volumes:
-      - ./ngrok.yml:/etc/ngrok.yml
+      - ./docker/ngrok.yml:/etc/ngrok.yml
     ports:
       - "4040:4040" 
     depends_on:
       - nginx
+    networks:
+      - app-network  # Add this line
+    logging: *default-logging
 
   rabbitmq:
     image: rabbitmq:3-management
@@ -58,6 +99,9 @@ services:
       timeout: 10s
       retries: 5
     restart: unless-stopped
+    networks:
+      - app-network  # Add this line
+    logging: *default-logging
 
   mongodb:
     image: mongo:latest
@@ -65,7 +109,14 @@ services:
       - "27017:27017"
     volumes:
       - mongodb_data:/data/db
+    networks:
+      - app-network  # Add this line
+    logging: *default-logging
 
 volumes:
   rabbitmq_data:
   mongodb_data:
+
+networks:
+  app-network:
+    driver: bridge

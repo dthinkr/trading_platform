@@ -1,7 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 from api.endpoints import app
-from core.data_models import TraderCreationData
+from core.data_models import TradingParameters
 from datetime import datetime, timedelta
 from starlette.websockets import WebSocketDisconnect
 
@@ -84,7 +84,7 @@ def test_traders_defaults(client):
     assert response.json()["status"] == "success"
 
 def test_create_trading_session(client, mock_trader_manager):
-    test_data = TraderCreationData(num_human_traders=2, trading_day_duration=10)
+    test_data = TradingParameters(num_human_traders=2, trading_day_duration=10)
     response = client.post("/trading/initiate", json=test_data.model_dump())
     assert response.status_code == 200
     assert response.json()["status"] == "success"
@@ -138,7 +138,7 @@ def test_register(client):
     assert response.json()["data"]["username"] == "newuser"
 
 def test_experiment_start(client, mock_trader_manager):
-    test_data = TraderCreationData(num_human_traders=2, trading_day_duration=10)
+    test_data = TradingParameters(num_human_traders=2, trading_day_duration=10)
     response = client.post("/experiment/start", json=test_data.model_dump())
     assert response.status_code == 200
     assert response.json()["status"] == "success"

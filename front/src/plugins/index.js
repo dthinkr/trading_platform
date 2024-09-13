@@ -10,7 +10,9 @@ import * as components from 'vuetify/components'
 import * as directives from 'vuetify/directives'
 import 'vuetify/styles'
 import { createPinia } from 'pinia'
-import router from '@/router'
+import { createRouter, createWebHistory } from 'vue-router'
+import routes from '@/router'  // Import routes, not the router instance
+import { auth } from '@/firebaseConfig'
 
 const myCustomLightTheme = {
   dark: false,
@@ -65,9 +67,30 @@ const vuetify = createVuetify({
 
 const pinia = createPinia()
 
+// Create the router here with the correct base
+const router = createRouter({
+  history: createWebHistory('/trading/'),  // Set the base path here
+  routes
+})
+
+router.beforeEach(async (to, from, next) => {
+  const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
+  const currentUser = auth.currentUser
+
+  if (requiresAuth && !currentUser) {
+    next('/trading/register')
+  } else if (to.path === '/trading/register' && currentUser) {
+    next('/trading/CreateTradingSession')
+  } else {
+    next()
+  }
+})
+
 export function registerPlugins (app) {
   app
     .use(vuetify)
     .use(router)
     .use(pinia)
 }
+
+export { router }

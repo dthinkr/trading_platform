@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from SALib.sample import sobol
 from sklearn.decomposition import PCA
 
-from core.data_models.data_models import TradeDirection, TraderCreationData
+from core.data_models.data_models import TradeDirection, TradingParameters
 
 
 def generate_sobol_parameters(
@@ -67,7 +67,7 @@ def generate_and_store_parameters(
             unscaled_params.append(unscaled_dict)
 
     validated_params = [
-        TraderCreationData(**params).dict() for params in parameter_dicts
+        TradingParameters(**params).dict() for params in parameter_dicts
     ]
 
     if filepath:

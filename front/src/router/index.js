@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from "vue-router";
-import routeGraph from './routeGraph';
 import { useTraderStore } from "@/store/app";
+import { auth } from '@/firebaseConfig';  // Import Firebase auth
 
 const routes = [
   {
@@ -59,19 +59,17 @@ routeGraph.nodes().forEach(node => {
 });
 
 const router = createRouter({
-  history: createWebHistory(),
-  routes,
+  history: createWebHistory('/trading/'),
+  routes
 });
 
-router.beforeEach((to, from, next) => {
-  const traderStore = useTraderStore();
+// Navigation guard for authentication
+router.beforeEach(async (to, from, next) => {
+  const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
+  const currentUser = auth.currentUser;
 
-  if (to.matched.some(record => record.meta.requiresAuth)) {
-    if (!traderStore.isAuthenticated) {
-      next({ name: 'Register' });
-    } else {
-      next();
-    }
+  if (requiresAuth && !currentUser) {
+    next('/register');
   } else {
     next();
   }
