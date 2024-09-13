@@ -1,30 +1,17 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
-import vuetify, { transformAssetUrls } from 'vite-plugin-vuetify'
+import vuetify from 'vite-plugin-vuetify'
 import ViteFonts from 'unplugin-fonts/vite'
 import { fileURLToPath, URL } from 'node:url'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  base: '/trading/', // Add this line
-  server: {
-    host: '0.0.0.0',
-    port: 3000,
-    strictPort: true,
-    hmr: {
-      clientPort: 80 // This should match the port Nginx is listening on
-    }
-  },
+  base: '/trading/',
   plugins: [
-    vue({
-      template: { transformAssetUrls }
-    }),
-    // https://github.com/vuetifyjs/vuetify-loader/tree/master/packages/vite-plugin#readme
-    vuetify({
+    vue(),
+    vuetify({ 
       autoImport: true,
-      styles: {
-        configFile: 'src/styles/settings.scss',
-      },
+      styles: { configFile: 'src/styles/settings.scss' }
     }),
     ViteFonts({
       google: {
@@ -35,7 +22,6 @@ export default defineConfig({
       },
     }),
   ],
-
   define: { 'process.env': {} },
   resolve: {
     alias: {
@@ -55,4 +41,18 @@ export default defineConfig({
       '.vue',
     ],
   },
+  server: {
+    port: 3000,
+    hmr: {
+      host: 'localhost',
+      protocol: 'ws'
+    }
+  },
+  css: {
+    preprocessorOptions: {
+      scss: {
+        additionalData: `@import "@/styles/variables.scss";`
+      }
+    }
+  }
 })
