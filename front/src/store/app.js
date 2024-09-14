@@ -1,6 +1,6 @@
 // store.js
 import { defineStore } from "pinia";
-import axios from "axios";
+import axios from '@/api/axios';
 import { useWebSocket } from "@vueuse/core";
 import { auth } from '@/firebaseConfig'
 import { 
@@ -157,61 +157,68 @@ export const useTraderStore = defineStore("trader", {
         value: data[param.var_name] !== undefined ? data[param.var_name].toString() : param.value,
       }));
     },
-    async initializeTradingSystem(formState) {
-      const httpUrl = import.meta.env.VITE_HTTP_URL;
-      try {
-        // Pass formState as the payload in the POST request
-        const response = await axios.post(
-          `${httpUrl}trading/initiate`,
-          formState
-        );
-        console.debug(response.data.data);
-        this.tradingSessionData = response.data.data;
 
-        // Store the formState in gameParams for future reference
-        this.gameParams = formState;
-        // Store the formState separately as well
-        this.formState = formState;
-        // Connect to WebSocket or perform other actions
-      } catch (error) {
-        console.error("Error initializing trading system:", error);
-        throw error; // Rethrow the error so it can be caught in the component
-      }
+  async initializeTradingSystem(formState) {
+    try {
+      const response = await axios.post("trading/initiate", formState);
+      console.debug(response.data.data);
+      this.tradingSessionData = response.data.data;
+
+      // Store the formState in gameParams for future reference
+      this.gameParams = formState;
+      // Store the formState separately as well
+      this.formState = formState;
+      // Connect to WebSocket or perform other actions
+    } catch (error) {
+      console.error("Error initializing trading system:", error);
+      throw error;
+    }
     },
-
-    // rewrite this. human trader will have a state. 
-
-    async getTradingSessionData(traderId) {
-      const httpUrl = import.meta.env.VITE_HTTP_URL;
+    
+    async getTraderAttributes(traderId) {
       try {
-        const response = await axios.get(`${httpUrl}trader/${traderId}/session`);
+        const response = await axios.get(`trader/${traderId}/attributes`);
+        
         if (response.data.status === "success") {
-          this.tradingSessionData = response.data.data;
-          this.gameParams = response.data.data.game_params;
-          console.debug('Fetched trading session data:', this.tradingSessionData);
+          const attributes = response.data.data;
+          
+          // Update the store with the received attributes
+          this.$patch({
+            traderUuid: attributes.id,
+            trader_type: attributes.trader_type,
+            cash: attributes.cash,
+            shares: attributes.shares,
+            initial_cash: attributes.initial_cash,
+            initial_shares: attributes.initial_shares,
+            goal: attributes.goal,
+            placedOrders: attributes.orders,
+            delta_cash: attributes.delta_cash,
+            sum_dinv: attributes.sum_dinv,
+            vwap: attributes.vwap,
+            pnl: attributes.pnl,
+          });
+    
+          console.debug('Fetched trader attributes:', attributes);
         } else {
-          throw new Error("Failed to fetch trading session data");
+          throw new Error("Failed to fetch trader attributes");
         }
       } catch (error) {
-        console.error('Failed to fetch trading session data:', error);
+        console.error('Failed to fetch trader attributes:', error);
         throw error;
       }
     },
 
+
     async initializeTrader(traderUuid) {
       console.debug("Initializing trader");
       this.traderUuid = traderUuid;
-      const httpUrl = import.meta.env.VITE_HTTP_URL;
+      
       try {
-        const response = await axios.get(`${httpUrl}trader/${traderUuid}`);
-        console.debug(response.data.data);
-        this.gameParams = response.data.data;
-
+        await this.getTraderAttributes(traderUuid);
         this.initializeWebSocket();
       } catch (error) {
-        console.error(error);
+        console.error("Error initializing trader:", error);
       }
-
     },
     handle_update(data) {
       if (data.type === "time_update") {

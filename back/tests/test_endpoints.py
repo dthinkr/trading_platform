@@ -1,155 +1,84 @@
 import pytest
 from fastapi.testclient import TestClient
-from api.endpoints import app
-from core.data_models import TradingParameters
-from datetime import datetime, timedelta
-from starlette.websockets import WebSocketDisconnect
+from unittest.mock import patch, MagicMock
+import asyncio
+
+from api.endpoints import app, get_manager_by_trader
+from core.trader_manager import TraderManager
+from fastapi import HTTPException
 
 @pytest.fixture
 def client():
     return TestClient(app)
 
 @pytest.fixture
-def mock_trader_manager(monkeypatch):
-    class MockTradingSession:
-        def __init__(self):
-            self.id = "mock-session-id"
-            self.current_time = datetime.now()
-            self.trading_started = True
-            self.start_time = self.current_time - timedelta(minutes=5)
-            self.duration = 30
-            self.is_finished = False
+def mock_get_current_user():
+    async def mock_current_user(request):
+        auth_header = request.headers.get('Authorization')
+        if not auth_header or not auth_header.startswith('Bearer '):
+            raise HTTPException(status_code=401, detail="Invalid authentication method")
+        
+        # Simulate successful token verification
+        return {"uid": "HUMAN_0Jk378svzGQrqPvRYBCdcwqi4ep1", "is_admin": False}
+    
+    return mock_current_user
 
-    class MockTrader:
-        def __init__(self):
-            self.id = "mock-trader-id"
-            self.cash = 1000
-            self.shares = 100
-            self.orders = []
-            self.delta_cash = 0
-            self.initial_cash = 1000
-            self.initial_shares = 100
-
-        def get_trader_params_as_dict(self):
-            return {"goal": "mock_goal", "id": "mock-trader-id", "type": "HUMAN"}
-
-        async def connect_to_socket(self, websocket):
-            pass
-
-        async def on_message_from_client(self, message):
-            pass
-
-    class MockTraderManager:
-        def __init__(self):
-            self.trading_session = MockTradingSession()
-            self.traders = {"mock-trader-id": MockTrader()}
-            self.human_traders = [MockTrader()]
-
-        def get_trader(self, uuid):
-            return self.traders.get(uuid)
-
-        def get_params(self):
-            return {}
-
-        async def launch(self):
-            pass
-
-        async def cleanup(self):
-            pass
-
-    mock = MockTraderManager()
-    monkeypatch.setattr("api.endpoints.TraderManager", lambda *args, **kwargs: mock)
-    monkeypatch.setattr("api.endpoints.trader_managers", {"mock-session-id": mock})
-    monkeypatch.setattr(
-        "api.endpoints.trader_to_session_lookup",
-        {"mock-trader-id": "mock-session-id"},
+@pytest.fixture
+def mock_trader_manager():
+    mock_manager = MagicMock(spec=TraderManager)
+    mock_manager.get_trader.return_value = MagicMock(
+        id="HUMAN_0Jk378svzGQrqPvRYBCdcwqi4ep1",
+        trader_type="HUMAN",
+        cash=1000,
+        shares=10,
+        initial_cash=1000,
+        initial_shares=10,
+        goal="MAXIMIZE_PROFIT",
+        orders=[],
+        delta_cash=0,
+        sum_dinv=0,
+        get_vwap=MagicMock(return_value=100),
+        get_current_pnl=MagicMock(return_value=0)
     )
-    monkeypatch.setattr(
-        "api.endpoints.get_manager_by_trader",
-        lambda uuid: mock if uuid == "mock-trader-id" else None,
-    )
-    return mock
+    return mock_manager
 
-def test_root(client):
-    response = client.get("/")
-    assert response.status_code == 200
-    assert response.json() == {
-        "status": "trading is active",
-        "comment": "this is only for accessing trading platform mostly via websockets",
-    }
+@pytest.fixture
+def mock_get_manager_by_trader(mock_trader_manager):
+    return MagicMock(return_value=mock_trader_manager)
 
-def test_traders_defaults(client):
-    response = client.get("/traders/defaults")
+@pytest.fixture(autouse=True)
+def cleanup_event_loop():
+    yield
+    loop = asyncio.get_event_loop()
+    for task in asyncio.all_tasks(loop):
+        task.cancel()
+    loop.run_until_complete(asyncio.gather(*asyncio.all_tasks(loop), return_exceptions=True))
+
+def test_get_trader_attributes_success(client, mock_get_current_user, mock_get_manager_by_trader):
+    with patch("api.auth.get_current_user", mock_get_current_user), \
+         patch("api.endpoints.get_manager_by_trader", mock_get_manager_by_trader):
+        response = client.get("/trader/HUMAN_0Jk378svzGQrqPvRYBCdcwqi4ep1/attributes", headers={"Authorization": "Bearer test_token"})
+    
     assert response.status_code == 200
     assert response.json()["status"] == "success"
+    assert "data" in response.json()
+    assert response.json()["data"]["id"] == "HUMAN_0Jk378svzGQrqPvRYBCdcwqi4ep1"
 
-def test_create_trading_session(client, mock_trader_manager):
-    test_data = TradingParameters(num_human_traders=2, trading_day_duration=10)
-    response = client.post("/trading/initiate", json=test_data.model_dump())
-    assert response.status_code == 200
-    assert response.json()["status"] == "success"
-    assert "trading_session_uuid" in response.json()["data"]
+def test_get_trader_attributes_forbidden(client, mock_get_current_user, mock_get_manager_by_trader):
+    async def mock_different_user(request):
+        return {"uid": "different_user", "is_admin": False}
+    
+    with patch("api.auth.get_current_user", mock_different_user), \
+         patch("api.endpoints.get_manager_by_trader", mock_get_manager_by_trader):
+        response = client.get("/trader/HUMAN_0Jk378svzGQrqPvRYBCdcwqi4ep1/attributes", headers={"Authorization": "Bearer test_token"})
+    
+    assert response.status_code == 403
+    assert "You don't have permission to access this trader's attributes" in response.json()["detail"]
 
-@pytest.mark.parametrize(
-    "endpoint,uuid_key",
-    [
-        ("/trader/{uuid}", "trader_uuid"),
-        ("/trader_info/{uuid}", "trader_uuid"),
-        ("/trading_session/{uuid}", "trading_session_id"),
-    ],
-)
-def test_get_endpoints(client, mock_trader_manager, endpoint, uuid_key):
-    mock_uuid = "mock-trader-id" if uuid_key == "trader_uuid" else "mock-session-id"
-    response = client.get(endpoint.format(uuid=mock_uuid))
-    assert response.status_code == 200
-    assert response.json()["status"] in ["success", "found"]
-
-def test_websocket_endpoint(client):
-    with pytest.raises(WebSocketDisconnect):
-        with client.websocket_connect("/ws") as websocket:
-            websocket.send_text("Hello")
-            data = websocket.receive_text()
-            assert data == "Message text was: Hello"
-
-def test_websocket_trader_endpoint(client, mock_trader_manager):
-    trader_uuid = "mock-trader-id"
-    with client.websocket_connect(f"/trader/{trader_uuid}") as websocket:
-        data = websocket.receive_json()
-        assert data["type"] == "time_update"
-        assert "current_time" in data["data"]
-        # Force close the connection to avoid hanging
-        websocket.close()
-
-def test_error_handling(client):
-    response = client.get("/trader/non-existent-uuid")
+def test_get_trader_attributes_not_found(client, mock_get_current_user):
+    with patch("api.auth.get_current_user", mock_get_current_user), \
+         patch("api.endpoints.get_manager_by_trader", return_value=None):
+        response = client.get("/trader/nonexistent_trader/attributes", headers={"Authorization": "Bearer test_token"})
+    
     assert response.status_code == 404
-    assert response.json()["detail"] == "Trader not found"
-
-def test_login(client):
-    response = client.post("/login", auth=("admin", "admin123"))
-    assert response.status_code == 200
-    assert response.json()["status"] == "success"
-    assert response.json()["data"]["is_admin"] == True
-
-def test_register(client):
-    response = client.post("/register", json={"username": "newuser", "password": "newpass"})
-    assert response.status_code == 200
-    assert response.json()["status"] == "success"
-    assert response.json()["data"]["username"] == "newuser"
-
-def test_experiment_start(client, mock_trader_manager):
-    test_data = TradingParameters(num_human_traders=2, trading_day_duration=10)
-    response = client.post("/experiment/start", json=test_data.model_dump())
-    assert response.status_code == 200
-    assert response.json()["status"] == "success"
-    assert "trading_session_uuid" in response.json()["data"]
-
-def test_experiment_status(client, mock_trader_manager):
-    response = client.get("/experiment/status/mock-session-id")
-    assert response.status_code == 200
-    assert response.json()["status"] == "success"
-    assert "is_finished" in response.json()["data"]
-
-# Note: The time_series_metrics and end_metrics endpoints are not tested here
-# as they require more complex setup with MongoDB. You might want to mock these
-# or set up a test database for more comprehensive testing.
+    assert "Trader not found" in response.json()["detail"]

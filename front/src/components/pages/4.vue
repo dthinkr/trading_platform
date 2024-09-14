@@ -167,7 +167,7 @@ const autoTradeMultiplier = computed(() => {
 
 onMounted(async () => {
   if (!tradingSessionData.value?.trading_session_uuid) {
-    await traderStore.getTradingSessionData(route.params.traderUuid);
+    await traderStore.getTraderAttributes(route.params.traderUuid);
   }
 });
 

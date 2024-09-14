@@ -133,7 +133,7 @@ onMounted(async () => {
   console.log('Component mounted. tradingSessionData:', tradingSessionData.value);
   console.log('Route params:', route.params);
   if (!tradingSessionData.value?.trading_session_uuid) {
-    await traderStore.getTradingSessionData(route.params.traderUuid);
+    await traderStore.getTraderAttributes(route.params.traderUuid);
     console.log('After fetching data. tradingSessionData:', tradingSessionData.value);
   }
 });
