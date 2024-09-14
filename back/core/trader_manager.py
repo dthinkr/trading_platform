@@ -107,7 +107,7 @@ class TraderManager:
             for i in range(n_informed_traders)
         ]
 
-    def add_human_trader(self, uid):
+    async def add_human_trader(self, uid):
         if len(self.human_traders) >= self.params.num_human_traders:
             raise ValueError("Session is full")
         
@@ -121,6 +121,7 @@ class TraderManager:
             cash=self.params.initial_cash,
             shares=self.params.initial_stocks,
             goal=self.params.human_goals[goal_index],
+            trading_session=self.trading_session,
             params=self.params.model_dump()
         )
         self.trading_session.connected_traders[trader_id] = {
@@ -132,7 +133,7 @@ class TraderManager:
         self.human_traders.append(new_trader)
 
         print(f"Human trader {trader_id} added, now we have {len(self.human_traders)} human traders in session {self.trading_session.id}")
-        
+        await new_trader.initialize()
         return trader_id
 
     async def launch(self):

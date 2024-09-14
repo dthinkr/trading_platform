@@ -3,6 +3,7 @@
     <v-app-bar app elevation="2" color="primary" dark>
       <v-container class="py-0 fill-height">
         <v-row align="center" no-gutters>
+          <!-- Timer -->
           <v-col cols="auto">
             <v-card class="mx-3 pa-2" elevation="0" color="primary" dark>
               <template v-if="isTradingStarted">
@@ -17,7 +18,29 @@
               </template>
             </v-card>
           </v-col>
+
           <v-spacer></v-spacer>
+
+          <!-- Trader count -->
+          <v-col cols="auto">
+            <v-card outlined class="pa-2" color="primary" dark>
+              <v-row no-gutters align="center">
+                <v-col cols="auto" class="mr-2">
+                  <v-icon>mdi-account-group</v-icon>
+                </v-col>
+                <v-col>
+                  <v-card-subtitle class="pa-0 text-caption white--text">Traders</v-card-subtitle>
+                  <v-card-text class="pa-0 text-body-1 font-weight-bold white--text">
+                    {{ currentHumanTraders }} / {{ expectedHumanTraders }}
+                  </v-card-text>
+                </v-col>
+              </v-row>
+            </v-card>
+          </v-col>
+
+          <v-spacer></v-spacer>
+
+          <!-- VWAP, PnL, Shares, Cash -->
           <v-col cols="auto">
             <v-row no-gutters>
               <v-col v-for="(item, index) in [
@@ -111,8 +134,21 @@ import { useTraderStore } from "@/store/app";
 import { watch } from "vue";
 // Remove this line:
 // const { initializeTrader } = useTraderStore();
-const { gameParams, goalMessage, shares, cash, sum_dinv, initial_shares, dayOver, pnl, vwap, remainingTime, isTradingStarted } =
-  storeToRefs(useTraderStore());
+const { 
+  gameParams, 
+  goalMessage, 
+  shares, 
+  cash, 
+  sum_dinv, 
+  initial_shares, 
+  dayOver, 
+  pnl, 
+  vwap, 
+  remainingTime, 
+  isTradingStarted,
+  currentHumanTraders,
+  expectedHumanTraders
+} = storeToRefs(useTraderStore());
 
 // Remove this onMounted hook:
 // onMounted(() => {

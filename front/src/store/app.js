@@ -96,6 +96,8 @@ export const useTraderStore = defineStore("trader", {
     snackbarText: "",
     user: null,
     isAdmin: false,
+    currentHumanTraders: 0,
+    expectedHumanTraders: 0,
   }),
   getters: {
     goalMessage: (state) => {
@@ -211,7 +213,9 @@ export const useTraderStore = defineStore("trader", {
         this.$patch({
           currentTime: new Date(data.data.current_time),
           isTradingStarted: data.data.is_trading_started,
-          remainingTime: data.data.remaining_time
+          remainingTime: data.data.remaining_time,
+          currentHumanTraders: data.data.current_human_traders,
+          expectedHumanTraders: data.data.expected_human_traders
         });
         return;
       }
@@ -402,6 +406,17 @@ export const useTraderStore = defineStore("trader", {
       const route = this.intendedRoute;
       this.intendedRoute = null; // Clear the intended route after retrieving it
       return route;
+    },
+    updateTimeInfo(data) {
+      this.remainingTime = data.remaining_time;
+      this.isTradingStarted = data.is_trading_started;
+      this.currentHumanTraders = data.current_human_traders;
+      this.expectedHumanTraders = data.expected_human_traders;
+    },
+    processWebSocketMessage(message) {
+      if (message.type === 'time_update') {
+        this.updateTimeInfo(message.data);
+      }
     },
   },
 });
