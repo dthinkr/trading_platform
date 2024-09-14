@@ -140,25 +140,20 @@
 </template>
 
 <script setup>
-import { computed, onMounted, watch } from 'vue';
-import { useTraderStore } from "@/store/app";
-import { storeToRefs } from "pinia";
-import { useRoute } from 'vue-router';
+import { computed } from 'vue';
 
-const route = useRoute();
-const traderStore = useTraderStore();
+const props = defineProps({
+  traderAttributes: Object
+});
 
-// Destructure the attributes we need
-const { shares, cash, initial_shares, goalMessage, gameParams } = storeToRefs(traderStore);
-
-const numShares = computed(() => shares.value ?? '#');
-const initialLiras = computed(() => cash.value ?? '#');
-const conversionRate = computed(() => gameParams.value?.conversion_rate || 'X');
+const numShares = computed(() => props.traderAttributes?.shares ?? '#');
+const initialLiras = computed(() => props.traderAttributes?.cash ?? '#');
+const conversionRate = computed(() => props.traderAttributes?.all_attributes?.params?.conversion_rate || 'X');
 
 const goalStatus = computed(() => {
-  if (shares.value === undefined) return 'unknown';
-  if (shares.value === initial_shares.value) return 'noGoal';
-  return shares.value < initial_shares.value ? 'selling' : 'buying';
+  if (props.traderAttributes?.shares === undefined) return 'unknown';
+  if (props.traderAttributes?.shares === props.traderAttributes?.initial_shares) return 'noGoal';
+  return props.traderAttributes?.shares < props.traderAttributes?.initial_shares ? 'selling' : 'buying';
 });
 
 const tradeAction = computed(() => {
@@ -173,19 +168,7 @@ const autoTradeMultiplier = computed(() => {
   return '';
 });
 
-onMounted(async () => {
-  if (!traderStore.traderUuid) {
-    await traderStore.getTraderAttributes(route.params.traderUuid);
-  }
-});
-
-watch(() => traderStore, (newValue) => {
-  console.log('traderStore changed:', newValue);
-}, { deep: true });
-
-watch(gameParams, (newValue) => {
-  console.log('gameParams changed:', newValue);
-}, { deep: true });
+console.log('Trader attributes in 4.vue:', props.traderAttributes); // Debug log
 </script>
 
 <style scoped>

@@ -4,7 +4,7 @@
     <v-card class="mb-6" elevation="3" shaped>
       <v-card-text class="text-h5">
         <p class="mb-4">
-          We are going to conduct <span class="dynamic-value">{{ numRounds }} markets</span> in which you will be a participant. You have a straightforward task:
+          We are going to conduct <span class="dynamic-value">{{ numMarkets }} markets</span> in which you will be a participant. You have a straightforward task:
         </p>
         <v-alert
           color="warning"
@@ -53,25 +53,27 @@
     <v-card class="mb-6" elevation="3" shaped color="secondary" dark>
       <v-card-text class="text-h5">
         <v-icon large left>mdi-information</v-icon>
-        All trading will be in terms of Liras and the length of each market will be <span class="dynamic-value dynamic-value-dark">{{ duration }} minutes</span>.
+        All trading will be in terms of Liras and the length of each market will be <span class="dynamic-value dynamic-value-dark">{{ marketDuration }} minutes</span>.
       </v-card-text>
     </v-card>
   </div>
 </template>
 
 <script setup>
-const props = defineProps({
-  duration: {
-    type: Number,
-    default: 3
-  },
-  numRounds: {
-    type: Number,
-    default: 3
-  }
+import { computed } from 'vue';
+import { useTraderStore } from "@/store/app";
+
+const traderStore = useTraderStore();
+
+const marketDuration = computed(() => {
+  return traderStore.traderAttributes?.all_attributes?.params?.trading_day_duration || 0;
 });
 
-console.log('Props in 3.vue:', props); // Debug log
+const numMarkets = computed(() => {
+  return traderStore.traderAttributes?.all_attributes?.params?.num_rounds || 0;
+});
+
+console.log('Trader attributes in 3.vue:', traderStore.traderAttributes); // Debug log
 </script>
 
 <style scoped>

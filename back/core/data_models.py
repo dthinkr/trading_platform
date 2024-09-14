@@ -17,7 +17,7 @@ from mongoengine import (
     UUIDField,
     StringField,
 )
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 class StrEnum(str, Enum):
     pass
@@ -49,7 +49,7 @@ class UserRegistration(BaseModel):
 
 class TradingParameters(BaseModel):
     num_human_traders: int = Field(
-        default=6,
+        default=1,
         title="Number of Human Traders",
         description="model_parameter",
         ge=0,
@@ -177,12 +177,10 @@ class TradingParameters(BaseModel):
         description="human_parameter",
         ge=0,
     )
-    human_goal: List[int] = Field(
-        default=[-10, 0, 10],
+    human_goals: List[int] = Field(
+        default=[-10],
         title="Goal Values",
         description="human_parameter",
-        min_length=3,
-        max_length=3
     )
     conversion_rate: float = Field(
         default=42.52,
@@ -196,6 +194,13 @@ class TradingParameters(BaseModel):
         description="human_parameter",
         gt=0,
     )
+
+    @field_validator('human_goals')
+    def validate_human_goals_length(cls, v, info):
+        num_traders = info.data.get('num_human_traders', 2)  # Default to 2 if not set
+        if len(v) != num_traders:
+            raise ValueError(f"Length of human_goals must be equal to num_human_traders ({num_traders})")
+        return v
 
     def dump_params_by_description(self) -> dict:
         """Dump parameters into a dict of dict indexed by description."""
@@ -284,7 +289,7 @@ class TransactionModel(Document):
 
 
 class Message(Document):
-    trading_session_id = UUIDField(required=True, binary=False)
+    trading_session_id = StringField(required=True)
     content = DictField(required=True)
     timestamp = DateTimeField(default=datetime.now)
     matched_orders = DictField(required=False)

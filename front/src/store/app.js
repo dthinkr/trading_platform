@@ -9,7 +9,6 @@ import {
   signOut 
 } from "firebase/auth";
 
-const wsROOT = "ws://localhost:8000/trader";
 function findMidpoint(bids, asks) {
   // Ensure the arrays are not empty
   if (!bids.length || !asks.length) {
@@ -176,27 +175,17 @@ export const useTraderStore = defineStore("trader", {
     },
 
     async getTraderAttributes(traderId) {
+      console.log("Getting trader attributes for:", traderId);
       try {
         const response = await axios.get(`trader_info/${traderId}`);
+        console.log("Trader info response:", response);
         
         if (response.data.status === "success") {
-          const attributes = response.data.data;
-          
-          // Directly update the store with all received attributes
-          this.$patch(attributes);
-    
-          // Set traderUuid if it's not already set
-          if (!this.traderUuid) {
-            this.traderUuid = traderId;
-          }
-    
-          // Update gameParams if it's included in the attributes
-          if (attributes.params) {
-            this.gameParams = attributes.params;
-          }
-    
-          console.debug('Fetched trader attributes:', attributes);
+          this.traderAttributes = response.data.data;
+          this.traderUuid = traderId;
+          console.log("Trader attributes set:", this.traderAttributes);
         } else {
+          console.error("Failed to fetch trader attributes:", response.data);
           throw new Error("Failed to fetch trader attributes");
         }
       } catch (error) {
@@ -204,7 +193,6 @@ export const useTraderStore = defineStore("trader", {
         throw error;
       }
     },
-
 
     async initializeTrader(traderUuid) {
       console.debug("Initializing trader");
@@ -217,6 +205,7 @@ export const useTraderStore = defineStore("trader", {
         console.error("Error initializing trader:", error);
       }
     },
+    
     handle_update(data) {
       if (data.type === "time_update") {
         this.$patch({
@@ -293,34 +282,32 @@ export const useTraderStore = defineStore("trader", {
     },
 
     async initializeWebSocket() {
-      const that = this;
-      this.ws = useWebSocket(this.ws_path, {
-        autoReconnect: true,
-        onConnected: async () => {
-          console.debug("Connected!");
-          that.status = "connected";
-        },
-
-        onMessage: (e) => {
-          const json_data = JSON.parse(this.ws.data);
-
-          this.messages.push(json_data);
-
-          if (json_data) {
-            const newMessage = json_data;
-            // console.debug("message", newMessage);
-            // todo.philipp: ideally we MAY think about passing a dynamic handler
-            // but for now we just update the incoming data. for most of the cases this is enough
-            if (newMessage.type === "closure") {
-              // router push to the result page
-              console.debug("CLOSURE", newMessage);
-              this.dayOver = true;
-            }
-            this.handle_update(newMessage);
-          }
-        },
-      });
+      console.debug("Initializing WebSocket");
+      const wsUrl = `${import.meta.env.VITE_WS_URL}trader/${this.traderUuid}`;
+      this.ws = new WebSocket(wsUrl);
+    
+      this.ws.onopen = async (event) => {
+        console.debug("WebSocket connected:", event);
+        // Send authentication token
+        const token = await auth.currentUser.getIdToken();
+        this.ws.send(token);
+      };
+    
+      this.ws.onmessage = (event) => {
+        console.debug("WebSocket message received:", event.data);
+        const data = JSON.parse(event.data);
+        this.handle_update(data);
+      };
+    
+      this.ws.onerror = (error) => {
+        console.error("WebSocket error:", error);
+      };
+    
+      this.ws.onclose = (event) => {
+        console.debug("WebSocket closed:", event);
+      };
     },
+    
     async sendMessage(type, data) {
       // Use the 'send' function from the state
 

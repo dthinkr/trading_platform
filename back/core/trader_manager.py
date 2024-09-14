@@ -16,6 +16,7 @@ from traders import (
 from core import TradingSession
 import asyncio
 from utils import setup_custom_logger
+import time
 
 logger = setup_custom_logger(__name__)
 
@@ -32,34 +33,33 @@ class TraderManager:
         params = params.model_dump()
         self.tasks = []
 
+        # Generate a new session ID
+        current_timestamp = int(time.time())
+        session_id = f"SESSION_{current_timestamp}"
+
         n_noise_traders = params.get("num_noise_traders", 1)
         n_informed_traders = params.get("num_informed_traders", 1)
-        n_human_traders = params.get("num_human_traders", 1)
+        n_human_traders = params.get("num_human_traders", 2)  # Default to 2 if not specified
 
         cash = params.get("initial_cash", 0)
         shares = params.get("initial_stocks", 0)
 
         # Initialize traders
         self.book_initializer = self._create_book_initializer(params)
-
         self.simple_order_traders = self._create_simple_order_traders(params)
-
-        # Create traders with descriptive names
         self.noise_traders = self._create_noise_traders(n_noise_traders, params)
-        self.informed_traders = self._create_informed_traders(
-            n_informed_traders, params
-        )
-        self.human_traders = self._create_human_traders(n_human_traders, cash, shares, params)
+        self.informed_traders = self._create_informed_traders(n_informed_traders, params)
+        self.human_traders = []  # Initialize as an empty list
 
         self.traders = {
             t.id: t
             for t in self.noise_traders
             + self.informed_traders
-            + self.human_traders
             + [self.book_initializer]
             + self.simple_order_traders
         }
         self.trading_session = TradingSession(
+            session_id=session_id,  # Pass the new session ID here
             duration=params["trading_day_duration"],
             default_price=params.get("default_price"),
             params=params
@@ -107,22 +107,20 @@ class TraderManager:
             for i in range(n_informed_traders)
         ]
 
-    def _create_human_traders(self, n_human_traders, cash, shares, params):
-        return [
-            HumanTrader(id=f"HUMAN_{i+1}", cash=cash, shares=shares, params=params)
-            for i in range(n_human_traders)
-        ]
-
     def add_human_trader(self, uid):
-        if len(self.trading_session.connected_traders) >= self.params.num_human_traders:
+        if len(self.human_traders) >= self.params.num_human_traders:
             raise ValueError("Session is full")
         
-        trader_id = f"HUMAN_{uid}"  # Use the UID from Google Auth
+        trader_id = f"HUMAN_{uid}"
+        
+        # Assign goal based on the current number of human traders
+        goal_index = len(self.human_traders) % len(self.params.human_goals)
         
         new_trader = HumanTrader(
             id=trader_id,
             cash=self.params.initial_cash,
             shares=self.params.initial_stocks,
+            goal=self.params.human_goals[goal_index],
             params=self.params.model_dump()
         )
         self.trading_session.connected_traders[trader_id] = {
@@ -132,30 +130,54 @@ class TraderManager:
         }
         self.traders[trader_id] = new_trader
         self.human_traders.append(new_trader)
+
+        print(f"Human trader {trader_id} added, now we have {len(self.human_traders)} human traders in session {self.trading_session.id}")
+        
         return trader_id
 
     async def launch(self):
+        print("Starting launch process")
         await self.trading_session.initialize()
+        print("Trading session initialized")
 
         for trader_id, trader in self.traders.items():
+            print(f"Initializing trader: {trader_id}")
             await trader.initialize()
             await trader.connect_to_session(
                 trading_session_uuid=self.trading_session.id
             )
+        print("All traders initialized and connected")
 
+        print("Initializing order book")
         await self.book_initializer.initialize_order_book()
+        print("Order book initialized")
 
         self.trading_session.set_initialization_complete()
+        print("Trading session initialization complete")
 
+        print(f"Waiting for {self.params.num_human_traders} human traders to join")
+        while len(self.human_traders) < self.params.num_human_traders:
+            print(f"Current human traders: {len(self.human_traders)} in session {self.trading_session.id}")
+            await asyncio.sleep(1)
+
+        print("All required human traders have joined")
+
+        print("Starting trading")
         await self.trading_session.start_trading()
+        print(f"Trading started, the flag is {self.trading_session.trading_started}")
 
+        print("Creating trading session task")
         trading_session_task = asyncio.create_task(self.trading_session.run())
+        print("Creating trader tasks")
         trader_tasks = [asyncio.create_task(i.run()) for i in self.traders.values()]
 
         self.tasks.append(trading_session_task)
         self.tasks.extend(trader_tasks)
+        print(f"Created {len(self.tasks)} tasks")
 
+        print("Waiting for trading session task to complete")
         await trading_session_task
+        print("Trading session task completed")
 
     async def cleanup(self):
         await self.trading_session.clean_up()

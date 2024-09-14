@@ -12,16 +12,27 @@
                   <v-card-text>
                     <v-row dense>
                       <v-col cols="12" v-for="field in group" :key="field.name">
-                        <v-text-field
-                          :label="field.title || ''"
-                          v-model="formState[field.name]"
-                          :type="getFieldType(field)"
-                          dense
-                          outlined
-                          hide-details="auto"
-                          class="mb-2 short-input"
-                        ></v-text-field>
-                      </v-col>
+                      <v-text-field
+                        v-if="!isArrayField(field)"
+                        :label="field.title || ''"
+                        v-model="formState[field.name]"
+                        :type="getFieldType(field)"
+                        dense
+                        outlined
+                        hide-details="auto"
+                        class="mb-2 short-input"
+                      ></v-text-field>
+                      <v-text-field
+                        v-else
+                        :label="field.title || ''"
+                        v-model="formState[field.name]"
+                        dense
+                        outlined
+                        hide-details="auto"
+                        class="mb-2 short-input"
+                        @input="handleArrayInput(field.name, $event)"
+                      ></v-text-field>
+                    </v-col>
                     </v-row>
                   </v-card-text>
                 </v-card>
@@ -199,17 +210,29 @@ const fetchData = async () => {
   }
 };
 
+const isArrayField = (field) => {
+  return field.type === 'array';
+};
+
+const handleArrayInput = (fieldName, value) => {
+  if (value === '') {
+    formState.value[fieldName] = [];
+  } else {
+    formState.value[fieldName] = value.split(',').map(item => item.trim());
+  }
+};
+
 const initializeTrader = async () => {
   try {
-    await traderStore.initializeTradingSystem(formState.value);
-    const tradingSessionUUID = tradingSessionData.value.trading_session_uuid;
-    if (!tradingSessionUUID) {
-      throw new Error('Trading session UUID is undefined');
+    const formData = { ...formState.value };
+    // Convert array fields back to actual arrays
+    for (const field of formFields.value) {
+      if (isArrayField(field) && typeof formData[field.name] === 'string') {
+        formData[field.name] = formData[field.name].split(',').map(item => Number(item.trim()));
+      }
     }
-    await router.push({
-      name: "admin",
-      params: { tradingSessionUUID: tradingSessionUUID }
-    });
+    await traderStore.initializeTradingSystem(formData);
+    // ... rest of the function ...
   } catch (error) {
     console.error("Error initializing trading system:", error);
     // You might want to show an error message to the user here

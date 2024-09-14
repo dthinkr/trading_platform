@@ -29,6 +29,8 @@ export default defineConfig({
       '@charts': fileURLToPath(new URL('./src/components/charts', import.meta.url)),
       '@trading': fileURLToPath(new URL('./src/components/trading', import.meta.url)),
       '@session': fileURLToPath(new URL('./src/components/session', import.meta.url)),
+      '@assets': fileURLToPath(new URL('./src/assets', import.meta.url)), // New line added
+
     },
     extensions: [
       '.js',

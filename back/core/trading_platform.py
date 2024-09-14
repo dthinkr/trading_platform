@@ -36,13 +36,14 @@ logger = setup_custom_logger(__name__)
 class TradingSession:
     def __init__(
         self,
+        session_id: str,
         duration: int,
         default_price: int,
         default_spread: int = 10,
         punishing_constant: int = 1,
         params: Dict = None,
     ):
-        self.id = str(uuid.uuid4())
+        self.id = session_id
         self.duration = duration
         self.default_price = default_price
         self.default_spread = default_spread
@@ -66,6 +67,7 @@ class TradingSession:
         self.broadcast_exchange_name = f"broadcast_{self.id}"
         self.queue_name = f"trading_system_queue_{self.id}"
         self.trader_exchange = None
+        self.process_transactions_task = None
 
     def place_order(self, order_dict: Dict) -> Dict:
         return self.order_book.place_order(order_dict)
@@ -129,6 +131,8 @@ class TradingSession:
         await trader_queue.consume(self.on_individual_message)
         await trader_queue.purge()
 
+        self.process_transactions_task = asyncio.create_task(self.process_transactions())
+
     async def clean_up(self) -> None:
         self._stop_requested.set()
         self.active = False
@@ -136,6 +140,13 @@ class TradingSession:
         await trader_queue.unbind(self.trader_exchange)
         await self.channel.close()
         await self.connection.close()
+
+        if self.process_transactions_task:
+            self.process_transactions_task.cancel()
+            try:
+                await self.process_transactions_task
+            except asyncio.CancelledError:
+                pass
 
     async def get_order_book_snapshot(self) -> Dict:
         return self.order_book.get_order_book_snapshot()
@@ -255,13 +266,19 @@ class TradingSession:
         return ask["trader_id"], bid["trader_id"], transaction
 
     async def process_transactions(self) -> None:
-        while True:
-            transaction = await self.transaction_queue.get()
-            await transaction.save_async()
-            self.transaction_queue.task_done()
-            logger.info(f"Transaction processed: {transaction}")
+        try:
+            while not self._stop_requested.is_set():
+                transaction = await asyncio.wait_for(self.transaction_queue.get(), timeout=0.1)
+                await transaction.save_async()
+                self.transaction_queue.task_done()
+                logger.info(f"Transaction processed: {transaction}")
 
-            self._last_transaction_price = transaction.price
+                self._last_transaction_price = transaction.price
+        except asyncio.TimeoutError:
+            pass
+        except asyncio.CancelledError:
+            # Handle cancellation gracefully
+            pass
 
     async def clear_orders(self) -> Dict:
         matched_orders = self.order_book.clear_orders()
@@ -482,9 +499,6 @@ class TradingSession:
     async def run(self) -> None:
         start_time = datetime.now(timezone.utc)
         while not self._stop_requested.is_set():
-            self.transaction_processor_task = asyncio.create_task(
-                self.process_transactions()
-            )
             current_time = datetime.now(timezone.utc)
             if self.start_time and current_time - self.start_time > timedelta(
                 minutes=self.duration

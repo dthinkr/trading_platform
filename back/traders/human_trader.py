@@ -16,10 +16,10 @@ class HumanTrader(BaseTrader):
         "cash": 1000,
     }
 
-    def __init__(self, id, cash, shares, params, *args, **kwargs):
+    def __init__(self, id, cash, shares, goal, params, *args, **kwargs):
         super().__init__(trader_type=TraderType.HUMAN, id=id, cash=cash, shares=shares, *args, **kwargs)
         self.params = params
-        self.goal = random.choice(params.get('goal', [-10, 0, 10]))
+        self.goal = goal
 
     def get_trader_params_as_dict(self):
         return {
@@ -28,7 +28,7 @@ class HumanTrader(BaseTrader):
             "initial_cash": self.initial_cash,
             "initial_shares": self.initial_shares,
             "goal": self.goal,
-            **self.params  # Include all parameters
+            **self.params
         }
 
     async def post_processing_server_message(self, json_message):

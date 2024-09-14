@@ -23,9 +23,7 @@
                     <v-col cols="12">
                       <component 
                         :is="pageComponents[currentPageIndex]" 
-                        :goal="playerGoal"
-                        :duration="duration"
-                        :numRounds="numRounds"
+                        :traderAttributes="traderAttributes"
                       />
                     </v-col>
                   </v-row>
@@ -51,7 +49,6 @@ import { useTraderStore } from "@/store/app";
 import { storeToRefs } from "pinia";
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '@/store/auth';
-import api from '@/api/axios';
 
 import Page1 from './pages/1.vue';
 import Page2 from './pages/2.vue';
@@ -66,11 +63,11 @@ const route = useRoute();
 const authStore = useAuthStore();
 
 const traderStore = useTraderStore();
-const { gameParams, tradingSessionData } = storeToRefs(traderStore);
+const { traderAttributes } = storeToRefs(traderStore);
+const { initializeTrader } = traderStore;  // Add this line
 
 const traderUuid = ref(route.params.traderUuid);
 const sessionId = ref(route.params.sessionId);
-const traderInfo = ref(null);
 const duration = ref(parseInt(route.params.duration) || 5);
 const numRounds = ref(parseInt(route.params.numRounds) || 3);
 
@@ -80,21 +77,20 @@ const playerGoal = computed(() => {
 });
 
 onMounted(async () => {
+  console.log("OnboardingWizard mounted");
+  console.log("traderUuid:", traderUuid.value);
+  console.log("sessionId:", sessionId.value);
+
   if (traderUuid.value && sessionId.value) {
     try {
-      const response = await api.get(`/trader/${traderUuid.value}`, {
-        headers: {
-          'Authorization': `Bearer ${await authStore.user.getIdToken()}`
-        }
-      });
-      traderInfo.value = response.data.data;
+      console.log("Initializing trader...");
+      await initializeTrader(traderUuid.value);
+      console.log("Trader initialized");
     } catch (error) {
-      console.error("Error fetching trader info:", error);
-      // Handle error (e.g., redirect to error page or show error message)
+      console.error("Error initializing trader:", error);
     }
   } else {
     console.error("Trader UUID or Session ID not provided");
-    // Handle error (e.g., redirect to error page)
   }
 });
 
