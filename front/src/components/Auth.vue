@@ -52,12 +52,20 @@ const signInWithGoogle = async () => {
   try {
     const provider = new GoogleAuthProvider();
     const result = await signInWithPopup(auth, provider);
-    console.log("Google sign-in successful", result.user);
+    const user = result.user;
+    console.log("Google sign-in successful", user);
     
-    const idToken = await result.user.getIdToken();
-    await authStore.login(idToken);
+    // Use the updated login method
+    await authStore.login(user);
     
-    router.push('/OnboardingWizard');
+    // Navigate to OnboardingWizard with sessionId and traderId
+    router.push({
+      name: 'onboarding',
+      params: { 
+        traderUuid: authStore.traderId,
+        sessionId: authStore.sessionId
+      }
+    });
   } catch (error) {
     console.error("Google sign-in error:", error);
   }

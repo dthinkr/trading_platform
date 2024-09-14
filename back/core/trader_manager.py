@@ -62,6 +62,7 @@ class TraderManager:
         self.trading_session = TradingSession(
             duration=params["trading_day_duration"],
             default_price=params.get("default_price"),
+            params=params
         )
 
     def _create_simple_order_traders(self, params):
@@ -111,6 +112,27 @@ class TraderManager:
             HumanTrader(id=f"HUMAN_{i+1}", cash=cash, shares=shares, params=params)
             for i in range(n_human_traders)
         ]
+
+    def add_human_trader(self, uid):
+        if len(self.trading_session.connected_traders) >= self.params.num_human_traders:
+            raise ValueError("Session is full")
+        
+        trader_id = f"HUMAN_{uid}"  # Use the UID from Google Auth
+        
+        new_trader = HumanTrader(
+            id=trader_id,
+            cash=self.params.initial_cash,
+            shares=self.params.initial_stocks,
+            params=self.params.model_dump()
+        )
+        self.trading_session.connected_traders[trader_id] = {
+            "trader_type": TraderType.HUMAN,
+            "uid": uid,
+            "trader": new_trader
+        }
+        self.traders[trader_id] = new_trader
+        self.human_traders.append(new_trader)
+        return trader_id
 
     async def launch(self):
         await self.trading_session.initialize()

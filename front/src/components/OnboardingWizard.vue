@@ -50,6 +50,8 @@ import { ref, computed, onMounted } from 'vue';
 import { useTraderStore } from "@/store/app";
 import { storeToRefs } from "pinia";
 import { useRouter, useRoute } from 'vue-router';
+import { useAuthStore } from '@/store/auth';
+import api from '@/api/axios';
 
 import Page1 from './pages/1.vue';
 import Page2 from './pages/2.vue';
@@ -61,11 +63,14 @@ import Page8 from './pages/8.vue';
 
 const router = useRouter();
 const route = useRoute();
+const authStore = useAuthStore();
 
 const traderStore = useTraderStore();
 const { gameParams, tradingSessionData } = storeToRefs(traderStore);
 
 const traderUuid = ref(route.params.traderUuid);
+const sessionId = ref(route.params.sessionId);
+const traderInfo = ref(null);
 const duration = ref(parseInt(route.params.duration) || 5);
 const numRounds = ref(parseInt(route.params.numRounds) || 3);
 
@@ -75,8 +80,21 @@ const playerGoal = computed(() => {
 });
 
 onMounted(async () => {
-  if (traderUuid.value) {
-    await traderStore.getTradingSessionData(traderUuid.value);
+  if (traderUuid.value && sessionId.value) {
+    try {
+      const response = await api.get(`/trader/${traderUuid.value}`, {
+        headers: {
+          'Authorization': `Bearer ${await authStore.user.getIdToken()}`
+        }
+      });
+      traderInfo.value = response.data.data;
+    } catch (error) {
+      console.error("Error fetching trader info:", error);
+      // Handle error (e.g., redirect to error page or show error message)
+    }
+  } else {
+    console.error("Trader UUID or Session ID not provided");
+    // Handle error (e.g., redirect to error page)
   }
 });
 
@@ -118,9 +136,10 @@ const prevPage = () => {
 
 const startTrading = () => {
   router.push({ 
-    name: 'trading', // Changed from 'TradingSystem' to 'trading'
+    name: 'trading',
     params: { 
-      traderUuid: traderUuid.value 
+      traderUuid: traderUuid.value,
+      sessionId: sessionId.value
     } 
   });
 };

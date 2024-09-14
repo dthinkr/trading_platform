@@ -27,14 +27,14 @@ const routes = [
     meta: { requiresAuth: true, requiresAdmin: true }
   },
   {
-    path: "/onboarding/:traderUuid/:duration?/:numRounds?",
+    path: "/onboarding/:sessionId/:traderUuid",
     name: "onboarding",
     component: () => import("@/components/OnboardingWizard.vue"),
     props: true,
     meta: { requiresAuth: true }
   },
   {
-    path: "/trading/:traderUuid",
+    path: "/trading/:traderUuid/:sessionId",
     name: "trading",
     component: () => import("@/components/TradingDashboard.vue"),
     props: true,
@@ -59,12 +59,10 @@ router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore();
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
   const requiresAdmin = to.matched.some(record => record.meta.requiresAdmin);
-  const currentUser = auth.currentUser;
 
-  if (requiresAuth && !currentUser && !authStore.isAuthenticated) {
+  if (requiresAuth && !authStore.isAuthenticated) {
     next('/register');
   } else if (requiresAdmin && !authStore.isAdmin) {
-    // Redirect non-admin users trying to access admin routes
     next('/'); // or to some 'unauthorized' page
   } else {
     next();
