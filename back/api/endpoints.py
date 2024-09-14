@@ -185,6 +185,8 @@ async def get_trader_info(trader_uuid: str, current_user: dict = Depends(get_cur
         raise HTTPException(status_code=404, detail="Trader not found")
 
     trader = trader_manager.get_trader(trader_uuid)
+    all_attributes = {attr: getattr(trader, attr) for attr in dir(trader) if not attr.startswith('_') and not callable(getattr(trader, attr))}
+
     return {
         "status": "success",
         "message": "Trader found",
@@ -195,9 +197,9 @@ async def get_trader_info(trader_uuid: str, current_user: dict = Depends(get_cur
             "delta_cash": trader.delta_cash,
             "initial_cash": trader.initial_cash,
             "initial_shares": trader.initial_shares,
+            "all_attributes": all_attributes
         },
     }
-
 
 @app.get("/trader/{trader_id}/session")
 async def get_trader_session(trader_id: str, current_user: dict = Depends(get_current_user)):
@@ -413,35 +415,3 @@ def find_or_create_session_and_assign_trader(uid):
         logger.error(f"Error in find_or_create_session_and_assign_trader: {str(e)}")
         logger.error(traceback.format_exc())
         raise
-
-
-@app.get("/trader/{trader_id}/attributes")
-async def get_trader_attributes(trader_id: str):
-    trader_manager = get_manager_by_trader(trader_id)
-    if not trader_manager:
-        raise HTTPException(status_code=404, detail="Trader not found")
-
-    trader = trader_manager.get_trader(trader_id)
-    if not trader:
-        raise HTTPException(status_code=404, detail="Trader not found")
-
-    attributes = {
-        "id": trader.id,
-        "trader_type": trader.trader_type,
-        "cash": trader.cash,
-        "shares": trader.shares,
-        "initial_cash": trader.initial_cash,
-        "initial_shares": trader.initial_shares,
-        "goal": trader.goal,
-        "orders": trader.orders,
-        "delta_cash": trader.delta_cash,
-        "sum_dinv": trader.sum_dinv,
-        "vwap": trader.get_vwap(),
-        "pnl": trader.get_current_pnl(),
-    }
-
-    return {
-        "status": "success",
-        "message": "Trader attributes retrieved successfully",
-        "data": attributes
-    }

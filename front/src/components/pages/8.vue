@@ -88,7 +88,7 @@
   </div>
 </template>
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { computed, onMounted, watch } from 'vue';
 import { useTraderStore } from "@/store/app";
 import { storeToRefs } from "pinia";
 import { useRouter, useRoute } from 'vue-router';
@@ -96,50 +96,36 @@ import { useRouter, useRoute } from 'vue-router';
 const router = useRouter();
 const route = useRoute();
 const traderStore = useTraderStore();
-const { gameParams, tradingSessionData } = storeToRefs(traderStore);
+const { gameParams, shares, cash, initial_shares, goalMessage } = storeToRefs(traderStore);
 
 const cancelTime = computed(() => gameParams.value?.cancel_time || 'Loading...');
 
-const currentTraderData = computed(() => {
-  const traderUuid = route.params.traderUuid;
-  const trader = tradingSessionData.value?.human_traders?.find(trader => trader.id === traderUuid) || {};
-  console.log('Current Trader Data:', trader);
-  return trader;
-});
-
 const goalDescription = computed(() => {
-  const goal = currentTraderData.value?.goal;
-  if (goal === undefined || goal === null) return 'Loading...';
-  if (goal === 0) return 'No specific goal';
-  return goal < 0 ? `Sell ${Math.abs(goal)} shares` : `Buy ${goal} shares`;
+  if (goalMessage.value) {
+    return goalMessage.value.text;
+  }
+  return 'Loading...';
 });
 
-const initialShares = computed(() => {
-  const goal = currentTraderData.value?.goal;
-  if (goal === undefined || goal === null) return 'Loading...';
-  // If the goal is to sell, assume the initial shares are equal to the absolute value of the goal
-  if (goal < 0) return Math.abs(goal);
-  // If the goal is to buy or no goal, assume initial shares are 0
-  return 0;
-});
+const initialShares = computed(() => initial_shares.value ?? 'Loading...');
 
-const initialCash = computed(() => currentTraderData.value?.initial_cash ?? 'Loading...');
+const initialCash = computed(() => cash.value ?? 'Loading...');
 
 const startPractice = () => {
   router.push({ name: 'trading', params: { traderUuid: route.params.traderUuid } });
 };
 
 onMounted(async () => {
-  console.log('Component mounted. tradingSessionData:', tradingSessionData.value);
+  console.log('Component mounted. Trader store:', traderStore);
   console.log('Route params:', route.params);
-  if (!tradingSessionData.value?.trading_session_uuid) {
+  if (!traderStore.traderUuid) {
     await traderStore.getTraderAttributes(route.params.traderUuid);
-    console.log('After fetching data. tradingSessionData:', tradingSessionData.value);
+    console.log('After fetching data. Trader store:', traderStore);
   }
 });
 
-watch(tradingSessionData, (newValue) => {
-  console.log('tradingSessionData changed:', newValue);
+watch(() => traderStore, (newValue) => {
+  console.log('Trader store changed:', newValue);
 }, { deep: true });
 
 watch(gameParams, (newValue) => {

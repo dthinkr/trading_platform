@@ -28,6 +28,7 @@ class HumanTrader(BaseTrader):
             "initial_cash": self.initial_cash,
             "initial_shares": self.initial_shares,
             "goal": self.goal,
+            **self.params  # Include all parameters
         }
 
     async def post_processing_server_message(self, json_message):

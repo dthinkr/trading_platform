@@ -1,5 +1,16 @@
 <template>
   <div class="card-content">
+    <!-- New card to display attributes in plain text -->
+    <v-card class="mb-6" elevation="3" shaped>
+      <v-card-title class="text-h5 font-weight-bold">
+        <v-icon left>mdi-text-box-outline</v-icon>
+        Trader Attributes (Plain Text)
+      </v-card-title>
+      <v-card-text>
+        <pre>{{ JSON.stringify(traderStore, null, 2) }}</pre>
+      </v-card-text>
+    </v-card>
+
     <v-card v-if="goalStatus !== 'noGoal'" class="mb-6" elevation="3" shaped>
       <v-card-title class="text-h5 font-weight-bold">
         <v-icon left color="warning">mdi-clock-alert</v-icon>
@@ -136,21 +147,18 @@ import { useRoute } from 'vue-router';
 
 const route = useRoute();
 const traderStore = useTraderStore();
-const { tradingSessionData, gameParams } = storeToRefs(traderStore);
 
-const currentTraderData = computed(() => {
-  const traderUuid = route.params.traderUuid;
-  return tradingSessionData.value?.human_traders?.find(trader => trader.id === traderUuid) || {};
-});
+// Destructure the attributes we need
+const { shares, cash, initial_shares, goalMessage, gameParams } = storeToRefs(traderStore);
 
-const numShares = computed(() => currentTraderData.value?.goal ?? '#');
-const initialLiras = computed(() => currentTraderData.value?.initial_cash ?? '#');
+const numShares = computed(() => shares.value ?? '#');
+const initialLiras = computed(() => cash.value ?? '#');
 const conversionRate = computed(() => gameParams.value?.conversion_rate || 'X');
 
 const goalStatus = computed(() => {
-  if (numShares.value === '#') return 'unknown';
-  if (numShares.value === 0) return 'noGoal';
-  return numShares.value < 0 ? 'selling' : 'buying';
+  if (shares.value === undefined) return 'unknown';
+  if (shares.value === initial_shares.value) return 'noGoal';
+  return shares.value < initial_shares.value ? 'selling' : 'buying';
 });
 
 const tradeAction = computed(() => {
@@ -166,13 +174,13 @@ const autoTradeMultiplier = computed(() => {
 });
 
 onMounted(async () => {
-  if (!tradingSessionData.value?.trading_session_uuid) {
+  if (!traderStore.traderUuid) {
     await traderStore.getTraderAttributes(route.params.traderUuid);
   }
 });
 
-watch(tradingSessionData, (newValue) => {
-  console.log('tradingSessionData changed:', newValue);
+watch(() => traderStore, (newValue) => {
+  console.log('traderStore changed:', newValue);
 }, { deep: true });
 
 watch(gameParams, (newValue) => {
@@ -196,5 +204,14 @@ watch(gameParams, (newValue) => {
 .formula-note {
   font-size: 0.9em;
   font-style: italic;
+}
+
+pre {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  background-color: #f5f5f5;
+  padding: 10px;
+  border-radius: 4px;
+  font-size: 0.9em;
 }
 </style>
