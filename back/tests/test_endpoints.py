@@ -1,84 +1,114 @@
 import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock
-import asyncio
-
-from api.endpoints import app, get_manager_by_trader
+from core.data_models import TradingParameters
 from core.trader_manager import TraderManager
-from fastapi import HTTPException
+from api.endpoints import app, find_or_create_session_and_assign_trader, trader_managers
+from firebase_admin import auth
 
 @pytest.fixture
-def client():
+def test_client():
     return TestClient(app)
 
 @pytest.fixture
-def mock_get_current_user():
-    async def mock_current_user(request):
-        auth_header = request.headers.get('Authorization')
-        if not auth_header or not auth_header.startswith('Bearer '):
-            raise HTTPException(status_code=401, detail="Invalid authentication method")
-        
-        # Simulate successful token verification
-        return {"uid": "HUMAN_0Jk378svzGQrqPvRYBCdcwqi4ep1", "is_admin": False}
-    
-    return mock_current_user
+def mock_firebase_auth():
+    with patch('api.auth.auth') as mock_auth:
+        mock_auth.verify_id_token.return_value = {'uid': 'test_uid'}
+        mock_auth.RevokedIdTokenError = Exception
+        yield mock_auth
 
 @pytest.fixture
 def mock_trader_manager():
-    mock_manager = MagicMock(spec=TraderManager)
-    mock_manager.get_trader.return_value = MagicMock(
-        id="HUMAN_0Jk378svzGQrqPvRYBCdcwqi4ep1",
-        trader_type="HUMAN",
-        cash=1000,
-        shares=10,
-        initial_cash=1000,
-        initial_shares=10,
-        goal="MAXIMIZE_PROFIT",
-        orders=[],
-        delta_cash=0,
-        sum_dinv=0,
-        get_vwap=MagicMock(return_value=100),
-        get_current_pnl=MagicMock(return_value=0)
-    )
-    return mock_manager
+    with patch('api.endpoints.TraderManager') as mock_tm:
+        mock_tm_instance = MagicMock()
+        mock_tm_instance.trading_session.id = 'test_session_id'
+        mock_tm_instance.params.num_human_traders = 2
+        mock_tm_instance.human_traders = []
+        mock_tm_instance.add_human_trader.side_effect = ['HUMAN_uid1', 'HUMAN_uid2', 'HUMAN_uid3', 'HUMAN_uid4', 'HUMAN_uid5']
+        mock_tm.return_value = mock_tm_instance
+        yield mock_tm
 
 @pytest.fixture
-def mock_get_manager_by_trader(mock_trader_manager):
-    return MagicMock(return_value=mock_trader_manager)
+def mock_get_current_user():
+    with patch('api.auth.get_current_user') as mock:
+        mock.return_value = {'uid': 'test_uid', 'is_admin': False}
+        yield mock
 
-@pytest.fixture(autouse=True)
-def cleanup_event_loop():
-    yield
-    loop = asyncio.get_event_loop()
-    for task in asyncio.all_tasks(loop):
-        task.cancel()
-    loop.run_until_complete(asyncio.gather(*asyncio.all_tasks(loop), return_exceptions=True))
+def test_user_login_new_session(test_client, mock_firebase_auth, mock_trader_manager):
+    response = test_client.post("/user/login", headers={"Authorization": "Bearer test_token"})
+    assert response.status_code == 200
+    assert response.json()['status'] == 'success'
+    assert 'session_id' in response.json()['data']
+    assert 'trader_id' in response.json()['data']
 
-def test_get_trader_attributes_success(client, mock_get_current_user, mock_get_manager_by_trader):
-    with patch("api.auth.get_current_user", mock_get_current_user), \
-         patch("api.endpoints.get_manager_by_trader", mock_get_manager_by_trader):
-        response = client.get("/trader/HUMAN_0Jk378svzGQrqPvRYBCdcwqi4ep1/attributes", headers={"Authorization": "Bearer test_token"})
+def test_user_login_existing_session(test_client, mock_firebase_auth, mock_trader_manager):
+    # First login
+    test_client.post("/user/login", headers={"Authorization": "Bearer test_token1"})
+    
+    # Second login should join the same session
+    response = test_client.post("/user/login", headers={"Authorization": "Bearer test_token2"})
+    assert response.status_code == 200
+    assert response.json()['status'] == 'success'
+    assert response.json()['data']['session_id'] == 'test_session_id'
+
+def test_user_login_new_session_when_full(test_client, mock_firebase_auth, mock_trader_manager):
+    # Fill up the first session
+    test_client.post("/user/login", headers={"Authorization": "Bearer test_token1"})
+    test_client.post("/user/login", headers={"Authorization": "Bearer test_token2"})
+    
+    # This should create a new session
+    mock_trader_manager.return_value.trading_session.id = 'test_session_id_2'
+    mock_trader_manager.return_value.human_traders = ['HUMAN_uid1', 'HUMAN_uid2']
+    response = test_client.post("/user/login", headers={"Authorization": "Bearer test_token3"})
+    assert response.status_code == 200
+    assert response.json()['data']['session_id'] == 'test_session_id_2'
+
+def test_find_or_create_session_and_assign_trader(mock_trader_manager):
+    with patch('api.endpoints.trader_managers', {}) as mock_trader_managers:
+        # First trader
+        session_id, trader_id = find_or_create_session_and_assign_trader('uid1')
+        assert session_id == 'test_session_id'
+        assert trader_id == 'HUMAN_uid1'
+        
+        # Second trader (same session)
+        session_id, trader_id = find_or_create_session_and_assign_trader('uid2')
+        assert session_id == 'test_session_id'
+        assert trader_id == 'HUMAN_uid2'
+        
+        # Third trader (new session)
+        mock_trader_manager.return_value.trading_session.id = 'test_session_id_2'
+        session_id, trader_id = find_or_create_session_and_assign_trader('uid3')
+        assert session_id == 'test_session_id_2'
+        assert trader_id == 'HUMAN_uid3'
+
+@pytest.mark.asyncio
+async def test_get_trader_session(test_client, mock_firebase_auth, mock_get_current_user):
+    trader_id = 'HUMAN_test_uid'
+    session_id = 'test_session_id'
+    mock_trader_manager = MagicMock()
+    mock_trader_manager.trading_session.id = session_id
+    mock_trader_manager.params.model_dump.return_value = {'param1': 'value1'}
+    mock_trader_manager.human_traders = [MagicMock()]
+    mock_trader_manager.human_traders[0].get_trader_params_as_dict.return_value = {'trader_param': 'value'}
+    
+    with patch('api.endpoints.trader_managers', {session_id: mock_trader_manager}), \
+         patch('api.endpoints.trader_to_session_lookup', {trader_id: session_id}):
+        response = test_client.get(f"/trader/{trader_id}/session", headers={"Authorization": "Bearer test_token"})
     
     assert response.status_code == 200
-    assert response.json()["status"] == "success"
-    assert "data" in response.json()
-    assert response.json()["data"]["id"] == "HUMAN_0Jk378svzGQrqPvRYBCdcwqi4ep1"
+    assert response.json()['status'] == 'success'
+    assert response.json()['data']['trading_session_uuid'] == session_id
+    assert 'human_traders' in response.json()['data']
+    assert 'game_params' in response.json()['data']
 
-def test_get_trader_attributes_forbidden(client, mock_get_current_user, mock_get_manager_by_trader):
-    async def mock_different_user(request):
-        return {"uid": "different_user", "is_admin": False}
-    
-    with patch("api.auth.get_current_user", mock_different_user), \
-         patch("api.endpoints.get_manager_by_trader", mock_get_manager_by_trader):
-        response = client.get("/trader/HUMAN_0Jk378svzGQrqPvRYBCdcwqi4ep1/attributes", headers={"Authorization": "Bearer test_token"})
-    
-    assert response.status_code == 403
-    assert "You don't have permission to access this trader's attributes" in response.json()["detail"]
-
-def test_get_trader_attributes_not_found(client, mock_get_current_user):
-    with patch("api.auth.get_current_user", mock_get_current_user), \
-         patch("api.endpoints.get_manager_by_trader", return_value=None):
-        response = client.get("/trader/nonexistent_trader/attributes", headers={"Authorization": "Bearer test_token"})
-    
-    assert response.status_code == 404
-    assert "Trader not found" in response.json()["detail"]
+@pytest.mark.asyncio
+async def test_create_trading_session(test_client, mock_trader_manager, mock_firebase_auth, mock_get_current_user):
+    params = TradingParameters()
+    response = test_client.post("/experiment/start", 
+                                json=params.model_dump(),
+                                headers={"Authorization": "Bearer test_token"})
+    assert response.status_code == 200
+    assert response.json()['status'] == 'success'
+    assert 'trading_session_uuid' in response.json()['data']
+    assert 'traders' in response.json()['data']
+    assert 'human_traders' in response.json()['data']

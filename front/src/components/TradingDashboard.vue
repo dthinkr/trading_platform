@@ -109,13 +109,15 @@ const router = useRouter();
 import { storeToRefs } from "pinia";
 import { useTraderStore } from "@/store/app";
 import { watch } from "vue";
-const { initializeTrader } = useTraderStore();
+// Remove this line:
+// const { initializeTrader } = useTraderStore();
 const { gameParams, goalMessage, shares, cash, sum_dinv, initial_shares, dayOver, pnl, vwap, remainingTime, isTradingStarted } =
   storeToRefs(useTraderStore());
 
-onMounted(() => {
-  initializeTrader(props.traderUuid);
-});
+// Remove this onMounted hook:
+// onMounted(() => {
+//   initializeTrader(props.traderUuid);
+// });
 
 const formatDelta = computed(() => {
   if (sum_dinv.value == undefined) {

@@ -6,9 +6,11 @@
       block
       @click="startTrading"
       class="start-trading-btn text-h5 mb-6"
+      :loading="isLoading"
+      :disabled="!canStartTrading"
     >
       <v-icon left>mdi-play-circle-outline</v-icon>
-      Start Trading (For Testing Only)
+      {{ startButtonText }}
     </v-btn>
 
     <p class="text-h5 mb-4">
@@ -25,7 +27,7 @@
       You can earn considerable money depending on your decisions, which we will transfer to your bank account the next working day.
     </v-alert>
     <p class="text-h5 mb-4">
-      You will participate in markets where you can earn money by trading with other participants on our trading platform. Each market will last <span class="dynamic-value">{{ duration }} minutes</span> and you will participate in <span class="dynamic-value">{{ numRounds }} markets</span>.
+      You will participate in markets where you can earn money by trading with other participants on our trading platform. Each market will last <span class="dynamic-value">{{ marketDuration }} minutes</span> and you will participate in <span class="dynamic-value">{{ numMarkets }} markets</span>.
     </p>
     <v-divider class="my-4"></v-divider>
     <p class="text-h5 mb-4">
@@ -53,26 +55,52 @@
 <script setup>
 import { useRouter } from 'vue-router';
 import { useTraderStore } from "@/store/app";
-
-const props = defineProps({
-  duration: {
-    type: Number,
-    default: 3
-  },
-  numRounds: {
-    type: Number,
-    default: 3
-  }
-});
+import { computed, ref } from 'vue';
 
 const router = useRouter();
 const traderStore = useTraderStore();
 
-const startTrading = () => {
-  router.push({ name: 'trading', params: { traderUuid: traderStore.traderUuid } });
+const isLoading = ref(false);
+
+const marketDuration = computed(() => {
+  return traderStore.traderAttributes?.all_attributes?.params?.trading_day_duration || 0;
+});
+
+const numMarkets = computed(() => {
+  return traderStore.traderAttributes?.all_attributes?.params?.num_rounds || 0;
+});
+
+const canStartTrading = computed(() => {
+  return !!traderStore.traderAttributes?.all_attributes?.params;
+});
+
+const startButtonText = computed(() => {
+  return isLoading.value ? 'Starting...' : 'Start Trading (For Testing Only)';
+});
+
+const startTrading = async () => {
+  if (!canStartTrading.value) {
+    console.error('Cannot start trading: parameters are not available');
+    return;
+  }
+
+  isLoading.value = true;
+  try {
+    // Initialize the trading system with parameters from traderAttributes
+    await traderStore.initializeTradingSystem(traderStore.traderAttributes.all_attributes.params);
+    console.log('Trading system initialized successfully');
+    
+    // Navigate to the trading page
+    router.push({ name: 'trading', params: { traderUuid: traderStore.traderUuid } });
+  } catch (error) {
+    console.error('Failed to initialize trading system:', error);
+    // You might want to show an error message to the user here
+  } finally {
+    isLoading.value = false;
+  }
 };
 
-console.log('Props in 1.vue:', props); // Debug log
+console.log('Trader attributes in 1.vue:', traderStore.traderAttributes); // Debug log
 </script>
 
 <style scoped>
