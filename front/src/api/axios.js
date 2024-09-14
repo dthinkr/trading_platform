@@ -1,14 +1,13 @@
 import axios from 'axios';
 import { auth } from '@/firebaseConfig';
 
-const api = axios.create({
-  baseURL: import.meta.env.VITE_HTTP_URL,  // adjust this to your backend URL
+const instance = axios.create({
+  baseURL: import.meta.env.VITE_HTTP_URL,
 });
 
-api.interceptors.request.use(async (config) => {
-  const user = auth.currentUser;
-  if (user) {
-    const token = await user.getIdToken();
+instance.interceptors.request.use(async (config) => {
+  if (auth.currentUser) {
+    const token = await auth.currentUser.getIdToken();
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
@@ -16,4 +15,4 @@ api.interceptors.request.use(async (config) => {
   return Promise.reject(error);
 });
 
-export default api;
+export default instance;
