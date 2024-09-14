@@ -174,29 +174,26 @@ export const useTraderStore = defineStore("trader", {
       throw error;
     }
     },
-    
+
     async getTraderAttributes(traderId) {
       try {
-        const response = await axios.get(`trader/${traderId}/attributes`);
+        const response = await axios.get(`trader_info/${traderId}`);
         
         if (response.data.status === "success") {
           const attributes = response.data.data;
           
-          // Update the store with the received attributes
-          this.$patch({
-            traderUuid: attributes.id,
-            trader_type: attributes.trader_type,
-            cash: attributes.cash,
-            shares: attributes.shares,
-            initial_cash: attributes.initial_cash,
-            initial_shares: attributes.initial_shares,
-            goal: attributes.goal,
-            placedOrders: attributes.orders,
-            delta_cash: attributes.delta_cash,
-            sum_dinv: attributes.sum_dinv,
-            vwap: attributes.vwap,
-            pnl: attributes.pnl,
-          });
+          // Directly update the store with all received attributes
+          this.$patch(attributes);
+    
+          // Set traderUuid if it's not already set
+          if (!this.traderUuid) {
+            this.traderUuid = traderId;
+          }
+    
+          // Update gameParams if it's included in the attributes
+          if (attributes.params) {
+            this.gameParams = attributes.params;
+          }
     
           console.debug('Fetched trader attributes:', attributes);
         } else {
