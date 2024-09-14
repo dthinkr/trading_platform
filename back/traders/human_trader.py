@@ -16,10 +16,11 @@ class HumanTrader(BaseTrader):
         "cash": 1000,
     }
 
-    def __init__(self, id, cash, shares, goal, params, *args, **kwargs):
+    def __init__(self, id, cash, shares, goal, params, trading_session, *args, **kwargs):
         super().__init__(trader_type=TraderType.HUMAN, id=id, cash=cash, shares=shares, *args, **kwargs)
         self.params = params
         self.goal = goal
+        self.trading_session = trading_session
 
     def get_trader_params_as_dict(self):
         return {
@@ -37,8 +38,12 @@ class HumanTrader(BaseTrader):
             await self.send_message_to_client(message_type, **json_message)
 
     async def connect_to_socket(self, websocket):
+        print(f"Connecting to socket for trader {self.id}")
         self.websocket = websocket
         self.socket_status = True
+        if not self.trading_system_exchange:
+            print(f"Connecting trader {self.id} to session")
+            await self.connect_to_session(self.trading_session.id)
         await self.register()
 
     async def send_message_to_client(self, message_type, **kwargs):

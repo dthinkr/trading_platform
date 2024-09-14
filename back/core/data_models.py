@@ -49,7 +49,7 @@ class UserRegistration(BaseModel):
 
 class TradingParameters(BaseModel):
     num_human_traders: int = Field(
-        default=1,
+        default=2,
         title="Number of Human Traders",
         description="model_parameter",
         ge=0,
@@ -178,7 +178,7 @@ class TradingParameters(BaseModel):
         ge=0,
     )
     human_goals: List[int] = Field(
-        default=[-10],
+        default=[-10, -10],
         title="Goal Values",
         description="human_parameter",
     )

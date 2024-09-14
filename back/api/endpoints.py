@@ -24,6 +24,7 @@ from firebase_admin import auth
 import secrets
 import logging
 import traceback
+import json
 
 logger = setup_custom_logger(__name__)
 
@@ -55,24 +56,16 @@ collection = db[COLLECTION_NAME]
 async def user_login(request: Request):
     auth_header = request.headers.get('Authorization')
     
-    print(f"Auth header: {auth_header}")  # Debug print
-    
     if not auth_header or not auth_header.startswith('Bearer '):
-        print("Invalid authentication method")  # Debug print
         raise HTTPException(status_code=401, detail="Invalid authentication method")
     
     try:
         token = auth_header.split('Bearer ')[1]
-        print(f"Token: {token[:10]}...")  # Debug print (only first 10 chars for security)
         
         decoded_token = auth.verify_id_token(token, check_revoked=True, clock_skew_seconds=60)
         uid = decoded_token['uid']
         
-        print(f"Decoded UID: {uid}")  # Debug print
-        
-        session_id, trader_id = find_or_create_session_and_assign_trader(uid)
-        
-        print(f"Session ID: {session_id}, Trader ID: {trader_id}")  # Debug print
+        session_id, trader_id = await find_or_create_session_and_assign_trader(uid)
         
         return {
             "status": "success",
@@ -94,9 +87,7 @@ async def user_login(request: Request):
         logger.error(f"ValueError in user_login: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        print(f"Error in user_login: {str(e)}")  # Debug print
         import traceback
-        print(traceback.format_exc())  # This will print the full stack trace
         raise HTTPException(status_code=401, detail=str(e))
 
 @app.post("/admin/login")
@@ -140,7 +131,7 @@ async def create_trading_session(
     uid = current_user['uid']
     
     try:
-        session_id, trader_id = find_or_create_session_and_assign_trader(uid)
+        session_id, trader_id = await find_or_create_session_and_assign_trader(uid)
         
         trader_manager = trader_managers[session_id]
         
@@ -194,8 +185,21 @@ async def get_trader_info(trader_id: str, current_user: dict = Depends(get_curre
         raise HTTPException(status_code=404, detail="Trader not found")
 
     trader = trader_manager.get_trader(trader_id)
-    all_attributes = {attr: getattr(trader, attr) for attr in dir(trader) if not attr.startswith('_') and not callable(getattr(trader, attr))}
     
+    def is_jsonable(x):
+        try:
+            json.dumps(x)
+            return True
+        except (TypeError, OverflowError):
+            return False
+
+    all_attributes = {
+        attr: getattr(trader, attr)
+        for attr in dir(trader)
+        if not attr.startswith('_') and not callable(getattr(trader, attr)) and attr != 'trading_session'
+    }
+    
+    serializable_attributes = {k: v for k, v in all_attributes.items() if is_jsonable(v)}
 
     trader_info = {
         "status": "success",
@@ -207,13 +211,11 @@ async def get_trader_info(trader_id: str, current_user: dict = Depends(get_curre
             "delta_cash": trader.delta_cash,
             "initial_cash": trader.initial_cash,
             "initial_shares": trader.initial_shares,
-            "all_attributes": all_attributes
+            "all_attributes": serializable_attributes
         },
     }
     
-    serializable_trader_info = jsonable_encoder(trader_info)
-    
-    return serializable_trader_info
+    return trader_info
 
 @app.get("/trader/{trader_id}/session")
 async def get_trader_session(trader_id: str, current_user: dict = Depends(get_current_user)):
@@ -251,76 +253,54 @@ async def get_trader_session(trader_id: str, current_user: dict = Depends(get_cu
     
 @app.websocket("/trader/{trader_id}")
 async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
-    print(f"WebSocket connection attempt for trader {trader_id}")
     await websocket.accept()
-    print(f"WebSocket connection accepted for trader {trader_id}")
-    try:
-        # Receive the token from the client
-        token = await websocket.receive_text()
-        print(f"Received token for trader {trader_id}")
-        # Verify the token
-        decoded_token = auth.verify_id_token(token)
-        print(f"Token verified for trader {trader_id}")
-        
-        trader_manager = get_manager_by_trader(trader_id)
-        if not trader_manager:
-            print(f"Trader manager not found for trader {trader_id}")
-            await websocket.send_json(
-                {"status": "error", "message": "Trader not found", "data": {}}
-            )
-            await websocket.close()
-            return
-
-        trader = trader_manager.get_trader(trader_id)
-        print(f"Retrieved trader for {trader_id}: {trader}")
-        await trader.connect_to_socket(websocket)
-
-        logger.info(f"Trader {trader_id} connected to websocket")
-        print(f"Trader {trader_id} connected to websocket")
-
-        try:
-            while True:
-                print(f"Sending time update for trader {trader_id}")
-                await websocket.send_json(
-                    {
-                        "type": "time_update",
-                        "data": {
-                            "current_time": trader_manager.trading_session.current_time.isoformat(),
-                            "is_trading_started": trader_manager.trading_session.trading_started,
-                            "remaining_time": (
-                                trader_manager.trading_session.start_time
-                                + timedelta(minutes=trader_manager.trading_session.duration)
-                                - trader_manager.trading_session.current_time
-                            ).total_seconds()
-                            if trader_manager.trading_session.trading_started
-                            else None,
-                        },
-                    }
-                )
-                print(f"Time update sent for trader {trader_id}, is_trading_started: {trader_manager.trading_session.trading_started}")
-                await asyncio.sleep(1)
-
-                try:
-                    message = await asyncio.wait_for(websocket.receive_text(), timeout=0.1)
-                    print(f"Received message from trader {trader_id}: {message}")
-                    await trader.on_message_from_client(message)
-                except asyncio.TimeoutError:
-                    pass
-        except WebSocketDisconnect:
-            logger.critical(f"Trader {trader_id} disconnected")
-            print(f"WebSocket disconnected for trader {trader_id}")
-        except asyncio.CancelledError:
-            logger.warning("Task cancelled")
-            print(f"Task cancelled for trader {trader_id}")
-            await trader_manager.cleanup()
-    except Exception as e:
-        logger.error(f"WebSocket error for trader {trader_id}: {str(e)}")
-        print(f"WebSocket error for trader {trader_id}: {str(e)}")
-        print("Traceback:")
-        print(traceback.format_exc())
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+    token = await websocket.receive_text()
+    decoded_token = auth.verify_id_token(token)
+    
+    trader_manager = get_manager_by_trader(trader_id)
+    if not trader_manager:
+        await websocket.send_json({"status": "error", "message": "Trader not found", "data": {}})
+        await websocket.close()
         return
 
+    trader = trader_manager.get_trader(trader_id)
+    
+    if not trader.trading_system_exchange:
+        await trader.connect_to_session(trader_manager.trading_session.id)
+    
+    await trader.connect_to_socket(websocket)
+    
+    while True:
+        print(f"Sending time update for trader {trader_id}")
+        trader_manager = get_manager_by_trader(trader_id)
+        trading_session = trader_manager.trading_session
+        
+        await websocket.send_json(
+            {
+                "type": "time_update",
+                "data": {
+                    "current_time": trading_session.current_time.isoformat(),
+                    "is_trading_started": trading_session.trading_started,
+                    "remaining_time": (
+                        trading_session.start_time
+                        + timedelta(minutes=trading_session.duration)
+                        - trading_session.current_time
+                    ).total_seconds()
+                    if trading_session.trading_started
+                    else None,
+                    "current_human_traders": len(trader_manager.human_traders),
+                    "expected_human_traders": trader_manager.params.num_human_traders,
+                },
+            }
+        )
+        print(f"Time update sent for trader {trader_id}, is_trading_started: {trading_session.trading_started}")
+        await asyncio.sleep(1)
+
+        try:
+            message = await asyncio.wait_for(websocket.receive_text(), timeout=0.1)
+            await trader.on_message_from_client(message)
+        except asyncio.TimeoutError:
+            pass
 
 @app.get("/traders/list")
 async def list_traders(current_user: dict = Depends(get_current_admin_user)):
@@ -420,7 +400,7 @@ async def get_end_metrics(trading_session_id: str, current_user: dict = Depends(
         raise HTTPException(status_code=500, detail="Error calculating metrics")
 
 
-def find_or_create_session_and_assign_trader(uid):
+async def find_or_create_session_and_assign_trader(uid):
     logger.debug(f"Finding or creating session for uid: {uid}")
     try:
         # Find an available session or create a new one if all are full
@@ -434,7 +414,7 @@ def find_or_create_session_and_assign_trader(uid):
             available_session = new_trader_manager
         
         logger.debug(f"Assigning trader to session: {available_session.trading_session.id}")
-        trader_id = available_session.add_human_trader(uid)
+        trader_id = await available_session.add_human_trader(uid)
         session_id = available_session.trading_session.id
         
         trader_to_session_lookup[trader_id] = session_id
