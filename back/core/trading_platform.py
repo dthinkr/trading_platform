@@ -40,6 +40,7 @@ class TradingSession:
         default_price: int,
         default_spread: int = 10,
         punishing_constant: int = 1,
+        params: Dict = None,
     ):
         self.id = str(uuid.uuid4())
         self.duration = duration
@@ -61,7 +62,7 @@ class TradingSession:
         self.release_event = Event()
         self.current_price = 0
         self.is_finished = False
-
+        self.params = params
         self.broadcast_exchange_name = f"broadcast_{self.id}"
         self.queue_name = f"trading_system_queue_{self.id}"
         self.trader_exchange = None
@@ -100,6 +101,10 @@ class TradingSession:
             else None,
             "connected_traders": self.connected_traders,
         }
+
+    @property
+    def is_full(self):
+        return len(self.connected_traders) >= self.params['num_human_traders']
 
     @property
     def transaction_price(self) -> Optional[float]:

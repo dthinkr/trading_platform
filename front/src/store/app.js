@@ -179,15 +179,25 @@ export const useTraderStore = defineStore("trader", {
       }
     },
 
-    async getTradingSessionData(tradingSessionUUID) {
+    // rewrite this. human trader will have a state. 
+
+    async getTradingSessionData(traderId) {
       const httpUrl = import.meta.env.VITE_HTTP_URL;
       try {
-        const response = await axios.get(`${httpUrl}trading_session/${tradingSessionUUID}`);
-        this.tradingSessionData = response.data.data;
+        const response = await axios.get(`${httpUrl}trader/${traderId}/session`);
+        if (response.data.status === "success") {
+          this.tradingSessionData = response.data.data;
+          this.gameParams = response.data.data.game_params;
+          console.debug('Fetched trading session data:', this.tradingSessionData);
+        } else {
+          throw new Error("Failed to fetch trading session data");
+        }
       } catch (error) {
-        throw error; // Rethrow the error so it can be caught in the component
+        console.error('Failed to fetch trading session data:', error);
+        throw error;
       }
     },
+
     async initializeTrader(traderUuid) {
       console.debug("Initializing trader");
       this.traderUuid = traderUuid;

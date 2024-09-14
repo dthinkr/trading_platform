@@ -9,10 +9,8 @@ import { createVuetify } from 'vuetify'
 import * as components from 'vuetify/components'
 import * as directives from 'vuetify/directives'
 import 'vuetify/styles'
-import { createPinia } from 'pinia'
-import router from '@/router'  // Import the router instance directly
-import { auth } from '@/firebaseConfig'
-import { useAuthStore } from '@/store/auth' // Import the auth store
+
+// Remove any imports of createPinia, router, or other plugins that are already used in main.js
 
 const myCustomLightTheme = {
   dark: false,
@@ -65,32 +63,9 @@ const vuetify = createVuetify({
   },
 })
 
-const pinia = createPinia()
-
-// Update the beforeEach guard
-router.beforeEach(async (to, from, next) => {
-  const authStore = useAuthStore()
-  const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
-  const requiresAdmin = to.matched.some(record => record.meta.requiresAdmin)
-  const currentUser = auth.currentUser
-
-  if (requiresAuth && !currentUser) {
-    next('/register')
-  } else if (requiresAdmin && !authStore.isAdmin) {
-    // Redirect non-admin users trying to access admin routes
-    next('/') // or to some 'unauthorized' page
-  } else if (to.path === '/register' && currentUser) {
-    next('/CreateTradingSession')
-  } else {
-    next()
-  }
-})
-
 export function registerPlugins (app) {
-  app
-    .use(vuetify)
-    .use(router)
-    .use(pinia)
+  app.use(vuetify)
+  // Remove any other .use() calls here that are already in main.js
 }
 
-export { router }
+// Remove any exports of router or other plugins

@@ -16,15 +16,16 @@ import polars as pl
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 from core.trader_manager import TraderManager
-from core.data_models import TradingParameters, UserRegistration
+from core.data_models import TraderType, TradingParameters, UserRegistration
 from utils import setup_custom_logger
 from .calculate_metrics import get_data_from_mongodb, process_session, calculate_end_of_run_metrics
-from .auth import get_current_user, get_current_admin_user
-from firebase_admin import auth as firebase_auth
+from .auth import get_current_user, get_current_admin_user, get_firebase_auth
+from firebase_admin import auth
 import secrets
+import logging
+import traceback
 
 logger = setup_custom_logger(__name__)
-
 
 app = FastAPI()
 security = HTTPBasic()
@@ -50,34 +51,53 @@ mongo_client = MongoClient(MONGODB_HOST, MONGODB_PORT)
 db = mongo_client[DATASET]
 collection = db[COLLECTION_NAME]
 
-@app.post("/login")
-async def login(request: Request):
+@app.post("/user/login")
+async def user_login(request: Request):
     auth_header = request.headers.get('Authorization')
     
-    if auth_header and auth_header.startswith('Basic '):
-        # This is an admin login attempt
-        credentials = HTTPBasicCredentials.parse(auth_header)
-        return await admin_login(credentials)
+    print(f"Auth header: {auth_header}")  # Debug print
     
-    elif auth_header and auth_header.startswith('Bearer '):
-        # This is a regular user login with Firebase token
-        try:
-            token = auth_header.split('Bearer ')[1]
-            decoded_token = firebase_auth.verify_id_token(token)
-            uid = decoded_token['uid']
-            return {
-                "status": "success",
-                "message": "Login successful",
-                "data": {
-                    "username": decoded_token.get('email'),
-                    "is_admin": False
-                }
-            }
-        except Exception as e:
-            raise HTTPException(status_code=401, detail="Invalid authentication credentials")
-    
-    else:
+    if not auth_header or not auth_header.startswith('Bearer '):
+        print("Invalid authentication method")  # Debug print
         raise HTTPException(status_code=401, detail="Invalid authentication method")
+    
+    try:
+        token = auth_header.split('Bearer ')[1]
+        print(f"Token: {token[:10]}...")  # Debug print (only first 10 chars for security)
+        
+        decoded_token = auth.verify_id_token(token, check_revoked=True, clock_skew_seconds=60)
+        uid = decoded_token['uid']
+        
+        print(f"Decoded UID: {uid}")  # Debug print
+        
+        session_id, trader_id = find_or_create_session_and_assign_trader(uid)
+        
+        print(f"Session ID: {session_id}, Trader ID: {trader_id}")  # Debug print
+        
+        return {
+            "status": "success",
+            "message": "Login successful and trader assigned",
+            "data": {
+                "username": decoded_token.get('email'),
+                "is_admin": False,
+                "session_id": session_id,
+                "trader_id": trader_id
+            }
+        }
+    except auth.RevokedIdTokenError:
+        raise HTTPException(status_code=401, detail="Token has been revoked")
+    except auth.InvalidIdTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    except auth.ExpiredIdTokenError:
+        raise HTTPException(status_code=401, detail="Token has expired")
+    except ValueError as e:
+        logger.error(f"ValueError in user_login: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        print(f"Error in user_login: {str(e)}")  # Debug print
+        import traceback
+        print(traceback.format_exc())  # This will print the full stack trace
+        raise HTTPException(status_code=401, detail=str(e))
 
 @app.post("/admin/login")
 async def admin_login(credentials: HTTPBasicCredentials = Depends(security)):
@@ -179,24 +199,40 @@ async def get_trader_info(trader_uuid: str, current_user: dict = Depends(get_cur
     }
 
 
-@app.get("/trading_session/{trading_session_id}")
-async def get_trading_session(trading_session_id: str, current_user: dict = Depends(get_current_user)):
-    trader_manager = trader_managers.get(trading_session_id)
+@app.get("/trader/{trader_id}/session")
+async def get_trader_session(trader_id: str, current_user: dict = Depends(get_current_user)):
+    print(f"Authenticated user accessing session for trader: {trader_id}")
+    print(f"Current user data: {current_user}")
+    
+    session_id = trader_to_session_lookup.get(trader_id)
+    if not session_id:
+        print(f"No session found for trader: {trader_id}")
+        raise HTTPException(status_code=404, detail="No session found for this trader")
+    
+    trader_manager = trader_managers.get(session_id)
     if not trader_manager:
-        raise HTTPException(status_code=404, detail="Trading session not found")
+        print(f"Trader manager not found for session: {session_id}")
+        raise HTTPException(status_code=404, detail="Trader manager not found")
 
-    return {
-        "status": "found",
+    print(f"Found trader manager for session: {session_id}")
+    
+    human_traders_data = [t.get_trader_params_as_dict() for t in trader_manager.human_traders]
+    print(f"Human traders data: {human_traders_data}")
+
+    response_data = {
+        "status": "success",
         "data": {
             "trading_session_uuid": trader_manager.trading_session.id,
             "traders": list(trader_manager.traders.keys()),
-            "human_traders": [
-                t.get_trader_params_as_dict() for t in trader_manager.human_traders
-            ],
+            "human_traders": human_traders_data,
+            "game_params": trader_manager.params.model_dump()
         },
     }
-
-
+    print(f"Returning response for trader {trader_id}")
+    print(f"Response data: {response_data}")
+    
+    return response_data
+    
 @app.websocket("/trader/{trader_uuid}")
 async def websocket_trader_endpoint(websocket: WebSocket, trader_uuid: str):
     await websocket.accept()
@@ -204,7 +240,7 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_uuid: str):
         # Receive the token from the client
         token = await websocket.receive_text()
         # Verify the token
-        decoded_token = firebase_auth.verify_id_token(token)
+        decoded_token = auth.verify_id_token(token)
         
         trader_manager = get_manager_by_trader(trader_uuid)
         if not trader_manager:
@@ -351,3 +387,29 @@ async def get_end_metrics(trading_session_id: str, current_user: dict = Depends(
     except Exception as e:
         logger.error(f"Error calculating end-of-run metrics: {str(e)}")
         raise HTTPException(status_code=500, detail="Error calculating metrics")
+
+
+def find_or_create_session_and_assign_trader(uid):
+    logger.debug(f"Finding or creating session for uid: {uid}")
+    try:
+        available_session = next((s for s in trader_managers.values() if not s.trading_session.is_full), None)
+        
+        if available_session is None:
+            logger.debug("No available session found, creating a new one")
+            params = TradingParameters()
+            new_trader_manager = TraderManager(params)
+            trader_managers[new_trader_manager.trading_session.id] = new_trader_manager
+            available_session = new_trader_manager
+        
+        logger.debug(f"Assigning trader to session: {available_session.trading_session.id}")
+        trader_id = available_session.add_human_trader(uid)
+        session_id = available_session.trading_session.id
+        
+        trader_to_session_lookup[trader_id] = session_id
+        
+        logger.debug(f"Trader assigned. Session ID: {session_id}, Trader ID: {trader_id}")
+        return session_id, trader_id
+    except Exception as e:
+        logger.error(f"Error in find_or_create_session_and_assign_trader: {str(e)}")
+        logger.error(traceback.format_exc())
+        raise
