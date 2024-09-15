@@ -49,10 +49,15 @@ class UserRegistration(BaseModel):
 
 class TradingParameters(BaseModel):
     num_human_traders: int = Field(
-        default=2,
+        default=1,
         title="Number of Human Traders",
         description="model_parameter",
         ge=0,
+    )
+    human_goals: List[int] = Field(
+        default=[-10],
+        title="Goal Values",
+        description="human_parameter",
     )
     num_noise_traders: int = Field(
         default=1,
@@ -176,11 +181,6 @@ class TradingParameters(BaseModel):
         title="Number of Rounds (Placeholder, not used yet)",
         description="human_parameter",
         ge=0,
-    )
-    human_goals: List[int] = Field(
-        default=[-10, -10],
-        title="Goal Values",
-        description="human_parameter",
     )
     conversion_rate: float = Field(
         default=42.52,

@@ -52,6 +52,13 @@ mongo_client = MongoClient(MONGODB_HOST, MONGODB_PORT)
 db = mongo_client[DATASET]
 collection = db[COLLECTION_NAME]
 
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    while True:
+        data = await websocket.receive_text()
+        await websocket.send_text(f"Message text was: {data}")
+
 @app.post("/user/login")
 async def user_login(request: Request):
     auth_header = request.headers.get('Authorization')
@@ -270,37 +277,51 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
     
     await trader.connect_to_socket(websocket)
     
-    while True:
-        print(f"Sending time update for trader {trader_id}")
-        trader_manager = get_manager_by_trader(trader_id)
-        trading_session = trader_manager.trading_session
-        
-        await websocket.send_json(
-            {
-                "type": "time_update",
-                "data": {
-                    "current_time": trading_session.current_time.isoformat(),
-                    "is_trading_started": trading_session.trading_started,
-                    "remaining_time": (
-                        trading_session.start_time
-                        + timedelta(minutes=trading_session.duration)
-                        - trading_session.current_time
-                    ).total_seconds()
-                    if trading_session.trading_started
-                    else None,
-                    "current_human_traders": len(trader_manager.human_traders),
-                    "expected_human_traders": trader_manager.params.num_human_traders,
-                },
-            }
-        )
-        print(f"Time update sent for trader {trader_id}, is_trading_started: {trading_session.trading_started}")
-        await asyncio.sleep(1)
+    try:
+        while True:
+            trader_manager = get_manager_by_trader(trader_id)
+            print(f"all traders under trader manager: {trader_manager.traders}")
+            trading_session = trader_manager.trading_session
+            
+            await websocket.send_json(
+                {
+                    "type": "time_update",
+                    "data": {
+                        "current_time": trading_session.current_time.isoformat(),
+                        "is_trading_started": trading_session.trading_started,
+                        "remaining_time": (
+                            trading_session.start_time
+                            + timedelta(minutes=trading_session.duration)
+                            - trading_session.current_time
+                        ).total_seconds()
+                        if trading_session.trading_started
+                        else None,
+                        "current_human_traders": len(trader_manager.human_traders),
+                        "expected_human_traders": trader_manager.params.num_human_traders,
+                    },
+                }
+            )
+            await asyncio.sleep(1)
 
-        try:
-            message = await asyncio.wait_for(websocket.receive_text(), timeout=0.1)
-            await trader.on_message_from_client(message)
-        except asyncio.TimeoutError:
-            pass
+            try:
+                print(f"[Endpoint] Waiting for message from trader {trader_id}")
+                message = await asyncio.wait_for(websocket.receive_text(), timeout=0.3)
+                print(f"[Endpoint] Received message from trader {trader_id}: {message}")
+                await trader.on_message_from_client(message)
+            except asyncio.TimeoutError:
+                print(f"[Endpoint] No message received from trader {trader_id} within 0.3 seconds")
+            except WebSocketDisconnect:
+                print(f"[Endpoint] WebSocket disconnected while waiting for message from trader {trader_id}")
+                raise
+            except Exception as e:
+                print(f"[Endpoint] Error while receiving message from trader {trader_id}: {str(e)}")
+                traceback.print_exc()
+
+    except WebSocketDisconnect:
+        print(f"WebSocket disconnected for trader {trader_id}")
+    except Exception as e:
+        print(f"Error in WebSocket connection for trader {trader_id}: {str(e)}")
+        traceback.print_exc()
 
 @app.get("/traders/list")
 async def list_traders(current_user: dict = Depends(get_current_admin_user)):

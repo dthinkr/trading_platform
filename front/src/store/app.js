@@ -209,6 +209,8 @@ export const useTraderStore = defineStore("trader", {
     },
     
     handle_update(data) {
+      console.log('Received WebSocket update:', JSON.stringify(data, null, 2));
+
       if (data.type === "time_update") {
         this.$patch({
           currentTime: new Date(data.data.current_time),
@@ -232,6 +234,20 @@ export const useTraderStore = defineStore("trader", {
         sum_dinv,
         initial_shares,
       } = data;
+    
+      console.log('Extracted data:', {
+        order_book,
+        history,
+        spread,
+        midpoint,
+        transaction_price,
+        inventory,
+        trader_orders,
+        pnl,
+        vwap,
+        sum_dinv,
+        initial_shares,
+      });
     
       if (transaction_price && midpoint && spread) {
         const market_level_data = {
@@ -257,6 +273,7 @@ export const useTraderStore = defineStore("trader", {
       }
     
       if (order_book) {
+        console.log('Updating order book:', JSON.stringify(order_book, null, 2));
         const { bids, asks } = order_book;
         const depth_book_shown = this.gameParams.depth_book_shown || 3;
         this.bidData = bids.slice(0, depth_book_shown);
@@ -278,10 +295,15 @@ export const useTraderStore = defineStore("trader", {
           },
         ];
     
+        console.log('Updated chartData:', JSON.stringify(this.chartData, null, 2));
+        console.log('Updated midPoint:', this.midPoint);
+    
         this.history = history;
         this.spread = spread;
         this.pnl = pnl;
         this.vwap = vwap;
+      } else {
+        console.warn('No order book data received');
       }
     },
 
@@ -299,8 +321,12 @@ export const useTraderStore = defineStore("trader", {
     
       this.ws.onmessage = (event) => {
         console.debug("WebSocket message received:", event.data);
-        const data = JSON.parse(event.data);
-        this.handle_update(data);
+        try {
+          const data = JSON.parse(event.data);
+          this.handle_update(data);
+        } catch (error) {
+          console.error("Error parsing WebSocket message:", error);
+        }
       };
     
       this.ws.onerror = (error) => {
