@@ -6,12 +6,9 @@ from core.data_models import OrderType, ActionType, TraderType
 import os
 from abc import abstractmethod
 
-from utils.utils import setup_custom_logger
 from utils.utils import CustomEncoder
 
 rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://localhost")
-
-logger = setup_custom_logger(__name__)
 
 class BaseTrader:
     orders: list = []
@@ -30,19 +27,13 @@ class BaseTrader:
         self.initial_cash = cash
         self.initial_shares = shares
 
-        self._stop_requested = (
-            asyncio.Event()
-        )  # this one we need only for traders which should be kept active in loop. For instance human traders don't need that
+        self._stop_requested = asyncio.Event()
         self.trader_type = trader_type.value
         self.id = id
-        logger.info(f"Trader of type {self.trader_type} created with UUID: {self.id}")
         self.connection = None
         self.channel = None
         self.trading_session_uuid = None
-        self.trader_queue_name = (
-            f"trader_{self.id}"  # unique queue name based on Trader's UUID
-        )
-        logger.info(f"Trader queue name: {self.trader_queue_name}")
+        self.trader_queue_name = f"trader_{self.id}"
         self.queue_name = None
         self.broadcast_exchange_name = None
         self.trading_system_exchange = None
@@ -50,10 +41,8 @@ class BaseTrader:
         # PNL BLOCK
         self.DInv = []
         self.transaction_prices = []
-        self.transaction_relevant_mid_prices = (
-            []
-        )  # Mid prices relevant to each transaction
-        self.general_mid_prices = []  # All mid prices from the trading system
+        self.transaction_relevant_mid_prices = []
+        self.general_mid_prices = []
         self.sum_cost = 0
         self.sum_dinv = 0
         self.sum_mid_executions = 0
@@ -61,16 +50,14 @@ class BaseTrader:
 
         self.start_time = asyncio.get_event_loop().time()
 
-        self.filled_orders = []  # New attribute to track filled orders
-        self.placed_orders = []  # New attribute to track placed orders
+        self.filled_orders = []
+        self.placed_orders = []
 
     def get_elapsed_time(self) -> float:
-        """Returns the elapsed time in seconds since the trader was initialized."""
         current_time = asyncio.get_event_loop().time()
         return current_time - self.start_time
 
     def get_vwap(self):
-        # let's for now just return the average of all transaction prices
         return (
             sum(self.transaction_prices) / len(self.transaction_prices)
             if self.transaction_prices
@@ -87,14 +74,10 @@ class BaseTrader:
             else transaction_price
         )
 
-        # Update lists
         self.DInv.append(dinv)
         self.transaction_prices.append(transaction_price)
-        self.transaction_relevant_mid_prices.append(
-            relevant_mid_price
-        )  # Store relevant mid_price for this transaction
+        self.transaction_relevant_mid_prices.append(relevant_mid_price)
 
-        # Update running totals
         self.sum_cost += dinv * (transaction_price - relevant_mid_price)
         self.sum_dinv += dinv
         self.sum_mid_executions += relevant_mid_price * dinv
@@ -126,31 +109,20 @@ class BaseTrader:
     async def clean_up(self):
         self._stop_requested.set()
         try:
-            # Close the channel and connection
             if self.channel:
                 await self.channel.close()
-                logger.info(f"Trader {self.id} channel closed")
             if self.connection:
                 await self.connection.close()
-                logger.info(f"Trader {self.id} connection closed")
+        except Exception:
+            pass
 
-        except Exception as e:
-            logger.error(f"An error occurred during Trader cleanup: {e}")
-
-
-# focus on here when refactoring. 
     async def connect_to_session(self, trading_session_uuid):
         self.trading_session_uuid = trading_session_uuid
         self.queue_name = f"trading_system_queue_{self.trading_session_uuid}"
-        self.trader_queue_name = (
-            f"trader_{self.id}"  # unique queue name based on Trader's UUID
-        )
-
-        print(f"Trader {self.id} connected to session at {self.trading_session_uuid}")
+        self.trader_queue_name = f"trader_{self.id}"
 
         self.broadcast_exchange_name = f"broadcast_{self.trading_session_uuid}"
 
-        # subscribe to group messages
         broadcast_exchange = await self.channel.declare_exchange(
             self.broadcast_exchange_name, aio_pika.ExchangeType.FANOUT, auto_delete=True
         )
@@ -158,19 +130,18 @@ class BaseTrader:
         await broadcast_queue.bind(broadcast_exchange)
         await broadcast_queue.consume(self.on_message_from_system)
 
-        # for individual messages
         self.trading_system_exchange = await self.channel.declare_exchange(
             self.queue_name, aio_pika.ExchangeType.DIRECT, auto_delete=True
         )
         trader_queue = await self.channel.declare_queue(
             self.trader_queue_name, auto_delete=True
-        )  # Declare a unique queue for this Trader
+        )
         await trader_queue.bind(
             self.trading_system_exchange, routing_key=self.trader_queue_name
         )
         await trader_queue.consume(self.on_message_from_system)
 
-        await self.register()  # Register with the trading system
+        await self.register()
 
     async def register(self):
         message = {
@@ -182,17 +153,13 @@ class BaseTrader:
         await self.send_to_trading_system(message)
 
     async def send_to_trading_system(self, message):
-        # front end design means human traders' own_orders will alaways be empty
         message["trader_id"] = self.id
         await self.trading_system_exchange.publish(
             aio_pika.Message(body=json.dumps(message, cls=CustomEncoder).encode()),
-            routing_key=self.queue_name,  # Use the dynamic queue_name
+            routing_key=self.queue_name,
         )
 
     def check_if_relevant(self, transactions: list) -> list:
-        """
-        Check if any of the transactions in the list are relevant to this trader.
-        """
         transactions_relevant_to_self = []
         for transaction in transactions:
             if transaction["trader_id"] == self.id:
@@ -200,12 +167,7 @@ class BaseTrader:
         return transactions_relevant_to_self
 
     def update_filled_orders(self, transactions):
-        """
-        Update the list of filled orders based on the transactions.
-        This method handles both sides of a transaction.
-        """
         for transaction in transactions:
-            # Check if this trader is involved in the transaction
             if transaction["trader_id"] == self.id:
                 filled_order = {
                     "id": transaction["id"],
@@ -216,17 +178,13 @@ class BaseTrader:
                 }
                 self.filled_orders.append(filled_order)
 
-                logger.info(f"Trader {self.id}: Order filled - {filled_order}")
-
-                # Update inventory based on the filled order
                 if transaction["type"] == "bid":
                     self.shares += transaction["amount"]
                     self.cash -= transaction["price"] * transaction["amount"]
-                else:  # ask
+                else:
                     self.shares -= transaction["amount"]
                     self.cash += transaction["price"] * transaction["amount"]
 
-                # Update PNL data
                 self.update_data_for_pnl(
                     transaction["amount"]
                     if transaction["type"] == "bid"
@@ -257,7 +215,6 @@ class BaseTrader:
             if data.get("midpoint"):
                 self.update_mid_price(data["midpoint"])
             if not data:
-                logger.error("no data from trading system")
                 return
             order_book = data.get("order_book")
             if order_book:
@@ -273,18 +230,12 @@ class BaseTrader:
             handler = getattr(self, f"handle_{action_type}", None)
             if handler:
                 await handler(data)
-            else:
-                logger.error(f"Invalid message format: {message}")
             await self.post_processing_server_message(data)
 
         except json.JSONDecodeError:
-            logger.error(f"Error decoding message: {message}")
+            pass
 
     def update_inventory(self, transactions_relevant_to_self: list) -> None:
-        """
-        Update the trader's inventory based on matched transactions relevant to this trader.
-        Only accounts for the increase of shares and cash.
-        """
         for transaction in transactions_relevant_to_self:
             if transaction["type"] == "bid":
                 self.shares += transaction["amount"]
@@ -294,9 +245,6 @@ class BaseTrader:
 
     @abstractmethod
     async def post_processing_server_message(self, json_message):
-        """for BaseTrader it is not implemented. For human trader we send updated info back to client.
-        For other market maker types we need do some reactions on updated market if needed.
-        """
         pass
 
     async def post_new_order(
@@ -305,16 +253,10 @@ class BaseTrader:
         if self.trader_type != TraderType.NOISE.value:
             if order_type == OrderType.BID:
                 if self.cash < price * amount:
-                    logger.critical(
-                        f"Trader {self.id} does not have enough cash to place bid order."
-                    )
                     return None
                 self.cash -= price * amount
             elif order_type == OrderType.ASK:
                 if self.shares < amount:
-                    logger.critical(
-                        f"Trader {self.id} does not have enough shares to place ask order."
-                    )
                     return None
                 self.shares -= amount
 
@@ -329,10 +271,8 @@ class BaseTrader:
                 "order_id": order_id,
             }
 
-            # Record progress if this is an InformedTrader
             if self.trader_type == TraderType.INFORMED.value:
                 new_order["informed_trader_progress"] = f"{self.progress} | {self.goal}"
-
 
             await self.send_to_trading_system(new_order)
             placed_order_ids.append(order_id)
@@ -351,13 +291,10 @@ class BaseTrader:
 
     async def send_cancel_order_request(self, order_id: uuid.UUID) -> bool:
         if not order_id:
-            logger.error(f"Order ID is not provided")
             return False
         if not self.orders:
-            logger.error(f"Trader {self.id} has no active orders")
             return False
         if order_id not in [order["id"] for order in self.orders]:
-            logger.error(f"Trader {self.id} has no order with ID {order_id}")
             return False
 
         order_to_cancel = next(
@@ -382,30 +319,17 @@ class BaseTrader:
         try:
             await self.send_to_trading_system(cancel_order_request)
             return True
-        except Exception as e:
-            logger.error(f"Failed to send cancel order request: {e}")
+        except Exception:
             return False
 
     async def run(self):
-        # Placeholder method for compatibility with the trading system
-        logger.info(f"trader {self.id} is waiting")
         pass
 
     async def handle_closure(self, data):
-        """Handle closure messages from the trading system."""
-        logger.critical(
-            f"Trader {self.id}: type: {self.trader_type}. Closure signal received. Preparing to stop trading activities."
-        )
-
         self._stop_requested.set()
         await self.clean_up()
 
     async def handle_stop_trading(self, data):
-        """Handle stop trading messages from the trading system."""
-        logger.critical(
-            f"Trader {self.id}: type: {self.trader_type}. Stop trading signal received. Preparing to stop trading activities."
-        )
-
         await self.send_to_trading_system(
             {
                 "action": "inventory_report",

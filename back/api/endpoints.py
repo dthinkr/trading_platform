@@ -91,7 +91,6 @@ async def user_login(request: Request):
     except auth.ExpiredIdTokenError:
         raise HTTPException(status_code=401, detail="Token has expired")
     except ValueError as e:
-        logger.error(f"ValueError in user_login: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         import traceback
@@ -101,7 +100,6 @@ async def user_login(request: Request):
 async def admin_login(credentials: HTTPBasicCredentials = Depends(security)):
     correct_username = secrets.compare_digest(credentials.username, "admin")
     correct_password = secrets.compare_digest(credentials.password, "admin")
-    print(credentials.username, credentials.password)
     if not (correct_username and correct_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -138,8 +136,7 @@ async def create_trading_session(
     uid = current_user['uid']
     
     try:
-        # Instead of finding or creating a session, just get the existing session info
-        trader_id = f"HUMAN_{uid}"  # Assuming this is how you generate trader IDs
+        trader_id = f"HUMAN_{uid}"
         session_id = trader_to_session_lookup.get(trader_id)
         
         if not session_id:
@@ -147,7 +144,6 @@ async def create_trading_session(
         
         trader_manager = trader_managers[session_id]
         
-        # If this is the last human trader to join, launch the session
         if len(trader_manager.human_traders) == trader_manager.params.num_human_traders:
             background_tasks.add_task(trader_manager.launch)
         
@@ -162,17 +158,13 @@ async def create_trading_session(
             },
         }
     except Exception as e:
-        logger.error(f"Error in create_trading_session: {str(e)}")
-        logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail="Error retrieving trading session info")
         
 def get_manager_by_trader(trader_id: str):
     if trader_id not in trader_to_session_lookup.keys():
-        print(f"Trader {trader_id} not found in trader_to_session_lookup")
         return None
     trading_session_id = trader_to_session_lookup[trader_id]
     manager = trader_managers[trading_session_id]
-    print(f"Retrieved trader manager for {trader_id}: {manager}")
     return manager
 
 @app.get("/trader/{trader_id}")
@@ -230,23 +222,15 @@ async def get_trader_info(trader_id: str, current_user: dict = Depends(get_curre
 
 @app.get("/trader/{trader_id}/session")
 async def get_trader_session(trader_id: str, current_user: dict = Depends(get_current_user)):
-    print(f"Authenticated user accessing session for trader: {trader_id}")
-    print(f"Current user data: {current_user}")
-    
     session_id = trader_to_session_lookup.get(trader_id)
     if not session_id:
-        print(f"No session found for trader: {trader_id}")
         raise HTTPException(status_code=404, detail="No session found for this trader")
     
     trader_manager = trader_managers.get(session_id)
     if not trader_manager:
-        print(f"Trader manager not found for session: {session_id}")
         raise HTTPException(status_code=404, detail="Trader manager not found")
 
-    print(f"Found trader manager for session: {session_id}")
-    
     human_traders_data = [t.get_trader_params_as_dict() for t in trader_manager.human_traders]
-    print(f"Human traders data: {human_traders_data}")
 
     response_data = {
         "status": "success",
@@ -257,15 +241,12 @@ async def get_trader_session(trader_id: str, current_user: dict = Depends(get_cu
             "game_params": trader_manager.params.model_dump()
         },
     }
-    print(f"Returning response for trader {trader_id}")
-    print(f"Response data: {response_data}")
     
     return response_data
     
 @app.websocket("/trader/{trader_id}")
 async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
     await websocket.accept()
-    print(f"[Endpoint] WebSocket connection accepted for trader {trader_id}")
     token = await websocket.receive_text()
     decoded_token = auth.verify_id_token(token)
     
@@ -281,7 +262,6 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
     try:
         while True:
             trader_manager = get_manager_by_trader(trader_id)
-            print(f"all traders under trader manager: {trader_manager.traders}")
             trading_session = trader_manager.trading_session
             
             await websocket.send_json(
@@ -305,23 +285,18 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
             await asyncio.sleep(1)
 
             try:
-                print(f"[Endpoint] Waiting for message from trader {trader_id}")
                 message = await asyncio.wait_for(websocket.receive_text(), timeout=0.3)
-                print(f"[Endpoint] Received message from trader {trader_id}: {message}")
                 await trader.on_message_from_client(message)
             except asyncio.TimeoutError:
-                print(f"[Endpoint] No message received from trader {trader_id} within 0.3 seconds")
+                pass
             except WebSocketDisconnect:
-                print(f"[Endpoint] WebSocket disconnected while waiting for message from trader {trader_id}")
                 raise
             except Exception as e:
-                print(f"[Endpoint] Error while receiving message from trader {trader_id}: {str(e)}")
                 traceback.print_exc()
 
     except WebSocketDisconnect:
-        print(f"WebSocket disconnected for trader {trader_id}")
+        pass
     except Exception as e:
-        print(f"Error in WebSocket connection for trader {trader_id}: {str(e)}")
         traceback.print_exc()
 
 @app.get("/traders/list")
@@ -401,12 +376,10 @@ async def get_end_metrics(trading_session_id: str, current_user: dict = Depends(
                 status_code=404, detail="No data found for this session"
             )
 
-        # Calculate the end-of-run metrics (currently returns an empty dict)
         metrics = calculate_end_of_run_metrics(run_data)
 
-        # Create an empty CSV (you can modify this later to include actual metrics)
         csv_buffer = io.StringIO()
-        csv_buffer.write("")  # Write an empty string
+        csv_buffer.write("")
         csv_buffer.seek(0)
 
         return StreamingResponse(
@@ -418,24 +391,19 @@ async def get_end_metrics(trading_session_id: str, current_user: dict = Depends(
             },
         )
     except Exception as e:
-        logger.error(f"Error calculating end-of-run metrics: {str(e)}")
         raise HTTPException(status_code=500, detail="Error calculating metrics")
 
 
 async def find_or_create_session_and_assign_trader(uid):
-    logger.debug(f"Finding or creating session for uid: {uid}")
     try:
-        # Find an available session or create a new one if all are full
         available_session = next((s for s in trader_managers.values() if len(s.human_traders) < s.params.num_human_traders), None)
         
         if available_session is None:
-            logger.debug("No available session found, creating a new one")
             params = TradingParameters()
             new_trader_manager = TraderManager(params)
             trader_managers[new_trader_manager.trading_session.id] = new_trader_manager
             available_session = new_trader_manager
         
-        logger.debug(f"Assigning trader to session: {available_session.trading_session.id}")
         trader_id = await available_session.add_human_trader(uid)
         session_id = available_session.trading_session.id
         
