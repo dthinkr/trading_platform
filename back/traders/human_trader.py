@@ -19,7 +19,6 @@ class HumanTrader(BaseTrader):
         self.trading_session = trading_session
         self.websocket = None
         self.socket_status = False
-        print(f"[HumanTrader {self.id}] Initialized with websocket: {self.websocket}")
         self.inventory = {
             "shares": 0,
             "cash": 1000,
@@ -41,48 +40,29 @@ class HumanTrader(BaseTrader):
             await self.send_message_to_client(message_type, **json_message)
 
     async def connect_to_socket(self, websocket):
-        print(f"[HumanTrader {self.id}] Starting connect_to_socket")
         try:
             self.websocket = websocket
-            print(f"[HumanTrader {self.id}] WebSocket object set: {self.websocket}")
-            
             self.socket_status = True
-            print(f"[HumanTrader {self.id}] Socket status set to: {self.socket_status}")
             
             if not self.trading_system_exchange:
-                print(f"[HumanTrader {self.id}] Trading system exchange not set, connecting to session")
                 try:
                     await self.connect_to_session(self.trading_session.id)
-                    print(f"[HumanTrader {self.id}] Connected to session successfully")
                 except Exception as e:
-                    print(f"[HumanTrader {self.id}] Error connecting to session: {str(e)}")
                     traceback.print_exc()
-            else:
-                print(f"[HumanTrader {self.id}] Trading system exchange already set")
             
             try:
                 await self.register()
-                print(f"[HumanTrader {self.id}] Trader registered successfully")
             except Exception as e:
-                print(f"[HumanTrader {self.id}] Error during registration: {str(e)}")
                 traceback.print_exc()
-            
-            print(f"[HumanTrader {self.id}] connect_to_socket completed")
-            print(f"[HumanTrader {self.id}] Final WebSocket state - websocket: {self.websocket}, socket_status: {self.socket_status}")
         except Exception as e:
-            print(f"[HumanTrader {self.id}] Unexpected error in connect_to_socket: {str(e)}")
             traceback.print_exc()
 
     async def send_message_to_client(self, message_type, **kwargs):
-        print(f"[HumanTrader {self.id}] Starting send_message_to_client: {message_type}")
         if not self.websocket:
-            print(f"[HumanTrader {self.id}] WebSocket is not set")
             return
         if self.websocket.client_state != WebSocketState.CONNECTED:
-            print(f"[HumanTrader {self.id}] WebSocket is not in CONNECTED state. Current state: {self.websocket.client_state}")
             return
         if not self.socket_status:
-            print(f"[HumanTrader {self.id}] socket_status is False")
             return
 
         trader_orders = self.orders or []
@@ -102,25 +82,15 @@ class HumanTrader(BaseTrader):
                 "sum_dinv": self.sum_dinv,
                 "vwap": self.get_vwap(),
             }
-            print(f"[HumanTrader {self.id}] Attempting to send message: {message}")
             await self.websocket.send_json(message)
-            print(f"[HumanTrader {self.id}] Message sent successfully")
         except WebSocketDisconnect:
-            print(f"[HumanTrader {self.id}] WebSocketDisconnect occurred while sending message")
             self.socket_status = False
         except Exception as e:
-            print(f"[HumanTrader {self.id}] Error while sending message: {str(e)}")
             traceback.print_exc()
 
     async def on_message_from_client(self, message):
-        print(f"[HumanTrader {self.id}] Starting on_message_from_client: {message[:50]}...")
-        """
-        process  incoming messages from human client
-        """
         try:
             json_message = json.loads(message)
-
-            print(f"this is the json message we try to send {json_message}")
 
             action_type = json_message.get("type")
             data = json_message.get("data")
@@ -139,22 +109,14 @@ class HumanTrader(BaseTrader):
         price = data.get("price")
         amount = data.get("amount", 1)
         
-        logger.info(f"Adding new order: Type: {order_type}, Price: {price}, Amount: {amount}")
-        
         await self.post_new_order(amount, price, order_type)
-        logger.info(f"Order added successfully: Type: {order_type}, Price: {price}, Amount: {amount}")
 
     async def handle_cancel_order(self, data):
         order_uuid = data.get("id")
-        logger.info(f"Cancel order request received: {data}")
 
         if order_uuid in [order["id"] for order in self.orders]:
             await self.send_cancel_order_request(order_uuid)
-            logger.info(f"Order cancellation request sent for UUID: {order_uuid}")
-        else:
-            logger.warning(f"Order with UUID {order_uuid} not found. Cancellation failed.")
 
     async def handle_closure(self, data):
-        logger.critical("Human trader is closing")
         await self.post_processing_server_message(data)
         await super().handle_closure(data)
