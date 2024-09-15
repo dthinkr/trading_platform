@@ -295,16 +295,11 @@ export const useTraderStore = defineStore("trader", {
           },
         ];
     
-        console.log('Updated chartData:', JSON.stringify(this.chartData, null, 2));
-        console.log('Updated midPoint:', this.midPoint);
-    
         this.history = history;
         this.spread = spread;
         this.pnl = pnl;
         this.vwap = vwap;
-      } else {
-        console.warn('No order book data received');
-      }
+      } 
     },
 
     async initializeWebSocket() {

@@ -5,28 +5,30 @@
       Transaction Price History
     </v-card-title>
     <div class="chart-wrapper">
-      <highcharts
-        ref="priceGraph"
+      <highcharts-chart
         :constructor-type="'stockChart'"
         :options="chartOptions"
+        :deepCopyOnUpdate="true"
       >
-      </highcharts>
+      </highcharts-chart>
     </div>
   </v-card>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, watch, nextTick } from "vue";
+import { ref, reactive, onMounted, watch, watchEffect } from "vue";
 import { useTraderStore } from "@/store/app";
 import { storeToRefs } from "pinia";
 import { Chart } from "highcharts-vue";
-import HighCharts from "highcharts";
+import Highcharts from "highcharts";
 import StockCharts from "highcharts/modules/stock";
 import HighchartsNoData from "highcharts/modules/no-data-to-display";
 
+StockCharts(Highcharts);
+HighchartsNoData(Highcharts);
+
 const traderStore = useTraderStore();
 const { history } = storeToRefs(traderStore);
-const priceGraph = ref(null);
 
 const chartOptions = reactive({
   chart: {
@@ -147,40 +149,37 @@ const chartOptions = reactive({
   },
 });
 
-watch(
-  history,
-  (newHistory) => {
-    if (newHistory && newHistory.length) {
-      const data = newHistory.map((item) => ({
-        x: new Date(item.timestamp).getTime(),
-        y: item.price,
-      }));
-      
-      if (priceGraph.value && priceGraph.value.chart) {
-        priceGraph.value.chart.series[0].setData(data, true, false, false);
-      } else {
-        chartOptions.series[0].data = data;
-      }
-    }
-  },
-  { deep: true }
-);
-
-onMounted(async () => {
-  await nextTick();
-  if (priceGraph.value && priceGraph.value.chart) {
-    priceGraph.value.chart.reflow();
+watchEffect(() => {
+  console.log('watchEffect triggered. Current history:', history.value);
+  console.log('Current transaction price:', traderStore.transaction_price);
+  
+  if (history.value && history.value.length) {
+    const data = history.value.map((item) => [
+      new Date(item.timestamp).getTime(),
+      item.price,
+    ]);
+    
+    chartOptions.series[0].data = data;
+  } else if (traderStore.transaction_price !== null) {
+    // Fallback: Use the most recent transaction price
+    const currentTime = new Date().getTime();
+    const data = [[currentTime, traderStore.transaction_price]];
+    
+    console.log('Using fallback data:', data);
+    
+    chartOptions.series[0].data = data;
+  } else {
+    console.log('No history data and no transaction price available');
   }
 });
 
-StockCharts(HighCharts);
-HighchartsNoData(HighCharts);
+// Remove the watch function and onMounted hook
 </script>
 
 <script>
 export default {
   components: {
-    highcharts: Chart,
+    highchartsChart: Chart,
   },
 };
 </script>

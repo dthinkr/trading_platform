@@ -188,6 +188,8 @@ class TradingSession:
     async def send_broadcast(
         self, message: dict, message_type="BOOK_UPDATED", incoming_message=None
     ) -> None:
+        print(f"Entering send_broadcast method with message_type: {message_type}")
+        
         if "type" not in message:
             message["type"] = message_type
 
@@ -206,6 +208,7 @@ class TradingSession:
                 "informed_trader_progress": incoming_message.get("informed_trader_progress") if incoming_message else None,
             }
         )
+        print(self.get_transaction_history())
 
         # If this is a filled order, add matched_orders to the message
         if message_type == "FILLED_ORDER" and incoming_message:
