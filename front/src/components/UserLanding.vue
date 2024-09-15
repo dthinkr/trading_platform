@@ -1,46 +1,42 @@
 <template>
-  <v-app>
-    <v-main>
-      <v-container fluid class="fill-height">
-        <v-row justify="center" align="center" class="fill-height">
-          <v-col cols="12" md="10" lg="8">
-            <v-card class="elevation-4">
-              <v-card-text>
-                <v-container class="pa-0">
-                  <v-row no-gutters>
-                    <v-col cols="12">
-                      <v-sheet
-                        color="primary"
-                        class="pa-12 mb-6"
-                        rounded="lg"
-                        elevation="4"
-                      >
-                        <h1 class="text-h2 font-weight-bold text-center white--text">
-                          {{ pageTitles[currentPageIndex] }}
-                        </h1>
-                      </v-sheet>
-                    </v-col>
-                    <v-col cols="12">
-                      <component 
-                        :is="pageComponents[currentPageIndex]" 
-                        :traderAttributes="traderAttributes"
-                      />
-                    </v-col>
-                  </v-row>
-                </v-container>
-              </v-card-text>
-              <v-card-actions>
-                <v-btn @click="prevPage" :disabled="currentPageIndex === 0">Previous</v-btn>
-                <v-spacer></v-spacer>
-                <v-btn @click="nextPage" v-if="currentPageIndex < pageComponents.length - 1">Next</v-btn>
-                <v-btn @click="startTrading" v-else color="primary">Start Trading</v-btn>
-              </v-card-actions>
-            </v-card>
-          </v-col>
-        </v-row>
-      </v-container>
-    </v-main>
-  </v-app>
+  <v-container fluid class="fill-height pa-0">
+    <v-row justify="center" align="center" class="fill-height">
+      <v-col cols="12" md="10" lg="8">
+        <v-card class="elevation-4">
+          <v-card-text>
+            <v-container class="pa-0">
+              <v-row no-gutters>
+                <v-col cols="12">
+                  <v-sheet
+                    color="primary"
+                    class="pa-12 mb-6"
+                    rounded="lg"
+                    elevation="4"
+                  >
+                    <h1 class="text-h2 font-weight-bold text-center white--text">
+                      {{ pageTitles[currentPageIndex] }}
+                    </h1>
+                  </v-sheet>
+                </v-col>
+                <v-col cols="12">
+                  <component 
+                    :is="pageComponents[currentPageIndex]" 
+                    :traderAttributes="traderAttributes"
+                  />
+                </v-col>
+              </v-row>
+            </v-container>
+          </v-card-text>
+          <v-card-actions>
+            <v-btn @click="prevPage" :disabled="currentPageIndex === 0">Previous</v-btn>
+            <v-spacer></v-spacer>
+            <v-btn @click="nextPage" v-if="currentPageIndex < pageComponents.length - 1">Next</v-btn>
+            <v-btn @click="startTrading" v-else color="primary">Start Trading</v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-col>
+    </v-row>
+  </v-container>
 </template>
 
 <script setup>
@@ -77,7 +73,7 @@ const playerGoal = computed(() => {
 });
 
 onMounted(async () => {
-  console.log("OnboardingWizard mounted");
+  console.log("UserLanding mounted");
   console.log("traderUuid:", traderUuid.value);
   console.log("sessionId:", sessionId.value);
 

@@ -138,17 +138,22 @@ async def create_trading_session(
     uid = current_user['uid']
     
     try:
-        session_id, trader_id = await find_or_create_session_and_assign_trader(uid)
+        # Instead of finding or creating a session, just get the existing session info
+        trader_id = f"HUMAN_{uid}"  # Assuming this is how you generate trader IDs
+        session_id = trader_to_session_lookup.get(trader_id)
+        
+        if not session_id:
+            raise HTTPException(status_code=404, detail="No active session found for this user")
         
         trader_manager = trader_managers[session_id]
         
-        # If this is a new session, launch it
-        if len(trader_manager.human_traders) == 1:
+        # If this is the last human trader to join, launch the session
+        if len(trader_manager.human_traders) == trader_manager.params.num_human_traders:
             background_tasks.add_task(trader_manager.launch)
         
         return {
             "status": "success",
-            "message": "Trader assigned to trading session",
+            "message": "Trading session info retrieved",
             "data": {
                 "trading_session_uuid": session_id,
                 "trader_id": trader_id,
@@ -159,9 +164,8 @@ async def create_trading_session(
     except Exception as e:
         logger.error(f"Error in create_trading_session: {str(e)}")
         logger.error(traceback.format_exc())
-        raise HTTPException(status_code=500, detail="Error creating or joining trading session")
-
-
+        raise HTTPException(status_code=500, detail="Error retrieving trading session info")
+        
 def get_manager_by_trader(trader_id: str):
     if trader_id not in trader_to_session_lookup.keys():
         print(f"Trader {trader_id} not found in trader_to_session_lookup")
@@ -261,6 +265,7 @@ async def get_trader_session(trader_id: str, current_user: dict = Depends(get_cu
 @app.websocket("/trader/{trader_id}")
 async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
     await websocket.accept()
+    print(f"[Endpoint] WebSocket connection accepted for trader {trader_id}")
     token = await websocket.receive_text()
     decoded_token = auth.verify_id_token(token)
     
@@ -271,10 +276,6 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
         return
 
     trader = trader_manager.get_trader(trader_id)
-    
-    if not trader.trading_system_exchange:
-        await trader.connect_to_session(trader_manager.trading_session.id)
-    
     await trader.connect_to_socket(websocket)
     
     try:

@@ -5,22 +5,25 @@ import json
 
 from core.data_models import TraderType, OrderType
 from utils import setup_custom_logger
+import traceback
 
 logger = setup_custom_logger(__name__)
 
 class HumanTrader(BaseTrader):
-    websocket = None
-    socket_status = False
-    inventory = {
-        "shares": 0,
-        "cash": 1000,
-    }
 
     def __init__(self, id, cash, shares, goal, params, trading_session, *args, **kwargs):
         super().__init__(trader_type=TraderType.HUMAN, id=id, cash=cash, shares=shares, *args, **kwargs)
+        self.id = id
         self.params = params
         self.goal = goal
         self.trading_session = trading_session
+        self.websocket = None
+        self.socket_status = False
+        print(f"[HumanTrader {self.id}] Initialized with websocket: {self.websocket}")
+        self.inventory = {
+            "shares": 0,
+            "cash": 1000,
+        }
 
     def get_trader_params_as_dict(self):
         return {
@@ -39,55 +42,78 @@ class HumanTrader(BaseTrader):
 
     async def connect_to_socket(self, websocket):
         print(f"[HumanTrader {self.id}] Starting connect_to_socket")
-        self.websocket = websocket
-        self.socket_status = True
-        if not self.trading_system_exchange:
-            print(f"Connecting trader {self.id} to session")
-            await self.connect_to_session(self.trading_session.id)
-        await self.register()
+        try:
+            self.websocket = websocket
+            print(f"[HumanTrader {self.id}] WebSocket object set: {self.websocket}")
+            
+            self.socket_status = True
+            print(f"[HumanTrader {self.id}] Socket status set to: {self.socket_status}")
+            
+            if not self.trading_system_exchange:
+                print(f"[HumanTrader {self.id}] Trading system exchange not set, connecting to session")
+                try:
+                    await self.connect_to_session(self.trading_session.id)
+                    print(f"[HumanTrader {self.id}] Connected to session successfully")
+                except Exception as e:
+                    print(f"[HumanTrader {self.id}] Error connecting to session: {str(e)}")
+                    traceback.print_exc()
+            else:
+                print(f"[HumanTrader {self.id}] Trading system exchange already set")
+            
+            try:
+                await self.register()
+                print(f"[HumanTrader {self.id}] Trader registered successfully")
+            except Exception as e:
+                print(f"[HumanTrader {self.id}] Error during registration: {str(e)}")
+                traceback.print_exc()
+            
+            print(f"[HumanTrader {self.id}] connect_to_socket completed")
+            print(f"[HumanTrader {self.id}] Final WebSocket state - websocket: {self.websocket}, socket_status: {self.socket_status}")
+        except Exception as e:
+            print(f"[HumanTrader {self.id}] Unexpected error in connect_to_socket: {str(e)}")
+            traceback.print_exc()
 
     async def send_message_to_client(self, message_type, **kwargs):
-        # print(f"[HumanTrader {self.id}] Starting send_message_to_client: {message_type}")
-        if (
-            not self.websocket
-            or self.websocket.client_state != WebSocketState.CONNECTED
-        ):
-            logger.warning("WebSocket is closed or not set yet. Skipping message send.")
+        print(f"[HumanTrader {self.id}] Starting send_message_to_client: {message_type}")
+        if not self.websocket:
+            print(f"[HumanTrader {self.id}] WebSocket is not set")
             return
-
+        if self.websocket.client_state != WebSocketState.CONNECTED:
+            print(f"[HumanTrader {self.id}] WebSocket is not in CONNECTED state. Current state: {self.websocket.client_state}")
+            return
         if not self.socket_status:
-            logger.warning("WebSocket is closed. Skipping message send.")
-            return  # Skip sending the message or handle accordingly
+            print(f"[HumanTrader {self.id}] socket_status is False")
+            return
 
         trader_orders = self.orders or []
         order_book = self.order_book or {"bids": [], "asks": []}
         kwargs["trader_orders"] = trader_orders
         try:
-            return await self.websocket.send_json(
-                {
-                    "shares": self.shares,
-                    "cash": self.cash,
-                    "pnl": self.get_current_pnl(),
-                    "type": message_type,
-                    "inventory": dict(shares=self.shares, cash=self.cash),
-                    **kwargs,
-                    "order_book": order_book,
-                    "initial_cash": self.initial_cash,
-                    "initial_shares": self.initial_shares,
-                    "sum_dinv": self.sum_dinv,
-                    "vwap": self.get_vwap(),
-                }
-            )
+            message = {
+                "shares": self.shares,
+                "cash": self.cash,
+                "pnl": self.get_current_pnl(),
+                "type": message_type,
+                "inventory": dict(shares=self.shares, cash=self.cash),
+                **kwargs,
+                "order_book": order_book,
+                "initial_cash": self.initial_cash,
+                "initial_shares": self.initial_shares,
+                "sum_dinv": self.sum_dinv,
+                "vwap": self.get_vwap(),
+            }
+            print(f"[HumanTrader {self.id}] Attempting to send message: {message}")
+            await self.websocket.send_json(message)
+            print(f"[HumanTrader {self.id}] Message sent successfully")
         except WebSocketDisconnect:
+            print(f"[HumanTrader {self.id}] WebSocketDisconnect occurred while sending message")
             self.socket_status = False
-            logger.warning("WebSocket is disconnected. Unable to send message.")
-
         except Exception as e:
-            logger.error(f"An error occurred while sending a message: {e}")
-            # Handle other potential exceptions
+            print(f"[HumanTrader {self.id}] Error while sending message: {str(e)}")
+            traceback.print_exc()
 
     async def on_message_from_client(self, message):
-        # print(f"[HumanTrader {self.id}] Starting on_message_from_client: {message[:50]}...")
+        print(f"[HumanTrader {self.id}] Starting on_message_from_client: {message[:50]}...")
         """
         process  incoming messages from human client
         """
