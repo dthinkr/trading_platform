@@ -499,7 +499,6 @@ class TradingSession:
     async def run(self) -> None:
         start_time = datetime.now(timezone.utc)
         while not self._stop_requested.is_set():
-            print("is trading started", self.trading_started)
             current_time = datetime.now(timezone.utc)
             if self.start_time and current_time - self.start_time > timedelta(
                 minutes=self.duration

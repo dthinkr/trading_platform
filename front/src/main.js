@@ -6,6 +6,7 @@ import { registerPlugins } from '@/plugins'
 import VueApexCharts from "vue3-apexcharts"
 import VueCountdown from '@chenfengyuan/vue-countdown'
 import { auth } from "./firebaseConfig.js"
+import './global.css'
 
 // Create Vue app
 const app = createApp(App)

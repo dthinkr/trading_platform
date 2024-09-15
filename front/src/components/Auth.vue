@@ -58,7 +58,7 @@ const signInWithGoogle = async () => {
     // Use the updated login method
     await authStore.login(user);
     
-    // Navigate to OnboardingWizard with sessionId and traderId
+    // Navigate to UserLanding with sessionId and traderId
     router.push({
       name: 'onboarding',
       params: { 
@@ -87,10 +87,7 @@ const adminLogin = async () => {
 </script>
 
 <style scoped>
-.auth-wrapper {
-  min-height: 100vh;
-  background: linear-gradient(135deg, #eceff1 0%, #90a4ae 100%);
-}
+
 .auth-card {
   background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(10px);

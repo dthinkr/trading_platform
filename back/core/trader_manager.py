@@ -133,7 +133,6 @@ class TraderManager:
         self.human_traders.append(new_trader)
 
         print(f"Human trader {trader_id} added, now we have {len(self.human_traders)} human traders in session {self.trading_session.id}")
-        await new_trader.initialize()
         return trader_id
 
     async def launch(self):

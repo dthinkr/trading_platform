@@ -137,12 +137,16 @@ class BaseTrader:
         except Exception as e:
             logger.error(f"An error occurred during Trader cleanup: {e}")
 
+
+# focus on here when refactoring. 
     async def connect_to_session(self, trading_session_uuid):
         self.trading_session_uuid = trading_session_uuid
         self.queue_name = f"trading_system_queue_{self.trading_session_uuid}"
         self.trader_queue_name = (
             f"trader_{self.id}"  # unique queue name based on Trader's UUID
         )
+
+        print(f"Trader {self.id} connected to session at {self.trading_session_uuid}")
 
         self.broadcast_exchange_name = f"broadcast_{self.trading_session_uuid}"
 

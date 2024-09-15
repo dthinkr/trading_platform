@@ -1,0 +1,100 @@
+:root {
+  --primary-color: #3B82F6;
+  --secondary-color: #10B981;
+  --background-start: #eceff1;
+  --background-end: #90a4ae;
+  --text-color: #333333;
+  --card-background: rgba(255, 255, 255, 0.9);
+  --shadow-color: rgba(0, 0, 0, 0.1);
+}
+
+html, body, #app {
+    min-height: 100vh;
+    height: auto;
+    margin: 0;
+    padding: 0;
+    font-family: 'Roboto', sans-serif;
+    font-size: 16px;
+    color: var(--text-color);
+  }
+  
+  body {
+    background: linear-gradient(135deg, var(--background-start) 0%, var(--background-end) 100%);
+    background-attachment: fixed;
+    background-size: cover;
+  }
+  
+  .v-application {
+    background: transparent !important;
+  }
+  
+  .v-main {
+    min-height: 100vh;
+  }
+  
+  /* Remove the flex properties from v-container */
+  .v-container {
+    min-height: 100%;
+  }
+  
+  /* Utility classes */
+  .card {
+    background-color: var(--card-background);
+    border-radius: 8px;
+    box-shadow: 0 4px 6px var(--shadow-color);
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+
+  .text-primary {
+    color: var(--primary-color);
+  }
+
+  .text-secondary {
+    color: var(--secondary-color);
+  }
+
+  .bg-primary {
+    background-color: var(--primary-color);
+    color: white;
+  }
+
+  .bg-secondary {
+    background-color: var(--secondary-color);
+    color: white;
+  }
+
+  /* Responsive font sizes */
+  @media (max-width: 600px) {
+    html {
+      font-size: 14px;
+    }
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #f1f1f1;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #555;
+  }
+
+  /* Animations */
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .fade-in {
+    animation: fadeIn 0.5s ease-in;
+  }

@@ -29,7 +29,7 @@ const routes = [
   {
     path: "/onboarding/:sessionId/:traderUuid",
     name: "onboarding",
-    component: () => import("@/components/OnboardingWizard.vue"),
+    component: () => import("@/components/UserLanding.vue"),
     props: true,
     meta: { requiresAuth: true }
   },
