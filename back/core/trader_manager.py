@@ -143,10 +143,11 @@ class TraderManager:
         for trader_id, trader in self.traders.items():
             print(f"Initializing trader: {trader_id}")
             await trader.initialize()
-            await trader.connect_to_session(
-                trading_session_uuid=self.trading_session.id
-            )
-        print("All traders initialized and connected")
+
+            if not isinstance(trader, HumanTrader):
+                await trader.connect_to_session(
+                    trading_session_uuid=self.trading_session.id
+                )
 
         print("Initializing order book")
         await self.book_initializer.initialize_order_book()
