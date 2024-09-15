@@ -38,7 +38,7 @@ class HumanTrader(BaseTrader):
             await self.send_message_to_client(message_type, **json_message)
 
     async def connect_to_socket(self, websocket):
-        print(f"Connecting to socket for trader {self.id}")
+        print(f"[HumanTrader {self.id}] Starting connect_to_socket")
         self.websocket = websocket
         self.socket_status = True
         if not self.trading_system_exchange:
@@ -47,6 +47,7 @@ class HumanTrader(BaseTrader):
         await self.register()
 
     async def send_message_to_client(self, message_type, **kwargs):
+        # print(f"[HumanTrader {self.id}] Starting send_message_to_client: {message_type}")
         if (
             not self.websocket
             or self.websocket.client_state != WebSocketState.CONNECTED
@@ -86,11 +87,14 @@ class HumanTrader(BaseTrader):
             # Handle other potential exceptions
 
     async def on_message_from_client(self, message):
+        # print(f"[HumanTrader {self.id}] Starting on_message_from_client: {message[:50]}...")
         """
         process  incoming messages from human client
         """
         try:
             json_message = json.loads(message)
+
+            print(f"this is the json message we try to send {json_message}")
 
             action_type = json_message.get("type")
             data = json_message.get("data")
