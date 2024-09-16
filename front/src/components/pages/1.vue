@@ -88,7 +88,6 @@ const startTrading = async () => {
   try {
     // Initialize the trading system with parameters from traderAttributes
     await traderStore.initializeTradingSystem(traderStore.traderAttributes.all_attributes.params);
-    console.log('Trading system initialized successfully');
     
     // Navigate to the trading page
     router.push({ name: 'trading', params: { traderUuid: traderStore.traderUuid } });
@@ -100,7 +99,6 @@ const startTrading = async () => {
   }
 };
 
-console.log('Trader attributes in 1.vue:', traderStore.traderAttributes); // Debug log
 </script>
 
 <style scoped>

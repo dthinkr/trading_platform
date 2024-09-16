@@ -116,20 +116,15 @@ const startPractice = () => {
 };
 
 onMounted(async () => {
-  console.log('Component mounted. Trader store:', traderStore);
-  console.log('Route params:', route.params);
   if (!traderStore.traderUuid) {
     await traderStore.getTraderAttributes(route.params.traderUuid);
-    console.log('After fetching data. Trader store:', traderStore);
   }
 });
 
 watch(() => traderStore, (newValue) => {
-  console.log('Trader store changed:', newValue);
 }, { deep: true });
 
 watch(gameParams, (newValue) => {
-  console.log('gameParams changed:', newValue);
 }, { deep: true });
 </script>
 

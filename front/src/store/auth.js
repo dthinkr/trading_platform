@@ -11,7 +11,6 @@ export const useAuthStore = defineStore('auth', {
   actions: {
     async adminLogin(credentials) {
       try {
-        console.log('Attempting admin login with:', credentials);
         const response = await api.post('/admin/login', {}, {
           auth: {
             username: credentials.username,
@@ -21,7 +20,6 @@ export const useAuthStore = defineStore('auth', {
             'Content-Type': 'application/json'
           }
         });
-        console.log('Admin login response:', response.data);
         this.user = response.data.data.username;
         this.isAdmin = response.data.data.is_admin;
         return response.data;

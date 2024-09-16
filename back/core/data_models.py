@@ -55,7 +55,7 @@ class TradingParameters(BaseModel):
         ge=0,
     )
     num_informed_traders: int = Field(
-        default=1,
+        default=0,
         title="Number of Informed Traders",
         description="model_parameter",
         ge=0,

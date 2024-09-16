@@ -168,7 +168,6 @@ const autoTradeMultiplier = computed(() => {
   return '';
 });
 
-console.log('Trader attributes in 4.vue:', props.traderAttributes); // Debug log
 </script>
 
 <style scoped>

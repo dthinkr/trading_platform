@@ -13,7 +13,7 @@ rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://localhost")
 class BaseTrader:
     orders: list = []
     order_book: dict = {}
-    active_orders: list = []
+    active_orders_in_book: list = []
     cash = 0
     shares = 0
     initial_cash = 0
@@ -232,11 +232,11 @@ class BaseTrader:
             order_book = data.get("order_book")
             if order_book:
                 self.order_book = order_book
-            active_orders = data.get("active_orders")
-            if active_orders:
-                self.active_orders = active_orders
+            active_orders_in_book = data.get("active_order")
+            if active_orders_in_book:
+                self.active_orders_in_book = active_orders_in_book
                 own_orders = [
-                    order for order in active_orders if order["trader_id"] == self.id
+                    order for order in active_orders_in_book if order["trader_id"] == self.id
                 ]
                 self.orders = own_orders
 
