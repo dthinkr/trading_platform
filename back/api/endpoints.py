@@ -11,14 +11,12 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from starlette.status import HTTP_401_UNAUTHORIZED, HTTP_400_BAD_REQUEST
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse, Response
-from pymongo import MongoClient
 import polars as pl
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.encoders import jsonable_encoder
 from core.trader_manager import TraderManager
 from core.data_models import TraderType, TradingParameters, UserRegistration
 from utils import setup_custom_logger
-from .calculate_metrics import get_data_from_mongodb, process_session, calculate_end_of_run_metrics
 from .auth import get_current_user, get_current_admin_user, get_firebase_auth
 from firebase_admin import auth
 import secrets
@@ -42,15 +40,6 @@ app.add_middleware(
 trader_managers = {}
 trader_to_session_lookup = {}
 trader_manager: TraderManager = None
-
-MONGODB_HOST = "localhost"
-MONGODB_PORT = 27017
-DATASET = "trader"
-COLLECTION_NAME = "message"
-
-mongo_client = MongoClient(MONGODB_HOST, MONGODB_PORT)
-db = mongo_client[DATASET]
-collection = db[COLLECTION_NAME]
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -360,8 +349,7 @@ async def get_time_series_metrics(trading_session_id: str, current_user: dict = 
             status_code=400, detail="Trading session is not finished yet"
         )
 
-    run_data = get_data_from_mongodb([trading_session_id])
-    processed_data = process_session(run_data)
+    processed_data = trader_manager.get_processed_data()
     
     return JSONResponse(content={"status": "success", "data": processed_data})
 
@@ -369,17 +357,14 @@ async def get_time_series_metrics(trading_session_id: str, current_user: dict = 
 @app.get("/experiment/end_metrics/{trading_session_id}")
 async def get_end_metrics(trading_session_id: str, current_user: dict = Depends(get_current_user)):
     try:
-        run_data = get_data_from_mongodb([trading_session_id])
-        
-        if run_data.is_empty():
-            raise HTTPException(
-                status_code=404, detail="No data found for this session"
-            )
+        trader_manager = trader_managers.get(trading_session_id)
+        if not trader_manager:
+            raise HTTPException(status_code=404, detail="Trading session not found")
 
-        metrics = calculate_end_of_run_metrics(run_data)
+        metrics = trader_manager.calculate_end_of_run_metrics()
 
         csv_buffer = io.StringIO()
-        csv_buffer.write("")
+        csv_buffer.write(metrics.to_csv(index=False))
         csv_buffer.seek(0)
 
         return StreamingResponse(

@@ -11,9 +11,6 @@ from uuid import UUID
 
 import duckdb
 import yaml
-from bson import ObjectId
-from mongoengine import QuerySet
-from pymongo import MongoClient
 from pydantic import BaseModel
 from termcolor import colored
 
@@ -34,6 +31,24 @@ class CustomFormatter(logging.Formatter):
     def format(self, record):
         log_message = super(CustomFormatter, self).format(record)
         return colored(log_message, self.COLORS.get(record.levelname))
+
+def setup_trading_logger(session_id: str) -> logging.Logger:
+    logger = logging.getLogger(f"trading_session_{session_id}")
+    logger.setLevel(logging.INFO)
+
+    log_dir = os.path.join("logs", "trading_sessions")
+    os.makedirs(log_dir, exist_ok=True)
+    log_file = os.path.join(log_dir, f"{session_id}_trading.log")
+
+    file_handler = logging.FileHandler(log_file)
+    file_handler.setLevel(logging.INFO)
+
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    file_handler.setFormatter(formatter)
+
+    logger.addHandler(file_handler)
+
+    return logger
 
 def setup_custom_logger(name: str) -> logging.Logger:
     logger = logging.getLogger(name)
@@ -88,7 +103,7 @@ def if_active(func):
 
 class CustomEncoder(JSONEncoder):
     def default(self, obj):
-        if isinstance(obj, (ObjectId, UUID, Enum)):
+        if isinstance(obj, (UUID, Enum)):
             return str(obj)
         if isinstance(obj, datetime):
             return obj.isoformat()
@@ -96,30 +111,4 @@ class CustomEncoder(JSONEncoder):
             return obj.model_dump()
         if isinstance(obj, (dict_keys, dict_values)):
             return list(obj)
-        if isinstance(obj, QuerySet):
-            return [doc.to_mongo().to_dict() for doc in obj]
         return JSONEncoder.default(self, obj)
-
-def delete_all_tables() -> None:
-    con = duckdb.connect(f"md:{CONFIG.DATASET}?motherduck_token={CONFIG.MD_TOKEN}")
-    mongo_client = MongoClient("localhost", 27017)
-
-    con.execute(f"DROP TABLE IF EXISTS {CONFIG.TABLE_REF}")
-    con.execute(f"DROP TABLE IF EXISTS {CONFIG.TABLE_RES}")
-
-    tables_deleted = con.execute("SHOW TABLES").fetchall()
-    if (CONFIG.TABLE_REF,) not in tables_deleted and (CONFIG.TABLE_RES,) not in tables_deleted:
-        logger.info("DuckDB tables deleted successfully.")
-    else:
-        logger.error("Error: DuckDB tables not deleted.")
-
-    db = mongo_client["trader"]
-    db.message.drop()
-
-    if "message" not in db.list_collection_names():
-        logger.info("MongoDB collection deleted successfully.")
-    else:
-        logger.error("Error: MongoDB collection not deleted.")
-
-    con.close()
-    mongo_client.close()
