@@ -1,7 +1,44 @@
+from typing import Dict, List, Tuple
+from core.data_models import Order, OrderStatus, OrderType
 from sortedcontainers import SortedDict
 from core.data_models import OrderStatus, OrderType
 from typing import Dict, List, Tuple, Optional, Union
-from uuid import UUID
+
+class OrderBookManager:
+    def __init__(self):
+        self.order_book = OrderBook()
+
+    def place_order(self, order_dict: Dict) -> Dict:
+        return self.order_book.place_order(order_dict)
+
+    def get_order_book_snapshot(self) -> Dict:
+        return self.order_book.get_order_book_snapshot()
+
+    def get_active_orders_to_broadcast(self) -> List[Dict]:
+        active_orders = list(self.order_book.active_orders.values())
+        processed_orders = []
+        
+        for order in active_orders:
+            processed_order = {
+                "id": str(order["id"]),
+                "trader_id": str(order["trader_id"]),
+                "order_type": int(order["order_type"]),
+                "amount": float(order["amount"]),
+                "price": float(order["price"]),
+                "timestamp": str(order["timestamp"])
+            }
+            processed_orders.append(processed_order)
+        
+        return processed_orders
+
+    def cancel_order(self, order_id: str) -> bool:
+        return self.order_book.cancel_order(order_id)
+
+    def clear_orders(self) -> List[Tuple[Dict, Dict, float]]:
+        return self.order_book.clear_orders()
+
+    def get_spread(self) -> Tuple[float, float]:
+        return self.order_book.get_spread()
 
 class OrderBook:
     def __init__(self):

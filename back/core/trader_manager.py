@@ -13,7 +13,7 @@ from traders import (
     BookInitializer,
     SimpleOrderTrader,
 )
-from core import TradingSession
+from core import TradingPlatform
 import asyncio
 from utils import setup_custom_logger
 import time
@@ -22,7 +22,7 @@ logger = setup_custom_logger(__name__)
 
 class TraderManager:
     params: TradingParameters
-    trading_system: TradingSession = None
+    trading_system: TradingPlatform = None
     traders = {}
     human_traders = List[HumanTrader]
     noise_traders = List[NoiseTrader]
@@ -58,7 +58,7 @@ class TraderManager:
             + [self.book_initializer]
             + self.simple_order_traders
         }
-        self.trading_session = TradingSession(
+        self.trading_session = TradingPlatform(
             session_id=session_id,  # Pass the new session ID here
             duration=params["trading_day_duration"],
             default_price=params.get("default_price"),

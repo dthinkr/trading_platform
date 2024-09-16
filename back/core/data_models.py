@@ -26,7 +26,7 @@ class Trader(BaseModel):
     trading_session_id: UUID
     is_ready: bool = False
 
-class TradingSession(BaseModel):
+class TradingPlatform(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     status: str = "waiting"
     traders: List[UUID] = []
@@ -84,7 +84,7 @@ class TradingParameters(BaseModel):
         description="model_parameter",
     )
     noise_activity_frequency: float = Field(
-        default=30.0,
+        default=0.5,
         title="Activity Frequency",
         description="noise_parameter",
         gt=0,
@@ -135,7 +135,7 @@ class TradingParameters(BaseModel):
         description="informed_parameter",
     )
     informed_order_book_depth: int = Field(
-        default=10,
+        default=2,
         title="Informed Order Book Depth",
         description="informed_parameter",
     )

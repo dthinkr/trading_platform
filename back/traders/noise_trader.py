@@ -27,6 +27,7 @@ class NoiseTrader(BaseTrader):
         self.start_time = datetime.now()
         self.session_duration = timedelta(minutes=self.params["trading_day_duration"])
         self.activity_frequency = self.params["noise_activity_frequency"]
+        print(f"My activity frequency: {self.activity_frequency}")
         self.target_actions = int(
             self.session_duration.total_seconds() * self.activity_frequency
         )

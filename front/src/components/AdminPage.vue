@@ -3,7 +3,7 @@
     <v-app-bar app flat color="primary" dark>
       <v-toolbar-title class="text-h6 font-weight-bold">Admin Panel</v-toolbar-title>
       <v-spacer></v-spacer>
-      <v-btn color="white" text :to="{ name: 'CreateTradingSession' }">
+      <v-btn color="white" text :to="{ name: 'CreateTradingPlatform' }">
         Return to Create Session
       </v-btn>
     </v-app-bar>
