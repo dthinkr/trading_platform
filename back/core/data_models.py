@@ -3,20 +3,9 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from enum import Enum, IntEnum
-from typing import Optional, List
+from typing import Optional, List, Dict
 from uuid import UUID, uuid4
 
-from mongoengine import (
-    BooleanField,
-    DateTimeField,
-    DictField,
-    Document,
-    FloatField,
-    IntField,
-    ListField,
-    UUIDField,
-    StringField,
-)
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 class StrEnum(str, Enum):
@@ -274,22 +263,40 @@ class Order(BaseModel):
 
 executor = ThreadPoolExecutor()
 
-class TransactionModel(Document):
-    id = UUIDField(primary_key=True, default=uuid.uuid4, binary=False)
-    trading_session_id = StringField(required=True)
-    bid_order_id = StringField(required=False)
-    ask_order_id = StringField(required=False)
-    timestamp = DateTimeField(default=datetime.now(timezone.utc))
-    price = FloatField(required=True)
-    informed_trader_progress = StringField(required=False)  # New field
+class TransactionModel:
+    def __init__(self, trading_session_id, bid_order_id, ask_order_id, price, informed_trader_progress=None):
+        self.id = uuid.uuid4()
+        self.trading_session_id = trading_session_id
+        self.bid_order_id = bid_order_id
+        self.ask_order_id = ask_order_id
+        self.timestamp = datetime.now(timezone.utc)
+        self.price = price
+        self.informed_trader_progress = informed_trader_progress
 
-    async def save_async(self):
-        loop = asyncio.get_running_loop()
-        await loop.run_in_executor(executor, self.save)
+    def to_dict(self):
+        return {
+            "id": str(self.id),
+            "trading_session_id": self.trading_session_id,
+            "bid_order_id": self.bid_order_id,
+            "ask_order_id": self.ask_order_id,
+            "timestamp": self.timestamp.isoformat(),
+            "price": self.price,
+            "informed_trader_progress": self.informed_trader_progress
+        }
 
+class Message:
+    def __init__(self, trading_session_id: str, content: Dict, message_type: str = "BOOK_UPDATED"):
+        self.id: UUID = uuid4()
+        self.trading_session_id: str = trading_session_id
+        self.content: Dict = content
+        self.timestamp: datetime = datetime.now(timezone.utc)
+        self.type: str = message_type
 
-class Message(Document):
-    trading_session_id = StringField(required=True)
-    content = DictField(required=True)
-    timestamp = DateTimeField(default=datetime.now)
-    matched_orders = DictField(required=False)
+    def to_dict(self) -> Dict:
+        return {
+            "id": str(self.id),
+            "trading_session_id": self.trading_session_id,
+            "content": self.content,
+            "timestamp": self.timestamp.isoformat(),
+            "type": self.type
+        }

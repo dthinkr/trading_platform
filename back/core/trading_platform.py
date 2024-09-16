@@ -8,10 +8,9 @@ from typing import Dict, List, Optional, Tuple
 
 import aio_pika
 import polars as pl
-from mongoengine import connect
 from pydantic import ValidationError
 
-from utils import setup_custom_logger
+from utils import setup_custom_logger, setup_trading_logger
 from utils import CustomEncoder, if_active
 from core.order_book import OrderBook
 
@@ -26,12 +25,8 @@ from core.data_models import (
     TransactionModel,
 )
 
-mongodb_url = f"mongodb://{os.getenv('MONGODB_HOST', 'localhost')}:{os.getenv('MONGODB_PORT', '27017')}/trader?w=majority&wtimeoutMS=1000"
-connect(host=mongodb_url, uuidRepresentation="standard")
-
 rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://localhost")
 logger = setup_custom_logger(__name__)
-
 
 class TradingSession:
     def __init__(
@@ -57,6 +52,7 @@ class TradingSession:
         self.trader_responses = {}
         self._stop_requested = asyncio.Event()
         self.transaction_queue = asyncio.Queue()
+        self.transaction_list = []
         self.initialization_complete = False
         self.trading_started = False
         self.lock = Lock()
@@ -68,6 +64,7 @@ class TradingSession:
         self.queue_name = f"trading_system_queue_{self.id}"
         self.trader_exchange = None
         self.process_transactions_task = None
+        self.trading_logger = setup_trading_logger(self.id)
 
     def place_order(self, order_dict: Dict) -> Dict:
         return self.order_book.place_order(order_dict)
@@ -78,8 +75,7 @@ class TradingSession:
 
     @property
     def transactions(self) -> List[Dict]:
-        transactions = TransactionModel.objects(trading_session_id=self.id)
-        return [transaction.to_mongo().to_dict() for transaction in transactions]
+        return [transaction.to_dict() for transaction in self.transaction_list]
 
     @property
     def mid_price(self) -> float:
@@ -152,10 +148,7 @@ class TradingSession:
         return self.order_book.get_order_book_snapshot()
 
     def get_transaction_history(self) -> List[Dict]:
-        return [
-            transaction.to_mongo().to_dict()
-            for transaction in TransactionModel.objects(trading_session_id=self.id)
-        ]
+        return [transaction.to_dict() for transaction in self.transaction_list]
 
     def get_active_orders_to_broadcast(self) -> List[Dict]:
         active_orders = list(self.order_book.active_orders.values())
@@ -188,7 +181,7 @@ class TradingSession:
     async def send_broadcast(
         self, message: dict, message_type="BOOK_UPDATED", incoming_message=None
     ) -> None:
-        print(f"Entering send_broadcast method with message_type: {message_type}")
+        # print(f"Entering send_broadcast method with message_type: {message_type}")
         
         if "type" not in message:
             message["type"] = message_type
@@ -208,13 +201,10 @@ class TradingSession:
                 "informed_trader_progress": incoming_message.get("informed_trader_progress") if incoming_message else None,
             }
         )
-        print(self.get_transaction_history())
 
         # If this is a filled order, add matched_orders to the message
         if message_type == "FILLED_ORDER" and incoming_message:
             message["matched_orders"] = incoming_message.get("matched_orders")
-
-        Message(trading_session_id=self.id, content=message).save()
 
         exchange = await self.channel.get_exchange(self.broadcast_exchange_name)
         await exchange.publish(
@@ -272,7 +262,7 @@ class TradingSession:
         try:
             while not self._stop_requested.is_set():
                 transaction = await asyncio.wait_for(self.transaction_queue.get(), timeout=0.1)
-                await transaction.save_async()
+                self.transaction_list.append(transaction)
                 self.transaction_queue.task_done()
                 logger.info(f"Transaction processed: {transaction}")
 
@@ -316,6 +306,8 @@ class TradingSession:
         # Ensure the order_id is a string
         order_dict["id"] = str(order_dict["id"])
 
+        self.trading_logger.info(f"ADD_ORDER: {order_dict}")
+
         placed_order, immediately_matched = self.order_book.place_order(order_dict)
 
         if immediately_matched:
@@ -330,6 +322,8 @@ class TradingSession:
                 "bid_order_id": str(bid["id"]),
                 "ask_order_id": str(ask["id"]),
             }
+
+            self.trading_logger.info(f"MATCHED_ORDER: {data}")
 
             return {
                 "transactions": transactions,
@@ -356,15 +350,7 @@ class TradingSession:
             cancel_result = self.order_book.cancel_order(order_id)
 
             if cancel_result:
-                Message(
-                    trading_session_id=self.id,
-                    content={
-                        "action": "order_cancelled",
-                        "order_id": str(order_id),
-                        "details": data.get("order_details"),
-                    },
-                ).save()
-
+                self.trading_logger.info(f"CANCEL_ORDER: {data}")
                 return {
                     "status": "cancel success",
                     "order_id": str(order_id),
