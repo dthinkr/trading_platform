@@ -27,8 +27,6 @@ AnnotationsModule(Highcharts);
 
 const { chartData, midPoint } = storeToRefs(useTraderStore());
 
-console.log('chartData:', chartData.value);
-console.log('midPoint:', midPoint.value);
 
 const chartOptions = reactive({
   chart: {
@@ -136,10 +134,6 @@ const chartOptions = reactive({
 });
 
 watchEffect(() => {
-  console.log('watchEffect triggered');
-  console.log('Updated chartData:', chartData.value);
-  console.log('Updated midPoint:', midPoint.value);
-
   chartOptions.series = chartData.value.map(series => ({
     ...series,
     pointPlacement: 0,

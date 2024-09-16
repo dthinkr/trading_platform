@@ -73,15 +73,10 @@ const playerGoal = computed(() => {
 });
 
 onMounted(async () => {
-  console.log("UserLanding mounted");
-  console.log("traderUuid:", traderUuid.value);
-  console.log("sessionId:", sessionId.value);
 
   if (traderUuid.value && sessionId.value) {
     try {
-      console.log("Initializing trader...");
       await initializeTrader(traderUuid.value);
-      console.log("Trader initialized");
     } catch (error) {
       console.error("Error initializing trader:", error);
     }
@@ -112,7 +107,6 @@ const pageTitles = [
   "Practice"
 ];
 
-console.log('TraderLanding mounted. Duration:', duration.value, 'NumRounds:', numRounds.value);
 
 const nextPage = () => {
   if (currentPageIndex.value < pageComponents.length - 1) {

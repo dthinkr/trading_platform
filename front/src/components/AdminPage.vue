@@ -133,9 +133,6 @@ const startTraderSession = (traderId) => {
   });
 };
 
-console.log("tradingSessionData:", tradingSessionData.value);
-console.log("formState:", formState.value);
-
 onMounted(async () => {
   await traderStore.getTraderAttributes(props.tradingSessionUUID);
 });

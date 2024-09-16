@@ -53,7 +53,6 @@ const signInWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
     const result = await signInWithPopup(auth, provider);
     const user = result.user;
-    console.log("Google sign-in successful", user);
     
     // Use the updated login method
     await authStore.login(user);
@@ -73,7 +72,6 @@ const signInWithGoogle = async () => {
 
 const adminLogin = async () => {
   try {
-    console.log('Attempting admin login with:', { username: adminUsername.value, password: adminPassword.value });
     await authStore.adminLogin({
       username: adminUsername.value,
       password: adminPassword.value

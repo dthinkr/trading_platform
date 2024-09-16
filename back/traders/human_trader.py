@@ -62,9 +62,8 @@ class HumanTrader(BaseTrader):
         if not self.socket_status:
             return
 
-        trader_orders = self.orders or []
         order_book = self.order_book or {"bids": [], "asks": []}
-        kwargs["trader_orders"] = trader_orders
+        kwargs["trader_orders"] = self.orders
         try:
             message = {
                 "shares": self.shares,
@@ -78,6 +77,8 @@ class HumanTrader(BaseTrader):
                 "initial_shares": self.initial_shares,
                 "sum_dinv": self.sum_dinv,
                 "vwap": self.get_vwap(),
+                "filled_orders": self.filled_orders,
+                "placed_orders": self.placed_orders,
             }
             await self.websocket.send_json(message)
         except WebSocketDisconnect:

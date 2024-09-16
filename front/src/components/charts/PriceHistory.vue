@@ -147,7 +147,6 @@ const chartOptions = reactive({
 watch(
   history,
   (newHistory) => {
-    console.log('History updated:', newHistory); // Add this line
     if (newHistory && newHistory.length) {
       const data = newHistory.map((item) => ({
         x: new Date(item.timestamp).getTime(),

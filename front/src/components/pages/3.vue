@@ -73,7 +73,6 @@ const numMarkets = computed(() => {
   return traderStore.traderAttributes?.all_attributes?.params?.num_rounds || 0;
 });
 
-console.log('Trader attributes in 3.vue:', traderStore.traderAttributes); // Debug log
 </script>
 
 <style scoped>

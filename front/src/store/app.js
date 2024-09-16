@@ -291,10 +291,14 @@ export const useTraderStore = defineStore("trader", {
     },
     
     async sendMessage(type, data) {
-      if (this.ws.status === "OPEN") {
-        this.ws.send(JSON.stringify({ type, data }));
+      if (this.ws.readyState === WebSocket.OPEN) {
+        const message = JSON.stringify({ type, data });
+        this.ws.send(message);
+      } else {
+        console.warn(`WebSocket is not open. Current state: ${this.ws.readyState}`);
       }
     },
+
     checkLimits() {
       if (this.hasReachedMaxActiveOrders) {
         this.snackbarText = `You are allowed to have a maximum of ${this.gameParams.max_active_orders} active orders`;
