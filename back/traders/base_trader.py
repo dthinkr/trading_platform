@@ -104,7 +104,6 @@ class BaseTrader:
     async def initialize(self):
         self.connection = await aio_pika.connect_robust(rabbitmq_url)
         self.channel = await self.connection.channel()
-        await self.channel.declare_queue(self.trader_queue_name, auto_delete=True)
 
     async def clean_up(self):
         self._stop_requested.set()
@@ -117,6 +116,9 @@ class BaseTrader:
             pass
 
     async def connect_to_session(self, trading_session_uuid):
+        if not self.channel:
+            await self.initialize()
+
         self.trading_session_uuid = trading_session_uuid
         self.queue_name = f"trading_system_queue_{self.trading_session_uuid}"
         self.trader_queue_name = f"trader_{self.id}"
@@ -141,7 +143,18 @@ class BaseTrader:
         )
         await trader_queue.consume(self.on_message_from_system)
 
-        await self.register()
+    async def register(self):
+        if not self.trading_system_exchange:
+            await self.connect_to_session(self.trading_session_uuid)
+
+        message = {
+            "type": ActionType.REGISTER.value,
+            "action": ActionType.REGISTER.value,
+            "trader_type": self.trader_type,
+        }
+
+        await self.send_to_trading_system(message)
+
 
     async def register(self):
         message = {

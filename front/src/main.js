@@ -11,6 +11,9 @@ import './global.css'
 // Create Vue app
 const app = createApp(App)
 
+// Explicitly enable Vue DevTools
+app.config.devtools = true
+
 // Create Pinia store
 const pinia = createPinia()
 
