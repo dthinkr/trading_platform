@@ -36,7 +36,7 @@ def setup_trading_logger(session_id: str) -> logging.Logger:
     logger = logging.getLogger(f"trading_session_{session_id}")
     logger.setLevel(logging.INFO)
 
-    log_dir = os.path.join("logs", "trading_sessions")
+    log_dir = "logs"
     os.makedirs(log_dir, exist_ok=True)
     log_file = os.path.join(log_dir, f"{session_id}_trading.log")
 

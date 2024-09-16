@@ -44,16 +44,13 @@ class HumanTrader(BaseTrader):
             self.websocket = websocket
             self.socket_status = True
             
-            if not self.trading_system_exchange:
-                try:
-                    await self.connect_to_session(self.trading_session.id)
-                except Exception as e:
-                    traceback.print_exc()
+            if not self.channel:
+                await self.initialize()
             
-            try:
-                await self.register()
-            except Exception as e:
-                traceback.print_exc()
+            if not self.trading_system_exchange:
+                await self.connect_to_session(self.trading_session.id)
+            
+            await self.register()
         except Exception as e:
             traceback.print_exc()
 

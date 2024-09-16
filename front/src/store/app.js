@@ -10,19 +10,12 @@ import {
 } from "firebase/auth";
 
 function findMidpoint(bids, asks) {
-  // Ensure the arrays are not empty
   if (!bids.length || !asks.length) {
-    console.debug('One or both arrays are empty.');
-    return 0; // Or any other default value you deem appropriate
+    return 0;
   }
 
-  // Find the largest x value in the bids array
   const largestBidX = Math.max(...bids.map(bid => bid.x));
-
-  // Find the lowest x value in the asks array
   const lowestAskX = Math.min(...asks.map(ask => ask.x));
-
-  // Calculate the midpoint
   const midpoint = (largestBidX + lowestAskX) / 2;
 
   return midpoint;
@@ -103,7 +96,6 @@ export const useTraderStore = defineStore("trader", {
     goalMessage: (state) => {
       if (state.gameParams.goal === 0) return null;
 
-
       const goalAmount = state.gameParams.goal;
       const successVerb = state.gameParams.goal > 0 ? 'buying' : 'selling';
       const currentDelta = goalAmount - state.sum_dinv;
@@ -111,9 +103,7 @@ export const useTraderStore = defineStore("trader", {
       const shareWord = remaining === 1 ? 'share' : 'shares';
 
       const action = currentDelta > 0 ? 'buy' : 'sell';
-      console.debug('goalAmount', goalAmount, 'successVerb', successVerb, 'currentDelta', currentDelta, 'remaining', remaining, 'shareWord', shareWord, 'action', action)
       if (remaining == 0) return { text: `You have reached your goal of ${successVerb} ${Math.abs(goalAmount)} shares`, type: 'success' };
-
 
       return { text: `You need to ${action} ${remaining}  ${shareWord} to reach your goal`, type: 'warning' };
     },
@@ -152,7 +142,6 @@ export const useTraderStore = defineStore("trader", {
   },
   actions: {
     updateExtraParams(data) {
-
       this.extraParams = this.extraParams.map(param => ({
         ...param,
         value: data[param.var_name] !== undefined ? data[param.var_name].toString() : param.value,
@@ -162,55 +151,41 @@ export const useTraderStore = defineStore("trader", {
   async initializeTradingSystem(formState) {
     try {
       const response = await axios.post("trading/initiate", formState);
-      console.debug(response.data.data);
       this.tradingSessionData = response.data.data;
-
-      // Store the formState in gameParams for future reference
       this.gameParams = formState;
-      // Store the formState separately as well
       this.formState = formState;
-      // Connect to WebSocket or perform other actions
     } catch (error) {
-      console.error("Error initializing trading system:", error);
       throw error;
     }
     },
 
     async getTraderAttributes(traderId) {
-      console.log("Getting trader attributes for:", traderId);
       try {
         const response = await axios.get(`trader_info/${traderId}`);
-        console.log("Trader info response:", response);
         
         if (response.data.status === "success") {
           this.traderAttributes = response.data.data;
           this.traderUuid = traderId;
-          console.log("Trader attributes set:", this.traderAttributes);
         } else {
-          console.error("Failed to fetch trader attributes:", response.data);
           throw new Error("Failed to fetch trader attributes");
         }
       } catch (error) {
-        console.error('Failed to fetch trader attributes:', error);
         throw error;
       }
     },
 
     async initializeTrader(traderUuid) {
-      console.debug("Initializing trader");
       this.traderUuid = traderUuid;
       
       try {
         await this.getTraderAttributes(traderUuid);
         this.initializeWebSocket();
       } catch (error) {
-        console.error("Error initializing trader:", error);
+        // Handle error
       }
     },
     
     handle_update(data) {
-      console.log('Received WebSocket update:', JSON.stringify(data, null, 2));
-
       if (data.type === "time_update") {
         this.$patch({
           currentTime: new Date(data.data.current_time),
@@ -235,19 +210,6 @@ export const useTraderStore = defineStore("trader", {
         initial_shares,
       } = data;
     
-      console.log('Extracted data:', {
-        order_book,
-        history,
-        spread,
-        midpoint,
-        transaction_price,
-        inventory,
-        trader_orders,
-        pnl,
-        vwap,
-        sum_dinv,
-        initial_shares,
-      });
     
       if (transaction_price && midpoint && spread) {
         const market_level_data = {
@@ -273,7 +235,6 @@ export const useTraderStore = defineStore("trader", {
       }
     
       if (order_book) {
-        console.log('Updating order book:', JSON.stringify(order_book, null, 2));
         const { bids, asks } = order_book;
         const depth_book_shown = this.gameParams.depth_book_shown || 3;
         this.bidData = bids.slice(0, depth_book_shown);
@@ -303,39 +264,33 @@ export const useTraderStore = defineStore("trader", {
     },
 
     async initializeWebSocket() {
-      console.debug("Initializing WebSocket");
       const wsUrl = `${import.meta.env.VITE_WS_URL}trader/${this.traderUuid}`;
       this.ws = new WebSocket(wsUrl);
     
       this.ws.onopen = async (event) => {
-        console.debug("WebSocket connected:", event);
-        // Send authentication token
         const token = await auth.currentUser.getIdToken();
         this.ws.send(token);
       };
     
       this.ws.onmessage = (event) => {
-        console.debug("WebSocket message received:", event.data);
         try {
           const data = JSON.parse(event.data);
           this.handle_update(data);
         } catch (error) {
-          console.error("Error parsing WebSocket message:", error);
+          // Handle error
         }
       };
     
       this.ws.onerror = (error) => {
-        console.error("WebSocket error:", error);
+        // Handle error
       };
     
       this.ws.onclose = (event) => {
-        console.debug("WebSocket closed:", event);
+        // Handle close
       };
     },
     
     async sendMessage(type, data) {
-      // Use the 'send' function from the state
-
       if (this.ws.status === "OPEN") {
         this.ws.send(JSON.stringify({ type, data }));
       }
@@ -355,7 +310,7 @@ export const useTraderStore = defineStore("trader", {
     addOrder(order) {
       this.placedOrders.push(order);
       this.sendMessage("add_order", { 
-        type: order.order_type === 'BID' ? 1 : -1, // Convert to integer
+        type: order.order_type === 'BID' ? 1 : -1,
         price: order.price,
         amount: order.amount 
       });
@@ -390,7 +345,6 @@ export const useTraderStore = defineStore("trader", {
         this.isAdmin = userCredential.user.is_admin;
         return this.isAdmin;
       } catch (error) {
-        console.error('Login failed:', error);
         throw error;
       }
     },
@@ -402,7 +356,6 @@ export const useTraderStore = defineStore("trader", {
         this.isAdmin = userCredential.user.is_admin;
         return this.isAdmin;
       } catch (error) {
-        console.error('Registration failed:', error);
         throw error;
       }
     },
@@ -413,7 +366,6 @@ export const useTraderStore = defineStore("trader", {
         this.isAuthenticated = false;
         this.isAdmin = false;
       } catch (error) {
-        console.error('Logout failed:', error);
         throw error;
       }
     },
@@ -425,7 +377,7 @@ export const useTraderStore = defineStore("trader", {
     },
     getIntendedRoute() {
       const route = this.intendedRoute;
-      this.intendedRoute = null; // Clear the intended route after retrieving it
+      this.intendedRoute = null;
       return route;
     },
     updateTimeInfo(data) {

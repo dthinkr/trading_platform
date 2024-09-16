@@ -55,7 +55,6 @@ class TradingSession:
         self.transaction_list = []
         self.initialization_complete = False
         self.trading_started = False
-        self.lock = Lock()
         self.release_event = Event()
         self.current_price = 0
         self.is_finished = False
@@ -65,6 +64,7 @@ class TradingSession:
         self.trader_exchange = None
         self.process_transactions_task = None
         self.trading_logger = setup_trading_logger(self.id)
+        self.order_lock = asyncio.Lock()
 
     def place_order(self, order_dict: Dict) -> Dict:
         return self.order_book.place_order(order_dict)
@@ -76,7 +76,7 @@ class TradingSession:
     @property
     def transactions(self) -> List[Dict]:
         return [transaction.to_dict() for transaction in self.transaction_list]
-
+    
     @property
     def mid_price(self) -> float:
         return self.current_price or self.default_price
@@ -148,7 +148,7 @@ class TradingSession:
         return self.order_book.get_order_book_snapshot()
 
     def get_transaction_history(self) -> List[Dict]:
-        return [transaction.to_dict() for transaction in self.transaction_list]
+        return self.transactions
 
     def get_active_orders_to_broadcast(self) -> List[Dict]:
         active_orders = list(self.order_book.active_orders.values())
@@ -202,6 +202,9 @@ class TradingSession:
             }
         )
 
+        current_history = self.get_transaction_history()
+        print(f"Current history: {current_history}")
+
         # If this is a filled order, add matched_orders to the message
         if message_type == "FILLED_ORDER" and incoming_message:
             message["matched_orders"] = incoming_message.get("matched_orders")
@@ -225,6 +228,7 @@ class TradingSession:
             informed_trader_progress=bid.get("informed_trader_progress") or ask.get("informed_trader_progress")
         )
 
+        self.transaction_list.append(transaction)
         await self.transaction_queue.put(transaction)
         logger.info(f"Transaction enqueued: {transaction}")
 
@@ -257,18 +261,19 @@ class TradingSession:
         )
 
         return ask["trader_id"], bid["trader_id"], transaction
-
+            
     async def process_transactions(self) -> None:
         try:
             while not self._stop_requested.is_set():
-                transaction = await asyncio.wait_for(self.transaction_queue.get(), timeout=0.1)
-                self.transaction_list.append(transaction)
-                self.transaction_queue.task_done()
-                logger.info(f"Transaction processed: {transaction}")
+                try:
+                    transaction = await asyncio.wait_for(self.transaction_queue.get(), timeout=0.1)
+                    # No need to append to self.transaction_list here, as it's done in create_transaction
+                    self.transaction_queue.task_done()
+                    logger.info(f"Transaction processed: {transaction}")
 
-                self._last_transaction_price = transaction.price
-        except asyncio.TimeoutError:
-            pass
+                    self._last_transaction_price = transaction.price
+                except asyncio.TimeoutError:
+                    pass
         except asyncio.CancelledError:
             # Handle cancellation gracefully
             pass
@@ -286,60 +291,57 @@ class TradingSession:
 
     @if_active
     async def handle_add_order(self, data: dict) -> Dict:
-        data["order_type"] = int(data["order_type"])
+        async with self.order_lock:  # Add a lock to ensure sequential processing
+            data["order_type"] = int(data["order_type"])
+            informed_trader_progress = data.get("informed_trader_progress")
+            order_id = data.get("order_id")
+            if order_id:
+                data["id"] = order_id
 
-        # Extract informed_trader_progress from the incoming data
-        informed_trader_progress = data.get("informed_trader_progress")
+            order = Order(status=OrderStatus.BUFFERED.value, session_id=self.id, **data)
+            order_dict = order.model_dump()
 
-        # Use the order_id from the incoming data if it exists
-        order_id = data.get("order_id")
-        if order_id:
-            data["id"] = order_id
+            if informed_trader_progress is not None:
+                order_dict["informed_trader_progress"] = informed_trader_progress
 
-        order = Order(status=OrderStatus.BUFFERED.value, session_id=self.id, **data)
-        order_dict = order.model_dump()
+            order_dict["id"] = str(order_dict["id"])
 
-        # Add informed_trader_progress if present in the data
-        if informed_trader_progress is not None:
-            order_dict["informed_trader_progress"] = informed_trader_progress
+            # Log the add order event immediately
+            self.trading_logger.info(f"ADD_ORDER: {order_dict}")
 
-        # Ensure the order_id is a string
-        order_dict["id"] = str(order_dict["id"])
+            placed_order, immediately_matched = self.order_book.place_order(order_dict)
 
-        self.trading_logger.info(f"ADD_ORDER: {order_dict}")
+            if immediately_matched:
+                matched_orders = self.order_book.clear_orders()
+                transactions = []
+                for ask, bid, transaction_price in matched_orders:
+                    transaction = await self.create_transaction(bid, ask, transaction_price)
+                    transactions.append(transaction)
 
-        placed_order, immediately_matched = self.order_book.place_order(order_dict)
+                    # Log the matched order event immediately after the match
+                    match_data = {
+                        "bid_order_id": str(bid["id"]),
+                        "ask_order_id": str(ask["id"]),
+                        "transaction_price": transaction_price,
+                        "amount": min(bid["amount"], ask["amount"])
+                    }
+                    self.trading_logger.info(f"MATCHED_ORDER: {match_data}")
 
-        if immediately_matched:
-            matched_orders = self.order_book.clear_orders()
-            transactions = []
-            for ask, bid, transaction_price in matched_orders:
-                transaction = await self.create_transaction(bid, ask, transaction_price)
-                transactions.append(transaction)
-
-            # Add matched_orders to the data (incoming_message)
-            data["matched_orders"] = {
-                "bid_order_id": str(bid["id"]),
-                "ask_order_id": str(ask["id"]),
-            }
-
-            self.trading_logger.info(f"MATCHED_ORDER: {data}")
-
-            return {
-                "transactions": transactions,
-                "type": "FILLED_ORDER",
-                "content": "F",
-                "respond": True,
-                "incoming_message": data,  # Include the updated data as incoming_message
-                "informed_trader_progress": informed_trader_progress,  # Add informed_trader_progress to the return value
-            }
-        else:
-            return {
-                "type": "ADDED_ORDER",
-                "content": "A",
-                "respond": True,
-                "informed_trader_progress": informed_trader_progress,  # Add informed_trader_progress to the return value
-            }
+                return {
+                    "transactions": transactions,
+                    "type": "FILLED_ORDER",
+                    "content": "F",
+                    "respond": True,
+                    "incoming_message": data,
+                    "informed_trader_progress": informed_trader_progress,
+                }
+            else:
+                return {
+                    "type": "ADDED_ORDER",
+                    "content": "A",
+                    "respond": True,
+                    "informed_trader_progress": informed_trader_progress,
+                }      
 
     @if_active
     async def handle_cancel_order(self, data: dict) -> Dict:

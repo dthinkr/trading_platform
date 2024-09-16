@@ -84,7 +84,7 @@ class TradingParameters(BaseModel):
         description="model_parameter",
     )
     noise_activity_frequency: float = Field(
-        default=1.0,
+        default=30.0,
         title="Activity Frequency",
         description="noise_parameter",
         gt=0,
