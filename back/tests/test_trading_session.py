@@ -1,7 +1,7 @@
 import pytest
 import asyncio
 from unittest.mock import AsyncMock, patch, MagicMock
-from core import TradingSession
+from core import TradingPlatform
 from core.data_models import OrderStatus, OrderType, Order
 from datetime import datetime, timezone, timedelta
 import uuid
@@ -50,7 +50,7 @@ async def cleanup():
 
 @pytest.mark.asyncio
 async def test_initialize(mock_aio_pika, session_id):
-    session = TradingSession(session_id=session_id, duration=1, default_price=1000)
+    session = TradingPlatform(session_id=session_id, duration=1, default_price=1000)
 
     with patch('core.trading_platform.datetime') as mock_datetime:
         mock_datetime.now.return_value = datetime(2023, 4, 1, tzinfo=timezone.utc)
@@ -65,7 +65,7 @@ async def test_initialize(mock_aio_pika, session_id):
 
 @pytest.mark.asyncio
 async def test_place_order(session_id):
-    session = TradingSession(session_id=session_id, duration=1, default_price=1000)
+    session = TradingPlatform(session_id=session_id, duration=1, default_price=1000)
     order_dict = {
         "id": "test_order_id",
         "order_type": OrderType.BID.value,
@@ -81,7 +81,7 @@ async def test_place_order(session_id):
 
 @pytest.mark.asyncio
 async def test_order_book_empty(session_id):
-    session = TradingSession(session_id=session_id, duration=1, default_price=1000)
+    session = TradingPlatform(session_id=session_id, duration=1, default_price=1000)
     order_book_snapshot = await session.get_order_book_snapshot()
     assert order_book_snapshot == {
         "bids": [],
@@ -90,7 +90,7 @@ async def test_order_book_empty(session_id):
 
 @pytest.mark.asyncio
 async def test_order_book_with_only_bids(session_id):
-    session = TradingSession(session_id=session_id, duration=1, default_price=1000)
+    session = TradingPlatform(session_id=session_id, duration=1, default_price=1000)
     session.place_order({
         "id": "bid_order_1",
         "order_type": OrderType.BID.value,
@@ -116,7 +116,7 @@ async def test_order_book_with_only_bids(session_id):
 
 @pytest.mark.asyncio
 async def test_order_book_with_only_asks(session_id):
-    session = TradingSession(session_id=session_id, duration=1, default_price=1000)
+    session = TradingPlatform(session_id=session_id, duration=1, default_price=1000)
     session.place_order({
         "id": "ask_order_1",
         "order_type": OrderType.ASK.value,
@@ -142,7 +142,7 @@ async def test_order_book_with_only_asks(session_id):
 
 @pytest.mark.asyncio
 async def test_order_book_with_bids_and_asks(session_id):
-    session = TradingSession(session_id=session_id, duration=1, default_price=1000)
+    session = TradingPlatform(session_id=session_id, duration=1, default_price=1000)
     session.place_order({
         "id": "bid_order",
         "order_type": OrderType.BID.value,
@@ -169,7 +169,7 @@ async def test_order_book_with_bids_and_asks(session_id):
 
 @pytest.mark.asyncio
 async def test_get_spread(session_id):
-    session = TradingSession(session_id=session_id, duration=1, default_price=1000)
+    session = TradingPlatform(session_id=session_id, duration=1, default_price=1000)
     session.place_order({
         "id": "ask_order",
         "order_type": OrderType.ASK.value,
@@ -193,7 +193,7 @@ async def test_get_spread(session_id):
 
 @pytest.mark.asyncio
 async def test_clean_up(session_id):
-    session = TradingSession(session_id=session_id, duration=1, default_price=1000)
+    session = TradingPlatform(session_id=session_id, duration=1, default_price=1000)
     session.connection = AsyncMock()
     session.channel = AsyncMock()
     session._stop_requested = asyncio.Event()
@@ -205,7 +205,7 @@ async def test_clean_up(session_id):
 
 @pytest.mark.asyncio
 async def test_run(session_id):
-    session = TradingSession(session_id=session_id, duration=1/60, default_price=1000)  # 1 second duration
+    session = TradingPlatform(session_id=session_id, duration=1/60, default_price=1000)  # 1 second duration
     session.send_broadcast = AsyncMock()
     session.handle_inventory_report = AsyncMock()
     session.clean_up = AsyncMock()
@@ -226,7 +226,7 @@ async def test_run(session_id):
 
 @pytest.mark.asyncio
 async def test_matching_engine_performance(session_id):
-    session = TradingSession(session_id=session_id, duration=1, default_price=1000)
+    session = TradingPlatform(session_id=session_id, duration=1, default_price=1000)
     
     num_orders = 200000 
     matched_count = 0

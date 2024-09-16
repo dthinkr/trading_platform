@@ -73,7 +73,7 @@ const formatValue = (value) => {
 };
 
 const goToNextDay = () => {
-  router.push({ name: 'CreateTradingSession' });
+  router.push({ name: 'CreateTradingPlatform' });
 };
 
 const downloadSessionMetrics = async () => {

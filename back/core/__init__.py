@@ -1,1 +1,1 @@
-from .trading_platform import TradingSession
+from .trading_platform import TradingPlatform
