@@ -7,7 +7,7 @@ import VueApexCharts from "vue3-apexcharts"
 import VueCountdown from '@chenfengyuan/vue-countdown'
 import { auth } from "./firebaseConfig.js"
 import './global.css'
-
+import '@mdi/font/css/materialdesignicons.css'
 // Create Vue app
 const app = createApp(App)
 

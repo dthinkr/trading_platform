@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@chenfengyuan/vue-countdown": "2",
-    "@mdi/font": "7.0.96",
+    "@mdi/font": "^7.0.96",
     "@vueuse/core": "^10.7.2",
     "apexcharts": "^3.53.0",
     "axios": "^1.6.5",

@@ -85,11 +85,11 @@
           Here's a demonstration of the trading platform in action:
         </p>
         <v-img
-          src="@/assets/demo.gif"
-          alt="Trading Platform Demo"
-          max-width="600"
-          class="mx-auto"
-        ></v-img>
+  src="../../assets/demo.gif"
+  alt="Trading Platform Demo"
+  max-width="600"
+  class="mx-auto"
+></v-img>
         <p class="mt-4 font-italic">
           This GIF shows the key features of the trading platform, including real-time updates and order placement.
         </p>
