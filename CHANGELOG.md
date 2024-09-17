@@ -7,33 +7,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Planned
+### Known Issues
+
+* [X] Informed Trader now achieves approximately 1.3 times its expected goal
+* [X] Order book log does not update correctly when there is matched trade
+
+## [1.3.0] - 2024-09-17
+
+### Added
+- Implemented download of session metrics from log files
+- Enhanced frontend to display CSV data preview after downloading metrics
+- Enabled user authentication system
+- Implemented multi-trader, multi-session trading, platforms starts only after participants are ready
+- Added support for manual setting of goals for each human trader
+- Add options to set trader as Informed or Speculator
+- Improved display of bought/sold shares at top right of platform
+- Add Market Earnings calculation and display
+- Implement correct counting of shares needed to reach the goal
+
+### Changed
+- Refactored backend structure for increased modularity
+- Improved frontend routes and trading platform UI
+- Enhanced trading dashboard with better order display
+- Updated websocket connection handling
+- Simplified order sending process to use button clicks
+- Improved My Orders Page with faster updates of outstanding orders
+- Remove market updates messages from top left of trading platform
+
+### Fixed
+- Corrected login behavior for proper trading platform access
+- Resolved issues with human trader messages after refactoring
+- Improved transaction history display
+- Fixed display of sell order goals at end of page
+- Addressed various frontend and backend bugs
+
+### Removed
+- Eliminated database dependency, shifting to log-based data storage
+- Removed potentially confusing metrics (initial cash, final cash, etc.)
+- Removed dollar sign from initial and final shares display
+
+### Known Issues
+- Some human trader messages may be missing after recent refactoring
+- Certain aspects of the trading platform require additional fixes
+
+## [Planned]
 
 - Make all Control Questions mandatory and show correct answers with explanations
 - Adjust profits to range from 5 to 15 GBP
-- Ensure trading platform starts only after participant completes all questions and clicks "Start Market"
-- Implement manual setting of goals for each human trader
-- Add options to set trader as Informed or Speculator
 - For informed traders, determine number of shares by participation rate (informed intensity)
-- Implement random generation of direction (sell or buy task)
-- Remove market updates messages from top left of trading platform
-- Simplify order sending process to use button clicks
-- Implement correct counting of shares needed to reach the goal
-- Update display of bought/sold shares at top right of platform
-- Improve My Orders Page with faster updates of outstanding orders
-- Fix display of sell order goals at end of page
 - Add VWAP to metrics in Day Overview
 - Implement goal achievement calculations:
   - For unfulfilled sell goals: remaining orders * initial midprice * 0.5
   - For unfulfilled buy goals: remaining orders * initial midprice * 1.5
-- Add Market Earnings calculation and display
-- Remove potentially confusing metrics (initial cash, final cash, etc.)
-- Remove dollar sign from initial and final shares display
 
-### Known Issues
+## [1.2.0] - 2024-08-29
 
-* [ ] Informed Trader now achieves approximately 1.3 times its expected goal
-* [ ] Order book log does not update correctly when there is matched trade
+(existing content for 1.2.0)
+
 
 ## [1.2.0][1.2.0] - 2024-08-29
 
@@ -156,6 +186,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Customizable trading scenarios
 - Basic data analysis tools
 
+[1.3.0]: https://github.com/dthinkr/trading_platform/compare/v1.2.0...v1.3.0
+[1.2.0]: https://github.com/dthinkr/trading_platform/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/dthinkr/trading_platform/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/dthinkr/trading_platform/compare/v1.0.2...v1.1.0
 [1.0.1]: https://github.com/dthinkr/trading_platform/compare/v1.0.0...v1.0.1
