@@ -5,18 +5,23 @@
       Order History
     </v-card-title>
     <v-card-text class="message-container" ref="messageContainer">
-      <v-container v-if="executedOrders.length">
-        <TransitionGroup name="message" tag="div" class="messages-container">
-          <div 
-            class="message"
-            v-for="order in executedOrders" 
-            :key="order.id" 
-            :ref="setRef"
-          >
-            <v-icon left small :color="getOrderColor(order)" class="mr-2">mdi-check-circle</v-icon>
-            {{ formatOrderMessage(order) }}
+      <v-container v-if="groupedOrders.bids.length || groupedOrders.asks.length">
+        <div class="order-columns">
+          <div class="order-column">
+            <h3 class="column-title">Buy Orders</h3>
+            <div v-for="order in groupedOrders.bids" :key="order.price" class="order-item bid">
+              <span class="price">{{ formatPrice(order.price) }}</span>
+              <span class="amount">{{ order.amount }}</span>
+            </div>
           </div>
-        </TransitionGroup>
+          <div class="order-column">
+            <h3 class="column-title">Sell Orders</h3>
+            <div v-for="order in groupedOrders.asks" :key="order.price" class="order-item ask">
+              <span class="price">{{ formatPrice(order.price) }}</span>
+              <span class="amount">{{ order.amount }}</span>
+            </div>
+          </div>
+        </div>
       </v-container>
       <div v-else class="no-orders-message">
         No executed orders yet.
@@ -26,43 +31,44 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick, watch } from "vue";
+import { computed } from "vue";
 import { useTraderStore } from "@/store/app";
 import { storeToRefs } from "pinia";
 
 const traderStore = useTraderStore();
-const { executedOrders } = storeToRefs(traderStore);
+const { executedOrders, recentTransactions } = storeToRefs(traderStore);
 
-const messageRefs = ref([]);
-
-const setRef = (el) => {
-  if (el) {
-    messageRefs.value.push(el);
-  }
-};
-
-const scrollToLastMessage = () => {
-  const lastMessageElement = messageRefs.value.at(-1);
-  if (lastMessageElement) {
-    lastMessageElement.scrollIntoView({ behavior: "smooth", block: "center" });
-  }
-};
-
-const getOrderColor = (order) => {
-  return order.order_type === 'BID' ? "success" : "error";
-};
-
-const formatOrderMessage = (order) => {
-  const action = order.order_type === 'BID' ? 'Buy' : 'Sell';
-  return `${action} order executed: ${order.amount} @ $${order.price}`;
-};
-
-onMounted(() => {
-  watch(executedOrders, async () => {
-    await nextTick();
-    scrollToLastMessage();
-  });
+const filledOrders = computed(() => {
+  // Combine executedOrders and relevant recentTransactions
+  const relevantTransactions = recentTransactions.value.filter(t => t.isRelevantToTrader);
+  return [...executedOrders.value, ...relevantTransactions];
 });
+
+const groupedOrders = computed(() => {
+  const bids = {};
+  const asks = {};
+
+  filledOrders.value.forEach(order => {
+    const isBid = order.type === 1 || order.type === 'BID' || order.type === 'BUY' || order.bid_order_id?.startsWith(traderStore.traderUuid);
+    const group = isBid ? bids : asks;
+    const price = order.price || order.transaction_price;
+    const amount = order.amount || 1; // Assuming 1 if not specified
+
+    if (!group[price]) {
+      group[price] = { price: price, amount: 0 };
+    }
+    group[price].amount += amount;
+  });
+
+  return {
+    bids: Object.values(bids).sort((a, b) => b.price - a.price),
+    asks: Object.values(asks).sort((a, b) => a.price - b.price)
+  };
+});
+
+const formatPrice = (price) => {
+  return `$${Number(price).toFixed(2)}`;
+};
 </script>
 
 <style scoped>
@@ -85,40 +91,47 @@ onMounted(() => {
   padding: 0;
 }
 
-.messages-container {
+.order-columns {
+  display: flex;
+  justify-content: space-between;
+}
+
+.order-column {
+  width: 48%;
+}
+
+.column-title {
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.order-item {
+  display: flex;
+  justify-content: space-between;
   padding: 8px;
-}
-
-.message {
-  background-color: white;
-  border-left: 4px solid #3498db;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  margin-bottom: 5px;
   border-radius: 4px;
-  padding: 12px 16px;
-  margin-bottom: 12px;
-  word-wrap: break-word;
   font-size: 0.9rem;
-  line-height: 1.4;
-  transition: all 0.3s ease;
 }
 
-.message:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+.order-item.bid {
+  background-color: rgba(33, 150, 243, 0.1); /* Light blue background */
+  border-left: 3px solid #2196F3; /* Blue border */
 }
 
-.message-enter-active, .message-leave-active {
-  transition: all 0.5s ease;
+.order-item.ask {
+  background-color: rgba(244, 67, 54, 0.1); /* Light red background */
+  border-left: 3px solid #F44336; /* Red border */
 }
 
-.message-enter-from, .message-leave-to {
-  opacity: 0;
-  transform: translateY(20px);
+.price {
+  font-weight: bold;
 }
 
-.message-enter-to, .message-leave-from {
-  opacity: 1;
-  transform: translateY(0);
+.amount {
+  color: #666;
 }
 
 .no-orders-message {

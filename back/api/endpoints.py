@@ -198,6 +198,7 @@ async def get_trader_info(trader_id: str, current_user: dict = Depends(get_curre
         "message": "Trader found",
         "data": {
             "cash": trader.cash,
+            "goal": trader.goal,
             "shares": trader.shares,
             "orders": trader.orders,
             "filled_orders": trader.filled_orders,
@@ -375,7 +376,7 @@ async def receive_from_frontend(websocket: WebSocket, trader):
         try:
             message = await asyncio.wait_for(websocket.receive_text(), timeout=0.1)
             parsed_message = json.loads(message)
-            print(f"Received message from trader {trader.id}: {parsed_message}")
+            # print(f"Received message from trader {trader.id}: {parsed_message}")
             await trader.on_message_from_client(message)
         except asyncio.TimeoutError:
             # This is expected, continue the loop

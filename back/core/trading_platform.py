@@ -195,12 +195,23 @@ class TradingPlatform:
             message["matched_orders"] = incoming_message.get("matched_orders")
 
         await self.rabbitmq_manager.publish(self.broadcast_exchange_name, message)
-
+    
     async def create_transaction(
         self, bid: Dict, ask: Dict, transaction_price: float
     ) -> Tuple[str, str, TransactionModel]:
-        """Create a new transaction."""
-        return await self.transaction_manager.create_transaction(bid, ask, transaction_price)
+        ask_trader_id, bid_trader_id, transaction, transaction_details = await self.transaction_manager.create_transaction(bid, ask, transaction_price)
+
+        logger.info(f"Transaction enqueued: {transaction}")
+
+        # Use RabbitMQManager to publish the message
+        await self.rabbitmq_manager.publish(
+            self.broadcast_exchange_name,
+            transaction_details,
+            routing_key=""
+        )
+
+        return ask_trader_id, bid_trader_id, transaction
+
 
     async def clear_orders(self) -> Dict:
         """Clear matched orders from the order book."""

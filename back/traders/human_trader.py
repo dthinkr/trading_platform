@@ -89,7 +89,6 @@ class HumanTrader(BaseTrader):
     async def on_message_from_client(self, message):
         try:
             json_message = json.loads(message)
-
             action_type = json_message.get("type")
             data = json_message.get("data")
             handler = getattr(self, f"handle_{action_type}", None)

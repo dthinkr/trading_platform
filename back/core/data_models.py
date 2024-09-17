@@ -44,7 +44,7 @@ class TradingParameters(BaseModel):
         ge=0,
     )
     human_goals: List[int] = Field(
-        default=[10],
+        default=[-10],
         title="Goal Values",
         description="human_parameter",
     )
@@ -55,7 +55,7 @@ class TradingParameters(BaseModel):
         ge=0,
     )
     num_informed_traders: int = Field(
-        default=0,
+        default=1,
         title="Number of Informed Traders",
         description="model_parameter",
         ge=0,
@@ -73,7 +73,7 @@ class TradingParameters(BaseModel):
         ge=0,
     )
     trading_day_duration: int = Field(
-        default=5,
+        default=1,
         title="Trading Day Duration",
         description="model_parameter",
         gt=0,
@@ -90,7 +90,7 @@ class TradingParameters(BaseModel):
         gt=0,
     )
     max_order_amount: int = Field(
-        default=9,
+        default=1,
         title="Order Amount",
         description="noise_parameter",
     )

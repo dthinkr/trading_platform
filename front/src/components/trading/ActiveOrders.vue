@@ -1,20 +1,17 @@
 <template>
   <v-card height="100%" elevation="3" class="my-orders-card">
-    <v-card-title class="cardtitle-primary">
-      <v-icon left>mdi-format-list-bulleted</v-icon>
-      My Orders
-    </v-card-title>
-    
     <div class="orders-container">
-      <div v-for="(level, price) in orderLevels" :key="price" class="order-level" :class="level.type.toLowerCase()">
+      <div v-if="Object.keys(orderLevels).length === 0" class="no-orders-message">
+        No active orders
+      </div>
+      <div v-else v-for="(level, price) in orderLevels" :key="price" class="order-level" :class="level.type === 1 ? 'bid' : 'ask'">
         <div class="order-header">
-          <span class="order-type">{{ level.type }}</span>
+          <span class="order-type">{{ level.type === 1 ? 'BUY' : 'SELL' }}</span>
           <div class="price">{{ formatPrice(price) }}</div>
         </div>
         <div class="order-details">
           <div class="amount">
-            Active: {{ level.active }}
-            Pending: {{ level.pending }}
+            Amount: {{ level.amount }}
           </div>
           <div class="order-actions">
             <v-btn
@@ -38,8 +35,8 @@
           </div>
         </div>
         <v-progress-linear
-          :value="(level.active + level.pending) / maxAmount * 100"
-          :color="level.type === 'BID' ? 'success' : 'error'"
+          :value="level.amount / maxAmount * 100"
+          :color="level.type === 1 ? 'success' : 'error'"
           height="4"
           class="amount-progress"
         ></v-progress-linear>
@@ -54,20 +51,19 @@ import { useTraderStore } from "@/store/app";
 import { storeToRefs } from "pinia";
 
 const traderStore = useTraderStore();
-const { placedOrders } = storeToRefs(traderStore);
+const { activeOrders } = storeToRefs(traderStore);
 
 const orderLevels = computed(() => {
   const levels = {};
-  placedOrders.value.forEach(order => {
-    if (!levels[order.price]) {
-      levels[order.price] = { type: order.order_type, active: 0, pending: 0 };
+  activeOrders.value.forEach(order => {
+    const price = order.price.toString();
+    if (!levels[price]) {
+      levels[price] = { type: order.type, amount: 0 };
     }
-    if (order.status === 'active') {
-      levels[order.price].active += order.amount;
-    } else if (order.status === 'pending') {
-      levels[order.price].pending += order.amount;
-    }
+    levels[price].amount += order.amount;
   });
+
+  console.log('Processed Order Levels:', levels);
   return Object.entries(levels)
     .sort(([priceA], [priceB]) => Number(priceB) - Number(priceA))
     .reduce((acc, [price, level]) => {
@@ -77,35 +73,29 @@ const orderLevels = computed(() => {
 });
 
 const maxAmount = computed(() => {
-  return Math.max(...Object.values(orderLevels.value).map(level => level.active + level.pending), 1);
+  return Math.max(...Object.values(orderLevels.value).map(level => level.amount), 1);
 });
 
 function formatPrice(price) {
-  return Math.round(Number(price)).toFixed(0);
+  return Number(price).toFixed(2);
 }
 
 function addOrder(type, price) {
   const newOrder = {
-    id: Date.now().toString(),
-    order_type: type, // Keep as 'BID' or 'ASK' for front use
+    type: type,
     price: Number(price),
-    amount: 1,
-    status: 'pending'
+    amount: 1
   };
   traderStore.addOrder(newOrder);
 }
 
 function cancelOrder(type, price) {
-  const orderToCancel = placedOrders.value.find(order => 
-    order.order_type === type && 
-    order.price === Number(price) &&
-    order.status === 'active'
-  );
+  // Assuming cancelOrder in the store now takes an order object
+  const orderToCancel = activeOrders.value.find(order => order.type === type && order.price === Number(price));
   if (orderToCancel) {
     traderStore.cancelOrder(orderToCancel.id);
   }
 }
-
 </script>
 
 <style scoped>
@@ -192,5 +182,11 @@ function cancelOrder(type, price) {
 
 .amount-progress {
   margin-top: 8px;
+}
+
+.no-orders-message {
+  text-align: center;
+  color: #666;
+  padding: 20px;
 }
 </style>

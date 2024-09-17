@@ -63,34 +63,68 @@
               </v-col>
             </v-row>
           </v-col>
+
+          <!-- Add a spacer to push the goal to the right -->
+          <v-spacer></v-spacer>
+
+          <!-- Goal Message -->
+          <v-col cols="auto" v-if="goalMessage">
+            <v-card outlined class="pa-2 mr-2 goal-message" :class="goalMessage.type === 'success' ? 'goal-success' : 'goal-warning'">
+              <v-row no-gutters align="center">
+                <v-col cols="auto" class="mr-2">
+                  <v-icon :color="goalMessage.type === 'success' ? 'green darken-1' : 'red darken-2'">
+                    {{ goalMessage.type === 'success' ? 'mdi-check-circle' : 'mdi-alert-circle' }}
+                  </v-icon>
+                </v-col>
+                <v-col>
+                  <v-card-subtitle class="pa-0 text-caption goal-subtitle">Goal</v-card-subtitle>
+                  <v-card-text class="pa-0 text-body-2 font-weight-medium goal-text">
+                    {{ goalMessage.text }}
+                  </v-card-text>
+                </v-col>
+              </v-row>
+            </v-card>
+          </v-col>
         </v-row>
       </v-container>
     </v-app-bar>
 
     <v-main class="grey lighten-4">
       <v-container fluid class="pa-6">
-        <v-row>
-          <v-col cols="12" lg="6">
-            <v-card class="mb-6" elevation="3">
-              <v-card-text class="pa-0">
-                <BidAskDistribution />
+        <v-row class="fill-height">
+          <v-col cols="12" lg="6" class="d-flex">
+            <v-card class="flex-grow-1 mb-6 chart-card" elevation="3">
+              <v-card-title>Bid-Ask Distribution</v-card-title>
+              <v-card-text class="pa-0 fill-height">
+                <BidAskDistribution class="fill-height" />
               </v-card-text>
             </v-card>
           </v-col>
-          <v-col cols="12" lg="6">
-            <v-card class="mb-6" elevation="3">
-              <v-card-text class="pa-0">
-                <PriceHistory />
+          <v-col cols="12" lg="6" class="d-flex">
+            <v-card class="flex-grow-1 mb-6 chart-card" elevation="3">
+              <v-card-title>Price History</v-card-title>
+              <v-card-text class="pa-0 fill-height">
+                <PriceHistory class="fill-height" />
               </v-card-text>
             </v-card>
           </v-col>
         </v-row>
-        <v-row>
-          <v-col cols="12" lg="6">
-            <ActiveOrders />
+        <v-row class="fill-height">
+          <v-col cols="12" lg="6" class="d-flex">
+            <v-card class="flex-grow-1 mb-6 chart-card" elevation="3">
+              <v-card-title>Active Orders</v-card-title>
+              <v-card-text class="pa-0 fill-height">
+                <ActiveOrders class="fill-height" />
+              </v-card-text>
+            </v-card>
           </v-col>
-          <v-col cols="12" lg="6">
-            <OrderPanel />
+          <v-col cols="12" lg="6" class="d-flex">
+            <v-card class="flex-grow-1 mb-6 chart-card" elevation="3">
+              <v-card-title>Trading Panel</v-card-title>
+              <v-card-text class="pa-0 fill-height">
+                <PlaceOrder class="fill-height" />
+              </v-card-text>
+            </v-card>
           </v-col>
         </v-row>
       </v-container>
@@ -101,12 +135,6 @@
         <MarketIndicators />
       </v-container>
     </v-navigation-drawer>
-
-    <v-footer app v-if="goalMessage" :color="goalMessage.type" class="px-4" elevation="3">
-      <v-row no-gutters align="center" justify="center">
-        <strong class="text-h6">{{ goalMessage.text }}</strong>
-      </v-row>
-    </v-footer>
   </v-app>
 </template>
 
@@ -118,7 +146,7 @@ const props = defineProps({
 // Updated imports
 import BidAskDistribution from "@charts/BidAskDistribution.vue";
 import PriceHistory from "@charts/PriceHistory.vue";
-import OrderPanel from "@trading/OrderPanel.vue";
+import PlaceOrder from "@trading/PlaceOrder.vue";
 import OrderHistory from "@trading/OrderHistory.vue";
 import ActiveOrders from "@trading/ActiveOrders.vue";
 import MarketIndicators from "@trading/MarketIndicators.vue";
@@ -268,5 +296,58 @@ watch(
 
 .fade-in-highlight {
   animation: fadeInHighlight 1s ease;
+}
+
+.fill-height {
+  height: 100%;
+}
+
+.v-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.v-card__text {
+  flex-grow: 1;
+  overflow: hidden;
+}
+
+/* Add this new style to ensure consistent spacing */
+.v-card__title {
+  padding-bottom: 8px;
+}
+
+.goal-message {
+  background-color: #FFA500 !important; /* Orange background */
+  color: #000000 !important; /* Black text */
+}
+
+.goal-success {
+  border-left: 4px solid #4CAF50; /* Green border for success */
+}
+
+.goal-warning {
+  border-left: 4px solid #FF0000; /* Red border for warning */
+}
+
+.goal-subtitle {
+  color: rgba(0, 0, 0, 0.7) !important;
+}
+
+.goal-text {
+  color: #000000 !important;
+}
+
+.goal-message:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.chart-card {
+  background-color: #f5f5f5 !important;
+}
+
+.chart-card .v-card__title {
+  background-color: #ffffff;
+  border-bottom: 1px solid #e0e0e0;
 }
 </style>

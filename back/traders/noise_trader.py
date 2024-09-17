@@ -185,6 +185,7 @@ class NoiseTrader(BaseTrader):
             try:
                 await self.act()
                 await asyncio.sleep(self.calculate_cooling_interval())
+                # print(f"my {self.id} filled orders and my active orders are {self.filled_orders} and {self.orders}")
             except asyncio.CancelledError:
                 await self.clean_up()
                 raise

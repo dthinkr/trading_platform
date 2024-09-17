@@ -4,7 +4,7 @@
       <v-container class="d-flex align-center justify-center" style="height: 100%;">
         <v-card class="day-over-card" elevation="8" max-width="600px" width="100%">
           <v-card-title class="text-h4 font-weight-bold text-center py-4 primary white--text">
-            Day Overview
+            Session Overview
           </v-card-title>
           <v-card-text class="pa-6">
             <v-list>
@@ -12,7 +12,7 @@
                 <v-list-item-content>
                   <v-list-item-title class="text-subtitle-1 font-weight-medium">{{ item.title }}</v-list-item-title>
                   <v-list-item-subtitle class="text-h6 mt-1" :class="item.valueClass">
-                    {{ formatValue(traderInfo?.[item.key]) }}
+                    {{ formatValue(traderInfo?.[item.key], item.format) }}
                   </v-list-item-subtitle>
                 </v-list-item-content>
                 <v-list-item-action>
@@ -22,8 +22,8 @@
             </v-list>
           </v-card-text>
           <v-card-actions class="justify-center pa-4">
-            <v-btn color="primary" large @click="goToNextDay" class="mr-2">
-              Return to Create Session
+            <v-btn color="primary" large @click="goToRegister" class="mr-2">
+              Return to Register
             </v-btn>
             <v-btn color="secondary" large @click="downloadSessionMetrics">
               Download Session Metrics
@@ -36,7 +36,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import axios from "axios";
 import { useRouter } from 'vue-router';
 
@@ -48,13 +48,16 @@ const router = useRouter();
 const traderInfo = ref(null);
 const httpUrl = import.meta.env.VITE_HTTP_URL;
 
-const overviewItems = [
-  { title: 'Initial Cash', key: 'initial_cash', icon: 'mdi-cash-multiple', iconColor: 'green' },
-  { title: 'Final Cash', key: 'cash', icon: 'mdi-cash', iconColor: 'blue' },
-  { title: 'Change in Cash', key: 'delta_cash', icon: 'mdi-cash-plus', iconColor: 'orange', valueClass: 'font-weight-bold' },
-  { title: 'Initial Shares', key: 'initial_shares', icon: 'mdi-chart-timeline-variant', iconColor: 'purple' },
-  { title: 'Final Shares', key: 'shares', icon: 'mdi-chart-bar', iconColor: 'indigo' },
-];
+const overviewItems = computed(() => [
+  { title: 'Initial Cash', key: 'initial_cash', icon: 'mdi-cash-multiple', iconColor: 'green', format: 'currency' },
+  { title: 'Final Cash', key: 'cash', icon: 'mdi-cash', iconColor: 'blue', format: 'currency' },
+  { title: 'Change in Cash', key: 'delta_cash', icon: 'mdi-cash-plus', iconColor: 'orange', valueClass: 'font-weight-bold', format: 'currency' },
+  { title: 'Initial Shares', key: 'initial_shares', icon: 'mdi-chart-timeline-variant', iconColor: 'purple', format: 'number' },
+  { title: 'Final Shares', key: 'shares', icon: 'mdi-chart-bar', iconColor: 'indigo', format: 'number' },
+  { title: 'Total Orders Placed', key: 'placed_orders', icon: 'mdi-clipboard-list', iconColor: 'teal', format: 'number' },
+  { title: 'Total Orders Filled', key: 'filled_orders', icon: 'mdi-clipboard-check', iconColor: 'light-green', format: 'number' },
+  { title: 'Goal Achieved', key: 'goal', icon: 'mdi-flag-checkered', iconColor: 'red', format: 'boolean' },
+]);
 
 async function fetchTraderInfo() {
   try {
@@ -65,37 +68,36 @@ async function fetchTraderInfo() {
   }
 }
 
-const formatValue = (value) => {
-  if (typeof value === 'number') {
+const formatValue = (value, format) => {
+  if (format === 'currency' && typeof value === 'number') {
     return value.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+  } else if (format === 'number' && typeof value === 'number') {
+    return value.toLocaleString('en-US');
+  } else if (format === 'boolean') {
+    return value ? 'Yes' : 'No';
   }
   return value;
 };
 
-const goToNextDay = () => {
-  router.push({ name: 'CreateTradingPlatform' });
+const goToRegister = () => {
+  router.push({ name: 'Register' });
 };
 
 const downloadSessionMetrics = async () => {
   try {
     const response = await axios.get(`${httpUrl}session_metrics/trader/${props.traderUuid}`, {
-      responseType: 'blob', // Important for handling file downloads
+      responseType: 'blob',
     });
     
-    // Create a Blob from the response data
     const blob = new Blob([response.data], { type: 'text/csv' });
-    
-    // Create a link element and trigger the download
     const link = document.createElement('a');
     link.href = window.URL.createObjectURL(blob);
     link.download = `session_metrics_${props.traderUuid}.csv`;
     link.click();
     
-    // Clean up
     window.URL.revokeObjectURL(link.href);
   } catch (error) {
     console.error('Failed to download session metrics:', error);
-    // You might want to show an error message to the user here
   }
 };
 

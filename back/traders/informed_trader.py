@@ -234,6 +234,7 @@ class InformedTrader(BaseTrader):
             try:
                 await self.check()
                 await asyncio.sleep(self.check_frequency)
+                # print(f"my {self.id} filled orders and my active orders are {self.filled_orders} and {self.orders}")
             except asyncio.CancelledError:
                 print("Run method cancelled, performing cleanup...")
                 break

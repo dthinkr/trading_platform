@@ -1,9 +1,5 @@
 <template>
   <v-card class="bid-ask-chart-container" elevation="3">
-    <v-card-title class="cardtitle-primary">
-      <v-icon left>mdi-chart-bar</v-icon>
-      Bid-Ask Distribution
-    </v-card-title>
     <div class="chart-wrapper">
       <highcharts-chart
         :constructor-type="'chart'"
