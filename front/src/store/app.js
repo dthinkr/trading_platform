@@ -494,5 +494,10 @@ export const useTraderStore = defineStore("trader", {
         return sum + (order.order_type === 'BID' ? amount : -amount);
       }, 0);
     },
+
+    clearStore() {
+      // Reset all state properties to their initial values
+      this.$reset();
+    },
   },
 });

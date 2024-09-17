@@ -18,8 +18,20 @@ basic_auth = HTTPBasic()
 def get_firebase_auth():
     return auth
 
+# Store authenticated users
+authenticated_users = {}
+
 async def get_current_user(request: Request):
     auth_header = request.headers.get('Authorization')
+    
+    # Check if it's a request for trader info
+    path = request.url.path
+    if path.startswith("/trader_info/"):
+        trader_id = path.split("/")[-1]
+        uid = trader_id.split('_')[1]  # Assuming trader_id format is "HUMAN_uid"
+        if uid in authenticated_users:
+            return authenticated_users[uid]
+    
     if not auth_header:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -46,7 +58,9 @@ async def get_current_user(request: Request):
         token = auth_header.split('Bearer ')[1]
         try:
             decoded_token = firebase_auth.verify_id_token(token)
-            return {**decoded_token, "is_admin": False}
+            user = {**decoded_token, "is_admin": False}
+            authenticated_users[decoded_token['uid']] = user
+            return user
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -60,7 +74,7 @@ async def get_current_user(request: Request):
             detail="Invalid authentication method",
             headers={"WWW-Authenticate": "Bearer"},
         )
-        
+
 def get_current_admin_user(current_user: dict = Depends(get_current_user)):
     if not current_user.get('is_admin', False):
         raise HTTPException(

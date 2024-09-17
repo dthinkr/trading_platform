@@ -9,17 +9,21 @@
         <div class="order-columns">
           <div class="order-column">
             <h3 class="column-title">Buy Orders</h3>
-            <div v-for="order in groupedOrders.bids" :key="order.price" class="order-item bid">
-              <span class="price">{{ formatPrice(order.price) }}</span>
-              <span class="amount">{{ order.amount }}</span>
-            </div>
+            <TransitionGroup name="order-change">
+              <div v-for="order in groupedOrders.bids" :key="order.price" class="order-item bid">
+                <span class="price">{{ formatPrice(order.price) }}</span>
+                <span class="amount">{{ order.amount }}</span>
+              </div>
+            </TransitionGroup>
           </div>
           <div class="order-column">
             <h3 class="column-title">Sell Orders</h3>
-            <div v-for="order in groupedOrders.asks" :key="order.price" class="order-item ask">
-              <span class="price">{{ formatPrice(order.price) }}</span>
-              <span class="amount">{{ order.amount }}</span>
-            </div>
+            <TransitionGroup name="order-change">
+              <div v-for="order in groupedOrders.asks" :key="order.price" class="order-item ask">
+                <span class="price">{{ formatPrice(order.price) }}</span>
+                <span class="amount">{{ order.amount }}</span>
+              </div>
+            </TransitionGroup>
           </div>
         </div>
       </v-container>
@@ -138,5 +142,35 @@ const formatPrice = (price) => {
   text-align: center;
   color: #666;
   padding: 20px;
+}
+
+.order-change-enter-active,
+.order-change-leave-active {
+  transition: all 0.5s ease;
+}
+
+.order-change-enter-from,
+.order-change-leave-to {
+  opacity: 0;
+  transform: translateY(30px);
+}
+
+.order-change-enter-to,
+.order-change-leave-from {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@keyframes highlight {
+  0% {
+    background-color: yellow;
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.order-item {
+  animation: highlight 1s ease-out;
 }
 </style>

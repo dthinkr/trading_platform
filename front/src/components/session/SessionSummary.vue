@@ -1,44 +1,60 @@
 <template>
-  <v-app>
-    <v-main class="day-over-background">
-      <v-container class="d-flex align-center justify-center" style="height: 100%;">
-        <v-card class="day-over-card" elevation="8" max-width="600px" width="100%">
-          <v-card-title class="text-h4 font-weight-bold text-center py-4 primary white--text">
-            Session Overview
+  <v-container fluid class="session-summary-wrapper fill-height">
+    <v-row align="center" justify="center" class="fill-height">
+      <v-col cols="12" sm="10" md="8" lg="6">
+        <v-card elevation="24" class="session-summary-card">
+          <v-card-title class="text-h4 font-weight-bold text-center py-6 primary white--text">
+            Trading Session Summary
           </v-card-title>
           <v-card-text class="pa-6">
-            <v-list>
-              <v-list-item v-for="(item, index) in overviewItems" :key="index" class="mb-4">
-                <v-list-item-content>
-                  <v-list-item-title class="text-subtitle-1 font-weight-medium">{{ item.title }}</v-list-item-title>
-                  <v-list-item-subtitle class="text-h6 mt-1" :class="item.valueClass">
-                    {{ formatValue(traderInfo?.[item.key], item.format) }}
-                  </v-list-item-subtitle>
-                </v-list-item-content>
-                <v-list-item-action>
-                  <v-icon :color="item.iconColor" large>{{ item.icon }}</v-icon>
-                </v-list-item-action>
-              </v-list-item>
-            </v-list>
+            <v-row>
+              <v-col cols="12" md="6">
+                <div class="metric-card pa-4 mb-4">
+                  <h3 class="text-h6 font-weight-medium mb-2">Cash Overview</h3>
+                  <div class="d-flex justify-space-between align-center mb-2">
+                    <span class="text-subtitle-1">Initial Cash:</span>
+                    <span class="text-h6 font-weight-bold">{{ formatValue(traderInfo?.initial_cash, 'currency') }}</span>
+                  </div>
+                  <div class="d-flex justify-space-between align-center">
+                    <span class="text-subtitle-1">Final Cash:</span>
+                    <span class="text-h6 font-weight-bold">{{ formatValue(traderInfo?.cash, 'currency') }}</span>
+                  </div>
+                </div>
+              </v-col>
+              <v-col cols="12" md="6">
+                <div class="metric-card pa-4 mb-4">
+                  <h3 class="text-h6 font-weight-medium mb-2">Shares Overview</h3>
+                  <div class="d-flex justify-space-between align-center mb-2">
+                    <span class="text-subtitle-1">Initial Shares:</span>
+                    <span class="text-h6 font-weight-bold">{{ formatValue(traderInfo?.initial_shares, 'number') }}</span>
+                  </div>
+                  <div class="d-flex justify-space-between align-center">
+                    <span class="text-subtitle-1">Final Shares:</span>
+                    <span class="text-h6 font-weight-bold">{{ formatValue(traderInfo?.shares, 'number') }}</span>
+                  </div>
+                </div>
+              </v-col>
+            </v-row>
           </v-card-text>
-          <v-card-actions class="justify-center pa-4">
-            <v-btn color="primary" large @click="goToRegister" class="mr-2">
-              Return to Register
+          <v-card-actions class="justify-center pa-6">
+            <v-btn color="primary" x-large @click="goToRegister" class="mr-4">
+              Return to Login
             </v-btn>
-            <v-btn color="secondary" large @click="downloadSessionMetrics">
-              Download Session Metrics
+            <v-btn color="secondary" x-large @click="downloadSessionMetrics">
+              Download Metrics
             </v-btn>
           </v-card-actions>
         </v-card>
-      </v-container>
-    </v-main>
-  </v-app>
+      </v-col>
+    </v-row>
+  </v-container>
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted } from "vue";
 import axios from "axios";
 import { useRouter } from 'vue-router';
+import { useTraderStore } from "@/store/app";
 
 const props = defineProps({
   traderUuid: String,
@@ -47,17 +63,6 @@ const props = defineProps({
 const router = useRouter();
 const traderInfo = ref(null);
 const httpUrl = import.meta.env.VITE_HTTP_URL;
-
-const overviewItems = computed(() => [
-  { title: 'Initial Cash', key: 'initial_cash', icon: 'mdi-cash-multiple', iconColor: 'green', format: 'currency' },
-  { title: 'Final Cash', key: 'cash', icon: 'mdi-cash', iconColor: 'blue', format: 'currency' },
-  { title: 'Change in Cash', key: 'delta_cash', icon: 'mdi-cash-plus', iconColor: 'orange', valueClass: 'font-weight-bold', format: 'currency' },
-  { title: 'Initial Shares', key: 'initial_shares', icon: 'mdi-chart-timeline-variant', iconColor: 'purple', format: 'number' },
-  { title: 'Final Shares', key: 'shares', icon: 'mdi-chart-bar', iconColor: 'indigo', format: 'number' },
-  { title: 'Total Orders Placed', key: 'placed_orders', icon: 'mdi-clipboard-list', iconColor: 'teal', format: 'number' },
-  { title: 'Total Orders Filled', key: 'filled_orders', icon: 'mdi-clipboard-check', iconColor: 'light-green', format: 'number' },
-  { title: 'Goal Achieved', key: 'goal', icon: 'mdi-flag-checkered', iconColor: 'red', format: 'boolean' },
-]);
 
 async function fetchTraderInfo() {
   try {
@@ -73,13 +78,13 @@ const formatValue = (value, format) => {
     return value.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
   } else if (format === 'number' && typeof value === 'number') {
     return value.toLocaleString('en-US');
-  } else if (format === 'boolean') {
-    return value ? 'Yes' : 'No';
   }
   return value;
 };
 
 const goToRegister = () => {
+  const traderStore = useTraderStore();
+  traderStore.clearStore(); // Clear the trader store
   router.push({ name: 'Register' });
 };
 
@@ -105,29 +110,33 @@ onMounted(fetchTraderInfo);
 </script>
 
 <style scoped>
-.day-over-background {
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+.session-summary-wrapper {
+  background: url('@/assets/trading_background.jpg') no-repeat center center fixed;
+  background-size: cover;
   min-height: 100vh;
 }
 
-.day-over-card {
-  background-color: rgba(255, 255, 255, 0.9);
+.session-summary-card {
+  background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(10px);
   border-radius: 16px;
   overflow: hidden;
   transition: all 0.3s ease;
 }
 
-.day-over-card:hover {
+.session-summary-card:hover {
   transform: translateY(-5px);
-  box-shadow: 0 12px 20px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
 }
 
-.v-list-item {
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+.metric-card {
+  background-color: rgba(245, 247, 250, 0.8);
+  border-radius: 12px;
+  transition: all 0.3s ease;
 }
 
-.v-list-item:last-child {
-  border-bottom: none;
+.metric-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
 }
 </style>
