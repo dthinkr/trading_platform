@@ -18,6 +18,7 @@ from core.trader_manager import TraderManager
 from core.data_models import TraderType, TradingParameters, UserRegistration
 from utils import setup_custom_logger
 from .auth import get_current_user, get_current_admin_user, get_firebase_auth
+from .calculate_metrics import process_log_file, write_to_csv
 from firebase_admin import auth
 import secrets
 import logging
@@ -271,59 +272,8 @@ async def start_experiment(
     }
 
 
-@app.get("/experiment/status/{trading_session_id}")
-async def get_experiment_status(trading_session_id: str, current_user: dict = Depends(get_current_user)):
-    trader_manager = trader_managers.get(trading_session_id)
-    if not trader_manager:
-        raise HTTPException(status_code=404, detail="Trading session not found")
-
-    is_finished = trader_manager.trading_session.is_finished
-
-    return {
-        "status": "success",
-        "data": {"trading_session_id": trading_session_id, "is_finished": is_finished},
-    }
 
 
-@app.get("/experiment/time_series_metrics/{trading_session_id}")
-async def get_time_series_metrics(trading_session_id: str, current_user: dict = Depends(get_current_user)):
-    trader_manager = trader_managers.get(trading_session_id)
-    if not trader_manager:
-        raise HTTPException(status_code=404, detail="Trading session not found")
-
-    if not trader_manager.trading_session.is_finished:
-        raise HTTPException(
-            status_code=400, detail="Trading session is not finished yet"
-        )
-
-    processed_data = trader_manager.get_processed_data()
-    
-    return JSONResponse(content={"status": "success", "data": processed_data})
-
-
-@app.get("/experiment/end_metrics/{trading_session_id}")
-async def get_end_metrics(trading_session_id: str, current_user: dict = Depends(get_current_user)):
-    try:
-        trader_manager = trader_managers.get(trading_session_id)
-        if not trader_manager:
-            raise HTTPException(status_code=404, detail="Trading session not found")
-
-        metrics = trader_manager.calculate_end_of_run_metrics()
-
-        csv_buffer = io.StringIO()
-        csv_buffer.write(metrics.to_csv(index=False))
-        csv_buffer.seek(0)
-
-        return StreamingResponse(
-            csv_buffer,
-            media_type="text/csv",
-            headers={
-                "Content-Disposition": f"attachment; filename=end_metrics_{trading_session_id}.csv",
-                "Access-Control-Expose-Headers": "Content-Disposition",
-            },
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="Error calculating metrics")
 
 async def find_or_create_session_and_assign_trader(uid):
     try:
@@ -389,6 +339,37 @@ async def receive_from_frontend(websocket: WebSocket, trader):
             print(f"Error processing message for trader {trader.id}: {str(e)}")
             traceback.print_exc()
             return  # Exit the function on any other exception
+
+@app.get("/session_metrics")
+async def get_session_metrics(trader_id: str, session_id: str, current_user: dict = Depends(get_current_user)):
+    # Verify that the trader_id belongs to the current user
+    if trader_id != f"HUMAN_{current_user['uid']}":
+        raise HTTPException(status_code=403, detail="Unauthorized access to trader data")
+    
+    log_file_path = f"logs/{session_id}_trading.log"
+    
+    try:
+        processed_data = process_log_file(log_file_path)
+        
+        # Create a CSV in memory
+        output = io.StringIO()
+        write_to_csv(processed_data, output)
+        
+        # Move the cursor to the beginning of the StringIO object
+        output.seek(0)
+        
+        # Return the CSV as a StreamingResponse
+        return StreamingResponse(
+            iter([output.getvalue()]),
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename=session_{session_id}_trader_{trader_id}_metrics.csv"}
+        )
+    except Exception as e:
+        logger.error(f"Error processing log file: {str(e)}")
+        print(f"Error processing log file: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail="Error processing session metrics")
+
 
 @app.websocket("/trader/{trader_id}")
 async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
