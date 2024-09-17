@@ -61,6 +61,7 @@ const props = defineProps({
 });
 
 const router = useRouter();
+const traderStore = useTraderStore();
 const traderInfo = ref(null);
 const httpUrl = import.meta.env.VITE_HTTP_URL;
 
@@ -83,30 +84,29 @@ const formatValue = (value, format) => {
 };
 
 const goToRegister = () => {
-  const traderStore = useTraderStore();
   traderStore.clearStore(); // Clear the trader store
   router.push({ name: 'Register' });
 };
 
 const downloadSessionMetrics = async () => {
   try {
-    const response = await axios.get(`${httpUrl}session_metrics/trader/${props.traderUuid}`, {
-      responseType: 'blob',
-    });
+    // Ensure the traderUuid is set in the store
+    traderStore.traderUuid = props.traderUuid;
     
-    const blob = new Blob([response.data], { type: 'text/csv' });
-    const link = document.createElement('a');
-    link.href = window.URL.createObjectURL(blob);
-    link.download = `session_metrics_${props.traderUuid}.csv`;
-    link.click();
-    
-    window.URL.revokeObjectURL(link.href);
+    // Call the fetchSessionMetrics action from the store
+    await traderStore.fetchSessionMetrics();
   } catch (error) {
     console.error('Failed to download session metrics:', error);
   }
 };
 
-onMounted(fetchTraderInfo);
+onMounted(() => {
+  fetchTraderInfo();
+  // Ensure the trading session data is set in the store
+  if (traderInfo.value && traderInfo.value.trading_session_id) {
+    traderStore.tradingSessionData = { trading_session_uuid: traderInfo.value.trading_session_id };
+  }
+});
 </script>
 
 <style scoped>

@@ -499,5 +499,47 @@ export const useTraderStore = defineStore("trader", {
       // Reset all state properties to their initial values
       this.$reset();
     },
+
+    async fetchSessionMetrics() {
+      if (!this.traderUuid || !this.tradingSessionData.trading_session_uuid) {
+        console.error('Trader ID or Session ID is missing');
+        return;
+      }
+
+      try {
+        const response = await axios.get('/session_metrics', {
+          params: {
+            trader_id: this.traderUuid,
+            session_id: this.tradingSessionData.trading_session_uuid
+          },
+          responseType: 'blob',
+        });
+
+        // Create a Blob from the CSV data
+        const blob = new Blob([response.data], { type: 'text/csv' });
+        
+        // Create a link element and trigger the download
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = `session_${this.tradingSessionData.trading_session_uuid}_trader_${this.traderUuid}_metrics.csv`;
+        
+        document.body.appendChild(a);
+        a.click();
+        
+        // Clean up
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        console.log('Session metrics CSV downloaded successfully');
+      } catch (error) {
+        console.error('Error fetching session metrics:', error);
+        if (error.response) {
+          console.error('Response data:', error.response.data);
+          console.error('Response status:', error.response.status);
+        }
+      }
+    },
   },
 });

@@ -1,160 +1,131 @@
-from pymongo import MongoClient, DESCENDING
+import re
+from datetime import datetime
 import polars as pl
-from typing import Dict, List
-import numpy as np
-import matplotlib.pyplot as plt
-from utils import load_config
-import io
+from typing import Dict, List, Optional
+import ast
 import json
+import io
 import csv
-from fastapi.responses import JSONResponse
 
-CONFIG = load_config()
+def parse_log_line(line: str) -> Optional[Dict]:
+    match = re.match(r'(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}) - (\w+) - (\w+): (.+)$', line.strip())
+    if not match:
+        return None
 
-def get_data_from_mongodb(
-    session_ids: List[str] = None, limit: int = None
-) -> pl.DataFrame:
-    client = MongoClient(CONFIG.MONGODB_HOST, CONFIG.MONGODB_PORT)
-    db = client[CONFIG.DATASET]
-    collection = db[CONFIG.COLLECTION_NAME]
-
-    if session_ids:
-        query = {"trading_session_id": {"$in": session_ids}}
-    else:
-        # Get the most recent session ID
-        latest_session = collection.find_one(sort=[("_id", DESCENDING)])
-        query = {"trading_session_id": latest_session["trading_session_id"]}
-
-    # Sort by _id in descending order to get the latest documents first
-    cursor = collection.find(query).sort("_id", DESCENDING)
-
-    # Apply limit if specified
-    if limit:
-        cursor = cursor.limit(limit)
-
-    data = list(cursor)
-
-    # Reverse the list to maintain chronological order
-    data.reverse()
-
-    return pl.DataFrame(data)
-
-def process_message(
-    message: Dict, order_book: Dict[str, Dict[int, int]], timestamp: float, message_type: str, informed_progress: float = None, matched_orders: Dict = None
-) -> Dict:
-    # Add debug print
-    print(f"Processing message: {message}, type: {message_type}")
-
-    price = message.get("price")
-    size = message.get("amount")
-    direction = message.get("order_type")
-
-    # Convert to int only if the values are not None, otherwise keep as None
-    price = int(price) if price is not None else None
-    size = int(size) if size is not None else None
-    direction = int(direction) if direction is not None else None
-
-    if message_type == "ADDED_ORDER" and price is not None and size is not None and direction is not None:
-        if direction == 1:  # Buy order
-            if price not in order_book["bids"]:
-                order_book["bids"][price] = 0
-            order_book["bids"][price] += size
-        elif direction == -1:  # Sell order
-            if price not in order_book["asks"]:
-                order_book["asks"][price] = 0
-            order_book["asks"][price] += size
-
-    bid_prices = sorted(order_book["bids"].keys(), reverse=True)
-    ask_prices = sorted(order_book["asks"].keys())
-
-    processed_message = {
-        "seconds_into_session": timestamp,
-        "source": message.get("trader_id", ""),
-        "message_type": message_type,
-        "incoming_message": f"{price},{size},{direction}" if all(v is not None for v in [price, size, direction]) else None,
-        "price": price,
-        "size": size,
-        "direction": direction,
-        "Event_Type": 1 if message_type == "ADDED_ORDER" else 0,
-        "Ask_Price_1": ask_prices[0] if ask_prices else None,
-        "Bid_Price_1": bid_prices[0] if bid_prices else None,
-        "Midprice": (ask_prices[0] + bid_prices[0]) / 2 if ask_prices and bid_prices else None,
-        "Ask_Prices": ask_prices,
-        "Ask_Sizes": [order_book["asks"][p] for p in ask_prices],
-        "Bid_Prices": bid_prices,
-        "Bid_Sizes": [order_book["bids"][p] for p in bid_prices],
-        "matched_bid_id": matched_orders.get("bid_order_id") if matched_orders else None,
-        "matched_ask_id": matched_orders.get("ask_order_id") if matched_orders else None,
-        "informed_trader_progress": informed_progress,
+    timestamp_str, _, message_type, content = match.groups()
+    timestamp = datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S,%f')
+    
+    content = (content.replace('<OrderStatus.BUFFERED: \'buffered\'>', "'BUFFERED'")
+                      .replace('<OrderType.BID: 1>', "'BID'")
+                      .replace('<OrderType.ASK: -1>', "'ASK'"))
+    
+    datetime_match = re.search(r"datetime\.datetime\((\d+, \d+, \d+, \d+, \d+, \d+, \d+)\)", content)
+    if datetime_match:
+        datetime_str = datetime_match.group(1)
+        content = content.replace(datetime_match.group(0), f"'{datetime_str}'")
+    
+    content_dict = ast.literal_eval(content)
+    
+    if 'timestamp' in content_dict:
+        timestamp_parts = [int(part.strip()) for part in content_dict['timestamp'].split(',')]
+        content_dict['timestamp'] = datetime(*timestamp_parts)
+    
+    return {
+        'timestamp': timestamp,
+        'message_type': message_type,
+        'content': content_dict
     }
-    return processed_message
 
-def process_session(session_data: pl.DataFrame) -> List[Dict]:
-    order_book = {"bids": {}, "asks": {}}
+def process_message(message: Dict, order_book: Dict[str, Dict[int, int]], timestamp: float) -> Dict:
+    price = int(message.get('price', 0))
+    size = float(message.get('amount', 0))
+    direction = 1 if message.get('order_type') == 'BID' else -1
+
+    if direction == 1:
+        if price not in order_book['bids']:
+            order_book['bids'][price] = 0
+        order_book['bids'][price] += size
+    else:
+        if price not in order_book['asks']:
+            order_book['asks'][price] = 0
+        order_book['asks'][price] += size
+
+    bid_prices = sorted(order_book['bids'].keys(), reverse=True)
+    ask_prices = sorted(order_book['asks'].keys())
+
+    return {
+        'seconds_into_session': timestamp,
+        'source': message.get('trader_id', ''),
+        'message_type': 'ADDED_ORDER',
+        'incoming_message': f"{price},{size},{direction}",
+        'price': price,
+        'size': size,
+        'direction': direction,
+        'Event_Type': 1,
+        'Ask_Price_1': ask_prices[0] if ask_prices else None,
+        'Bid_Price_1': bid_prices[0] if bid_prices else None,
+        'Midprice': (ask_prices[0] + bid_prices[0]) / 2 if ask_prices and bid_prices else None,
+        'Ask_Prices': json.dumps(ask_prices),
+        'Ask_Sizes': json.dumps([order_book['asks'][p] for p in ask_prices]),
+        'Bid_Prices': json.dumps(bid_prices),
+        'Bid_Sizes': json.dumps([order_book['bids'][p] for p in bid_prices]),
+        'matched_bid_id': None,
+        'matched_ask_id': None,
+    }
+
+def process_log_file(log_file_path: str) -> List[Dict]:
+    with open(log_file_path, 'r') as file:
+        log_lines = file.readlines()
+
+    parsed_logs = [parse_log_line(line) for line in log_lines if parse_log_line(line) is not None]
+    
+    if not parsed_logs:
+        return []
+
+    df = pl.DataFrame(parsed_logs)
+    
+    start_time = df['timestamp'].min()
+    order_book = {'bids': {}, 'asks': {}}
     processed_messages = []
-    filled_order_printed = False
 
-    for row in session_data.iter_rows(named=True):
-        message = row["content"].get("incoming_message", {})
-        message_type = row["content"].get("type", "UNKNOWN")
-        timestamp = (row["timestamp"] - session_data["timestamp"].min()).total_seconds()
-        informed_progress = row["content"].get("informed_trader_progress")
-        matched_orders = row["content"].get("matched_orders")
-
-        if message_type == "FILLED_ORDER" and not filled_order_printed:
-            print("FILLED_ORDER message found:")
-            print(json.dumps(row["content"], indent=2, default=str))
-            filled_order_printed = True
-
-        processed_message = process_message(message, order_book, timestamp, message_type, informed_progress, matched_orders)
-        
-        # Only append messages with non-empty incoming_message
-        if processed_message["incoming_message"]:
+    for row in df.iter_rows(named=True):
+        if row['message_type'] == 'ADD_ORDER':
+            timestamp = (row['timestamp'] - start_time).total_seconds()
+            processed_message = process_message(row['content'], order_book, timestamp)
             processed_messages.append(processed_message)
-
-    if not filled_order_printed:
-        print("No FILLED_ORDER message found in the session data.")
+        elif row['message_type'] == 'MATCHED_ORDER':
+            if processed_messages:
+                processed_messages[-1]['matched_bid_id'] = row['content'].get('bid_order_id')
+                processed_messages[-1]['matched_ask_id'] = row['content'].get('ask_order_id')
 
     return processed_messages
 
-def write_to_csv(data: List[Dict], output_file: str):
-    with open(output_file, "w", newline="") as csvfile:
-        fieldnames = [
-            "seconds_into_session",
-            "source",
-            "message_type",
-            "incoming_message",
-            "price",
-            "size",
-            "direction",
-            "Event_Type",
-            "Ask_Price_1",
-            "Bid_Price_1",
-            "Midprice",
-            "Ask_Prices",
-            "Ask_Sizes",
-            "Bid_Prices",
-            "Bid_Sizes",
-            "matched_bid_id",
-            "matched_ask_id",
-            "informed_trader_progress",
-        ]
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-        writer.writeheader()
-        for row in data:
-            writer.writerow(row)
+def write_to_csv(data: List[Dict], output_file: io.StringIO):
+    if not data:
+        return
 
+    # Get the fieldnames from the first dictionary in the list
+    fieldnames = list(data[0].keys())
 
-def calculate_end_of_run_metrics(df: pl.DataFrame) -> Dict:
-    # This is a placeholder function that returns an empty dictionary
-    return {}
+    # Create a CSV writer object
+    writer = csv.DictWriter(output_file, fieldnames=fieldnames)
 
+    # Write the header
+    writer.writeheader()
 
-if __name__ == "__main__":
-    run_data = get_data_from_mongodb()
-    processed_data = process_session(run_data)
+    # Write the data
+    for row in data:
+        writer.writerow(row)
+
+if __name__ == '__main__':
+    log_file_path = 'logs/SESSION_1726606741_trading.log'
+    output_file = 'message_book.csv'
+    
+    processed_data = process_log_file(log_file_path)
+    write_to_csv(processed_data, output_file)
+    
+    print(f"Message book data written to {output_file}")
+    
+    # Display the first few rows using polars
     df = pl.DataFrame(processed_data)
     print(df.head())
-    output_file = f"{CONFIG.DATA_DIR}/message_book.csv"
-    write_to_csv(processed_data, output_file)
-    print(f"Message book data written to {output_file}")
