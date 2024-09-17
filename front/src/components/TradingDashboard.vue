@@ -72,7 +72,7 @@
             <v-card outlined class="pa-2 mr-2 goal-message" :class="goalMessage.type === 'success' ? 'goal-success' : 'goal-warning'">
               <v-row no-gutters align="center">
                 <v-col cols="auto" class="mr-2">
-                  <v-icon :color="goalMessage.type === 'success' ? 'green darken-1' : 'red darken-2'">
+                  <v-icon :color="goalMessage.type === 'success' ? 'light-green darken-1' : 'amber darken-2'">
                     {{ goalMessage.type === 'success' ? 'mdi-check-circle' : 'mdi-alert-circle' }}
                   </v-icon>
                 </v-col>
@@ -195,25 +195,6 @@ const finalizingDay = () => {
 };
 
 watch(
-  gameParams,
-  (newValue) => {
-    if (newValue && newValue.active === false && isTradingStarted.value) {
-      finalizingDay();
-    }
-  },
-  { deep: true }
-);
-
-watch(
-  dayOver,
-  (newValue) => {
-    if (newValue && isTradingStarted.value) {
-      finalizingDay();
-    }
-  }
-);
-
-watch(
   remainingTime,
   (newValue) => {
     if (newValue !== null && newValue <= 0 && isTradingStarted.value) {
@@ -222,14 +203,6 @@ watch(
   }
 );
 
-watch(
-  remainingTime,
-  (newValue) => {
-    if (newValue !== null && newValue <= 0) {
-      finalizingDay();
-    }
-  }
-);
 </script>
 
 <style scoped>
@@ -318,24 +291,25 @@ watch(
 }
 
 .goal-message {
-  background-color: #FFA500 !important; /* Orange background */
-  color: #000000 !important; /* Black text */
+  background-color: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
 }
 
 .goal-success {
-  border-left: 4px solid #4CAF50; /* Green border for success */
+  border-left: 4px solid #7CB342;
 }
 
 .goal-warning {
-  border-left: 4px solid #FF0000; /* Red border for warning */
+  border-left: 4px solid #FFB300;
 }
 
 .goal-subtitle {
-  color: rgba(0, 0, 0, 0.7) !important;
+  color: rgba(255, 255, 255, 0.7) !important;
 }
 
 .goal-text {
-  color: #000000 !important;
+  color: white !important;
 }
 
 .goal-message:hover {

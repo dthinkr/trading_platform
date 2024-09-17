@@ -169,7 +169,6 @@ async def get_trader(trader_id: str, current_user: dict = Depends(get_current_us
     data["goal"] = trader_data["goal"]
     return {"status": "success", "message": "Trader found", "data": data}
 
-
 @app.get("/trader_info/{trader_id}")
 async def get_trader_info(trader_id: str, current_user: dict = Depends(get_current_user)):
     trader_manager = get_manager_by_trader(trader_id)
@@ -211,7 +210,7 @@ async def get_trader_info(trader_id: str, current_user: dict = Depends(get_curre
     }
     
     return trader_info
-
+    
 @app.get("/trader/{trader_id}/session")
 async def get_trader_session(trader_id: str, current_user: dict = Depends(get_current_user)):
     session_id = trader_to_session_lookup.get(trader_id)

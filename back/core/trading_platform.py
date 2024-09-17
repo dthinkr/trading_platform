@@ -381,7 +381,17 @@ class TradingPlatform:
         """Handle inventory reports from traders."""
         trader_id = data.get("trader_id")
         self.trader_responses[trader_id] = True
-        trader_type = self.connected_traders[trader_id]["trader_type"]
+        
+        # Check if the trader is still in connected_traders
+        if trader_id not in self.connected_traders:
+            logger.warning(f"Received inventory report for unknown trader: {trader_id}")
+            return {}
+
+        trader_type = self.connected_traders[trader_id].get("trader_type")
+        if not trader_type:
+            logger.warning(f"Trader type not found for trader: {trader_id}")
+            return {}
+
         shares = data.get("shares", 0)
 
         if shares != 0:
@@ -443,6 +453,9 @@ class TradingPlatform:
                 await self._end_trading_session()
                 break
             await asyncio.sleep(1)
+        
+        # Add a 1-minute delay before cleanup
+        await asyncio.sleep(60)
         await self.clean_up()
 
     def _should_stop_trading(self, current_time: datetime) -> bool:
@@ -455,10 +468,14 @@ class TradingPlatform:
     async def _end_trading_session(self) -> None:
         """End the trading session and perform cleanup."""
         self.active = False
+        await self.close_existing_book()
         await self.send_broadcast({"type": "stop_trading"})
         await self._handle_final_inventory_reports()
         await self.send_broadcast({"type": "closure"})
         self.is_finished = True
+        
+        # Log the end of the trading session
+        logger.info(f"Trading session {self.id} ended. Cleanup will occur in 1 minute.")
 
     async def _handle_final_inventory_reports(self) -> None:
         """Handle final inventory reports from all traders."""
