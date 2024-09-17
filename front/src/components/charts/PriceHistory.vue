@@ -1,9 +1,5 @@
 <template>
   <v-card class="history-chart-container" elevation="3">
-    <v-card-title class="cardtitle-primary">
-      <v-icon left>mdi-chart-line</v-icon>
-      Transaction Price History
-    </v-card-title>
     <div class="chart-wrapper">
       <highcharts
         ref="priceGraph"
@@ -31,7 +27,7 @@ const priceGraph = ref(null);
 const chartOptions = reactive({
   chart: {
     height: 250,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#f5f5f5', // Change this line
     style: {
       fontFamily: 'Roboto, sans-serif'
     },

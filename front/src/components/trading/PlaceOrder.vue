@@ -1,9 +1,5 @@
 <template>
   <v-card height="100%" elevation="3" class="trading-panel">
-    <v-card-title class="cardtitle-primary">
-      <v-icon left>mdi-chart-line</v-icon>
-      Trading Panel
-    </v-card-title>
     
     <div class="orders-container">
       <div class="order-column">

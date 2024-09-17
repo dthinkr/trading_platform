@@ -214,7 +214,6 @@ class BaseTrader:
             if action_type == "transaction_update":
                 transactions = data.get("transactions", [])
                 self.update_filled_orders(transactions)
-
             if (
                 action_type == "transaction_update"
                 and self.trader_type != TraderType.NOISE.value
@@ -232,7 +231,7 @@ class BaseTrader:
             order_book = data.get("order_book")
             if order_book:
                 self.order_book = order_book
-            active_orders_in_book = data.get("active_order")
+            active_orders_in_book = data.get("active_orders")
             if active_orders_in_book:
                 self.active_orders_in_book = active_orders_in_book
                 own_orders = [

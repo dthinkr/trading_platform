@@ -91,21 +91,34 @@ export const useTraderStore = defineStore("trader", {
     isAdmin: false,
     currentHumanTraders: 0,
     expectedHumanTraders: 0,
+    traderAttributes: null,
+    lastMatchedOrders: null,
+    lastTransactionPrice: null,
+    recentTransactions: [],
+    traderProgress: 0,
   }),
   getters: {
     goalMessage: (state) => {
-      if (state.gameParams.goal === 0) return null;
+      if (!state.traderAttributes || state.traderAttributes.goal === 0) return null;
 
-      const goalAmount = state.gameParams.goal;
-      const successVerb = state.gameParams.goal > 0 ? 'buying' : 'selling';
-      const currentDelta = goalAmount - state.sum_dinv;
+      const goalAmount = state.traderAttributes.goal;
+      const successVerb = goalAmount > 0 ? 'buying' : 'selling';
+      const currentDelta = goalAmount - state.traderProgress;
       const remaining = Math.abs(currentDelta);
       const shareWord = remaining === 1 ? 'share' : 'shares';
 
       const action = currentDelta > 0 ? 'buy' : 'sell';
-      if (remaining == 0) return { text: `You have reached your goal of ${successVerb} ${Math.abs(goalAmount)} shares`, type: 'success' };
+      if (remaining === 0) {
+        return { 
+          text: `You have reached your goal of ${successVerb} ${Math.abs(goalAmount)} shares`, 
+          type: 'success' 
+        };
+      }
 
-      return { text: `You need to ${action} ${remaining}  ${shareWord} to reach your goal`, type: 'warning' };
+      return { 
+        text: `You need to ${action} ${remaining} ${shareWord} to reach your goal`, 
+        type: 'warning' 
+      };
     },
     ws_path: (state) => {
       return `${import.meta.env.VITE_WS_URL}trader/${state.traderUuid}`;
@@ -166,12 +179,23 @@ export const useTraderStore = defineStore("trader", {
         if (response.data.status === "success") {
           this.traderAttributes = response.data.data;
           this.traderUuid = traderId;
+          // Initialize traderProgress based on initial filled orders
+          this.traderProgress = this.calculateProgress(this.traderAttributes.filled_orders);
         } else {
           throw new Error("Failed to fetch trader attributes");
         }
       } catch (error) {
-        throw error;
+        console.error("Error fetching trader attributes:", error);
       }
+    },
+
+    startTraderAttributesPolling() {
+      // Fetch immediately
+      this.getTraderAttributes(this.traderUuid);
+      // Then fetch every 5 seconds (adjust as needed)
+      setInterval(() => {
+        this.getTraderAttributes(this.traderUuid);
+      }, 5000);
     },
 
     async initializeTrader(traderUuid) {
@@ -196,6 +220,7 @@ export const useTraderStore = defineStore("trader", {
         });
         return;
       }
+
       const {
         order_book,
         history,
@@ -208,9 +233,16 @@ export const useTraderStore = defineStore("trader", {
         vwap,
         sum_dinv,
         initial_shares,
+        matched_orders, // Add this line to destructure matched_orders if present
+        type // Add this to get the message type
       } = data;
-    
-    
+
+      // Handle matched orders if present (likely in a FILLED_ORDER type message)
+      if (type === "transaction_update" && matched_orders) {
+        this.handleFilledOrder(matched_orders, transaction_price);
+      }
+
+      // Rest of your existing update logic
       if (transaction_price && midpoint && spread) {
         const market_level_data = {
           transaction_price,
@@ -219,7 +251,7 @@ export const useTraderStore = defineStore("trader", {
         };
         this.updateExtraParams(market_level_data);
       }
-    
+
       if (trader_orders) {
         this.placedOrders = trader_orders.map(order => ({
           ...order,
@@ -227,13 +259,13 @@ export const useTraderStore = defineStore("trader", {
           status: 'active'
         }));
       }
-    
+
       if (inventory) {
         const { shares, cash } = inventory;
         this.shares = shares;
         this.cash = cash;
       }
-    
+
       if (order_book) {
         const { bids, asks } = order_book;
         const depth_book_shown = this.gameParams.depth_book_shown || 3;
@@ -241,7 +273,7 @@ export const useTraderStore = defineStore("trader", {
         this.askData = asks.slice(0, depth_book_shown);
         this.sum_dinv = sum_dinv;
         this.initial_shares = initial_shares;
-    
+
         this.midPoint = midpoint || findMidpoint(bids, asks);
         this.chartData = [
           {
@@ -255,12 +287,70 @@ export const useTraderStore = defineStore("trader", {
             data: this.askData,
           },
         ];
-    
+
         this.history = history;
         this.spread = spread;
         this.pnl = pnl;
         this.vwap = vwap;
-      } 
+      }
+    },
+
+    handleFilledOrder(matched_orders, transaction_price) {
+      console.log("Processing filled order:", matched_orders, "at price:", transaction_price);
+
+      // Update your store state
+      this.lastMatchedOrders = matched_orders;
+      this.lastTransactionPrice = transaction_price;
+
+      // Check if this trader is involved in the transaction
+      const isInvolvedInTransaction = 
+        matched_orders.bid_trader_id === this.traderUuid || 
+        matched_orders.ask_trader_id === this.traderUuid;
+
+      // Add this transaction to the list of recent transactions
+      this.recentTransactions.push({
+        ...matched_orders,
+        price: transaction_price,
+        timestamp: new Date().toISOString(),
+        isRelevantToTrader: isInvolvedInTransaction
+      });
+
+      if (isInvolvedInTransaction) {
+        console.log("This transaction involves the current trader");
+        
+        // Determine which order (bid or ask) belongs to this trader
+        const isBid = matched_orders.bid_trader_id === this.traderUuid;
+        const relevantOrderId = isBid ? matched_orders.bid_order_id : matched_orders.ask_order_id;
+
+        // Update the status of the relevant order
+        this.updateOrderStatus(relevantOrderId, 'executed');
+
+        // Update traderProgress
+        const amount = matched_orders.amount || 1;
+        this.traderProgress += isBid ? amount : -amount;
+      }
+
+      // Notify components about the new transaction
+      this.notifyTransactionOccurred(isInvolvedInTransaction);
+    },
+
+    updateOrderStatus(orderId, newStatus) {
+      const orderIndex = this.placedOrders.findIndex(order => order.id === orderId);
+      if (orderIndex !== -1) {
+        const order = this.placedOrders[orderIndex];
+        order.status = newStatus;
+        
+        if (newStatus === 'executed') {
+          this.executedOrders.push({ ...order });
+          this.placedOrders.splice(orderIndex, 1);
+        }
+      }
+    },
+
+    notifyTransactionOccurred(isRelevantToTrader) {
+      console.log(`New transaction occurred. Relevant to this trader: ${isRelevantToTrader}`);
+      // You can implement additional logic here to notify components
+      // For example, you might want to update a transactions list component
     },
 
     async initializeWebSocket() {
@@ -275,9 +365,13 @@ export const useTraderStore = defineStore("trader", {
       this.ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          this.handle_update(data);
+          if (data.type === "trader_id_confirmation") {
+            this.confirmTraderId(data.data);
+          } else {
+            this.handle_update(data);
+          }
         } catch (error) {
-          // Handle error
+          console.error("Error processing WebSocket message:", error);
         }
       };
     
@@ -311,13 +405,22 @@ export const useTraderStore = defineStore("trader", {
         this.showSnackbar = true;
       }
     },
+
     addOrder(order) {
-      this.placedOrders.push(order);
-      this.sendMessage("add_order", { 
-        type: order.order_type === 'BID' ? 1 : -1,
+      const newOrder = {
+        ...order,
+        id: `pending_${Date.now()}`, // Temporary ID until we get a response from the server
+        status: 'pending'
+      };
+      this.placedOrders.push(newOrder);
+      
+      const message = {
+        type: order.order_type === 'BUY' ? 1 : -1,
         price: order.price,
-        amount: order.amount 
-      });
+        amount: order.amount
+      };
+
+      this.sendMessage("add_order", message);
     },
     
     cancelOrder(orderId) {
@@ -329,18 +432,6 @@ export const useTraderStore = defineStore("trader", {
       }
     },
     
-    updateOrderStatus(orderId, newStatus) {
-      const orderIndex = this.placedOrders.findIndex(order => order.id === orderId);
-      if (orderIndex !== -1) {
-        const order = this.placedOrders[orderIndex];
-        order.status = newStatus;
-        
-        if (newStatus === 'executed') {
-          this.executedOrders.push({ ...order });
-          this.placedOrders.splice(orderIndex, 1);
-        }
-      }
-    },
     async login(email, password) {
       try {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
@@ -352,6 +443,7 @@ export const useTraderStore = defineStore("trader", {
         throw error;
       }
     },
+    
     async register(email, password) {
       try {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -394,6 +486,13 @@ export const useTraderStore = defineStore("trader", {
       if (message.type === 'time_update') {
         this.updateTimeInfo(message.data);
       }
+    },
+
+    calculateProgress(filledOrders) {
+      return filledOrders.reduce((sum, order) => {
+        const amount = order.amount || 1; // Default to 1 if amount is not specified
+        return sum + (order.order_type === 'BID' ? amount : -amount);
+      }, 0);
     },
   },
 });

@@ -1,6 +1,6 @@
 import asyncio
 from typing import Dict, List, Tuple, Optional
-from core.data_models import TransactionModel
+from core.data_models import TransactionModel, OrderType
 
 class TransactionManager:
     def __init__(self, session_id: str):
@@ -9,7 +9,8 @@ class TransactionManager:
         self.transaction_queue: asyncio.Queue = asyncio.Queue()
         self._last_transaction_price: Optional[float] = None
 
-    async def create_transaction(self, bid: Dict, ask: Dict, transaction_price: float) -> Tuple[str, str, TransactionModel]:
+
+    async def create_transaction(self, bid: Dict, ask: Dict, transaction_price: float) -> Tuple[str, str, TransactionModel, Dict]:
         bid_id, ask_id = bid["id"], ask["id"]
 
         transaction = TransactionModel(
@@ -24,8 +25,33 @@ class TransactionManager:
         await self.transaction_queue.put(transaction)
         self._last_transaction_price = transaction_price
 
-        return ask["trader_id"], bid["trader_id"], transaction
+        transaction_details = {
+            "type": "transaction_update",
+            "transactions": [
+                {
+                    "id": order["id"],
+                    "price": transaction_price,
+                    "type": "ask" if order["order_type"] == OrderType.ASK else "bid",
+                    "amount": order["amount"],
+                    "trader_id": order["trader_id"],
+                }
+                for order in [ask, bid]
+            ],
+            "matched_orders": {
+                "bid_order_id": str(bid_id),
+                "ask_order_id": str(ask_id),
+                "transaction_price": transaction_price,
+                "transaction_amount": min(bid["amount"], ask["amount"]),
+                "bid_trader_id": bid["trader_id"],
+                "ask_trader_id": ask["trader_id"],
+                "bid_price": bid["price"],
+                "ask_price": ask["price"],
+                "timestamp": transaction.timestamp.isoformat(),
+            },
+        }
 
+        return ask["trader_id"], bid["trader_id"], transaction, transaction_details
+    
     @property
     def transactions(self) -> List[Dict]:
         return [transaction.to_dict() for transaction in self.transaction_list]
