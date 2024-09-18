@@ -201,6 +201,41 @@ class TradingParameters(BaseModel):
             result[description][field_name] = getattr(self, field_name)
         return result
 
+    def update(self, **kwargs):
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+
+    @classmethod
+    def create_with_persistent_settings(cls, base_params: dict, persistent_settings: dict):
+        merged_params = {**base_params, **persistent_settings}
+        return cls(**merged_params)
+
+    @classmethod
+    def from_dict(cls, data: dict):
+        converted_data = {}
+        for field, value in data.items():
+            if field in cls.model_fields:
+                field_info = cls.model_fields[field]
+                try:
+                    if isinstance(value, str):
+                        if field_info.annotation == int:
+                            converted_data[field] = int(value)
+                        elif field_info.annotation == float:
+                            converted_data[field] = float(value)
+                        elif field_info.annotation == bool:
+                            converted_data[field] = value.lower() in ('true', '1', 'yes')
+                        elif field_info.annotation == List[int]:
+                            converted_data[field] = [int(v.strip()) for v in value.split(',')]
+                        else:
+                            converted_data[field] = value
+                    else:
+                        converted_data[field] = value
+                except ValueError as e:
+                    print(f"Error converting {field}: {str(e)}")
+                    converted_data[field] = value
+        return cls(**converted_data)
+
 
 class LobsterEventType(IntEnum):
     """For the LOBSTER data, the event type is an integer. This class maps the integer to a string.

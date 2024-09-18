@@ -12,27 +12,28 @@
                   <v-card-text>
                     <v-row dense>
                       <v-col cols="12" v-for="field in group" :key="field.name">
-                      <v-text-field
-                        v-if="!isArrayField(field)"
-                        :label="field.title || ''"
-                        v-model="formState[field.name]"
-                        :type="getFieldType(field)"
-                        dense
-                        outlined
-                        hide-details="auto"
-                        class="mb-2 short-input"
-                      ></v-text-field>
-                      <v-text-field
-                        v-else
-                        :label="field.title || ''"
-                        v-model="formState[field.name]"
-                        dense
-                        outlined
-                        hide-details="auto"
-                        class="mb-2 short-input"
-                        @input="handleArrayInput(field.name, $event)"
-                      ></v-text-field>
-                    </v-col>
+                        <v-text-field
+                          v-if="!isArrayField(field)"
+                          :label="field.title || ''"
+                          v-model="formState[field.name]"
+                          :type="getFieldType(field)"
+                          dense
+                          outlined
+                          hide-details="auto"
+                          class="mb-2 short-input"
+                          @input="updatePersistentSettings"
+                        ></v-text-field>
+                        <v-text-field
+                          v-else
+                          :label="field.title || ''"
+                          v-model="formState[field.name]"
+                          dense
+                          outlined
+                          hide-details="auto"
+                          class="mb-2 short-input"
+                          @input="handleArrayInput(field.name, $event)"
+                        ></v-text-field>
+                      </v-col>
                     </v-row>
                   </v-card-text>
                 </v-card>
@@ -40,7 +41,7 @@
             </v-form>
           </v-card-text>
           <v-card-actions>
-            <v-btn color="primary" @click="initializeTrader" :disabled="!serverActive">Start Visually</v-btn>
+            <v-btn color="primary" @click="saveSettings" :disabled="!serverActive">Save Settings</v-btn>
             <v-btn color="secondary" @click="startExperiment" :disabled="!serverActive">Start in Background</v-btn>
           </v-card-actions>
         </v-card>
@@ -150,32 +151,19 @@
 </template>
 
 <script setup>
-import { onMounted, ref, computed } from "vue";
+import { ref, onMounted, computed } from 'vue';
 import { useTraderStore } from "@/store/app";
-import { storeToRefs } from "pinia";
-import { useRouter } from "vue-router";
-import axios from "axios";
+import axios from 'axios';
 import Papa from 'papaparse';
 
-const httpUrl = import.meta.env.VITE_HTTP_URL;
-const defaultsUrl = `${httpUrl}traders/defaults`;
-const experimentUrl = `${httpUrl}experiment/start`;
-const timeSeriesMetricsUrl = `${httpUrl}experiment/time_series_metrics`;
-const endMetricsUrl = `${httpUrl}experiment/end_metrics`;
-const statusUrl = `${httpUrl}experiment/status`;
-const plotUrl = `${httpUrl}experiment/time_series_plot`;
-
 const traderStore = useTraderStore();
-const router = useRouter();
-const serverActive = ref(false);
 const formState = ref({});
 const formFields = ref([]);
+const serverActive = ref(false);
 const sessions = ref([]);
 const svgPlot = ref('');
 const selectedSession = ref(null);
 const showResultDialog = ref(false);
-
-const { tradingSessionData } = storeToRefs(useTraderStore());
 
 const groupedFields = computed(() => {
   const groups = {};
@@ -194,22 +182,6 @@ const getFieldType = (field) => {
   return ['number', 'integer'].includes(field.type) ? 'number' : 'text';
 };
 
-const fetchData = async () => {
-  try {
-    const response = await axios.get(defaultsUrl);
-    const data = response.data.data;
-    
-    for (const [key, value] of Object.entries(data)) {
-      formState.value[key] = value.default;
-      formFields.value.push({ name: key, ...value });
-    }
-    serverActive.value = true;
-  } catch (error) {
-    serverActive.value = false;
-    console.error("Failed to fetch form defaults:", error);
-  }
-};
-
 const isArrayField = (field) => {
   return field.type === 'array';
 };
@@ -220,28 +192,55 @@ const handleArrayInput = (fieldName, value) => {
   } else {
     formState.value[fieldName] = value.split(',').map(item => item.trim());
   }
+  updatePersistentSettings();
 };
 
-const initializeTrader = async () => {
+const fetchData = async () => {
   try {
-    const formData = { ...formState.value };
-    // Convert array fields back to actual arrays
-    for (const field of formFields.value) {
-      if (isArrayField(field) && typeof formData[field.name] === 'string') {
-        formData[field.name] = formData[field.name].split(',').map(item => Number(item.trim()));
-      }
+    const [defaultsResponse, persistentSettingsResponse] = await Promise.all([
+      axios.get(`${import.meta.env.VITE_HTTP_URL}traders/defaults`),
+      axios.get(`${import.meta.env.VITE_HTTP_URL}admin/get_persistent_settings`)
+    ]);
+
+    const defaultData = defaultsResponse.data.data;
+    const persistentSettings = persistentSettingsResponse.data.data;
+
+    for (const [key, value] of Object.entries(defaultData)) {
+      formState.value[key] = persistentSettings[key] || value.default;
+      formFields.value.push({ name: key, ...value });
     }
-    await traderStore.initializeTradingSystem(formData);
-    // ... rest of the function ...
+    serverActive.value = true;
   } catch (error) {
-    console.error("Error initializing trading system:", error);
-    // You might want to show an error message to the user here
+    serverActive.value = false;
+    console.error("Failed to fetch form defaults or persistent settings:", error);
+  }
+};
+
+const updatePersistentSettings = async () => {
+  try {
+    await axios.post(`${import.meta.env.VITE_HTTP_URL}admin/update_persistent_settings`, {
+      settings: formState.value
+    });
+  } catch (error) {
+    console.error("Failed to update persistent settings:", error);
+    throw error; // Re-throw the error so it can be caught in the saveSettings function
+  }
+};
+
+const saveSettings = async () => {
+  try {
+    await updatePersistentSettings();
+    // You can add a success message or notification here
+    console.log("Settings saved successfully");
+  } catch (error) {
+    console.error("Error saving settings:", error);
+    // You can add an error message or notification here
   }
 };
 
 const startExperiment = async () => {
   try {
-    const response = await axios.post(experimentUrl, formState.value);
+    const response = await axios.post(`${import.meta.env.VITE_HTTP_URL}experiment/start`, formState.value);
     const sessionId = response.data.data.trading_session_uuid;
     const duration = formState.value.duration;
     sessions.value.push({ 
@@ -259,13 +258,13 @@ const startExperiment = async () => {
 const checkExperimentStatus = async (sessionId) => {
   const checkStatus = async () => {
     try {
-      const response = await axios.get(`${statusUrl}/${sessionId}`);
+      const response = await axios.get(`${import.meta.env.VITE_HTTP_URL}experiment/status/${sessionId}`);
       const session = sessions.value.find(s => s.id === sessionId);
       if (session) {
         session.status = response.data.data.is_finished ? 'finished' : 'running';
         if (response.data.data.is_finished) {
           // Fetch end metrics when session is finished
-          const endMetricsResponse = await axios.get(`${endMetricsUrl}/${sessionId}`);
+          const endMetricsResponse = await axios.get(`${import.meta.env.VITE_HTTP_URL}experiment/end_metrics/${sessionId}`);
           session.endMetrics = endMetricsResponse.data.data;
         } else {
           setTimeout(checkStatus, 10000);
@@ -282,8 +281,8 @@ const checkExperimentStatus = async (sessionId) => {
 const downloadCombinedCSV = async (sessionId) => {
   try {
     const [endMetricsResponse, timeSeriesMetricsResponse] = await Promise.all([
-      axios.get(`${endMetricsUrl}/${sessionId}`),
-      axios.get(`${timeSeriesMetricsUrl}/${sessionId}`, { responseType: 'text' })
+      axios.get(`${import.meta.env.VITE_HTTP_URL}experiment/end_metrics/${sessionId}`),
+      axios.get(`${import.meta.env.VITE_HTTP_URL}experiment/time_series_metrics/${sessionId}`, { responseType: 'text' })
     ]);
 
     const session = sessions.value.find(s => s.id === sessionId);
@@ -335,10 +334,10 @@ const showResult = async (sessionId) => {
     if (session) {
       selectedSession.value = session;
       if (!session.endMetrics) {
-        const endMetricsResponse = await axios.get(`${endMetricsUrl}/${sessionId}`);
+        const endMetricsResponse = await axios.get(`${import.meta.env.VITE_HTTP_URL}experiment/end_metrics/${sessionId}`);
         session.endMetrics = endMetricsResponse.data.data;
       }
-      const plotResponse = await axios.get(`${plotUrl}/${sessionId}`, { responseType: 'text' });
+      const plotResponse = await axios.get(`${import.meta.env.VITE_HTTP_URL}experiment/time_series_plot/${sessionId}`, { responseType: 'text' });
       svgPlot.value = plotResponse.data;
       showResultDialog.value = true;
     }

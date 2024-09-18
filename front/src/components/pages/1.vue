@@ -86,8 +86,11 @@ const startTrading = async () => {
 
   isLoading.value = true;
   try {
-    // Initialize the trading system with parameters from traderAttributes
-    await traderStore.initializeTradingSystem(traderStore.traderAttributes.all_attributes.params);
+    // Initialize the trading system with persistent settings
+    await traderStore.initializeTradingSystemWithPersistentSettings();
+    
+    // Update traderAttributes with the new settings
+    await traderStore.getTraderAttributes(traderStore.traderUuid);
     
     // Navigate to the trading page
     router.push({ name: 'trading', params: { traderUuid: traderStore.traderUuid } });
