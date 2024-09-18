@@ -16,7 +16,6 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.encoders import jsonable_encoder
 from core.trader_manager import TraderManager
 from core.data_models import TraderType, TradingParameters, UserRegistration
-from utils import setup_custom_logger
 from .auth import get_current_user, get_current_admin_user, get_firebase_auth
 from .calculate_metrics import process_log_file, write_to_csv
 from firebase_admin import auth
@@ -25,8 +24,6 @@ import logging
 import traceback
 import json
 from pydantic import BaseModel
-
-logger = setup_custom_logger(__name__)
 
 app = FastAPI()
 security = HTTPBasic()
@@ -43,20 +40,19 @@ trader_managers = {}
 trader_to_session_lookup = {}
 trader_manager: TraderManager = None
 
-# Global variable to store persistent settings
 persistent_settings = {}
 
 class PersistentSettings(BaseModel):
     settings: dict
 
 @app.post("/admin/update_persistent_settings")
-async def update_persistent_settings(settings: PersistentSettings, current_user: dict = Depends(get_current_admin_user)):
+async def update_persistent_settings(settings: PersistentSettings):
     global persistent_settings
     persistent_settings = settings.settings
     return {"status": "success", "message": "Persistent settings updated"}
 
 @app.get("/admin/get_persistent_settings")
-async def get_persistent_settings(current_user: dict = Depends(get_current_admin_user)):
+async def get_persistent_settings():
     return {"status": "success", "data": persistent_settings}
 
 @app.websocket("/ws")
@@ -137,14 +133,13 @@ async def get_trader_defaults():
     return JSONResponse(content={"status": "success", "data": defaults})
 
 @app.post("/trading/initiate")
-async def create_trading_session(
-    params: TradingParameters, background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)
-):
+async def create_trading_session(background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)):
     global persistent_settings
     
-    # Merge persistent settings with the provided params
-    merged_params = {**params.dict(), **persistent_settings}
-    params = TradingParameters(**merged_params)
+    try:
+        merged_params = TradingParameters.from_dict(persistent_settings)
+    except ValidationError as e:
+        raise HTTPException(status_code=422, detail=str(e))
     
     uid = current_user['uid']
     
@@ -156,6 +151,8 @@ async def create_trading_session(
             raise HTTPException(status_code=404, detail="No active session found for this user")
         
         trader_manager = trader_managers[session_id]
+        
+        trader_manager.params = merged_params
         
         if len(trader_manager.human_traders) == trader_manager.params.num_human_traders:
             background_tasks.add_task(trader_manager.launch)
@@ -295,15 +292,13 @@ async def start_experiment(
     }
 
 
-
-
-
 async def find_or_create_session_and_assign_trader(uid):
+    global persistent_settings
     try:
         available_session = next((s for s in trader_managers.values() if len(s.human_traders) < s.params.num_human_traders), None)
         
         if available_session is None:
-            params = TradingParameters()
+            params = TradingParameters.from_dict(persistent_settings)
             new_trader_manager = TraderManager(params)
             trader_managers[new_trader_manager.trading_session.id] = new_trader_manager
             available_session = new_trader_manager
@@ -313,11 +308,8 @@ async def find_or_create_session_and_assign_trader(uid):
         
         trader_to_session_lookup[trader_id] = session_id
         
-        logger.debug(f"Trader assigned. Session ID: {session_id}, Trader ID: {trader_id}")
         return session_id, trader_id
     except Exception as e:
-        logger.error(f"Error in find_or_create_session_and_assign_trader: {str(e)}")
-        logger.error(traceback.format_exc())
         raise
 
 
@@ -348,24 +340,18 @@ async def receive_from_frontend(websocket: WebSocket, trader):
         try:
             message = await asyncio.wait_for(websocket.receive_text(), timeout=0.1)
             parsed_message = json.loads(message)
-            # print(f"Received message from trader {trader.id}: {parsed_message}")
             await trader.on_message_from_client(message)
         except asyncio.TimeoutError:
-            # This is expected, continue the loop
             pass
         except WebSocketDisconnect:
-            print(f"WebSocket disconnected for trader {trader.id}")
-            return  # Exit the function when disconnected
+            return
         except json.JSONDecodeError:
-            print(f"Received non-JSON message from trader {trader.id}: {message}")
+            pass
         except Exception as e:
-            print(f"Error processing message for trader {trader.id}: {str(e)}")
-            traceback.print_exc()
-            return  # Exit the function on any other exception
+            return
 
 @app.get("/session_metrics")
 async def get_session_metrics(trader_id: str, session_id: str, current_user: dict = Depends(get_current_user)):
-    # Verify that the trader_id belongs to the current user
     if trader_id != f"HUMAN_{current_user['uid']}":
         raise HTTPException(status_code=403, detail="Unauthorized access to trader data")
     
@@ -374,23 +360,17 @@ async def get_session_metrics(trader_id: str, session_id: str, current_user: dic
     try:
         processed_data = process_log_file(log_file_path)
         
-        # Create a CSV in memory
         output = io.StringIO()
         write_to_csv(processed_data, output)
         
-        # Move the cursor to the beginning of the StringIO object
         output.seek(0)
         
-        # Return the CSV as a StreamingResponse
         return StreamingResponse(
             iter([output.getvalue()]),
             media_type="text/csv",
             headers={"Content-Disposition": f"attachment; filename=session_{session_id}_trader_{trader_id}_metrics.csv"}
         )
     except Exception as e:
-        logger.error(f"Error processing log file: {str(e)}")
-        print(f"Error processing log file: {str(e)}")
-        print(traceback.format_exc())
         raise HTTPException(status_code=500, detail="Error processing session metrics")
 
 
@@ -409,8 +389,6 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
     trader = trader_manager.get_trader(trader_id)
     await trader.connect_to_socket(websocket)
     
-    print(f"WebSocket connection established for trader: {trader_id}")
-    
     try:
         send_task = asyncio.create_task(send_to_frontend(websocket, trader_manager))
         receive_task = asyncio.create_task(receive_from_frontend(websocket, trader))
@@ -424,10 +402,8 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
             task.cancel()
             
     except asyncio.CancelledError:
-        print(f"WebSocket tasks cancelled for trader: {trader_id}")
+        pass
     except Exception as e:
-        print(f"Error in WebSocket connection for trader {trader_id}: {str(e)}")
-        traceback.print_exc()
+        pass
     finally:
-        print(f"WebSocket connection closed for trader: {trader_id}")
         await trader_manager.cleanup()

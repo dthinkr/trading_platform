@@ -73,10 +73,16 @@ const playerGoal = computed(() => {
 });
 
 onMounted(async () => {
-
   if (traderUuid.value && sessionId.value) {
     try {
+      // First, initialize the trader
       await initializeTrader(traderUuid.value);
+      
+      // Then, load the persistent settings
+      await traderStore.initializeTradingSystemWithPersistentSettings();
+      
+      // Finally, update the trader attributes with the new settings
+      await traderStore.getTraderAttributes(traderUuid.value);
     } catch (error) {
       console.error("Error initializing trader:", error);
     }

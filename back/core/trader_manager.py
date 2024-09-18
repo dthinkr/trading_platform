@@ -65,6 +65,8 @@ class TraderManager:
             params=params
         )
 
+        print(f"Using duration to create trading session: {params['trading_day_duration']}")
+
     def _create_simple_order_traders(self, params):
         traders = []
         num_traders = params["num_simple_order_traders"]

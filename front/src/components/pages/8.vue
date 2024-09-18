@@ -111,8 +111,20 @@ const initialShares = computed(() => initial_shares.value ?? 'Loading...');
 
 const initialCash = computed(() => cash.value ?? 'Loading...');
 
-const startPractice = () => {
-  router.push({ name: 'trading', params: { traderUuid: route.params.traderUuid } });
+const startPractice = async () => {
+  try {
+    // Initialize the trading system with persistent settings
+    await traderStore.initializeTradingSystemWithPersistentSettings();
+    
+    // Update traderAttributes with the new settings
+    await traderStore.getTraderAttributes(route.params.traderUuid);
+    
+    // Navigate to the trading page
+    router.push({ name: 'trading', params: { traderUuid: route.params.traderUuid } });
+  } catch (error) {
+    console.error('Failed to initialize trading system:', error);
+    // You might want to show an error message to the user here
+  }
 };
 
 onMounted(async () => {

@@ -161,15 +161,28 @@ export const useTraderStore = defineStore("trader", {
       }));
     },
 
-  async initializeTradingSystem(formState) {
-    try {
-      const response = await axios.post("trading/initiate", formState);
-      this.tradingSessionData = response.data.data;
-      this.gameParams = formState;
-      this.formState = formState;
-    } catch (error) {
-      throw error;
-    }
+    async initializeTradingSystem() {
+      try {
+        const response = await axios.post("trading/initiate");
+        this.tradingSessionData = response.data.data;
+        this.gameParams = await this.fetchPersistentSettings();
+        this.formState = this.gameParams;
+      } catch (error) {
+        throw error;
+      }
+    },
+
+    async initializeTradingSystemWithPersistentSettings() {
+      try {
+        await this.initializeTradingSystem();
+      } catch (error) {
+        console.error('Error initializing trading system with persistent settings:', error);
+        if (error.response) {
+          console.error('Response data:', error.response.data);
+          console.error('Response status:', error.response.status);
+        }
+        throw error;
+      }
     },
 
     async getTraderAttributes(traderId) {
@@ -233,8 +246,8 @@ export const useTraderStore = defineStore("trader", {
         vwap,
         sum_dinv,
         initial_shares,
-        matched_orders, // Add this line to destructure matched_orders if present
-        type // Add this to get the message type
+        matched_orders, 
+        type
       } = data;
 
       // Handle matched orders if present (likely in a FILLED_ORDER type message)
@@ -544,7 +557,7 @@ export const useTraderStore = defineStore("trader", {
 
     async fetchPersistentSettings() {
       try {
-        const response = await axios.get('/admin/get_persistent_settings');
+        const response = await axios.get(`${import.meta.env.VITE_HTTP_URL}admin/get_persistent_settings`);
         return response.data.data;
       } catch (error) {
         console.error('Error fetching persistent settings:', error);
@@ -554,9 +567,24 @@ export const useTraderStore = defineStore("trader", {
     
     async updatePersistentSettings(settings) {
       try {
-        await axios.post('/admin/update_persistent_settings', { settings });
+        await axios.post(`${import.meta.env.VITE_HTTP_URL}admin/update_persistent_settings`, { settings });
       } catch (error) {
         console.error('Error updating persistent settings:', error);
+        throw error;
+      }
+    },
+
+    async initializeTradingSystemWithPersistentSettings() {
+      try {
+        const persistentSettings = await this.fetchPersistentSettings();
+        console.log("Persistent settings:", persistentSettings);
+        await this.initializeTradingSystem(persistentSettings);
+      } catch (error) {
+        console.error('Error initializing trading system with persistent settings:', error);
+        if (error.response) {
+          console.error('Response data:', error.response.data);
+          console.error('Response status:', error.response.status);
+        }
         throw error;
       }
     },
