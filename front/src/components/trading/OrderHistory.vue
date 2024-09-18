@@ -2,7 +2,7 @@
   <v-card height="100%" elevation="3" class="message-board">
     <v-card-title class="cardtitle">
       <v-icon left color="white">mdi-history</v-icon>
-      Order History
+      Matched Orders
     </v-card-title>
     <v-card-text class="message-container" ref="messageContainer">
       <v-container v-if="groupedOrders.bids.length || groupedOrders.asks.length">

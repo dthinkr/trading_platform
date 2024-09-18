@@ -132,7 +132,7 @@
     <v-navigation-drawer app right width="350" permanent class="elevation-4">
       <v-container fluid class="pa-4">
         <OrderHistory class="mb-6" />
-        <MarketIndicators />
+        <MarketMessages />
       </v-container>
     </v-navigation-drawer>
   </v-app>
@@ -149,7 +149,7 @@ import PriceHistory from "@charts/PriceHistory.vue";
 import PlaceOrder from "@trading/PlaceOrder.vue";
 import OrderHistory from "@trading/OrderHistory.vue";
 import ActiveOrders from "@trading/ActiveOrders.vue";
-import MarketIndicators from "@trading/MarketIndicators.vue";
+import MarketMessages from "@trading/MarketMessages.vue";
 
 import { onMounted, computed } from "vue";
 import { useRouter } from "vue-router";

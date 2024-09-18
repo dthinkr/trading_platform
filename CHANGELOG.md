@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [X] Informed Trader now achieves approximately 1.3 times its expected goal
 * [X] Order book log does not update correctly when there is matched trade
 
-## [1.3.0] - 2024-09-17
+## [1.3.1] - 2024-09-17
 
 ### Added
 - Implemented download of session metrics from log files
@@ -59,11 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Implement goal achievement calculations:
   - For unfulfilled sell goals: remaining orders * initial midprice * 0.5
   - For unfulfilled buy goals: remaining orders * initial midprice * 1.5
-
-## [1.2.0] - 2024-08-29
-
-(existing content for 1.2.0)
-
+  
 
 ## [1.2.0][1.2.0] - 2024-08-29
 
@@ -186,7 +182,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Customizable trading scenarios
 - Basic data analysis tools
 
-[1.3.0]: https://github.com/dthinkr/trading_platform/compare/v1.2.0...v1.3.0
+[1.3.1]: https://github.com/dthinkr/trading_platform/compare/v1.2.0...v1.3.1
 [1.2.0]: https://github.com/dthinkr/trading_platform/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/dthinkr/trading_platform/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/dthinkr/trading_platform/compare/v1.0.2...v1.1.0
