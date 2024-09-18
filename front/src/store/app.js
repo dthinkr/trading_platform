@@ -541,5 +541,24 @@ export const useTraderStore = defineStore("trader", {
         }
       }
     },
+
+    async fetchPersistentSettings() {
+      try {
+        const response = await axios.get('/admin/get_persistent_settings');
+        return response.data.data;
+      } catch (error) {
+        console.error('Error fetching persistent settings:', error);
+        throw error;
+      }
+    },
+    
+    async updatePersistentSettings(settings) {
+      try {
+        await axios.post('/admin/update_persistent_settings', { settings });
+      } catch (error) {
+        console.error('Error updating persistent settings:', error);
+        throw error;
+      }
+    },
   },
 });

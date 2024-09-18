@@ -79,7 +79,11 @@ services:
       - nginx
     networks:
       - app-network
-    logging: *default-logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   rabbitmq:
     image: rabbitmq:3-management

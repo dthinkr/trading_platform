@@ -1,5 +1,5 @@
 <template>
-  <v-container fluid class="session-summary-wrapper fill-height">
+  <v-container fluid class="auth-wrapper fill-height">
     <v-row align="center" justify="center" class="fill-height">
       <v-col cols="12" sm="10" md="8" lg="6">
         <v-card elevation="24" class="session-summary-card">
@@ -110,8 +110,8 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.session-summary-wrapper {
-  background: url('@/assets/trading_background.jpg') no-repeat center center fixed;
+.auth-wrapper {
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
   background-size: cover;
   min-height: 100vh;
 }
@@ -122,6 +122,8 @@ onMounted(() => {
   border-radius: 16px;
   overflow: hidden;
   transition: all 0.3s ease;
+  max-width: 800px;
+  width: 100%;
 }
 
 .session-summary-card:hover {
