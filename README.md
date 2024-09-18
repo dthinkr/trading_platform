@@ -119,17 +119,20 @@ trading_platform/
 
 ## Recent Updates
 
-For the most recent updates and changes, please refer to our [Changelog](CHANGELOG.md).
+Key highlights from version 1.3.0:
 
-Key highlights from previous releases:
+- 🔄 Implemented multi-trader, multi-session trading functionality
+- 🔐 Added user authentication system
+- 📊 Enabled download of session metrics from log files
+- 🎯 Introduced manual goal setting for each human trader
+- 🧠 Added options to set trader as Informed or Speculator
+- 🖥️ Enhanced trading dashboard with improved order display
+- 💹 Implemented Market Earnings calculation and display
+- 🔢 Improved share counting for goal tracking
+- 🗃️ Shifted from database to log-based data storage
+- 🧹 Removed potentially confusing metrics for clearer user experience
 
-- 🔄 Background processing for multiple trading sessions
-- 🖼️ Visual summary of time-series results
-- 🎨 Redesigned platform front and back
-- 🧭 Improved instruction flow with navigation buttons
-- 🌐 Public access link and one-liner self-host command
-- 📊 Expanded evaluation framework (20+ metrics)
-- 🔄 Enhanced Noise and Informed Trader behaviors
+For a full list of changes, please refer to our [Changelog](CHANGELOG.md).
 
 ## Contributing
 
