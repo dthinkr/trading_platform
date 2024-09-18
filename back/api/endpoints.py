@@ -24,6 +24,7 @@ import secrets
 import logging
 import traceback
 import json
+from pydantic import BaseModel
 
 logger = setup_custom_logger(__name__)
 
@@ -41,6 +42,22 @@ app.add_middleware(
 trader_managers = {}
 trader_to_session_lookup = {}
 trader_manager: TraderManager = None
+
+# Global variable to store persistent settings
+persistent_settings = {}
+
+class PersistentSettings(BaseModel):
+    settings: dict
+
+@app.post("/admin/update_persistent_settings")
+async def update_persistent_settings(settings: PersistentSettings, current_user: dict = Depends(get_current_admin_user)):
+    global persistent_settings
+    persistent_settings = settings.settings
+    return {"status": "success", "message": "Persistent settings updated"}
+
+@app.get("/admin/get_persistent_settings")
+async def get_persistent_settings(current_user: dict = Depends(get_current_admin_user)):
+    return {"status": "success", "data": persistent_settings}
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -123,6 +140,12 @@ async def get_trader_defaults():
 async def create_trading_session(
     params: TradingParameters, background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)
 ):
+    global persistent_settings
+    
+    # Merge persistent settings with the provided params
+    merged_params = {**params.dict(), **persistent_settings}
+    params = TradingParameters(**merged_params)
+    
     uid = current_user['uid']
     
     try:

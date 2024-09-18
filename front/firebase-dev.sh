@@ -5,7 +5,7 @@ echo "Firebase Project ID: $FIREBASE_PROJECT_ID"
 echo "Using Firebase Token (first 10 characters): ${FIREBASE_TOKEN:0:10}..."
 
 # Start the development server
-yarn dev &
+yarn prod &
 
 # Function to build and deploy
 build_and_deploy() {

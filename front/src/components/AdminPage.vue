@@ -88,6 +88,25 @@
               </v-col>
             </v-row>
           </v-card-text>
+          
+          <!-- Add this new section for persistent settings -->
+          <v-card-title class="text-h5 font-weight-bold primary white--text">
+            Persistent Settings
+          </v-card-title>
+          <v-card-text>
+            <v-form @submit.prevent="savePersistentSettings">
+              <v-row>
+                <v-col cols="12" v-for="(value, key) in editablePersistentSettings" :key="key">
+                  <v-text-field
+                    v-model="editablePersistentSettings[key]"
+                    :label="key"
+                    outlined
+                  ></v-text-field>
+                </v-col>
+              </v-row>
+              <v-btn color="primary" type="submit">Save Persistent Settings</v-btn>
+            </v-form>
+          </v-card-text>
         </v-card>
       </v-container>
     </v-main>
@@ -95,10 +114,11 @@
 </template>
 
 <script setup>
-import { onMounted, computed } from "vue";
+import { onMounted, computed, ref } from "vue";
 import { storeToRefs } from "pinia";
 import { useTraderStore } from "@/store/app";
 import { useRouter } from 'vue-router';
+import axios from '@/api/axios';
 
 const props = defineProps({
   tradingSessionUUID: String,
@@ -133,9 +153,34 @@ const startTraderSession = (traderId) => {
   });
 };
 
+const editablePersistentSettings = ref({});
+
 onMounted(async () => {
   await traderStore.getTraderAttributes(props.tradingSessionUUID);
+  await fetchPersistentSettings();
 });
+
+const fetchPersistentSettings = async () => {
+  try {
+    const response = await axios.get('/admin/get_persistent_settings');
+    editablePersistentSettings.value = response.data.data;
+  } catch (error) {
+    console.error('Error fetching persistent settings:', error);
+  }
+};
+
+const savePersistentSettings = async () => {
+  try {
+    await axios.post('/admin/update_persistent_settings', {
+      settings: editablePersistentSettings.value
+    });
+    alert('Persistent settings saved successfully');
+  } catch (error) {
+    console.error('Error saving persistent settings:', error);
+    alert('Error saving persistent settings');
+  }
+};
+
 </script>
 
 <style scoped>
