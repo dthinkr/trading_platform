@@ -7,6 +7,10 @@
           <v-icon left color="primary">mdi-arrow-up-bold</v-icon>
           Buy Orders
         </h3>
+        <div v-if="buyPrices.length === 0">
+          No Buy Orders
+          <div v-if="bestAsk !== null">Best Ask Price: {{ formatPrice(bestAsk) }}</div>
+        </div>
         <div 
           v-for="(price, index) in buyPrices" 
           :key="'buy-' + index" 
@@ -18,7 +22,7 @@
             <div class="price">{{ formatPrice(price) }}</div>
             <v-icon v-if="price === bestAsk" color="primary" small>mdi-star</v-icon>
           </div>
-          <v-btn @click="sendOrder('BUY', price)" color="primary" small>Buy</v-btn>
+          <v-btn @click="sendOrder('BUY', price)" :disabled="isBuyButtonDisabled" color="primary" small>Buy</v-btn>
         </div>
       </div>
       
@@ -27,6 +31,10 @@
           <v-icon left color="error">mdi-arrow-down-bold</v-icon>
           Sell Orders
         </h3>
+        <div v-if="sellPrices.length === 0">
+          No Sell Orders
+          <div v-if="bestBid !== null">Best Bid Price: {{ formatPrice(bestBid) }}</div>
+        </div>
         <div 
           v-for="(price, index) in sellPrices" 
           :key="'sell-' + index" 
@@ -38,7 +46,7 @@
             <div class="price">{{ formatPrice(price) }}</div>
             <v-icon v-if="price === bestBid" color="error" small>mdi-star</v-icon>
           </div>
-          <v-btn @click="sendOrder('SELL', price)" color="error" small>Sell</v-btn>
+          <v-btn @click="sendOrder('SELL', price)" :disabled="isSellButtonDisabled" color="error" small>Sell</v-btn>
         </div>
       </div>
     </div>
@@ -95,7 +103,6 @@ function getButtonColor(price, orderType) {
     return price === bestBid.value ? "error" : "grey lighten-3";
   }
 }
-
 
 function formatPrice(price) {
   return Math.round(price).toString();
@@ -174,7 +181,6 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
 }
-
 
 .order-item:hover {
   transform: translateY(-2px);

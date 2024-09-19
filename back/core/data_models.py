@@ -150,12 +150,12 @@ class TradingParameters(BaseModel):
         description="human_parameter",
     )
     depth_book_shown: int = Field(
-        default=4,
+        default=5,
         title="Depth Book Shown",
         description="human_parameter",
     )
     order_book_levels: int = Field(
-        default=5,
+        default=6,
         title="Order Book Levels",
         description="model_parameter",
     )
