@@ -1,39 +1,3 @@
-<template>
-  <v-card height="100%" elevation="3" class="message-board">
-    <v-card-title class="cardtitle">
-      <v-icon left color="white">mdi-history</v-icon>
-      Matched Orders
-    </v-card-title>
-    <v-card-text class="message-container" ref="messageContainer">
-      <v-container v-if="groupedOrders.bids.length || groupedOrders.asks.length">
-        <div class="order-columns">
-          <div class="order-column">
-            <h3 class="column-title">Buy Orders</h3>
-            <TransitionGroup name="order-change">
-              <div v-for="order in groupedOrders.bids" :key="order.price" class="order-item bid">
-                <span class="price">{{ formatPrice(order.price) }}</span>
-                <span class="amount">{{ order.amount }}</span>
-              </div>
-            </TransitionGroup>
-          </div>
-          <div class="order-column">
-            <h3 class="column-title">Sell Orders</h3>
-            <TransitionGroup name="order-change">
-              <div v-for="order in groupedOrders.asks" :key="order.price" class="order-item ask">
-                <span class="price">{{ formatPrice(order.price) }}</span>
-                <span class="amount">{{ order.amount }}</span>
-              </div>
-            </TransitionGroup>
-          </div>
-        </div>
-      </v-container>
-      <div v-else class="no-orders-message">
-        No executed orders yet.
-      </div>
-    </v-card-text>
-  </v-card>
-</template>
-
 <script setup>
 import { computed } from "vue";
 import { useTraderStore } from "@/store/app";
@@ -56,24 +20,78 @@ const groupedOrders = computed(() => {
     const isBid = order.type === 1 || order.type === 'BID' || order.type === 'BUY' || order.bid_order_id?.startsWith(traderStore.traderUuid);
     const group = isBid ? bids : asks;
     const price = order.price || order.transaction_price;
-    const amount = order.amount || 1; // Assuming 1 if not specified
+    const amount = order.amount || order.transaction_amount; // Adjust based on your data structure
+    const timestamp = new Date(order.timestamp || order.transaction_time).getTime(); // Assuming 'timestamp' or 'transaction_time' exists
 
     if (!group[price]) {
-      group[price] = { price: price, amount: 0 };
+      group[price] = { price: price, amount: amount, latestTime: timestamp };
+    } else {
+      group[price].amount += amount;
+      if (timestamp > group[price].latestTime) {
+        group[price].latestTime = timestamp;
+      }
     }
-    group[price].amount += amount;
   });
 
+  const sortByTimeDesc = (a, b) => b.latestTime - a.latestTime;
+
   return {
-    bids: Object.values(bids).sort((a, b) => b.price - a.price),
-    asks: Object.values(asks).sort((a, b) => a.price - b.price)
+    bids: Object.values(bids).sort(sortByTimeDesc),
+    asks: Object.values(asks).sort(sortByTimeDesc)
   };
 });
 
-const formatPrice = (price) => {
-  return `$${Number(price).toFixed(2)}`;
+const formatTime = (timestamp) => {
+  const date = new Date(timestamp);
+  return date.toLocaleTimeString();
 };
 </script>
+
+<template>
+  <v-card height="100%" elevation="3" class="message-board">
+    <v-card-title class="cardtitle">
+      <v-icon left color="white">mdi-history</v-icon>
+      Matched Orders
+    </v-card-title>
+    <v-card-text class="message-container" ref="messageContainer">
+      <v-container v-if="groupedOrders.bids.length || groupedOrders.asks.length">
+        <div class="order-columns">
+          <div class="order-column">
+            <h3 class="column-title">Buy Orders</h3>
+            <TransitionGroup name="order-change">
+              <div v-for="order in groupedOrders.bids" :key="order.price" class="order-item bid">
+                <div class="order-details">
+                  <div class="price-amount">
+                    <span class="price">${{ order.price }}</span>
+                    <span class="amount">{{ order.amount }}</span>
+                  </div>
+                  <div class="time">{{ formatTime(order.latestTime) }}</div>
+                </div>
+              </div>
+            </TransitionGroup>
+          </div>
+          <div class="order-column">
+            <h3 class="column-title">Sell Orders</h3>
+            <TransitionGroup name="order-change">
+              <div v-for="order in groupedOrders.asks" :key="order.price" class="order-item ask">
+                <div class="order-details">
+                  <div class="price-amount">
+                    <span class="price">${{ order.price }}</span>
+                    <span class="amount">{{ order.amount }}</span>
+                  </div>
+                  <div class="time">{{ formatTime(order.latestTime) }}</div>
+                </div>
+              </div>
+            </TransitionGroup>
+          </div>
+        </div>
+      </v-container>
+      <div v-else class="no-orders-message">
+        No executed orders yet.
+      </div>
+    </v-card-text>
+  </v-card>
+</template>
 
 <style scoped>
 .message-board {
@@ -113,7 +131,7 @@ const formatPrice = (price) => {
 
 .order-item {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   padding: 8px;
   margin-bottom: 5px;
   border-radius: 4px;
@@ -130,12 +148,29 @@ const formatPrice = (price) => {
   border-left: 3px solid #F44336; /* Red border */
 }
 
+.order-details {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.price-amount {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
 .price {
   font-weight: bold;
 }
 
 .amount {
-  color: #666;
+  font-weight: bold;
+}
+
+.time {
+  font-size: 0.8rem;
+  color: #555;
 }
 
 .no-orders-message {
