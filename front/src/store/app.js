@@ -161,12 +161,13 @@ export const useTraderStore = defineStore("trader", {
       }));
     },
 
-    async initializeTradingSystem() {
+    async initializeTradingSystem(persistentSettings) {
       try {
         const response = await axios.post("trading/initiate");
         this.tradingSessionData = response.data.data;
-        this.gameParams = await this.fetchPersistentSettings();
+        this.gameParams = persistentSettings;
         this.formState = this.gameParams;
+        console.log("Game parameters:", this.gameParams); // Debug logging
       } catch (error) {
         throw error;
       }
@@ -174,7 +175,9 @@ export const useTraderStore = defineStore("trader", {
 
     async initializeTradingSystemWithPersistentSettings() {
       try {
-        await this.initializeTradingSystem();
+        const persistentSettings = await this.fetchPersistentSettings();
+        console.log("Persistent settings:", persistentSettings);
+        await this.initializeTradingSystem(persistentSettings);
       } catch (error) {
         console.error('Error initializing trading system with persistent settings:', error);
         if (error.response) {
