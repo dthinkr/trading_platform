@@ -486,3 +486,29 @@ async def get_file(file_path: str):
     except Exception as e:
         print(f"Error in get_file: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.delete("/files/{file_path:path}")
+async def delete_file(file_path: str):
+    """
+    Endpoint to delete files.
+    """
+    try:
+        full_path = (ROOT_DIR / file_path).resolve()
+        
+        print(f"Requested file deletion: {file_path}")
+        print(f"Full path: {full_path}")
+        
+        # Ensure the file is within the allowed directory
+        if not full_path.is_relative_to(ROOT_DIR):
+            print(f"Access denied: {full_path} is not relative to {ROOT_DIR}")
+            raise HTTPException(status_code=403, detail=f"Access denied: {full_path} is not relative to {ROOT_DIR}")
+        
+        if not full_path.is_file():
+            print(f"File not found: {full_path}")
+            raise HTTPException(status_code=404, detail=f"File not found: {full_path}")
+        
+        full_path.unlink()
+        return {"status": "success", "message": f"File {file_path} deleted successfully"}
+    except Exception as e:
+        print(f"Error in delete_file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")

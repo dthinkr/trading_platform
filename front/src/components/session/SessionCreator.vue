@@ -81,6 +81,9 @@
                 <v-btn x-small text color="secondary" @click="downloadFile(item.name)">
                   <v-icon small left>mdi-download</v-icon> Download
                 </v-btn>
+                <v-btn x-small text color="error" @click="confirmDeleteFile(item.name)">
+                  <v-icon small left>mdi-delete</v-icon> Delete
+                </v-btn>
               </template>
             </v-data-table>
           </v-card-text>
@@ -102,6 +105,19 @@
         </v-card-text>
       </v-card>
     </v-dialog>
+
+    <!-- Add this dialog for delete confirmation -->
+    <v-dialog v-model="showDeleteDialog" max-width="300px">
+      <v-card>
+        <v-card-title class="text-h5">Confirm Delete</v-card-title>
+        <v-card-text>Are you sure you want to delete this file?</v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn color="blue darken-1" text @click="showDeleteDialog = false">Cancel</v-btn>
+          <v-btn color="blue darken-1" text @click="deleteFile">Delete</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
@@ -118,6 +134,8 @@ const logFiles = ref([]);
 const selectedFile = ref(null);
 const fileContent = ref('');
 const showFileDialog = ref(false);
+const showDeleteDialog = ref(false);
+const fileToDelete = ref(null);
 
 const groupedFields = computed(() => {
   const groups = {};
@@ -216,6 +234,22 @@ const downloadFile = async (fileName) => {
     document.body.removeChild(link);
   } catch (error) {
     console.error("Error downloading file:", error);
+  }
+};
+
+const confirmDeleteFile = (fileName) => {
+  fileToDelete.value = fileName;
+  showDeleteDialog.value = true;
+};
+
+const deleteFile = async () => {
+  try {
+    await axios.delete(`${import.meta.env.VITE_HTTP_URL}files/${fileToDelete.value}`);
+    logFiles.value = logFiles.value.filter(file => file.name !== fileToDelete.value);
+    showDeleteDialog.value = false;
+    fileToDelete.value = null;
+  } catch (error) {
+    console.error("Error deleting file:", error);
   }
 };
 
