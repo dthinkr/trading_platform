@@ -24,6 +24,11 @@ import logging
 import traceback
 import json
 from pydantic import BaseModel
+import os
+from fastapi import HTTPException, Query
+from fastapi.responses import FileResponse
+from pathlib import Path
+from typing import List
 
 app = FastAPI()
 security = HTTPBasic()
@@ -407,3 +412,77 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
         pass
     finally:
         await trader_manager.cleanup()
+
+
+current_dir = Path(__file__).resolve().parent
+ROOT_DIR = current_dir.parent / "logs"
+
+@app.get("/files")
+async def list_files(
+    path: str = Query("", description="Relative path to browse")
+):
+    """
+    Endpoint to list files and directories.
+    """
+    try:
+        full_path = (ROOT_DIR / path).resolve()
+        
+        print(f"Requested path: {path}")
+        print(f"Full path: {full_path}")
+        print(f"ROOT_DIR: {ROOT_DIR}")
+        
+        # Ensure the path is within the allowed directory
+        if not full_path.is_relative_to(ROOT_DIR):
+            print(f"Access denied: {full_path} is not relative to {ROOT_DIR}")
+            raise HTTPException(status_code=403, detail=f"Access denied: {full_path} is not relative to {ROOT_DIR}")
+        
+        if not full_path.exists():
+            print(f"Path not found: {full_path}")
+            raise HTTPException(status_code=404, detail=f"Path not found: {full_path}")
+        
+        if full_path.is_file():
+            return {"type": "file", "name": full_path.name}
+        
+        files = []
+        directories = []
+        
+        for item in full_path.iterdir():
+            if item.is_file():
+                files.append({"type": "file", "name": item.name})
+            elif item.is_dir():
+                directories.append({"type": "directory", "name": item.name})
+        
+        return {
+            "current_path": str(full_path.relative_to(ROOT_DIR)),
+            "parent_path": str(full_path.parent.relative_to(ROOT_DIR)) if full_path != ROOT_DIR else None,
+            "directories": directories,
+            "files": files
+        }
+    except Exception as e:
+        print(f"Error in list_files: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.get("/files/{file_path:path}")
+async def get_file(file_path: str):
+    """
+    Endpoint to retrieve files.
+    """
+    try:
+        full_path = (ROOT_DIR / file_path).resolve()
+        
+        print(f"Requested file: {file_path}")
+        print(f"Full path: {full_path}")
+        
+        # Ensure the file is within the allowed directory
+        if not full_path.is_relative_to(ROOT_DIR):
+            print(f"Access denied: {full_path} is not relative to {ROOT_DIR}")
+            raise HTTPException(status_code=403, detail=f"Access denied: {full_path} is not relative to {ROOT_DIR}")
+        
+        if not full_path.is_file():
+            print(f"File not found: {full_path}")
+            raise HTTPException(status_code=404, detail=f"File not found: {full_path}")
+        
+        return FileResponse(full_path)
+    except Exception as e:
+        print(f"Error in get_file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
