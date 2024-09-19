@@ -5,42 +5,87 @@
       <div v-if="Object.keys(orderLevels).length === 0" class="no-orders-message">
         No active orders
       </div>
-      <div v-else v-for="(level, price) in orderLevels" :key="price" class="order-level" :class="level.type === 1 ? 'bid' : 'ask'">
-        <div class="order-header">
-          <span class="order-type">{{ level.type === 1 ? 'BUY' : 'SELL' }}</span>
-          <div class="price">{{ formatPrice(price) }}</div>
-        </div>
-        <div class="order-details">
-          <div class="amount">
-            Amount: {{ level.amount }}
-          </div>
-          <div class="order-actions">
-            <v-btn
-              icon
-              x-small
-              @click="addOrder(level.type, price)"
+      <div v-else class="orders-columns">
+        <div class="orders-column bid-column">
+          <h3 class="column-title">Buy Orders</h3>
+          <div v-for="(level, price) in buyOrderLevels" :key="price" class="order-level bid">
+            <div class="order-header">
+              <span class="order-type">BUY</span>
+              <div class="price">{{ formatPrice(price) }}</div>
+            </div>
+            <div class="order-details">
+              <div class="amount">
+                Amount: {{ level.amount }}
+              </div>
+              <div class="order-actions">
+                <v-btn
+                  icon
+                  x-small
+                  @click="addOrder(level.type, price)"
+                  color="success"
+                  class="action-btn"
+                >
+                  <v-icon>mdi-plus</v-icon>
+                </v-btn>
+                <v-btn
+                  icon
+                  x-small
+                  @click="cancelOrder(level.type, price)"
+                  color="error"
+                  class="action-btn"
+                >
+                  <v-icon>mdi-minus</v-icon>
+                </v-btn>
+              </div>
+            </div>
+            <v-progress-linear
+              :value="level.amount / maxAmount * 100"
               color="success"
-              class="action-btn"
-            >
-              <v-icon>mdi-plus</v-icon>
-            </v-btn>
-            <v-btn
-              icon
-              x-small
-              @click="cancelOrder(level.type, price)"
-              color="error"
-              class="action-btn"
-            >
-              <v-icon>mdi-minus</v-icon>
-            </v-btn>
+              height="4"
+              class="amount-progress"
+            ></v-progress-linear>
           </div>
         </div>
-        <v-progress-linear
-          :value="level.amount / maxAmount * 100"
-          :color="level.type === 1 ? 'success' : 'error'"
-          height="4"
-          class="amount-progress"
-        ></v-progress-linear>
+        <div class="orders-column ask-column">
+          <h3 class="column-title">Sell Orders</h3>
+          <div v-for="(level, price) in sellOrderLevels" :key="price" class="order-level ask">
+            <div class="order-header">
+              <span class="order-type">SELL</span>
+              <div class="price">{{ formatPrice(price) }}</div>
+            </div>
+            <div class="order-details">
+              <div class="amount">
+                Amount: {{ level.amount }}
+              </div>
+              <div class="order-actions">
+                <v-btn
+                  icon
+                  x-small
+                  @click="addOrder(level.type, price)"
+                  color="success"
+                  class="action-btn"
+                >
+                  <v-icon>mdi-plus</v-icon>
+                </v-btn>
+                <v-btn
+                  icon
+                  x-small
+                  @click="cancelOrder(level.type, price)"
+                  color="error"
+                  class="action-btn"
+                >
+                  <v-icon>mdi-minus</v-icon>
+                </v-btn>
+              </div>
+            </div>
+            <v-progress-linear
+              :value="level.amount / maxAmount * 100"
+              color="error"
+              height="4"
+              class="amount-progress"
+            ></v-progress-linear>
+          </div>
+        </div>
       </div>
     </div>
   </v-card>
@@ -59,7 +104,7 @@ const orderLevels = computed(() => {
   activeOrders.value.forEach(order => {
     const price = order.price.toString();
     if (!levels[price]) {
-      levels[price] = { type: order.type, amount: 0 };
+      levels[price] = { type: order.order_type, amount: 0 };
     }
     levels[price].amount += order.amount;
   });
@@ -73,8 +118,30 @@ const orderLevels = computed(() => {
     }, {});
 });
 
+const buyOrderLevels = computed(() => {
+  return Object.entries(orderLevels.value)
+    .filter(([price, level]) => level.type === 1)
+    .reduce((acc, [price, level]) => {
+      acc[price] = level;
+      return acc;
+    }, {});
+});
+
+const sellOrderLevels = computed(() => {
+  return Object.entries(orderLevels.value)
+    .filter(([price, level]) => level.type !== 1)
+    .reduce((acc, [price, level]) => {
+      acc[price] = level;
+      return acc;
+    }, {});
+});
+
 const maxAmount = computed(() => {
-  return Math.max(...Object.values(orderLevels.value).map(level => level.amount), 1);
+  const allAmounts = [
+    ...Object.values(buyOrderLevels.value).map(level => level.amount),
+    ...Object.values(sellOrderLevels.value).map(level => level.amount)
+  ];
+  return Math.max(...allAmounts, 1);
 });
 
 function formatPrice(price) {
@@ -83,7 +150,7 @@ function formatPrice(price) {
 
 function addOrder(type, price) {
   const newOrder = {
-    type: type,
+    order_type: type,
     price: Number(price),
     amount: 1
   };
@@ -91,8 +158,7 @@ function addOrder(type, price) {
 }
 
 function cancelOrder(type, price) {
-  // Assuming cancelOrder in the store now takes an order object
-  const orderToCancel = activeOrders.value.find(order => order.type === type && order.price === Number(price));
+  const orderToCancel = activeOrders.value.find(order => order.order_type === type && order.price === Number(price));
   if (orderToCancel) {
     traderStore.cancelOrder(orderToCancel.id);
   }
@@ -106,16 +172,28 @@ function cancelOrder(type, price) {
   background-color: #f5f5f5;
 }
 
-.cardtitle-primary {
-  color: black;
-  font-weight: bold;
-  padding: 12px 16px;
-}
-
 .orders-container {
   flex-grow: 1;
   overflow-y: auto;
   padding: 16px;
+}
+
+.orders-columns {
+  display: flex;
+  gap: 16px;
+}
+
+.orders-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.column-title {
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin-bottom: 12px;
+  text-align: center;
 }
 
 .order-level {

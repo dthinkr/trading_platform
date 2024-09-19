@@ -15,6 +15,7 @@
     "apexcharts": "^3.53.0",
     "axios": "^1.6.5",
     "dagre": "^0.8.5",
+    "dayjs": "^1.11.13",
     "firebase": "^10.13.1",
     "highcharts": "^11.3.0",
     "highcharts-vue": "^1.4.3",

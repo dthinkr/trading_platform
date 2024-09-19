@@ -1,7 +1,6 @@
 // store.js
 import { defineStore } from "pinia";
 import axios from '@/api/axios';
-import { useWebSocket } from "@vueuse/core";
 import { auth } from '@/firebaseConfig'
 import { 
   signInWithEmailAndPassword, 
@@ -271,7 +270,7 @@ export const useTraderStore = defineStore("trader", {
       if (trader_orders) {
         this.placedOrders = trader_orders.map(order => ({
           ...order,
-          order_type: order.order_type === 1 ? 'BID' : 'ASK',
+          order_type: order.order_type,
           status: 'active'
         }));
       }
@@ -426,7 +425,8 @@ export const useTraderStore = defineStore("trader", {
       const newOrder = {
         ...order,
         id: `pending_${Date.now()}`, // Temporary ID until we get a response from the server
-        status: 'pending'
+        status: 'pending',
+        order_type: order.order_type
       };
       this.placedOrders.push(newOrder);
       
