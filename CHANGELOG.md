@@ -12,9 +12,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [X] Informed Trader now achieves approximately 1.3 times its expected goal
 * [X] Order book log does not update correctly when there is matched trade
 
-## [1.3.1] - 2024-09-17
+## [Planned]
+
+- [ ] Add a picture of the platform to the instructions
+- [X] Implement platform start after reading instructions and pressing the final "begin" button
+- [X] Include VWAP and PnL in the final metrics presentation
+- [X] Reorganize UI layout:
+  - [X] Move market orders pane down, next to active orders
+  - [X] Move market indicators up, next to the plots
+- [X] Update bid-ask distribution window:
+  - [X] Replace "bid" with "buy" and "ask" with "sell" in title and graph labels
+- [ ] Make all Control Questions mandatory and show correct answers with explanations
+- [ ] Adjust profits to range from 5 to 15 GBP
+- [ ] For informed traders, determine number of shares by participation rate (informed intensity)
+- [ ] Implement goal achievement calculations:
+  - [ ] For unfulfilled sell goals: remaining orders * initial midprice * 0.5
+  - [ ] For unfulfilled buy goals: remaining orders * initial midprice * 1.5
+
+## [1.3.1][1.3.1] - 2024-09-17
 
 ### Added
+
 - Implemented download of session metrics from log files
 - Enhanced frontend to display CSV data preview after downloading metrics
 - Enabled user authentication system
@@ -26,6 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Implement correct counting of shares needed to reach the goal
 
 ### Changed
+
 - Refactored backend structure for increased modularity
 - Improved frontend routes and trading platform UI
 - Enhanced trading dashboard with better order display
@@ -35,6 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Remove market updates messages from top left of trading platform
 
 ### Fixed
+
 - Corrected login behavior for proper trading platform access
 - Resolved issues with human trader messages after refactoring
 - Improved transaction history display
@@ -42,24 +62,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Addressed various frontend and backend bugs
 
 ### Removed
+
 - Eliminated database dependency, shifting to log-based data storage
 - Removed potentially confusing metrics (initial cash, final cash, etc.)
 - Removed dollar sign from initial and final shares display
 
 ### Known Issues
+
 - Some human trader messages may be missing after recent refactoring
 - Certain aspects of the trading platform require additional fixes
-
-## [Planned]
-
-- Make all Control Questions mandatory and show correct answers with explanations
-- Adjust profits to range from 5 to 15 GBP
-- For informed traders, determine number of shares by participation rate (informed intensity)
-- Add VWAP to metrics in Day Overview
-- Implement goal achievement calculations:
-  - For unfulfilled sell goals: remaining orders * initial midprice * 0.5
-  - For unfulfilled buy goals: remaining orders * initial midprice * 1.5
-  
 
 ## [1.2.0][1.2.0] - 2024-08-29
 

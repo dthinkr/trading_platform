@@ -34,6 +34,19 @@
                   </div>
                 </div>
               </v-col>
+              <v-col cols="12" md="6">
+                <div class="metric-card pa-4 mb-4">
+                  <h3 class="text-h6 font-weight-medium mb-2">Performance Metrics</h3>
+                  <div class="d-flex justify-space-between align-center mb-2">
+                    <span class="text-subtitle-1">PNL:</span>
+                    <span class="text-h6 font-weight-bold">{{ formatValue(pnl, 'currency') }}</span>
+                  </div>
+                  <div class="d-flex justify-space-between align-center">
+                    <span class="text-subtitle-1">VWAP:</span>
+                    <span class="text-h6 font-weight-bold">{{ formatValue(vwap, 'currency') }}</span>
+                  </div>
+                </div>
+              </v-col>
             </v-row>
           </v-card-text>
           <v-card-actions class="justify-center pa-6">
@@ -51,10 +64,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import axios from "axios";
 import { useRouter } from 'vue-router';
 import { useTraderStore } from "@/store/app";
+import { storeToRefs } from "pinia";
 
 const props = defineProps({
   traderUuid: String,
@@ -62,6 +76,7 @@ const props = defineProps({
 
 const router = useRouter();
 const traderStore = useTraderStore();
+const { pnl, vwap } = storeToRefs(traderStore);
 const traderInfo = ref(null);
 const httpUrl = import.meta.env.VITE_HTTP_URL;
 
