@@ -40,7 +40,7 @@ const chartOptions = reactive({
   annotations: [{
     labels: [{
       point: { x: 0, y: 0 },
-      text: 'Bids',
+      text: 'Buys',
       backgroundColor: 'rgba(33, 150, 243, 0.8)',
       style: {
         color: "white",
@@ -52,7 +52,7 @@ const chartOptions = reactive({
     },
     {
       point: { x: 100000, y: 0 },
-      text: 'Asks',
+      text: 'Sells',
       backgroundColor: 'rgba(244, 67, 54, 0.8)',
       style: {
         color: "white",

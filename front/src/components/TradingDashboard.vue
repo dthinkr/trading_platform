@@ -94,7 +94,7 @@
         <v-row class="fill-height">
           <v-col cols="12" lg="6" class="d-flex">
             <v-card class="flex-grow-1 mb-6 chart-card" elevation="3">
-              <v-card-title>Bid-Ask Distribution</v-card-title>
+              <v-card-title>Buy-Sell Distribution</v-card-title>
               <v-card-text class="pa-0 fill-height">
                 <BidAskDistribution class="fill-height" />
               </v-card-text>
@@ -131,8 +131,8 @@
     </v-main>
     <v-navigation-drawer app right width="350" permanent class="elevation-4">
       <v-container fluid class="pa-4">
-        <OrderHistory class="mb-6" />
-        <MarketMessages />
+        <MarketMessages class="mb-6" />
+        <OrderHistory />
       </v-container>
     </v-navigation-drawer>
   </v-app>
