@@ -1,5 +1,5 @@
 <template>
-  <v-container fluid class="auth-wrapper fill-height">
+  <v-container fluid class="fill-height">
     <v-row align="center" justify="center" class="fill-height">
       <v-col cols="12" sm="10" md="8" lg="6">
         <v-card elevation="24" class="session-summary-card">
@@ -34,7 +34,7 @@
                   </div>
                 </div>
               </v-col>
-              <v-col cols="12" md="6">
+              <v-col cols="12">
                 <div class="metric-card pa-4 mb-4">
                   <h3 class="text-h6 font-weight-medium mb-2">Performance Metrics</h3>
                   <div class="d-flex justify-space-between align-center mb-2">
@@ -125,12 +125,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.auth-wrapper {
-  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-  background-size: cover;
-  min-height: 100vh;
-}
-
 .session-summary-card {
   background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(10px);
