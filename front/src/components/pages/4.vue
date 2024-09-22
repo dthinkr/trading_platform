@@ -1,16 +1,5 @@
 <template>
   <div class="card-content">
-    <!-- New card to display attributes in plain text -->
-    <v-card class="mb-6" elevation="3" shaped>
-      <v-card-title class="text-h5 font-weight-bold">
-        <v-icon left>mdi-text-box-outline</v-icon>
-        Trader Attributes (Plain Text)
-      </v-card-title>
-      <v-card-text>
-        <pre>{{ JSON.stringify(traderStore, null, 2) }}</pre>
-      </v-card-text>
-    </v-card>
-
     <v-card v-if="goalStatus !== 'noGoal'" class="mb-6" elevation="3" shaped>
       <v-card-title class="text-h5 font-weight-bold">
         <v-icon left color="warning">mdi-clock-alert</v-icon>
@@ -186,14 +175,5 @@ const autoTradeMultiplier = computed(() => {
 .formula-note {
   font-size: 0.9em;
   font-style: italic;
-}
-
-pre {
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  background-color: #f5f5f5;
-  padding: 10px;
-  border-radius: 4px;
-  font-size: 0.9em;
 }
 </style>
