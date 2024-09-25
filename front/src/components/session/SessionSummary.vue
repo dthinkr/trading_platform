@@ -99,10 +99,12 @@ const formatValue = (value, format) => {
 };
 
 const goToRegister = () => {
-  traderStore.clearStore(); // Clear the trader store
-  router.push({ name: 'Register' });
+  // Navigate to the Register page
+  router.push({ name: 'Register', replace: true }).then(() => {
+    // After navigation is confirmed, refresh the Register page
+    window.location.href = '/register';
+  });
 };
-
 const downloadSessionMetrics = async () => {
   try {
     // Ensure the traderUuid is set in the store
