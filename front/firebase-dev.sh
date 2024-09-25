@@ -11,7 +11,7 @@ yarn prod &
 build_and_deploy() {
   echo "Building and deploying..."
   yarn build
-  firebase hosting:channel:deploy development --token "$FIREBASE_TOKEN" --expires 1d
+  firebase hosting:channel:deploy development --token "$FIREBASE_TOKEN" --expires 30d
 }
 
 # Initial build and deploy
