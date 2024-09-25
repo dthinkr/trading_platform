@@ -454,8 +454,8 @@ class TradingPlatform:
                 break
             await asyncio.sleep(1)
         
-        # Add a 1-minute delay before cleanup
-        await asyncio.sleep(60)
+        # Add delay before cleanup
+        await asyncio.sleep(3)
         await self.clean_up()
 
     def _should_stop_trading(self, current_time: datetime) -> bool:

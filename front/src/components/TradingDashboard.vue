@@ -1,75 +1,48 @@
 <template>
   <v-app class="trading-system">
     <v-app-bar app elevation="2" color="primary" dark>
-      <v-container class="py-0 fill-height">
-        <v-row align="center" no-gutters>
-          <!-- Timer -->
-          <v-col cols="auto">
-            <v-card class="mx-3 pa-2" elevation="0" color="primary" dark>
+      <v-container fluid class="pa-0 fill-height">
+        <v-row no-gutters class="fill-height">
+          <!-- Left column: Timer -->
+          <v-col cols="12" md="2" class="d-flex align-center">
+            <v-card outlined class="mx-2 pa-2 floating-card timer-card" color="primary" dark>
               <template v-if="isTradingStarted">
                 <vue-countdown v-if="remainingTime" :time="remainingTime * 1000" v-slot="{ minutes, seconds }">
-                  <v-chip color="accent" label class="font-weight-bold">
+                  <v-chip color="accent" label class="font-weight-bold timer-chip">
                     {{ minutes }}:{{ seconds.toString().padStart(2, '0') }}
                   </v-chip>
                 </vue-countdown>
               </template>
               <template v-else>
-                <v-chip color="warning" label>Waiting to start</v-chip>
+                <v-chip color="warning" label class="timer-chip">Waiting to start</v-chip>
               </template>
             </v-card>
           </v-col>
 
-          <v-spacer></v-spacer>
-
-          <!-- Trader count -->
-          <v-col cols="auto">
-            <v-card outlined class="pa-2" color="primary" dark>
+          <!-- Middle column: VWAP, PnL, Shares, Cash, Traders -->
+          <v-col cols="12" md="5" class="d-flex align-center justify-space-around">
+            <v-card v-for="(item, index) in [
+              { label: 'VWAP', value: formatNumber(vwap), icon: 'mdi-chart-line' },
+              { label: 'PnL', value: pnl, icon: 'mdi-currency-usd' },
+              { label: 'Shares', value: `${initial_shares} ${formatDelta}`, icon: 'mdi-file-document-outline' },
+              { label: 'Cash', value: cash, icon: 'mdi-cash' },
+              { label: 'Traders', value: `${currentHumanTraders} / ${expectedHumanTraders}`, icon: 'mdi-account-group' }
+            ]" :key="index" outlined class="pa-2 floating-card" color="primary" dark>
               <v-row no-gutters align="center">
                 <v-col cols="auto" class="mr-2">
-                  <v-icon>mdi-account-group</v-icon>
+                  <v-icon>{{ item.icon }}</v-icon>
                 </v-col>
                 <v-col>
-                  <v-card-subtitle class="pa-0 text-caption white--text">Traders</v-card-subtitle>
-                  <v-card-text class="pa-0 text-body-1 font-weight-bold white--text">
-                    {{ currentHumanTraders }} / {{ expectedHumanTraders }}
-                  </v-card-text>
+                  <v-card-subtitle class="pa-0 text-caption white--text">{{ item.label }}</v-card-subtitle>
+                  <v-card-text class="pa-0 text-body-1 font-weight-bold white--text">{{ item.value }}</v-card-text>
                 </v-col>
               </v-row>
             </v-card>
           </v-col>
 
-          <v-spacer></v-spacer>
-
-          <!-- VWAP, PnL, Shares, Cash -->
-          <v-col cols="auto">
-            <v-row no-gutters>
-              <v-col v-for="(item, index) in [
-                { label: 'VWAP', value: formatNumber(vwap), icon: 'mdi-chart-line' },
-                { label: 'PnL', value: pnl, icon: 'mdi-currency-usd' },
-                { label: 'Shares', value: `${initial_shares} ${formatDelta}`, icon: 'mdi-file-document-outline' },
-                { label: 'Cash', value: cash, icon: 'mdi-cash' }
-              ]" :key="index" cols="auto" class="mx-2">
-                <v-card outlined class="pa-2" color="primary" dark>
-                  <v-row no-gutters align="center">
-                    <v-col cols="auto" class="mr-2">
-                      <v-icon>{{ item.icon }}</v-icon>
-                    </v-col>
-                    <v-col>
-                      <v-card-subtitle class="pa-0 text-caption white--text">{{ item.label }}</v-card-subtitle>
-                      <v-card-text class="pa-0 text-body-1 font-weight-bold white--text">{{ item.value }}</v-card-text>
-                    </v-col>
-                  </v-row>
-                </v-card>
-              </v-col>
-            </v-row>
-          </v-col>
-
-          <!-- Add a spacer to push the goal to the right -->
-          <v-spacer></v-spacer>
-
-          <!-- Goal Message -->
-          <v-col cols="auto" v-if="goalMessage">
-            <v-card outlined class="pa-2 mr-2 goal-message" :class="goalMessage.type === 'success' ? 'goal-success' : 'goal-warning'">
+          <!-- Right column: Goal Message -->
+          <v-col cols="12" md="5" class="d-flex align-center justify-end">
+            <v-card v-if="goalMessage" outlined class="pa-2 mr-2 goal-message floating-card" :class="goalMessage.type === 'success' ? 'goal-success' : 'goal-warning'">
               <v-row no-gutters align="center">
                 <v-col cols="auto" class="mr-2">
                   <v-icon :color="goalMessage.type === 'success' ? 'light-green darken-1' : 'amber darken-2'">
@@ -89,61 +62,36 @@
       </v-container>
     </v-app-bar>
 
-    <v-main class="grey lighten-4">
-      <v-container fluid class="pa-6">
+    <v-main>
+      <v-container fluid class="pa-4 fill-height">
         <v-row class="fill-height">
-          <v-col cols="12" lg="6" class="d-flex">
-            <v-card class="flex-grow-1 mb-6 chart-card" elevation="3">
-              <v-card-title>Buy-Sell Distribution</v-card-title>
+          <v-col cols="12" md="2" class="d-flex flex-column">
+            <v-card v-for="(tool, toolIndex) in columns[0]" :key="toolIndex" 
+                    :class="['flex-grow-1 mb-4 tool-card', `tool-card-row-${toolIndex + 1}`]" 
+                    elevation="3">
+              <v-card-title>{{ tool.title }}</v-card-title>
               <v-card-text class="pa-0 fill-height">
-                <BidAskDistribution class="fill-height" />
+                <component :is="tool.component" class="fill-height" />
               </v-card-text>
             </v-card>
           </v-col>
-          <v-col cols="12" lg="6" class="d-flex">
-            <v-card class="flex-grow-1 mb-6 chart-card" elevation="3">
-              <v-card-title>Price History</v-card-title>
+          <v-col v-for="colIndex in [1, 2]" :key="colIndex" cols="12" md="5" class="d-flex flex-column">
+            <v-card v-for="(tool, toolIndex) in columns[colIndex]" :key="toolIndex" 
+                    :class="['flex-grow-1 mb-4 tool-card', `tool-card-row-${toolIndex + 1}`]" 
+                    elevation="3">
+              <v-card-title>{{ tool.title }}</v-card-title>
               <v-card-text class="pa-0 fill-height">
-                <PriceHistory class="fill-height" />
-              </v-card-text>
-            </v-card>
-          </v-col>
-        </v-row>
-        <v-row class="fill-height">
-          <v-col cols="12" lg="6" class="d-flex">
-            <v-card class="flex-grow-1 mb-6 chart-card" elevation="3">
-              <v-card-title>Active Orders</v-card-title>
-              <v-card-text class="pa-0 fill-height">
-                <ActiveOrders class="fill-height" />
-              </v-card-text>
-            </v-card>
-          </v-col>
-          <v-col cols="12" lg="6" class="d-flex">
-            <v-card class="flex-grow-1 mb-6 chart-card" elevation="3">
-              <v-card-title>Trading Panel</v-card-title>
-              <v-card-text class="pa-0 fill-height">
-                <PlaceOrder class="fill-height" />
+                <component :is="tool.component" class="fill-height" />
               </v-card-text>
             </v-card>
           </v-col>
         </v-row>
       </v-container>
     </v-main>
-    <v-navigation-drawer app right width="350" permanent class="elevation-4">
-      <v-container fluid class="pa-4">
-        <MarketMessages class="mb-6" />
-        <OrderHistory />
-      </v-container>
-    </v-navigation-drawer>
   </v-app>
 </template>
 
 <script setup>
-const props = defineProps({
-  traderUuid: String,
-});
-
-// Updated imports
 import BidAskDistribution from "@charts/BidAskDistribution.vue";
 import PriceHistory from "@charts/PriceHistory.vue";
 import PlaceOrder from "@trading/PlaceOrder.vue";
@@ -151,17 +99,14 @@ import OrderHistory from "@trading/OrderHistory.vue";
 import ActiveOrders from "@trading/ActiveOrders.vue";
 import MarketMessages from "@trading/MarketMessages.vue";
 
-import { onMounted, computed } from "vue";
+import { computed, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useFormatNumber } from "@/composables/utils";
-
-const { formatNumber } = useFormatNumber();
-const router = useRouter();
 import { storeToRefs } from "pinia";
 import { useTraderStore } from "@/store/app";
-import { watch } from "vue";
-// Remove this line:
-// const { initializeTrader } = useTraderStore();
+const { formatNumber } = useFormatNumber();
+const router = useRouter();
+const store = useTraderStore();
 const { 
   gameParams, 
   goalMessage, 
@@ -175,23 +120,39 @@ const {
   remainingTime, 
   isTradingStarted,
   currentHumanTraders,
-  expectedHumanTraders
-} = storeToRefs(useTraderStore());
+  expectedHumanTraders,
+  traderUuid // Add this
+} = storeToRefs(store);
 
-// Remove this onMounted hook:
-// onMounted(() => {
-//   initializeTrader(props.traderUuid);
-// });
+const columns = [
+  [
+    { title: "Order History", component: OrderHistory },
+    { title: "Market Messages", component: MarketMessages },
+  ],
+  [
+    { title: "Buy-Sell Distribution", component: BidAskDistribution },
+    { title: "Active Orders", component: ActiveOrders },
+  ],
+  [
+    { title: "Price History", component: PriceHistory },
+    { title: "Trading Panel", component: PlaceOrder },
+  ],
+];
 
 const formatDelta = computed(() => {
-  if (sum_dinv.value == undefined) {
-    return "";
-  }
-  return sum_dinv.value >= 0 ? "+" + sum_dinv.value : sum_dinv.value;
+  if (sum_dinv.value == undefined) return "";
+  const halfChange = Math.round(sum_dinv.value / 2); // Divide by 2 and round to nearest integer
+  return halfChange >= 0 ? "+" + halfChange : halfChange.toString();
 });
 
 const finalizingDay = () => {
-  router.push({ name: "summary", params: { traderUuid: props.traderUuid } });
+  if (traderUuid.value) {
+    router.push({ name: "summary", params: { traderUuid: traderUuid.value } });
+  } else {
+    console.error('No trader UUID found');
+    // Handle this error case, maybe redirect to login
+    router.push({ name: "Register" });
+  }
 };
 
 watch(
@@ -202,7 +163,6 @@ watch(
     }
   }
 );
-
 </script>
 
 <style scoped>
@@ -210,89 +170,108 @@ watch(
   font-family: 'Roboto', sans-serif;
 }
 
-.v-card {
+.tool-card {
+  display: flex;
+  flex-direction: column;
+  background-color: #f5f5f5 !important;
   transition: all 0.3s ease;
   overflow: hidden;
+  height: calc(45% - 2px); /* Reduced height */
 }
 
-.v-card:hover {
+.tool-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 8px rgba(0,0,0,0.1);
 }
 
-.headline {
-  letter-spacing: 0.5px;
+.tool-card .v-card__title {
+  background-color: #ffffff;
+  border-bottom: 1px solid #e0e0e0;
+  padding: 12px 16px;
+  font-size: 1.1rem !important;
+  line-height: 1.4 !important;
 }
 
-.v-chip {
-  font-weight: 500;
-}
-
-.v-navigation-drawer {
-  background-color: #f5f5f5;
-}
-
-.v-footer {
-  transition: all 0.3s ease;
-}
-
-.equal-height-columns > .v-col {
-  display: flex;
-  flex: 1;
-}
-
-.flex-container {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.flex-child {
-  flex: 1;
+.tool-card .v-card__text {
+  flex-grow: 1;
   overflow: auto;
-}
-
-@keyframes fadeInHighlight {
-  0% {
-    background-color: yellow;
-    opacity: 0;
-  }
-  50% {
-    background-color: yellow;
-    opacity: 0.5;
-  }
-  100% {
-    background-color: transparent;
-    opacity: 1;
-  }
-}
-
-.fade-in-highlight {
-  animation: fadeInHighlight 1s ease;
+  padding: 16px;
 }
 
 .fill-height {
   height: 100%;
 }
 
-.v-card {
+/* Scaling styles */
+.trading-system {
+  transform: scale(0.9);
+  transform-origin: top;
+}
+
+.trading-system > .v-application__wrap {
+  height: 111.11%; /* 100% / 0.9 */
+}
+
+/* Adjust scrollbars if needed */
+.trading-system ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.trading-system ::-webkit-scrollbar-thumb {
+  border-radius: 4px;
+  background-color: rgba(0, 0, 0, 0.3);
+}
+
+/* Adjust font sizes */
+.tool-card .v-card__text {
+  font-size: 0.9rem !important;
+  line-height: 1.4 !important;
+}
+
+/* Existing goal message styles remain unchanged */
+
+/* Ensure equal height for rows */
+.v-row {
+  flex-wrap: nowrap;
+}
+
+.v-col {
   display: flex;
   flex-direction: column;
 }
 
-.v-card__text {
-  flex-grow: 1;
-  overflow: hidden;
+/* Adjust the width of the columns */
+@media (min-width: 960px) {
+  .v-col-md-2 {
+    flex-basis: 16.666667% !important;
+    max-width: 16.666667% !important;
+  }
+
+  .v-col-md-5 {
+    flex-basis: 41.666667% !important;
+    max-width: 41.666667% !important;
+  }
 }
 
-/* Add this new style to ensure consistent spacing */
-.v-card__title {
-  padding-bottom: 8px;
+/* Add these new styles */
+.v-app-bar .v-container {
+  max-width: 100%;
+}
+
+.floating-card {
+  transition: all 0.3s ease;
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  backdrop-filter: blur(10px);
+}
+
+.floating-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
 
 .goal-message {
-  background-color: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
+  background-color: white !important;
   transition: all 0.3s ease;
 }
 
@@ -305,23 +284,35 @@ watch(
 }
 
 .goal-subtitle {
-  color: rgba(255, 255, 255, 0.7) !important;
+  color: rgba(0, 0, 0, 0.6) !important;
 }
 
 .goal-text {
-  color: white !important;
+  color: rgba(0, 0, 0, 0.87) !important;
 }
 
 .goal-message:hover {
-  background-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
 
-.chart-card {
-  background-color: #f5f5f5 !important;
+.timer-card {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
-.chart-card .v-card__title {
-  background-color: #ffffff;
-  border-bottom: 1px solid #e0e0e0;
+.timer-chip {
+  font-size: 1.2rem !important;
+  padding: 0 16px !important;
+}
+
+.tool-card-row-1 {
+  height: calc(20% - 2px); /* First row height */
+}
+
+.tool-card-row-2 {
+  height: calc(60% - 2px); /* Second row height */
 }
 </style>

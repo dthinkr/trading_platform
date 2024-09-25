@@ -1,9 +1,5 @@
 <template>
   <v-card height="100%" elevation="3" class="market-info-card">
-    <v-card-title class="cardtitle">
-      <v-icon left color="white">mdi-chart-box-outline</v-icon>
-      Market Indicators
-    </v-card-title>
     <v-card-text class="market-info-content" ref="messageContainer">
       <v-list>
         <v-list-item v-for="(item, index) in extraParams" :key="item.var_name" class="market-info-item">
