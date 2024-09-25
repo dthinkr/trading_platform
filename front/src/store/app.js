@@ -422,21 +422,34 @@ export const useTraderStore = defineStore("trader", {
     },
 
     addOrder(order) {
+      // Normalize the order type
+      const normalizedOrderType = this.normalizeOrderType(order.order_type);
+    
       const newOrder = {
         ...order,
         id: `pending_${Date.now()}`, // Temporary ID until we get a response from the server
         status: 'pending',
-        order_type: order.order_type
+        order_type: normalizedOrderType
       };
       this.placedOrders.push(newOrder);
       
       const message = {
-        type: order.order_type === 'BUY' ? 1 : -1,
+        type: normalizedOrderType === 'BUY' ? 1 : -1,
         price: order.price,
         amount: order.amount
       };
-
+    
       this.sendMessage("add_order", message);
+    },
+    
+    // Helper method to normalize order type, as we havent finished refactoring all code and current use is mixed
+    normalizeOrderType(orderType) {
+      if (typeof orderType === 'string') {
+        return orderType.toUpperCase() === 'BUY' ? 'BUY' : 'SELL';
+      } else if (typeof orderType === 'number') {
+        return orderType === 1 ? 'BUY' : 'SELL';
+      }
+      throw new Error('Invalid order type');
     },
     
     cancelOrder(orderId) {
