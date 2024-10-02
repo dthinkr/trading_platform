@@ -111,9 +111,9 @@ class NoiseTrader(BaseTrader):
                 else "asks"
             )
             if side == "bids":
-                price = midpoint - random.randint(1, order_book_levels) * step
+                price = best_ask - random.randint(1, order_book_levels) * step
             else:
-                price = midpoint + random.randint(1, order_book_levels) * step
+                price = best_bid + random.randint(1, order_book_levels) * step
 
             await self.post_new_order(
                 1, price, OrderType.BID if side == "bids" else OrderType.ASK
