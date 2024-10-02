@@ -91,6 +91,9 @@ const startTrading = async () => {
     
     // Update traderAttributes with the new settings
     await traderStore.getTraderAttributes(traderStore.traderUuid);
+
+    // Start the trading session
+    await traderStore.startTradingSession();
     
     // Navigate to the trading page
     router.push({ name: 'trading', params: { traderUuid: traderStore.traderUuid } });

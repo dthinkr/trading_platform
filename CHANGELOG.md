@@ -29,6 +29,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - [ ] For unfulfilled sell goals: remaining orders * initial midprice * 0.5
   - [ ] For unfulfilled buy goals: remaining orders * initial midprice * 1.5
 
+## [1.3.2] - 2024-10-02
+
+### Fixed
+
+- Resolved issue with trading session not starting properly
+- Fixed issue where passive orders show on both buy and sell sides of order history
+- Adjusted chart sizes, now they should be properly displayed
+- The deployment now monitors changes in the "deploy" branch and automatically updates the production version
+
 ## [1.3.1][1.3.1] - 2024-09-17
 
 ### Added
