@@ -155,8 +155,8 @@ watch(remainingTime, (newValue) => {
 const zoomLevel = ref(1);
 
 const calculateZoom = () => {
-  const targetWidth = 1400; // Target width for the design
-  const targetHeight = 900; // Target height for the design
+  const targetWidth = 1600; // Target width for the design
+  const targetHeight = 1000; // Target height for the design
   const windowWidth = window.innerWidth;
   const windowHeight = window.innerHeight;
 
