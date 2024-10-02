@@ -4,7 +4,7 @@ import { useTraderStore } from "@/store/app";
 import { storeToRefs } from "pinia";
 
 const traderStore = useTraderStore();
-const { executedOrders, recentTransactions } = storeToRefs(traderStore);
+const { executedOrders, recentTransactions, traderUuid } = storeToRefs(traderStore);
 
 const filledOrders = computed(() => {
   // Combine executedOrders and relevant recentTransactions
@@ -17,11 +17,16 @@ const groupedOrders = computed(() => {
   const asks = {};
 
   filledOrders.value.forEach(order => {
-    const isBid = order.type === 1 || order.type === 'BID' || order.type === 'BUY' || order.bid_order_id?.startsWith(traderStore.traderUuid);
+    const isBid = order.type === 1 || order.type === 'BID' || order.type === 'BUY' || order.bid_order_id?.startsWith(traderUuid.value);
+    const isAsk = order.type === 2 || order.type === 'ASK' || order.type === 'SELL' || order.ask_order_id?.startsWith(traderUuid.value);
+    
+    // Only process the order if it's on the side the trader placed
+    if (!(isBid || isAsk)) return;
+
     const group = isBid ? bids : asks;
     const price = order.price || order.transaction_price;
-    const amount = order.amount || order.transaction_amount; // Adjust based on your data structure
-    const timestamp = new Date(order.timestamp || order.transaction_time).getTime(); // Assuming 'timestamp' or 'transaction_time' exists
+    const amount = order.amount || order.transaction_amount;
+    const timestamp = new Date(order.timestamp || order.transaction_time).getTime();
 
     if (!group[price]) {
       group[price] = { price: price, amount: amount, latestTime: timestamp };

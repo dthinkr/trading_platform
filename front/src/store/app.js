@@ -604,5 +604,23 @@ export const useTraderStore = defineStore("trader", {
         throw error;
       }
     },
+
+    async startTradingSession() {
+      try {
+        const response = await axios.post(`${import.meta.env.VITE_HTTP_URL}trading/start`);
+        if (response.data.status === "success") {
+          console.log("Trading session started successfully");
+          // You might want to update some state here, e.g.:
+          // this.isTradingStarted = true;
+        }
+      } catch (error) {
+        console.error('Error starting trading session:', error);
+        if (error.response) {
+          console.error('Response data:', error.response.data);
+          console.error('Response status:', error.response.status);
+        }
+        throw error;
+      }
+    },
   },
 });

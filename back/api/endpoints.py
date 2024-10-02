@@ -25,7 +25,7 @@ import traceback
 import json
 from pydantic import BaseModel
 import os
-from fastapi import HTTPException, Query
+from fastapi import HTTPException, Query, BackgroundTasks
 from fastapi.responses import FileResponse
 from pathlib import Path
 from typing import List
@@ -159,9 +159,6 @@ async def create_trading_session(background_tasks: BackgroundTasks, current_user
         
         trader_manager.params = merged_params
         
-        if len(trader_manager.human_traders) == trader_manager.params.num_human_traders:
-            background_tasks.add_task(trader_manager.launch)
-        
         return {
             "status": "success",
             "message": "Trading session info retrieved",
@@ -275,25 +272,6 @@ async def root():
     return {
         "status": "trading is active",
         "comment": "this is only for accessing trading platform mostly via websockets",
-    }
-
-
-@app.post("/experiment/start")
-async def start_experiment(
-    params: TradingParameters, background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_admin_user)
-):
-    trader_manager = TraderManager(params)
-    background_tasks.add_task(trader_manager.launch)
-    trader_managers[trader_manager.trading_session.id] = trader_manager
-
-    return {
-        "status": "success",
-        "message": "New experiment started",
-        "data": {
-            "trading_session_uuid": trader_manager.trading_session.id,
-            "traders": list(trader_manager.traders.keys()),
-            "human_traders": [t.id for t in trader_manager.human_traders],
-        },
     }
 
 
@@ -421,23 +399,13 @@ ROOT_DIR = current_dir.parent / "logs"
 async def list_files(
     path: str = Query("", description="Relative path to browse")
 ):
-    """
-    Endpoint to list files and directories.
-    """
     try:
         full_path = (ROOT_DIR / path).resolve()
         
-        print(f"Requested path: {path}")
-        print(f"Full path: {full_path}")
-        print(f"ROOT_DIR: {ROOT_DIR}")
-        
-        # Ensure the path is within the allowed directory
         if not full_path.is_relative_to(ROOT_DIR):
-            print(f"Access denied: {full_path} is not relative to {ROOT_DIR}")
             raise HTTPException(status_code=403, detail=f"Access denied: {full_path} is not relative to {ROOT_DIR}")
         
         if not full_path.exists():
-            print(f"Path not found: {full_path}")
             raise HTTPException(status_code=404, detail=f"Path not found: {full_path}")
         
         if full_path.is_file():
@@ -459,56 +427,59 @@ async def list_files(
             "files": files
         }
     except Exception as e:
-        print(f"Error in list_files: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @app.get("/files/{file_path:path}")
 async def get_file(file_path: str):
-    """
-    Endpoint to retrieve files.
-    """
     try:
         full_path = (ROOT_DIR / file_path).resolve()
         
-        print(f"Requested file: {file_path}")
-        print(f"Full path: {full_path}")
-        
-        # Ensure the file is within the allowed directory
         if not full_path.is_relative_to(ROOT_DIR):
-            print(f"Access denied: {full_path} is not relative to {ROOT_DIR}")
             raise HTTPException(status_code=403, detail=f"Access denied: {full_path} is not relative to {ROOT_DIR}")
         
         if not full_path.is_file():
-            print(f"File not found: {full_path}")
             raise HTTPException(status_code=404, detail=f"File not found: {full_path}")
         
         return FileResponse(full_path)
     except Exception as e:
-        print(f"Error in get_file: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @app.delete("/files/{file_path:path}")
 async def delete_file(file_path: str):
-    """
-    Endpoint to delete files.
-    """
     try:
         full_path = (ROOT_DIR / file_path).resolve()
         
-        print(f"Requested file deletion: {file_path}")
-        print(f"Full path: {full_path}")
-        
-        # Ensure the file is within the allowed directory
         if not full_path.is_relative_to(ROOT_DIR):
-            print(f"Access denied: {full_path} is not relative to {ROOT_DIR}")
             raise HTTPException(status_code=403, detail=f"Access denied: {full_path} is not relative to {ROOT_DIR}")
         
         if not full_path.is_file():
-            print(f"File not found: {full_path}")
             raise HTTPException(status_code=404, detail=f"File not found: {full_path}")
         
         full_path.unlink()
         return {"status": "success", "message": f"File {file_path} deleted successfully"}
     except Exception as e:
-        print(f"Error in delete_file: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.post("/trading/start")
+async def start_trading_session(background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)):
+    uid = current_user['uid']
+    trader_id = f"HUMAN_{uid}"
+    session_id = trader_to_session_lookup.get(trader_id)
+    
+    if not session_id:
+        raise HTTPException(status_code=404, detail="No active session found for this user")
+    
+    trader_manager = trader_managers[session_id]
+    
+    if len(trader_manager.human_traders) < trader_manager.params.num_human_traders:
+        raise HTTPException(status_code=400, detail="Not enough human traders to start the session")
+    
+    background_tasks.add_task(trader_manager.launch)
+    
+    return {
+        "status": "success",
+        "message": "Trading session started",
+        "data": {
+            "trading_session_uuid": session_id,
+        }
+    }
