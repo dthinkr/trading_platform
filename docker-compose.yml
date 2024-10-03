@@ -10,6 +10,8 @@ services:
     volumes:
       - ./front:/app
       - /app/node_modules
+      - ./.env:/app/.env:ro
+      - ./front/firebase.json:/app/firebase.json:ro
     environment:
       - FIREBASE_TOKEN=${FIREBASE_TOKEN}
       - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
@@ -25,7 +27,8 @@ services:
       dockerfile: ../docker/Dockerfile.back
     volumes:
       - ./back:/app
-      - ./firebase-service-account.json:/app/firebase-service-account.json:ro
+      - ./.env:/app/.env:ro
+      - ./back/firebase-service-account.json:/app/firebase-service-account.json:ro
     ports:
       - "8000:8000"
     environment:
@@ -75,7 +78,7 @@ services:
       - "--config"
       - "/etc/ngrok.yml"
     volumes:
-      - ./docker/ngrok.yml:/etc/ngrok.yml
+      - ./docker/ngrok.yml:/etc/ngrok.yml:ro
     ports:
       - "4040:4040"
     depends_on:
