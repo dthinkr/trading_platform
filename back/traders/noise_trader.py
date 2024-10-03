@@ -100,19 +100,18 @@ class NoiseTrader(BaseTrader):
         order_book_levels = self.params["order_book_levels"]
         step = self.params["step"]
 
-        best_bid = self.order_book["bids"][0]["x"]
-        best_ask = self.order_book["asks"][0]["x"]
-        midpoint = (best_bid + best_ask) // 2  # Integer midpoint
-
         for _ in range(amt):
-            side = (
-                "bids"
-                if random.random() < self.params["noise_bid_probability"]
-                else "asks"
-            )
+            # side = (
+            #     "bids"
+            #     if random.random() < self.params["noise_bid_probability"]
+            #     else "asks"
+            # )
             if side == "bids":
+                best_ask = self.order_book["asks"][0]["x"]
+                mult = random.randint(1, order_book_levels)
                 price = best_ask - random.randint(1, order_book_levels) * step
             else:
+                best_bid = self.order_book["bids"][0]["x"]
                 price = best_bid + random.randint(1, order_book_levels) * step
 
             await self.post_new_order(
@@ -153,18 +152,31 @@ class NoiseTrader(BaseTrader):
             action = "cancel"
 
         # Place orders on empty side
-        while not self.order_book["bids"] or not self.order_book["asks"]:
-            await self.place_orders_on_empty_side(self.params["max_order_amount"])
-            action = "empty_side"
+        # while not self.order_book["bids"] or not self.order_book["asks"]:
+        #     await self.place_orders_on_empty_side(self.params["max_order_amount"])
+        #     action = "empty_side"
+
+        
+
+        pr_passive = self.params["noise_passive_probability"]
+        pr_bid = self.params["noise_bid_probability"]
+        if not self.order_book['bids']:
+            pr_passive = 1
+            pr_bid = 1
+
+        if not self.order_book['asks']:
+            pr_passive = 1
+            pr_bid = 0
+
 
         # Place orders
         amt = random.randint(1, self.params["max_order_amount"])
         side = (
-            "bids" if random.random() < self.params["noise_bid_probability"] else "asks"
+            "bids" if random.random() < pr_bid else "asks"
         )
 
         # Proceed with regular order placement
-        if random.random() < self.params["noise_passive_probability"]:
+        if random.random() < pr_passive:
             await self.place_passive_orders(amt, side)
             action = "non_executable"
         else:
