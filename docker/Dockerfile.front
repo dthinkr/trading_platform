@@ -2,7 +2,7 @@ FROM node:20.12.2
 
 WORKDIR /app
 
-# Copy all files
+# Copy all files, including secrets
 COPY . .
 
 # Install Firebase CLI and inotify-tools
