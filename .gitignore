@@ -4,3 +4,4 @@ appmap.log
 *.json
 *.yml
 *.env
+!.github/workflows/docker-build-push.yml
