@@ -3,6 +3,7 @@ x-logging: &default-logging
 
 services:
   front:
+    image: venvoo/trading_platform:front
     build:
       context: ./front
       dockerfile: ../docker/Dockerfile.front
@@ -13,10 +14,12 @@ services:
       - FIREBASE_TOKEN=${FIREBASE_TOKEN}
       - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
     ports:
-      - "5001:5000"  # Changed from 5000:5000
-      - "9005:9005"  # Firebase emulator UI
+      - "5001:5000"
+      - "9005:9005"
     command: sh -c "chmod +x ./firebase-dev.sh && ./firebase-dev.sh"
+
   back:
+    image: venvoo/trading_platform:back
     build:
       context: ./back
       dockerfile: ../docker/Dockerfile.back
@@ -101,6 +104,15 @@ services:
     networks:
       - app-network
     logging: *default-logging
+
+  watchtower:
+    image: containrrr/watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --interval 30
+    restart: unless-stopped
+    networks:
+      - app-network
 
 volumes:
   rabbitmq_data:
