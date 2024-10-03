@@ -55,7 +55,7 @@ class TradingParameters(BaseModel):
         ge=0,
     )
     num_informed_traders: int = Field(
-        default=1,
+        default=0,
         title="Number of Informed Traders",
         description="model_parameter",
         ge=0,
@@ -67,13 +67,13 @@ class TradingParameters(BaseModel):
         ge=0,
     )
     start_of_book_num_order_per_level: int = Field(
-        default=5,
+        default=3,
         title="Orders per Level at Book Start",
         description="model_parameter",
         ge=0,
     )
     trading_day_duration: int = Field(
-        default=1,
+        default=5,
         title="Trading Day Duration",
         description="model_parameter",
         gt=0,
@@ -84,7 +84,7 @@ class TradingParameters(BaseModel):
         description="model_parameter",
     )
     noise_activity_frequency: float = Field(
-        default=0.5,
+        default=1,
         title="Activity Frequency",
         description="noise_parameter",
         gt=0,
@@ -155,12 +155,12 @@ class TradingParameters(BaseModel):
         description="human_parameter",
     )
     order_book_levels: int = Field(
-        default=6,
+        default=5,
         title="Order Book Levels",
         description="model_parameter",
     )
     default_price: int = Field(
-        default=2000,
+        default=100,
         title="Default Price",
         description="model_parameter",
     )
