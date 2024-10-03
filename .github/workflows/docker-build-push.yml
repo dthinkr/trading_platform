@@ -27,7 +27,7 @@ jobs:
     - name: Build and push Front image
       uses: docker/build-push-action@v4
       with:
-        context: .
+        context: ./front
         file: ./docker/Dockerfile.front
         push: true
         tags: venvoo/trading_platform:front
@@ -35,7 +35,7 @@ jobs:
     - name: Build and push Back image
       uses: docker/build-push-action@v4
       with:
-        context: .
+        context: ./back
         file: ./docker/Dockerfile.back
         push: true
         tags: venvoo/trading_platform:back
