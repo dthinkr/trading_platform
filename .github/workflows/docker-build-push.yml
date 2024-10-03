@@ -10,6 +10,14 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     
+    - name: Create secret files
+      run: |
+        echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" > ./back/firebase-service-account.json
+        echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" > ./firebase-service-account.json
+        echo "${{ secrets.ENV_FILE }}" > ./.env
+        echo "${{ secrets.NGROK_YML }}" > ./docker/ngrok.yml
+        echo "${{ secrets.FIREBASE_JSON }}" > ./front/firebase.json
+    
     - name: Login to DockerHub
       uses: docker/login-action@v2
       with:
@@ -19,7 +27,7 @@ jobs:
     - name: Build and push Front image
       uses: docker/build-push-action@v4
       with:
-        context: ./front
+        context: .
         file: ./docker/Dockerfile.front
         push: true
         tags: venvoo/trading_platform:front
@@ -27,7 +35,12 @@ jobs:
     - name: Build and push Back image
       uses: docker/build-push-action@v4
       with:
-        context: ./back
+        context: .
         file: ./docker/Dockerfile.back
         push: true
         tags: venvoo/trading_platform:back
+    
+    - name: Clean up secret files
+      if: always()
+      run: |
+        rm -f ./back/firebase-service-account.json ./firebase-service-account.json ./.env ./docker/ngrok.yml ./front/firebase.json
