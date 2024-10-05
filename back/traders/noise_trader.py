@@ -99,20 +99,21 @@ class NoiseTrader(BaseTrader):
     async def place_passive_orders(self, amt: int, side: str) -> None:
         order_book_levels = self.params["order_book_levels"]
         step = self.params["step"]
+        default_price = self.params["default_price"]
 
         for _ in range(amt):
-            # side = (
-            #     "bids"
-            #     if random.random() < self.params["noise_bid_probability"]
-            #     else "asks"
-            # )
             if side == "bids":
-                best_ask = self.order_book["asks"][0]["x"]
-                mult = random.randint(1, order_book_levels)
-                price = best_ask - random.randint(1, order_book_levels) * step
+                if self.order_book["asks"]:
+                    best_ask = self.order_book["asks"][0]["x"]
+                    price = best_ask - random.randint(1, order_book_levels) * step
+                else:
+                    price = default_price - random.randint(1, order_book_levels) * step
             else:
-                best_bid = self.order_book["bids"][0]["x"]
-                price = best_bid + random.randint(1, order_book_levels) * step
+                if self.order_book["bids"]:
+                    best_bid = self.order_book["bids"][0]["x"]
+                    price = best_bid + random.randint(1, order_book_levels) * step
+                else:
+                    price = default_price + random.randint(1, order_book_levels) * step
 
             await self.post_new_order(
                 1, price, OrderType.BID if side == "bids" else OrderType.ASK
@@ -151,12 +152,11 @@ class NoiseTrader(BaseTrader):
             await self.cancel_orders(amt)
             action = "cancel"
 
-        # Place orders on empty side
-        # while not self.order_book["bids"] or not self.order_book["asks"]:
-        #     await self.place_orders_on_empty_side(self.params["max_order_amount"])
-        #     action = "empty_side"
-
-        
+        # Handle empty sides
+        if not self.order_book['bids'] or not self.order_book['asks']:
+            empty_side = "bids" if not self.order_book['bids'] else "asks"
+            await self.place_passive_orders(amt, empty_side)
+            return
 
         pr_passive = self.params["noise_passive_probability"]
         pr_bid = self.params["noise_bid_probability"]
@@ -185,22 +185,11 @@ class NoiseTrader(BaseTrader):
 
         self.action_counter += 1
 
-        # print(f"Action number: {self.action_counter}")
-        # print(f"NoiseTrader {self.id} - Action: {action}, Amount: {amt}")
-        # print(f"Historical Cancelled Orders: {self.historical_cancelled_orders}")
-        # print(f"Historical Placed Orders: {self.historical_placed_orders}")
-        # print(f"Historical Matched Orders: {self.historical_matched_orders}")
-        # print(f"Historical Matches Intended: {self.historical_matches_intended}")
-        # print(f"Elapsed Time: {self.elapsed_time}")
-        # print(f"Remaining Time: {self.remaining_time}")
-        # print("--------------------")
-
     async def run(self) -> None:
         while not self._stop_requested.is_set():
             try:
                 await self.act()
                 await asyncio.sleep(self.calculate_cooling_interval())
-                # print(f"my {self.id} filled orders and my active orders are {self.filled_orders} and {self.orders}")
             except asyncio.CancelledError:
                 await self.clean_up()
                 raise
@@ -208,8 +197,5 @@ class NoiseTrader(BaseTrader):
                 exc_type, exc_obj, exc_tb = sys.exc_info()
                 fname = traceback.extract_tb(exc_tb)[-1][0]
                 line_no = traceback.extract_tb(exc_tb)[-1][1]
-                print(f"Error in NoiseTrader {self.id}: {e}")
-                print(f"File: {fname}, Line: {line_no}")
-                print("Traceback:")
                 traceback.print_exc()
                 break
