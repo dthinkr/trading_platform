@@ -191,12 +191,7 @@ class BaseTrader:
                 }
                 self.filled_orders.append(filled_order)
 
-                if transaction["type"] == "bid":
-                    self.shares += transaction["amount"]
-                    self.cash -= transaction["price"] * transaction["amount"]
-                else:
-                    self.shares -= transaction["amount"]
-                    self.cash += transaction["price"] * transaction["amount"]
+                self.update_inventory([transaction])
 
                 self.update_data_for_pnl(
                     transaction["amount"]
@@ -214,15 +209,6 @@ class BaseTrader:
             if action_type == "transaction_update":
                 transactions = data.get("transactions", [])
                 self.update_filled_orders(transactions)
-            if (
-                action_type == "transaction_update"
-                and self.trader_type != TraderType.NOISE.value
-            ):
-                transactions_relevant_to_self = self.check_if_relevant(
-                    data["transactions"]
-                )
-                if transactions_relevant_to_self:
-                    self.update_inventory(transactions_relevant_to_self)
 
             if data.get("midpoint"):
                 self.update_mid_price(data["midpoint"])
@@ -251,9 +237,10 @@ class BaseTrader:
         for transaction in transactions_relevant_to_self:
             if transaction["type"] == "bid":
                 self.shares += transaction["amount"]
+                self.cash -= transaction["price"] * transaction["amount"]
             elif transaction["type"] == "ask":
+                self.shares -= transaction["amount"]
                 self.cash += transaction["price"] * transaction["amount"]
-            self.update_data_for_pnl(transaction["amount"], transaction["price"])
 
     @abstractmethod
     async def post_processing_server_message(self, json_message):
