@@ -5,3 +5,4 @@ appmap.log
 *.yml
 *.env
 !.github/workflows/docker-build-push.yml
+.secrets
