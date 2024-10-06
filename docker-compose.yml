@@ -112,7 +112,11 @@ services:
     image: containrrr/watchtower
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    command: --interval 30
+    environment:
+      - DOCKER_USERNAME=${DOCKER_USERNAME}
+      - DOCKER_PASSWORD=${DOCKER_PASSWORD}
+      - WATCHTOWER_POLL_INTERVAL=1800
+    command: --interval 1800 --debug
     restart: unless-stopped
     networks:
       - app-network
