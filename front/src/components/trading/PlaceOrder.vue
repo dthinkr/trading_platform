@@ -71,17 +71,39 @@ const bestAsk = computed(() => hasAskData.value ? Math.min(...askData.value.map(
 const orderBookLevels = computed(() => gameParams.value.order_book_levels || 5);
 
 const buyPrices = computed(() => {
-  if (bestAsk.value === null || !orderBookLevels.value) return [];
-  return Array.from({ length: orderBookLevels.value }, (_, i) => bestAsk.value - step.value * i);
+  if (bestAsk.value === null || !orderBookLevels.value){
+   return Array.from({ length: orderBookLevels.value }, (_, i) => bestBid.value + step.value*1 - step.value * i);
+  }else {
+    return Array.from({ length: orderBookLevels.value }, (_, i) => bestAsk.value - step.value * i);
+  }
 });
+
+// const buyPrices = computed(() => {
+//   if (bestAsk.value === null || !orderBookLevels.value) return [];
+//   return Array.from({ length: orderBookLevels.value }, (_, i) => bestAsk.value - step.value * i);
+// });
+
+// const sellPrices = computed(() => {
+//   if (bestBid.value === null || !orderBookLevels.value) return [];
+//   return Array.from({ length: orderBookLevels.value }, (_, i) => bestBid.value + step.value * i);
+// });
 
 const sellPrices = computed(() => {
-  if (bestBid.value === null || !orderBookLevels.value) return [];
-  return Array.from({ length: orderBookLevels.value }, (_, i) => bestBid.value + step.value * i);
+  if (bestBid.value === null || !orderBookLevels.value){
+   return Array.from({ length: orderBookLevels.value }, (_, i) => bestAsk.value - step.value*1 + step.value * i);
+  }else {
+    return Array.from({ length: orderBookLevels.value }, (_, i) => bestBid.value + step.value * i);
+  }
 });
 
-const isBuyButtonDisabled = computed(() => !hasAskData.value);
-const isSellButtonDisabled = computed(() => !hasBidData.value);
+// const isBuyButtonDisabled = computed(() => !hasAskData.value);
+const isBuyButtonDisabled = computed(() => {
+  return false;  // Always keep Buy button enabled
+});
+//const isSellButtonDisabled = computed(() => !hasBidData.value);
+const isSellButtonDisabled = computed(() => {
+  return false;  // Always keep Buy button enabled
+});
 
 const isMobile = ref(false);
 
