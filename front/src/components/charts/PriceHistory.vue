@@ -12,7 +12,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, watch, nextTick } from "vue";
+import { ref, reactive, onMounted, watch, nextTick, computed } from "vue";
 import { useTraderStore } from "@/store/app";
 import { storeToRefs } from "pinia";
 import { Chart } from "highcharts-vue";
@@ -21,8 +21,19 @@ import StockCharts from "highcharts/modules/stock";
 import HighchartsNoData from "highcharts/modules/no-data-to-display";
 
 const traderStore = useTraderStore();
-const { history } = storeToRefs(traderStore);
+const { history, gameParams } = storeToRefs(traderStore);
 const priceGraph = ref(null);
+
+const step = computed(() => gameParams.value.step || 1);
+const initialMidPrice = computed(() => gameParams.value.initial_mid_price || 100);
+
+const priceLevels = computed(() => {
+  const levels = [];
+  for (let i = -5; i <= 5; i++) {
+    levels.push(initialMidPrice.value + i * step.value);
+  }
+  return levels;
+});
 
 const chartOptions = reactive({
   chart: {
@@ -96,7 +107,21 @@ const chartOptions = reactive({
     },
     allowDecimals: false,
     startOnTick: true,
-    endOnTick: true
+    endOnTick: true,
+    plotLines: priceLevels.value.map(level => ({
+      value: level,
+      color: '#E0E0E0',
+      width: 1,
+      zIndex: 1,
+      label: {
+        text: level.toString(),
+        align: 'right',
+        style: {
+          color: '#888',
+          fontSize: '10px'
+        }
+      }
+    }))
   },
   title: { 
     text: null
@@ -109,7 +134,7 @@ const chartOptions = reactive({
       name: "Price",
       data: [],
       color: '#2196F3',
-      lineWidth: 3, // Increased line thickness
+      lineWidth: 3,
       marker: {
         enabled: false,
         states: {
@@ -136,7 +161,7 @@ const chartOptions = reactive({
       states: {
         hover: {
           enabled: true,
-          lineWidth: 4 // Increased hover line thickness
+          lineWidth: 4
         }
       }
     },

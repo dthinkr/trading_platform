@@ -20,7 +20,7 @@
                 { label: 'Traders', value: `${currentHumanTraders} / ${expectedHumanTraders}`, icon: 'mdi-account-group' }
               ]" :key="index" class="mr-2" color="grey lighten-4">
                 <v-icon left small color="deep-blue">{{ item.icon }}</v-icon>
-                {{ item.label }}: {{ item.value }}
+                <span class="black--text">{{ item.label }}: {{ item.value }}</span>
               </v-chip>
               <v-chip v-if="displayGoalMessage" :color="getGoalMessageClass" text-color="white" class="mr-2">
                 <v-icon left small>{{ getGoalMessageIcon }}</v-icon>
@@ -289,5 +289,9 @@ const getToolIcon = (toolTitle) => {
 
 .v-chip {
   font-size: 0.85rem;
+}
+
+.black--text {
+  color: black !important;
 }
 </style>
