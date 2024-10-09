@@ -43,17 +43,17 @@
 
             <!-- Goal Message -->
             <v-col cols="12" md="5" class="d-flex align-center justify-end">
-              <v-card v-if="goalMessage" outlined class="pa-2 mr-2 goal-message floating-card" :class="goalMessage.type === 'success' ? 'goal-success' : 'goal-warning'">
+              <v-card v-if="displayGoalMessage" outlined class="pa-2 mr-2 goal-message floating-card" :class="getGoalMessageClass">
                 <v-row no-gutters align="center">
                   <v-col cols="auto" class="mr-2">
-                    <v-icon :color="goalMessage.type === 'success' ? 'light-green darken-1' : 'amber darken-2'">
-                      {{ goalMessage.type === 'success' ? 'mdi-check-circle' : 'mdi-alert-circle' }}
+                    <v-icon :color="getGoalMessageIconColor">
+                      {{ getGoalMessageIcon }}
                     </v-icon>
                   </v-col>
                   <v-col>
                     <v-card-subtitle class="pa-0 text-caption goal-subtitle">Goal</v-card-subtitle>
                     <v-card-text class="pa-0 text-body-2 font-weight-medium goal-text">
-                      {{ goalMessage.text }}
+                      {{ displayGoalMessage.text }}
                     </v-card-text>
                   </v-col>
                 </v-row>
@@ -72,7 +72,7 @@
                       elevation="3">
                 <v-card-title>{{ tool.title }}</v-card-title>
                 <v-card-text class="pa-0">
-                  <component :is="tool.component" />
+                  <component :is="tool.component" :isGoalAchieved="isGoalAchieved" :goalType="goalType" />
                 </v-card-text>
               </v-card>
             </v-col>
@@ -113,7 +113,8 @@ const {
   expectedHumanTraders,
   traderUuid,
   cash,
-  sum_dinv
+  sum_dinv,
+  activeOrders
 } = storeToRefs(store);
 
 const columns = [
@@ -178,6 +179,62 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize);
+});
+
+const isGoalAchieved = computed(() => {
+  return goalMessage.value && goalMessage.value.type === 'success';
+});
+
+const goalType = computed(() => {
+  if (goalMessage.value) {
+    const goalText = goalMessage.value.text.toLowerCase();
+    if (goalText.includes('buy')) return 'buy';
+    if (goalText.includes('sell')) return 'sell';
+    if (goalText.includes('0') || goalText.includes('zero')) return 'free';
+  }
+  return 'free';
+});
+
+const displayGoalMessage = computed(() => {
+  if (!goalMessage.value) {
+    return {
+      type: 'info',
+      text: 'You can freely trade. Your goal is to profit from the market.'
+    };
+  }
+  return goalMessage.value;
+});
+
+// Add this function to cancel all active orders
+const cancelAllActiveOrders = () => {
+  activeOrders.value.forEach(order => {
+    store.cancelOrder(order.id);
+  });
+};
+
+// Watch for changes in isGoalAchieved
+watch(isGoalAchieved, (newValue) => {
+  if (newValue) {
+    cancelAllActiveOrders();
+  }
+});
+
+const getGoalMessageClass = computed(() => {
+  if (displayGoalMessage.value.type === 'success') return 'goal-success';
+  if (displayGoalMessage.value.type === 'warning') return 'goal-warning';
+  return 'goal-info';
+});
+
+const getGoalMessageIconColor = computed(() => {
+  if (displayGoalMessage.value.type === 'success') return 'light-green darken-1';
+  if (displayGoalMessage.value.type === 'warning') return 'amber darken-2';
+  return 'blue darken-1';
+});
+
+const getGoalMessageIcon = computed(() => {
+  if (displayGoalMessage.value.type === 'success') return 'mdi-check-circle';
+  if (displayGoalMessage.value.type === 'warning') return 'mdi-alert-circle';
+  return 'mdi-information';
 });
 </script>
 
@@ -277,6 +334,10 @@ onUnmounted(() => {
 
 .goal-warning {
   border-left: 4px solid #FFB300;
+}
+
+.goal-info {
+  border-left: 4px solid #2196F3;
 }
 
 .goal-subtitle {
