@@ -6,10 +6,6 @@
       </div>
       <div v-else class="orders-columns">
         <div class="orders-column bid-column">
-          <h3 class="column-title">
-            <v-icon left color="primary">mdi-arrow-up-bold</v-icon>
-            Buy Orders
-          </h3>
           <div class="order-levels-container">
             <div v-for="[price, level] in sortedOrderLevels.buy" :key="price" class="order-level bid">
               <div class="order-header">
@@ -27,7 +23,7 @@
                     color="success"
                     class="action-btn"
                   >
-                    <v-icon>mdi-plus</v-icon>
+                    <v-icon small>mdi-plus</v-icon>
                   </v-btn>
                   <v-btn
                     icon
@@ -37,19 +33,15 @@
                     color="error"
                     class="action-btn"
                   >
-                    <v-icon>mdi-minus</v-icon>
+                    <v-icon small>mdi-minus</v-icon>
                   </v-btn>
                 </div>
               </div>
-              <v-progress-linear :value="level.amount / maxAmount * 100" color="success" height="4" class="amount-progress"></v-progress-linear>
+              <v-progress-linear :value="level.amount / maxAmount * 100" color="success" height="2" class="amount-progress"></v-progress-linear>
             </div>
           </div>
         </div>
         <div class="orders-column ask-column">
-          <h3 class="column-title">
-            <v-icon left color="error">mdi-arrow-down-bold</v-icon>
-            Sell Orders
-          </h3>
           <div class="order-levels-container">
             <div v-for="[price, level] in sortedOrderLevels.sell" :key="price" class="order-level ask">
               <div class="order-header">
@@ -67,7 +59,7 @@
                     color="success"
                     class="action-btn"
                   >
-                    <v-icon>mdi-plus</v-icon>
+                    <v-icon small>mdi-plus</v-icon>
                   </v-btn>
                   <v-btn
                     icon
@@ -77,11 +69,11 @@
                     color="error"
                     class="action-btn"
                   >
-                    <v-icon>mdi-minus</v-icon>
+                    <v-icon small>mdi-minus</v-icon>
                   </v-btn>
                 </div>
               </div>
-              <v-progress-linear :value="level.amount / maxAmount * 100" color="error" height="4" class="amount-progress"></v-progress-linear>
+              <v-progress-linear :value="level.amount / maxAmount * 100" color="error" height="2" class="amount-progress"></v-progress-linear>
             </div>
           </div>
         </div>
@@ -131,7 +123,7 @@ const maxAmount = computed(() => {
 });
 
 function formatPrice(price) {
-  return Number(price).toFixed(2);
+  return Math.round(price).toString(); // Changed to round the price
 }
 
 function addOrder(type, price) {
@@ -154,7 +146,8 @@ function cancelOrder(type, price) {
 .my-orders-card {
   display: flex;
   flex-direction: column;
-  background-color: #f5f5f5;
+  background-color: #FFFFFF;
+  font-family: 'Inter', sans-serif;
 }
 
 .orders-container {
@@ -174,83 +167,61 @@ function cancelOrder(type, price) {
   flex-direction: column;
 }
 
-.column-title {
-  font-size: 1.2rem;
-  font-weight: bold;
-  margin-bottom: 12px;
-  text-align: center;
-}
-
 .order-level {
-  background-color: white;
-  border-radius: 8px;
-  padding: 12px;
-  margin-bottom: 12px;
-  position: relative;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.order-level:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-}
-
-.order-level.bid {
-  border-left: 4px solid #2196F3;
-}
-
-.order-level.ask {
-  border-left: 4px solid #F44336;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+  padding: 8px;
+  margin-bottom: 8px;
+  font-size: 12px;
 }
 
 .order-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .order-type {
-  font-weight: bold;
+  font-weight: 500;
   text-transform: uppercase;
+  font-size: 11px;
+}
+
+.price {
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .order-details {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
-}
-
-.price {
-  font-size: 1.2rem;
-  font-weight: bold;
-  color: #333;
+  margin-bottom: 4px;
 }
 
 .amount {
-  font-size: 0.9rem;
-  color: #666;
+  font-size: 12px;
 }
 
 .order-actions {
   display: flex;
-  gap: 8px;
+  gap: 4px;
 }
 
 .action-btn {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
 }
 
 .amount-progress {
-  margin-top: 8px;
+  margin-top: 4px;
 }
 
 .no-orders-message {
   text-align: center;
   color: #666;
+  font-size: 14px;
   padding: 20px;
 }
 
@@ -262,7 +233,7 @@ function cancelOrder(type, price) {
 
 /* Scrollbar styles */
 .order-levels-container::-webkit-scrollbar {
-  width: 8px;
+  width: 4px;
 }
 
 .order-levels-container::-webkit-scrollbar-track {
@@ -271,7 +242,7 @@ function cancelOrder(type, price) {
 
 .order-levels-container::-webkit-scrollbar-thumb {
   background: #888;
-  border-radius: 4px;
+  border-radius: 2px;
 }
 
 .order-levels-container::-webkit-scrollbar-thumb:hover {

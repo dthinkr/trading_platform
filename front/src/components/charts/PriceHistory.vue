@@ -27,15 +27,18 @@ const priceGraph = ref(null);
 const chartOptions = reactive({
   chart: {
     height: 250,
-    backgroundColor: '#f5f5f5', // Change this line
+    backgroundColor: '#FFFFFF',
     style: {
-      fontFamily: 'Roboto, sans-serif'
+      fontFamily: 'Inter, sans-serif'
     },
     animation: false,
-    marginTop: 0,
-    marginBottom: 0
+    marginTop: 10,
+    marginBottom: 30
   },
   navigator: {
+    enabled: false,
+  },
+  scrollbar: {
     enabled: false,
   },
   credits: {
@@ -51,7 +54,7 @@ const chartOptions = reactive({
     shadow: false,
     useHTML: true,
     style: {
-      fontSize: '14px'
+      fontSize: '12px'
     },
     pointFormat: '<span style="color:{point.color}">\u25CF</span> {series.name}: <b>${point.y:.2f}</b><br/>',
     xDateFormat: '%Y-%m-%d %H:%M:%S'
@@ -61,8 +64,8 @@ const chartOptions = reactive({
     ordinal: false,
     labels: {
       style: {
-        color: '#333333',
-        fontSize: '12px'
+        color: '#666',
+        fontSize: '10px'
       }
     },
     lineWidth: 0,
@@ -73,8 +76,8 @@ const chartOptions = reactive({
     gridLineWidth: 0,
     labels: {
       style: {
-        color: '#333333',
-        fontSize: '12px'
+        color: '#666',
+        fontSize: '10px'
       },
       formatter: function() {
         return '$' + Math.round(this.value);
@@ -106,7 +109,7 @@ const chartOptions = reactive({
       name: "Price",
       data: [],
       color: '#2196F3',
-      lineWidth: 1.5,
+      lineWidth: 3, // Increased line thickness
       marker: {
         enabled: false,
         states: {
@@ -122,7 +125,7 @@ const chartOptions = reactive({
   noData: {
     style: {
       fontWeight: "bold",
-      fontSize: "16px",
+      fontSize: "14px",
       color: "#888",
     },
   },
@@ -133,7 +136,7 @@ const chartOptions = reactive({
       states: {
         hover: {
           enabled: true,
-          lineWidth: 2
+          lineWidth: 4 // Increased hover line thickness
         }
       }
     },
@@ -183,26 +186,24 @@ export default {
   width: 100%;
   background-color: #FFFFFF;
   overflow: hidden;
-}
-
-.cardtitle-primary {
-  color: black;
-  font-weight: bold;
-  padding: 12px 16px;
-  border-bottom: none;
+  font-family: 'Inter', sans-serif;
 }
 
 .chart-wrapper {
   padding: 0;
 }
 
-.history-chart-container:hover {
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-  transform: translateY(-2px);
-  transition: all 0.3s ease;
+:deep(.highcharts-container) {
+  font-family: 'Inter', sans-serif !important;
 }
 
-:deep(.highcharts-container) {
-  border-top: none !important;
+:deep(.highcharts-axis-labels),
+:deep(.highcharts-axis-title) {
+  font-size: 10px !important;
+  font-weight: 400 !important;
+}
+
+:deep(.highcharts-tooltip) {
+  font-size: 12px !important;
 }
 </style>

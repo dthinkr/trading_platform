@@ -1,16 +1,15 @@
 <template>
   <div class="card-content">
-
-    <v-card class="mb-6" elevation="3" shaped>
-      <v-card-title class="text-h5 font-weight-bold primary--text">
-        <v-icon left color="primary">mdi-help-circle</v-icon>
-        True or False Questions
-      </v-card-title>
-      <v-card-text>
+    <div class="content-wrapper">
+      <div class="info-section">
+        <h2>
+          <v-icon left :color="iconColor">mdi-help-circle</v-icon>
+          True or False Questions
+        </h2>
         <v-list>
           <v-list-item v-for="(question, index) in trueOrFalseQuestions" :key="index">
             <v-list-item-content>
-              <v-list-item-title class="text-h5 mb-2 wrap-text">{{ question.text }}</v-list-item-title>
+              <v-list-item-title class="mb-2 wrap-text">{{ question.text }}</v-list-item-title>
               <v-radio-group v-model="question.answer" row>
                 <v-radio label="Correct" value="correct"></v-radio>
                 <v-radio label="Incorrect" value="incorrect"></v-radio>
@@ -18,19 +17,17 @@
             </v-list-item-content>
           </v-list-item>
         </v-list>
-      </v-card-text>
-    </v-card>
+      </div>
 
-    <v-card class="mb-6" elevation="3" shaped color="secondary" dark>
-      <v-card-title class="text-h5 font-weight-bold">
-        <v-icon left>mdi-calculator</v-icon>
-        Calculation Questions
-      </v-card-title>
-      <v-card-text>
+      <div class="info-section">
+        <h2>
+          <v-icon left :color="iconColor">mdi-calculator</v-icon>
+          Calculation Questions
+        </h2>
         <v-list>
           <v-list-item v-for="(question, index) in calculationQuestions" :key="index">
             <v-list-item-content>
-              <v-list-item-title class="text-h5 mb-2 wrap-text">{{ question.text }}</v-list-item-title>
+              <v-list-item-title class="mb-2 wrap-text">{{ question.text }}</v-list-item-title>
               <v-radio-group v-model="question.answer" column>
                 <v-radio
                   v-for="(option, optionIndex) in question.options"
@@ -42,23 +39,25 @@
             </v-list-item-content>
           </v-list-item>
         </v-list>
-      </v-card-text>
-    </v-card>
+      </div>
 
-    <v-card class="mt-6" elevation="3" shaped color="success" dark>
-      <v-card-title class="text-h5 font-weight-bold">
-        <v-icon left>mdi-school</v-icon>
-        Practice Session
-      </v-card-title>
-      <v-card-text class="text-h5">
-        After answering these control questions, you will have a practice session to familiarize yourself with the trading platform.
-      </v-card-text>
-    </v-card>
+      <div class="info-section">
+        <h2>
+          <v-icon left :color="iconColor">mdi-school</v-icon>
+          Practice Session
+        </h2>
+        <p>After answering these control questions, you will have a practice session to familiarize yourself with the trading platform.</p>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref } from 'vue';
+
+const props = defineProps({
+  iconColor: String
+});
 
 const trueOrFalseQuestions = ref([
   { text: "You can both buy and sell shares.", answer: null },
@@ -71,12 +70,12 @@ const trueOrFalseQuestions = ref([
 
 const calculationQuestions = ref([
   { 
-    text: `Let us assume a market is selected in which you had the task of selling all your 10 shares and you received 50 Lira at the start. You sold all the 10 shares for an average price of 11. The price at the beginning of the market was 12. What would be your earnings in Lira at the end of this market?`,
+    text: "Let us assume a market is selected in which you had the task of selling all your 10 shares and you received 50 Lira at the start. You sold all the 10 shares for an average price of 11. The price at the beginning of the market was 12. What would be your earnings in Lira at the end of this market?",
     answer: null,
     options: ['100 Lira', '110 Lira', '120 Lira', '500 Lira']
   },
   { 
-    text: `Let us assume a market is selected in which you had the task of buying 10 shares and you received 60 Lira at the start. You bought 10 shares for an average price of 11. The price at the beginning of the market was 10. What would be your earnings in Lira at the end of this market?`,
+    text: "Let us assume a market is selected in which you had the task of buying 10 shares and you received 60 Lira at the start. You bought 10 shares for an average price of 11. The price at the beginning of the market was 10. What would be your earnings in Lira at the end of this market?",
     answer: null,
     options: ['100 Lira', '110 Lira', '120 Lira', '600 Lira']
   },

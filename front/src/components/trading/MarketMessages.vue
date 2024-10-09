@@ -51,16 +51,8 @@ onMounted(() => {
 
 <style scoped>
 .market-info-card {
-  background-color: #f8f9fa;
-  border: 1px solid #e0e0e0;
-}
-
-.cardtitle {
-  font-size: 18px;
-  font-weight: bold;
-  background: linear-gradient(to right, #1a237e, #283593);
-  color: white;
-  padding: 16px;
+  background-color: #FFFFFF;
+  font-family: 'Inter', sans-serif;
 }
 
 .market-info-content {
@@ -69,27 +61,14 @@ onMounted(() => {
   padding: 0;
 }
 
-.market-info-item {
-  border-bottom: 1px solid #e0e0e0;
-  padding: 12px 16px;
-}
-
-.market-info-item:last-child {
-  border-bottom: none;
-}
-
 .info-title {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
-  color: #333;
-  display: flex;
-  align-items: center;
 }
 
 .info-value {
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 600;
-  margin-top: 4px;
 }
 
 .v-icon.v-icon--size-x-small {

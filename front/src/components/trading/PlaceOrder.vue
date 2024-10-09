@@ -1,7 +1,7 @@
 <template>
   <v-card height="100%" elevation="3" class="trading-panel">
     <div class="orders-container">
-      <div class="order-column">
+      <div class="order-column buy-column">
         <h3 class="order-type-title">
           <v-icon left color="primary">mdi-arrow-up-bold</v-icon>
           Buy Orders
@@ -32,7 +32,7 @@
         </div>
       </div>
       
-      <div class="order-column">
+      <div class="order-column sell-column">
         <h3 class="order-type-title">
           <v-icon left color="error">mdi-arrow-down-bold</v-icon>
           Sell Orders
@@ -177,19 +177,8 @@ onUnmounted(() => {
 .trading-panel {
   display: flex;
   flex-direction: column;
-  background-color: #f5f5f5;
-}
-
-.cardtitle-primary {
-  color: black;
-  font-weight: bold;
-  padding: 12px 16px;
-}
-
-.subtitle {
-  font-size: 0.9rem;
-  color: #666;
-  padding: 0 16px 12px;
+  background-color: #FFFFFF;
+  font-family: 'Inter', sans-serif;
 }
 
 .orders-container {
@@ -201,79 +190,57 @@ onUnmounted(() => {
 }
 
 .order-column {
-  flex: 1;
-  max-width: 48%; /* Adjust as needed */
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  flex: 0 0 48%; /* Adjust the width as needed */
 }
 
 .order-type-title {
-  font-size: 1.1rem;
-  font-weight: bold;
+  font-size: 14px;
+  font-weight: 600;
   margin-bottom: 8px;
-  display: flex;
-  align-items: center;
 }
 
 .order-item {
-  background-color: white;
-  border-radius: 8px;
-  padding: 8px 12px;
-  position: relative;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  cursor: pointer;
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
+  font-size: 12px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-}
-
-.order-item:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+  margin-bottom: 8px;
+  padding: 8px;
+  border-radius: 4px;
 }
 
 .order-item.bid {
-  border-left: 4px solid #2196F3;
+  background-color: rgba(33, 150, 243, 0.1);
 }
 
 .order-item.ask {
-  border-left: 4px solid #F44336;
-}
-
-.order-item.best-price {
-  background-color: #E3F2FD;
-}
-
-.order-content {
-  flex-grow: 1;
+  background-color: rgba(244, 67, 54, 0.1);
 }
 
 .order-type {
-  font-weight: bold;
-  text-transform: uppercase;
-  font-size: 0.8rem;
-  color: #666;
+  font-size: 11px;
+  font-weight: 500;
 }
 
 .price {
-  font-size: 1.1rem;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.order-content {
+  display: flex;
+  align-items: center;
+}
+
+.order-content > * {
+  margin-right: 8px;
+}
+
+.best-price {
   font-weight: bold;
-  color: #333;
 }
 
-.order-item.locked {
+.locked {
   opacity: 0.5;
-  pointer-events: none;
-}
-
-.order-item.locked .order-content {
-  text-decoration: line-through;
 }
 </style>

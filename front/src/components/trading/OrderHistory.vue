@@ -53,160 +53,137 @@ const formatTime = (timestamp) => {
 </script>
 
 <template>
-  <v-card height="100%" elevation="3" class="message-board">
-    <v-card-text class="message-container" ref="messageContainer">
-      <v-container v-if="groupedOrders.bids.length || groupedOrders.asks.length">
-        <div class="order-columns">
-          <div class="order-column">
-            <h3 class="column-title">Buy Orders</h3>
-            <TransitionGroup name="order-change">
-              <div v-for="order in groupedOrders.bids" :key="order.price" class="order-item bid">
-                <div class="order-details">
-                  <div class="price-amount">
-                    <span class="price">${{ order.price }}</span>
-                    <span class="amount">{{ order.amount }}</span>
-                  </div>
-                  <div class="time">{{ formatTime(order.latestTime) }}</div>
-                </div>
+  <v-card height="100%" elevation="3" class="order-history-card">
+    <div class="order-history-container">
+      <div v-if="groupedOrders.bids.length || groupedOrders.asks.length" class="order-columns">
+        <div class="order-column">
+          <TransitionGroup name="order-change">
+            <div v-for="order in groupedOrders.bids" :key="order.price" class="order-item bid">
+              <div class="price-amount">
+                <span class="price">{{ Math.round(order.price) }}</span>
+                <span class="amount">{{ order.amount }}</span>
               </div>
-            </TransitionGroup>
-          </div>
-          <div class="order-column">
-            <h3 class="column-title">Sell Orders</h3>
-            <TransitionGroup name="order-change">
-              <div v-for="order in groupedOrders.asks" :key="order.price" class="order-item ask">
-                <div class="order-details">
-                  <div class="price-amount">
-                    <span class="price">${{ order.price }}</span>
-                    <span class="amount">{{ order.amount }}</span>
-                  </div>
-                  <div class="time">{{ formatTime(order.latestTime) }}</div>
-                </div>
-              </div>
-            </TransitionGroup>
-          </div>
+              <div class="time">{{ formatTime(order.latestTime) }}</div>
+            </div>
+          </TransitionGroup>
         </div>
-      </v-container>
+        <div class="order-column">
+          <TransitionGroup name="order-change">
+            <div v-for="order in groupedOrders.asks" :key="order.price" class="order-item ask">
+              <div class="price-amount">
+                <span class="price">{{ Math.round(order.price) }}</span>
+                <span class="amount">{{ order.amount }}</span>
+              </div>
+              <div class="time">{{ formatTime(order.latestTime) }}</div>
+            </div>
+          </TransitionGroup>
+        </div>
+      </div>
       <div v-else class="no-orders-message">
         No executed orders yet.
       </div>
-    </v-card-text>
+    </div>
   </v-card>
 </template>
 
 <style scoped>
-.message-board {
-  background-color: #f8f9fa;
-  border: 1px solid #e0e0e0;
+.order-history-card {
+  background-color: #FFFFFF;
+  font-family: 'Inter', sans-serif;
 }
 
-.cardtitle {
-  font-size: 18px;
-  font-weight: bold;
-  background: linear-gradient(to right, #2c3e50, #34495e);
-  color: white;
-  padding: 12px 16px;
-}
-
-.message-container {
+.order-history-container {
   height: 300px;
   overflow-y: auto;
-  padding: 0;
+  padding: 16px;
 }
 
 .order-columns {
   display: flex;
-  justify-content: space-between;
+  gap: 16px;
 }
 
 .order-column {
-  width: 48%;
-}
-
-.column-title {
-  font-size: 16px;
-  font-weight: bold;
-  margin-bottom: 10px;
-  text-align: center;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .order-item {
-  display: flex;
-  justify-content: center;
-  padding: 8px;
-  margin-bottom: 5px;
+  background-color: #f5f5f5;
   border-radius: 4px;
-  font-size: 0.9rem;
+  padding: 8px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
 }
 
 .order-item.bid {
-  background-color: rgba(33, 150, 243, 0.1); /* Light blue background */
-  border-left: 3px solid #2196F3; /* Blue border */
+  border-left: 3px solid #2196F3;
 }
 
 .order-item.ask {
-  background-color: rgba(244, 67, 54, 0.1); /* Light red background */
-  border-left: 3px solid #F44336; /* Red border */
-}
-
-.order-details {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  border-left: 3px solid #F44336;
 }
 
 .price-amount {
   display: flex;
-  gap: 10px;
+  align-items: baseline;
+  justify-content: space-between;
   margin-bottom: 4px;
 }
 
 .price {
-  font-weight: bold;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .amount {
-  font-weight: bold;
+  font-size: 12px;
+  font-weight: 500;
+  color: #666;
 }
 
 .time {
-  font-size: 0.8rem;
-  color: #555;
+  font-size: 10px;
+  color: #888;
+  align-self: flex-end;
 }
 
 .no-orders-message {
   text-align: center;
   color: #666;
+  font-size: 14px;
   padding: 20px;
 }
 
 .order-change-enter-active,
 .order-change-leave-active {
-  transition: all 0.5s ease;
+  transition: all 0.3s ease;
 }
 
 .order-change-enter-from,
 .order-change-leave-to {
   opacity: 0;
-  transform: translateY(30px);
+  transform: translateY(20px);
 }
 
-.order-change-enter-to,
-.order-change-leave-from {
-  opacity: 1;
-  transform: translateY(0);
+/* Scrollbar styles */
+.order-history-container::-webkit-scrollbar {
+  width: 4px;
 }
 
-@keyframes highlight {
-  0% {
-    background-color: yellow;
-  }
-  100% {
-    background-color: transparent;
-  }
+.order-history-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
 }
 
-.order-item {
-  animation: highlight 1s ease-out;
+.order-history-container::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 2px;
+}
+
+.order-history-container::-webkit-scrollbar-thumb:hover {
+  background: #555;
 }
 </style>

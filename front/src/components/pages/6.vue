@@ -1,36 +1,34 @@
 <template>
   <div class="card-content">
-
-    <v-card class="mb-6" elevation="3" shaped color="secondary" dark>
-      <v-card-title class="text-h5 font-weight-bold">
-        <v-icon left>mdi-robot</v-icon>
-        Artificial Traders
-      </v-card-title>
-      <v-card-text class="text-h5">
+    <div class="content-wrapper">
+      <div class="info-section">
+        <h2>
+          <v-icon left :color="iconColor">mdi-robot</v-icon>
+          Artificial Traders
+        </h2>
         <p>The other participants in the market are all artificial (algorithmic) traders, i.e., non-human.</p>
         <v-alert
           color="info"
-          border="left"
+          border="start"
           elevation="2"
           colored-border
           icon="mdi-information"
           class="mt-3"
+          icon-color="grey darken-1"
         >
           All artificial traders have no objective in terms of earnings.
         </v-alert>
-      </v-card-text>
-    </v-card>
+      </div>
 
-    <v-card class="mb-6" elevation="3" shaped>
-      <v-card-title class="text-h5 font-weight-bold primary--text">
-        <v-icon left color="primary">mdi-refresh</v-icon>
-        Trader Behavior
-      </v-card-title>
-      <v-card-text class="text-h5">
+      <div class="info-section">
+        <h2>
+          <v-icon left :color="iconColor">mdi-refresh</v-icon>
+          Trader Behavior
+        </h2>
         <v-list>
           <v-list-item>
             <v-list-item-icon>
-              <v-icon color="green">mdi-login</v-icon>
+              <v-icon color="iconColor">mdi-login</v-icon>
             </v-list-item-icon>
             <v-list-item-content>
               Artificial traders randomly join the market for a short period
@@ -38,7 +36,7 @@
           </v-list-item>
           <v-list-item>
             <v-list-item-icon>
-              <v-icon color="blue">mdi-swap-horizontal</v-icon>
+              <v-icon color="iconColor">mdi-swap-horizontal</v-icon>
             </v-list-item-icon>
             <v-list-item-content>
               They buy and sell during their time in the market
@@ -46,53 +44,55 @@
           </v-list-item>
           <v-list-item>
             <v-list-item-icon>
-              <v-icon color="red">mdi-logout</v-icon>
+              <v-icon color="iconColor">mdi-logout</v-icon>
             </v-list-item-icon>
             <v-list-item-content>
               They are then replaced by other artificial traders
             </v-list-item-content>
           </v-list-item>
         </v-list>
-      </v-card-text>
-    </v-card>
+      </div>
 
-    <v-card class="mb-6" elevation="3" shaped color="success" dark>
-      <v-card-title class="text-h5 font-weight-bold">
-        <v-icon left>mdi-chart-line</v-icon>
-        Market Activity
-      </v-card-title>
-      <v-card-text class="text-h5">
-        These traders ensure activity in the market that enables you to buy and sell.
-      </v-card-text>
-    </v-card>
+      <div class="info-section">
+        <h2>
+          <v-icon left :color="iconColor">mdi-chart-line</v-icon>
+          Market Activity
+        </h2>
+        <p>These traders ensure activity in the market that enables you to buy and sell.</p>
+      </div>
 
-  <v-card class="mb-6" elevation="3" shaped>
-    <v-card-title class="text-h5 font-weight-bold primary--text">
-      <v-icon left color="primary">mdi-school</v-icon>
-      Next Steps
-    </v-card-title>
-    <v-card-text class="text-h5">
-      <v-list>
-        <v-list-item>
-          <v-list-item-icon>
-            <v-icon color="primary">mdi-checkbox-marked-circle</v-icon>
-          </v-list-item-icon>
-          <v-list-item-content>
-            <v-list-item-title class="font-weight-bold">Control Questions</v-list-item-title>
-            <v-list-item-subtitle>You will answer some control questions</v-list-item-subtitle>
-          </v-list-item-content>
-        </v-list-item>
-        <v-list-item>
-          <v-list-item-icon>
-            <v-icon color="green">mdi-checkbox-marked-circle</v-icon>
-          </v-list-item-icon>
-          <v-list-item-content>
-            <v-list-item-title class="font-weight-bold">Practice Session</v-list-item-title>
-            <v-list-item-subtitle>You will practice trading to familiarize yourself with the trading platform</v-list-item-subtitle>
-          </v-list-item-content>
-        </v-list-item>
-      </v-list>
-    </v-card-text>
-  </v-card>
+      <div class="info-section">
+        <h2>
+          <v-icon left :color="iconColor">mdi-school</v-icon>
+          Next Steps
+        </h2>
+        <v-list>
+          <v-list-item>
+            <v-list-item-icon>
+              <v-icon color="iconColor">mdi-checkbox-marked-circle</v-icon>
+            </v-list-item-icon>
+            <v-list-item-content>
+              <v-list-item-title class="font-weight-bold">Control Questions</v-list-item-title>
+              <v-list-item-subtitle>You will answer some control questions</v-list-item-subtitle>
+            </v-list-item-content>
+          </v-list-item>
+          <v-list-item>
+            <v-list-item-icon>
+              <v-icon color="iconColor">mdi-checkbox-marked-circle</v-icon>
+            </v-list-item-icon>
+            <v-list-item-content>
+              <v-list-item-title class="font-weight-bold">Practice Session</v-list-item-title>
+              <v-list-item-subtitle>You will practice trading to familiarize yourself with the trading platform</v-list-item-subtitle>
+            </v-list-item-content>
+          </v-list-item>
+        </v-list>
+      </div>
+    </div>
   </div>
 </template>
+
+<script setup>
+const props = defineProps({
+  iconColor: String
+});
+</script>

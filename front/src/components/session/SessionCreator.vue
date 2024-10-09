@@ -2,14 +2,18 @@
   <v-container fluid class="pa-4">
     <v-row>
       <v-col cols="12" md="8">
-        <v-card class="mb-4" elevation="4">
-          <v-card-title class="text-h5 font-weight-bold">Trading Session Configuration</v-card-title>
+        <v-card class="mb-4" elevation="2">
+          <v-card-title class="headline">
+            <v-icon left color="deep-blue">mdi-cog-outline</v-icon>
+            Trading Session Configuration
+          </v-card-title>
           
           <v-card-text>
             <v-form>
               <div class="parameter-grid">
                 <v-card v-for="(group, hint) in groupedFields" :key="hint" outlined class="parameter-card" :class="{ 'parameter-card-large': group.length > 4 }">
-                  <v-card-title class="text-subtitle-1 text-capitalize py-2 px-3 grey lighten-4">
+                  <v-card-title class="subtitle-1 py-2 px-3 grey lighten-4">
+                    <v-icon left color="deep-blue" small>mdi-label-outline</v-icon>
                     {{ hint.replace('_', ' ') }}
                   </v-card-title>
                   <v-card-text class="pa-3">
@@ -52,8 +56,9 @@
               :disabled="!serverActive"
               small
               elevation="2"
+              class="custom-btn"
             >
-              <v-icon small left>mdi-content-save</v-icon>
+              <v-icon left small>mdi-content-save</v-icon>
               Save Settings
             </v-btn>
           </v-card-actions>
@@ -61,29 +66,47 @@
       </v-col>
       
       <v-col cols="12" md="4">
-        <v-card class="mb-4" elevation="4">
-          <v-card-title class="text-h5 font-weight-bold">Log Files</v-card-title>
+        <v-card class="mb-4" elevation="2">
+          <v-card-title class="headline">
+            <v-icon left color="deep-blue">mdi-file-document-multiple-outline</v-icon>
+            Log Files
+          </v-card-title>
           <v-card-text>
             <v-data-table
               :headers="[
-                { text: 'File Name', value: 'name' },
-                { text: 'Actions', value: 'actions', sortable: false }
+                { text: 'File Name', value: 'name', class: 'custom-header' },
+                { text: 'Actions', value: 'actions', sortable: false, class: 'custom-header' }
               ]"
               :items="logFiles"
               :items-per-page="5"
-              class="elevation-1"
+              class="elevation-1 custom-table"
               dense
             >
               <template v-slot:item.actions="{ item }">
-                <v-btn x-small text color="primary" @click="viewFile(item.name)">
-                  <v-icon small left>mdi-eye</v-icon> View
-                </v-btn>
-                <v-btn x-small text color="secondary" @click="downloadFile(item.name)">
-                  <v-icon small left>mdi-download</v-icon> Download
-                </v-btn>
-                <v-btn x-small text color="error" @click="confirmDeleteFile(item.name)">
-                  <v-icon small left>mdi-delete</v-icon> Delete
-                </v-btn>
+                <v-tooltip bottom>
+                  <template v-slot:activator="{ on, attrs }">
+                    <v-btn icon x-small color="primary" @click="viewFile(item.name)" v-bind="attrs" v-on="on">
+                      <v-icon small>mdi-eye</v-icon>
+                    </v-btn>
+                  </template>
+                  <span>View</span>
+                </v-tooltip>
+                <v-tooltip bottom>
+                  <template v-slot:activator="{ on, attrs }">
+                    <v-btn icon x-small color="secondary" @click="downloadFile(item.name)" v-bind="attrs" v-on="on">
+                      <v-icon small>mdi-download</v-icon>
+                    </v-btn>
+                  </template>
+                  <span>Download</span>
+                </v-tooltip>
+                <v-tooltip bottom>
+                  <template v-slot:activator="{ on, attrs }">
+                    <v-btn icon x-small color="error" @click="confirmDeleteFile(item.name)" v-bind="attrs" v-on="on">
+                      <v-icon small>mdi-delete</v-icon>
+                    </v-btn>
+                  </template>
+                  <span>Delete</span>
+                </v-tooltip>
               </template>
             </v-data-table>
           </v-card-text>
@@ -93,7 +116,8 @@
 
     <v-dialog v-model="showFileDialog" @click:outside="closeFileDialog" max-width="600px">
       <v-card v-if="selectedFile">
-        <v-card-title class="text-subtitle-1 grey lighten-2">
+        <v-card-title class="subtitle-1 grey lighten-2">
+          <v-icon left color="deep-blue" small>mdi-file-document-outline</v-icon>
           {{ selectedFile }}
           <v-spacer></v-spacer>
           <v-btn icon small @click="closeFileDialog">
@@ -106,15 +130,14 @@
       </v-card>
     </v-dialog>
 
-    <!-- Add this dialog for delete confirmation -->
     <v-dialog v-model="showDeleteDialog" max-width="300px">
       <v-card>
-        <v-card-title class="text-h5">Confirm Delete</v-card-title>
+        <v-card-title class="headline">Confirm Delete</v-card-title>
         <v-card-text>Are you sure you want to delete this file?</v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn color="blue darken-1" text @click="showDeleteDialog = false">Cancel</v-btn>
-          <v-btn color="blue darken-1" text @click="deleteFile">Delete</v-btn>
+          <v-btn color="blue darken-1" text @click="showDeleteDialog = false" class="custom-btn">Cancel</v-btn>
+          <v-btn color="blue darken-1" text @click="deleteFile" class="custom-btn">Delete</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -265,8 +288,8 @@ onMounted(fetchData);
 <style scoped>
 .parameter-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
   align-items: start;
 }
 
@@ -274,6 +297,12 @@ onMounted(fetchData);
   height: 100%;
   display: flex;
   flex-direction: column;
+  transition: all 0.3s ease;
+}
+
+.parameter-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
 }
 
 .parameter-card-large {
@@ -282,6 +311,7 @@ onMounted(fetchData);
 
 .short-input {
   max-width: 100%;
+  font-family: 'Inter', sans-serif;
 }
 
 .file-content {
@@ -293,6 +323,46 @@ onMounted(fetchData);
   padding: 0.75rem;
   border-radius: 4px;
   font-size: 0.85rem;
+  font-family: 'Inter', sans-serif;
+}
+
+.headline {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #2c3e50;
+  font-family: 'Inter', sans-serif;
+}
+
+.subtitle-1 {
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: #2c3e50;
+  font-family: 'Inter', sans-serif;
+}
+
+.deep-blue {
+  color: #1a237e !important;
+}
+
+.custom-btn {
+  text-transform: none;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  font-family: 'Inter', sans-serif;
+}
+
+.custom-table {
+  font-family: 'Inter', sans-serif;
+}
+
+.custom-table >>> .v-data-table__wrapper {
+  font-family: 'Inter', sans-serif;
+}
+
+.custom-header {
+  font-weight: 600 !important;
+  font-size: 0.9rem !important;
+  color: #2c3e50 !important;
 }
 
 @media (max-width: 960px) {
@@ -302,5 +372,24 @@ onMounted(fetchData);
   .parameter-card-large {
     grid-column: span 1;
   }
+}
+
+.v-data-table >>> td {
+  padding: 0 8px !important;
+}
+
+.v-data-table >>> .v-data-table__wrapper > table > tbody > tr > td:last-child {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.v-btn.v-btn--icon.v-size--x-small {
+  width: 20px;
+  height: 20px;
+  margin: 0 2px;
+}
+
+.v-btn.v-btn--icon.v-size--x-small .v-icon {
+  font-size: 16px;
 }
 </style>

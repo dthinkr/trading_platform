@@ -7,21 +7,18 @@
             <v-container class="pa-0">
               <v-row no-gutters>
                 <v-col cols="12">
-                  <v-sheet
-                    color="primary"
-                    class="pa-12 mb-6"
-                    rounded="lg"
-                    elevation="4"
-                  >
-                    <h1 class="text-h2 font-weight-bold text-center white--text">
+                  <div class="info-section mb-6">
+                    <h2 class="text-h4 font-weight-bold primary--text">
+                      <v-icon left color="light-blue" large>{{ pageIcons[currentPageIndex] }}</v-icon>
                       {{ pageTitles[currentPageIndex] }}
-                    </h1>
-                  </v-sheet>
+                    </h2>
+                  </div>
                 </v-col>
                 <v-col cols="12">
                   <component 
                     :is="pageComponents[currentPageIndex]" 
                     :traderAttributes="traderAttributes"
+                    :iconColor="deepBlueColor"
                   />
                 </v-col>
               </v-row>
@@ -31,7 +28,6 @@
             <v-btn @click="prevPage" :disabled="currentPageIndex === 0">Previous</v-btn>
             <v-spacer></v-spacer>
             <v-btn @click="nextPage" v-if="currentPageIndex < pageComponents.length - 1">Next</v-btn>
-            <v-btn @click="startTrading" v-else color="primary">Start Trading</v-btn>
           </v-card-actions>
         </v-card>
       </v-col>
@@ -60,7 +56,7 @@ const authStore = useAuthStore();
 
 const traderStore = useTraderStore();
 const { traderAttributes } = storeToRefs(traderStore);
-const { initializeTrader } = traderStore;  // Add this line
+const { initializeTrader } = traderStore;
 
 const traderUuid = ref(route.params.traderUuid);
 const sessionId = ref(route.params.sessionId);
@@ -75,13 +71,8 @@ const playerGoal = computed(() => {
 onMounted(async () => {
   if (traderUuid.value && sessionId.value) {
     try {
-      // First, initialize the trader
       await initializeTrader(traderUuid.value);
-      
-      // Then, load the persistent settings
       await traderStore.initializeTradingSystemWithPersistentSettings();
-      
-      // Finally, update the trader attributes with the new settings
       await traderStore.getTraderAttributes(traderUuid.value);
     } catch (error) {
       console.error("Error initializing trader:", error);
@@ -113,6 +104,19 @@ const pageTitles = [
   "Practice"
 ];
 
+const pageIcons = [
+  "mdi-handshake",
+  "mdi-monitor", // Changed from "mdi-desktop-mac" to "mdi-monitor"
+  "mdi-cog",
+  "mdi-cash",
+  "mdi-account-group",
+  "mdi-help-circle",
+  "mdi-school"
+];
+
+// Define colors
+const lightBlueColor = ref('light-blue');
+const deepBlueColor = ref('deep-blue');
 
 const nextPage = () => {
   if (currentPageIndex.value < pageComponents.length - 1) {
@@ -126,41 +130,106 @@ const prevPage = () => {
   }
 };
 
-const startTrading = () => {
-  router.push({ 
-    name: 'trading',
-    params: { 
-      traderUuid: traderUuid.value,
-      sessionId: sessionId.value
-    } 
-  });
-};
-
 </script>
 
 <style>
 :root {
-  --base-font-size: 12px;
+  --base-font-size: 14px;
 }
 
 .card-content {
+  font-family: 'Inter', sans-serif;
   font-size: var(--base-font-size);
   line-height: 1.6;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem;
+  background-color: #f8f9fa;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-.text-h2 {
-  font-size: 3em !important;
+.content-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
 }
 
-.text-h3 {
-  font-size: 2.5em !important;
+.info-section {
+  background-color: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
-.text-h5 {
-  font-size: 1.5em !important;
+.info-section h2 {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
 }
 
-.text-h6 {
-  font-size: 1.25em !important;
+.highlight-box {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  line-height: 1.4;
 }
+
+.highlight-box.warning { background-color: #FFF3E0; color: #E65100; }
+.highlight-box.info { background-color: #E3F2FD; color: #1565C0; }
+.highlight-box.success { background-color: #E8F5E9; color: #2E7D32; }
+
+.dynamic-value {
+  display: inline-block;
+  padding: 2px 6px;
+  background-color: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+  color: #1976D2;
+  font-weight: 500;
+}
+
+.text-h2 { font-size: 2.5em !important; }
+.text-h4 { font-size: 1.75em !important; }
+.text-h6 { font-size: 1.25em !important; }
+
+.v-data-table {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.v-data-table th {
+  font-weight: 600;
+  color: #2c3e50;
+  background-color: #f8f9fa;
+}
+
+.v-data-table td {
+  color: #34495e;
+}
+
+.v-data-table .text-left {
+  text-align: left;
+}
+
+/* Add this new style for the deep blue color */
+.deep-blue {
+  color: #1a237e !important; /* This is a deep blue color */
+}
+
+/* Update this new style for the light blue color */
+.light-blue {
+  color: #03a9f4 !important; /* This is a light blue color */
+}
+
+/* Remove or comment out the .light-blue--text class if it's not used elsewhere */
+/* .light-blue--text {
+  color: #03a9f4 !important;
+} */
 </style>
