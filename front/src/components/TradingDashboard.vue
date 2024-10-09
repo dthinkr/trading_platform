@@ -1,76 +1,55 @@
 <template>
-  <div class="zoom-container">
-    <v-app class="trading-system">
-      <v-app-bar app elevation="2" color="primary" dark>
-        <v-container fluid class="pa-0 fill-height">
-          <v-row no-gutters class="fill-height">
-            <!-- Timer -->
-            <v-col cols="12" md="2" class="d-flex align-center">
-              <v-card outlined class="mx-2 pa-2 floating-card timer-card" color="primary" dark>
-                <template v-if="isTradingStarted">
-                  <vue-countdown v-if="remainingTime" :time="remainingTime * 1000" v-slot="{ minutes, seconds }">
-                    <v-chip color="accent" label class="font-weight-bold timer-chip">
-                      {{ minutes }}:{{ seconds.toString().padStart(2, '0') }}
-                    </v-chip>
-                  </vue-countdown>
-                </template>
-                <template v-else>
-                  <v-chip color="warning" label class="timer-chip">Waiting to start</v-chip>
-                </template>
-              </v-card>
+  <div class="trading-dashboard">
+    <v-app>
+      <v-app-bar app elevation="2" color="white">
+        <v-container fluid class="py-0 fill-height">
+          <v-row align="center" no-gutters>
+            <v-col cols="auto">
+              <h1 class="text-h5 font-weight-bold primary--text">
+                <v-icon left color="light-blue" large>mdi-chart-line</v-icon>
+                Trading Dashboard
+              </h1>
             </v-col>
-
-            <!-- VWAP, PnL, Shares, Cash, Traders -->
-            <v-col cols="12" md="5" class="d-flex align-center justify-space-around">
-              <v-card v-for="(item, index) in [
+            <v-spacer></v-spacer>
+            <v-col cols="auto" class="d-flex align-center">
+              <v-chip v-for="(item, index) in [
                 { label: 'VWAP', value: formatNumber(vwap), icon: 'mdi-chart-line' },
                 { label: 'PnL', value: pnl, icon: 'mdi-currency-usd' },
                 { label: 'Shares', value: `${initial_shares} ${formatDelta}`, icon: 'mdi-file-document-outline' },
                 { label: 'Cash', value: cash, icon: 'mdi-cash' },
                 { label: 'Traders', value: `${currentHumanTraders} / ${expectedHumanTraders}`, icon: 'mdi-account-group' }
-              ]" :key="index" outlined class="pa-2 floating-card" color="primary" dark>
-                <v-row no-gutters align="center">
-                  <v-col cols="auto" class="mr-2">
-                    <v-icon>{{ item.icon }}</v-icon>
-                  </v-col>
-                  <v-col>
-                    <v-card-subtitle class="pa-0 text-caption white--text">{{ item.label }}</v-card-subtitle>
-                    <v-card-text class="pa-0 text-body-1 font-weight-bold white--text">{{ item.value }}</v-card-text>
-                  </v-col>
-                </v-row>
-              </v-card>
-            </v-col>
-
-            <!-- Goal Message -->
-            <v-col cols="12" md="5" class="d-flex align-center justify-end">
-              <v-card v-if="displayGoalMessage" outlined class="pa-2 mr-2 goal-message floating-card" :class="getGoalMessageClass">
-                <v-row no-gutters align="center">
-                  <v-col cols="auto" class="mr-2">
-                    <v-icon :color="getGoalMessageIconColor">
-                      {{ getGoalMessageIcon }}
-                    </v-icon>
-                  </v-col>
-                  <v-col>
-                    <v-card-subtitle class="pa-0 text-caption goal-subtitle">Goal</v-card-subtitle>
-                    <v-card-text class="pa-0 text-body-2 font-weight-medium goal-text">
-                      {{ displayGoalMessage.text }}
-                    </v-card-text>
-                  </v-col>
-                </v-row>
-              </v-card>
+              ]" :key="index" class="mr-2" color="grey lighten-4">
+                <v-icon left small color="deep-blue">{{ item.icon }}</v-icon>
+                {{ item.label }}: {{ item.value }}
+              </v-chip>
+              <v-chip v-if="displayGoalMessage" :color="getGoalMessageClass" text-color="white" class="mr-2">
+                <v-icon left small>{{ getGoalMessageIcon }}</v-icon>
+                {{ displayGoalMessage.text }}
+              </v-chip>
+              <v-chip color="deep-blue" text-color="white">
+                <v-icon left small>mdi-clock-outline</v-icon>
+                <vue-countdown v-if="remainingTime" :time="remainingTime * 1000" v-slot="{ minutes, seconds }">
+                  {{ minutes }}:{{ seconds.toString().padStart(2, '0') }}
+                </vue-countdown>
+                <span v-else>Waiting to start</span>
+              </v-chip>
             </v-col>
           </v-row>
         </v-container>
       </v-app-bar>
 
-      <v-main>
-        <v-container fluid class="pa-4 fill-height">
-          <v-row class="fill-height">
+      <v-main class="grey lighten-4">
+        <v-container fluid class="pa-4">
+          <v-row>
             <v-col v-for="(columnTools, colIndex) in columns" :key="colIndex" :cols="12" :md="colIndex === 0 ? 2 : 5" class="d-flex flex-column">
               <v-card v-for="(tool, toolIndex) in columnTools" :key="toolIndex" 
-                      :class="['mb-4 tool-card', `tool-card-row-${toolIndex + 1}`, {'price-history-card': tool.title === 'Price History'}]" 
-                      elevation="3">
-                <v-card-title>{{ tool.title }}</v-card-title>
+                      class="mb-4 tool-card" 
+                      :class="{'price-history-card': tool.title === 'Price History'}"
+                      elevation="2">
+                <v-card-title class="headline">
+                  <v-icon left color="deep-blue">{{ getToolIcon(tool.title) }}</v-icon>
+                  {{ tool.title }}
+                </v-card-title>
                 <v-card-text class="pa-0">
                   <component :is="tool.component" :isGoalAchieved="isGoalAchieved" :goalType="goalType" />
                 </v-card-text>
@@ -120,10 +99,10 @@ const {
 const columns = [
   [
     { title: "Order History", component: OrderHistory },
-    { title: "Market Messages", component: MarketMessages },
+    { title: "Market Info", component: MarketMessages },
   ],
   [
-    { title: "Buy-Sell Distribution", component: BidAskDistribution },
+    { title: "Buy-Sell Chart", component: BidAskDistribution },
     { title: "Active Orders", component: ActiveOrders },
   ],
   [
@@ -236,179 +215,79 @@ const getGoalMessageIcon = computed(() => {
   if (displayGoalMessage.value.type === 'warning') return 'mdi-alert-circle';
   return 'mdi-information';
 });
+
+// Add this function to get icons for each tool
+const getToolIcon = (toolTitle) => {
+  switch (toolTitle) {
+    case 'Order History': return 'mdi-history';
+    case 'Market Messages': return 'mdi-message-text';
+    case 'Buy-Sell Distribution': return 'mdi-chart-bar';
+    case 'Active Orders': return 'mdi-clipboard-text';
+    case 'Price History': return 'mdi-chart-line';
+    case 'Trading Panel': return 'mdi-cash-register';
+    default: return 'mdi-help-circle';
+  }
+};
 </script>
 
 <style scoped>
-.zoom-container {
-  width: 100vw;
-  height: 100vh;
+.trading-dashboard {
+  font-family: 'Inter', sans-serif;
+}
+
+.v-card {
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.v-card__title {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.headline {
   display: flex;
-  justify-content: center;
   align-items: center;
-  overflow: hidden;
-}
-
-.trading-system {
-  transform-origin: center center;
-  transition: transform 0.3s ease;
-}
-
-.trading-system {
-  font-family: 'Roboto', sans-serif;
 }
 
 .tool-card {
   display: flex;
   flex-direction: column;
-  background-color: #f5f5f5 !important;
+  background-color: white;
   transition: all 0.3s ease;
-  overflow: hidden;
-  height: auto;
-  min-height: 0; /* Remove minimum height */
 }
 
 .tool-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-}
-
-.tool-card .v-card__title {
-  background-color: #ffffff;
-  border-bottom: 1px solid #e0e0e0;
-  padding: 12px 16px;
-  font-size: 1.1rem !important;
-  line-height: 1.4 !important;
-}
-
-.tool-card .v-card__text {
-  flex-grow: 1;
-  overflow: visible; /* Change from auto to visible */
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  font-size: 0.9rem !important;
-  line-height: 1.4 !important;
-}
-
-.tool-card .v-card__text > * {
-  flex-grow: 0; /* Change from 1 to 0 */
-  min-height: 0;
-}
-
-.fill-height {
-  height: 100%;
-}
-
-.v-row {
-  flex-wrap: nowrap;
-}
-
-.v-col {
-  display: flex;
-  flex-direction: column;
-}
-
-.v-app-bar .v-container {
-  max-width: 100%;
-}
-
-.floating-card {
-  transition: all 0.3s ease;
-  background-color: rgba(255, 255, 255, 0.1) !important;
-  backdrop-filter: blur(10px);
-}
-
-.floating-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-}
-
-.goal-message {
-  background-color: white !important;
-  transition: all 0.3s ease;
-}
-
-.goal-success {
-  border-left: 4px solid #7CB342;
-}
-
-.goal-warning {
-  border-left: 4px solid #FFB300;
-}
-
-.goal-info {
-  border-left: 4px solid #2196F3;
-}
-
-.goal-subtitle {
-  color: rgba(0, 0, 0, 0.6) !important;
-}
-
-.goal-text {
-  color: rgba(0, 0, 0, 0.87) !important;
-}
-
-.timer-card {
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.timer-chip {
-  font-size: 1.2rem !important;
-  padding: 0 16px !important;
-}
-
-.tool-card-row-1,
-.tool-card-row-2 {
-  flex-grow: 0; /* Change from 1 and 3 to 0 */
-  min-height: 0; /* Remove minimum height */
+  box-shadow: 0 6px 12px rgba(0,0,0,0.1);
 }
 
 .price-history-card {
-  flex-grow: 0 !important; /* Change from 5 to 0 */
-  min-height: 0 !important; /* Remove minimum height */
-}
-
-.price-history-card + .tool-card {
-  flex-grow: 0;
-  min-height: 0;
-}
-
-@media (max-width: 960px) {
-  .tool-card-row-1,
-  .tool-card-row-2,
-  .price-history-card {
-    min-height: 0; /* Remove minimum height */
-  }
-}
-
-.v-main__wrap {
-  display: flex;
-  flex-direction: column;
-}
-
-.v-main__wrap > .container {
-  flex-grow: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-.v-main__wrap > .container > .row {
   flex-grow: 1;
 }
 
-.v-card__text > div {
-  width: 100%;
-  height: 100%;
+.goal-success {
+  background-color: #4caf50 !important;
 }
-</style>
 
-<style>
-.trading-system {
-  transform: scale(v-bind(zoomLevel));
-  width: calc(100vw / v-bind(zoomLevel));
-  height: calc(100vh / v-bind(zoomLevel));
+.goal-warning {
+  background-color: #ff9800 !important;
+}
+
+.goal-info {
+  background-color: #2196f3 !important;
+}
+
+.deep-blue {
+  color: #1a237e !important;
+}
+
+.light-blue {
+  color: #03a9f4 !important;
+}
+
+.v-chip {
+  font-size: 0.85rem;
 }
 </style>

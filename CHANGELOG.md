@@ -29,6 +29,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - [ ] For unfulfilled sell goals: remaining orders * initial midprice * 0.5
   - [ ] For unfulfilled buy goals: remaining orders * initial midprice * 1.5
 
+## [1.3.3] - 2024-10-10
+
+### Changed
+
+- Updated frontend components to improve consistency and user experience:
+  - Adjusted font sizes and styles across all components
+  - Improved layout and spacing in ActiveOrders, OrderHistory, and PlaceOrder components
+  - Enhanced chart readability in PriceHistory and BidAskDistribution components
+  - Standardized the use of 'Inter' font family throughout the interface
+  - Refined color scheme for better visual hierarchy
+
+### Fixed
+
+- Resolved issues with price formatting in ActiveOrders and PlaceOrder components
+- Improved responsiveness and scrolling behavior in various components
+
 ## [1.3.2] - 2024-10-02
 
 ### Fixed
