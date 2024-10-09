@@ -19,7 +19,7 @@
                     icon
                     x-small
                     @click="addOrder(level.type, price)"
-                    :disabled="isGoalAchieved"
+                    :disabled="ordersLocked"
                     color="success"
                     class="action-btn"
                   >
@@ -29,7 +29,7 @@
                     icon
                     x-small
                     @click="cancelOrder(level.type, price)"
-                    :disabled="isGoalAchieved"
+                    :disabled="ordersLocked"
                     color="error"
                     class="action-btn"
                   >
@@ -55,7 +55,7 @@
                     icon
                     x-small
                     @click="addOrder(level.type, price)"
-                    :disabled="isGoalAchieved"
+                    :disabled="ordersLocked"
                     color="success"
                     class="action-btn"
                   >
@@ -65,7 +65,7 @@
                     icon
                     x-small
                     @click="cancelOrder(level.type, price)"
-                    :disabled="isGoalAchieved"
+                    :disabled="ordersLocked"
                     color="error"
                     class="action-btn"
                   >
@@ -89,6 +89,10 @@ import { storeToRefs } from "pinia";
 
 const props = defineProps({
   isGoalAchieved: {
+    type: Boolean,
+    default: false
+  },
+  ordersLocked: {
     type: Boolean,
     default: false
   }
@@ -127,13 +131,13 @@ function formatPrice(price) {
 }
 
 function addOrder(type, price) {
-  if (!props.isGoalAchieved) {
+  if (!props.ordersLocked) {
     traderStore.addOrder({ order_type: type, price: Number(price), amount: 1 });
   }
 }
 
 function cancelOrder(type, price) {
-  if (!props.isGoalAchieved) {
+  if (!props.ordersLocked) {
     const orderToCancel = activeOrders.value.find(order => order.order_type === type && order.price === Number(price));
     if (orderToCancel) {
       traderStore.cancelOrder(orderToCancel.id);
