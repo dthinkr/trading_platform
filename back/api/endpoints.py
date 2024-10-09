@@ -384,13 +384,10 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
         for task in pending:
             task.cancel()
             
-    except asyncio.CancelledError:
+    except (asyncio.CancelledError, WebSocketDisconnect):
         pass
-    except Exception as e:
+    except Exception:
         pass
-    finally:
-        await trader_manager.cleanup()
-
 
 current_dir = Path(__file__).resolve().parent
 ROOT_DIR = current_dir.parent / "logs"
