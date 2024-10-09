@@ -1,89 +1,88 @@
 <template>
   <v-card height="100%" elevation="3" class="my-orders-card">
-
     <div class="orders-container">
-      <div v-if="Object.keys(orderLevels).length === 0" class="no-orders-message">
+      <div v-if="Object.keys(sortedOrderLevels).length === 0" class="no-orders-message">
         No active orders
       </div>
       <div v-else class="orders-columns">
         <div class="orders-column bid-column">
-          <h3 class="column-title">Buy Orders</h3>
-          <div v-for="(level, price) in buyOrderLevels" :key="price" class="order-level bid">
-            <div class="order-header">
-              <span class="order-type">BUY</span>
-              <div class="price">{{ formatPrice(price) }}</div>
-            </div>
-            <div class="order-details">
-              <div class="amount">
-                Amount: {{ level.amount }}
+          <h3 class="column-title">
+            <v-icon left color="primary">mdi-arrow-up-bold</v-icon>
+            Buy Orders
+          </h3>
+          <div class="order-levels-container">
+            <div v-for="[price, level] in sortedOrderLevels.buy" :key="price" class="order-level bid">
+              <div class="order-header">
+                <span class="order-type">BUY</span>
+                <div class="price">{{ formatPrice(price) }}</div>
               </div>
-              <div class="order-actions">
-                <v-btn
-                  icon
-                  x-small
-                  @click="addOrder(level.type, price)"
-                  color="success"
-                  class="action-btn"
-                >
-                  <v-icon>mdi-plus</v-icon>
-                </v-btn>
-                <v-btn
-                  icon
-                  x-small
-                  @click="cancelOrder(level.type, price)"
-                  color="error"
-                  class="action-btn"
-                >
-                  <v-icon>mdi-minus</v-icon>
-                </v-btn>
+              <div class="order-details">
+                <div class="amount">Amount: {{ level.amount }}</div>
+                <div class="order-actions">
+                  <v-btn
+                    icon
+                    x-small
+                    @click="addOrder(level.type, price)"
+                    :disabled="isGoalAchieved"
+                    color="success"
+                    class="action-btn"
+                  >
+                    <v-icon>mdi-plus</v-icon>
+                  </v-btn>
+                  <v-btn
+                    icon
+                    x-small
+                    @click="cancelOrder(level.type, price)"
+                    :disabled="isGoalAchieved"
+                    color="error"
+                    class="action-btn"
+                  >
+                    <v-icon>mdi-minus</v-icon>
+                  </v-btn>
+                </div>
               </div>
+              <v-progress-linear :value="level.amount / maxAmount * 100" color="success" height="4" class="amount-progress"></v-progress-linear>
             </div>
-            <v-progress-linear
-              :value="level.amount / maxAmount * 100"
-              color="success"
-              height="4"
-              class="amount-progress"
-            ></v-progress-linear>
           </div>
         </div>
         <div class="orders-column ask-column">
-          <h3 class="column-title">Sell Orders</h3>
-          <div v-for="(level, price) in sellOrderLevels" :key="price" class="order-level ask">
-            <div class="order-header">
-              <span class="order-type">SELL</span>
-              <div class="price">{{ formatPrice(price) }}</div>
-            </div>
-            <div class="order-details">
-              <div class="amount">
-                Amount: {{ level.amount }}
+          <h3 class="column-title">
+            <v-icon left color="error">mdi-arrow-down-bold</v-icon>
+            Sell Orders
+          </h3>
+          <div class="order-levels-container">
+            <div v-for="[price, level] in sortedOrderLevels.sell" :key="price" class="order-level ask">
+              <div class="order-header">
+                <span class="order-type">SELL</span>
+                <div class="price">{{ formatPrice(price) }}</div>
               </div>
-              <div class="order-actions">
-                <v-btn
-                  icon
-                  x-small
-                  @click="addOrder(level.type, price)"
-                  color="success"
-                  class="action-btn"
-                >
-                  <v-icon>mdi-plus</v-icon>
-                </v-btn>
-                <v-btn
-                  icon
-                  x-small
-                  @click="cancelOrder(level.type, price)"
-                  color="error"
-                  class="action-btn"
-                >
-                  <v-icon>mdi-minus</v-icon>
-                </v-btn>
+              <div class="order-details">
+                <div class="amount">Amount: {{ level.amount }}</div>
+                <div class="order-actions">
+                  <v-btn
+                    icon
+                    x-small
+                    @click="addOrder(level.type, price)"
+                    :disabled="isGoalAchieved"
+                    color="success"
+                    class="action-btn"
+                  >
+                    <v-icon>mdi-plus</v-icon>
+                  </v-btn>
+                  <v-btn
+                    icon
+                    x-small
+                    @click="cancelOrder(level.type, price)"
+                    :disabled="isGoalAchieved"
+                    color="error"
+                    class="action-btn"
+                  >
+                    <v-icon>mdi-minus</v-icon>
+                  </v-btn>
+                </div>
               </div>
+              <v-progress-linear :value="level.amount / maxAmount * 100" color="error" height="4" class="amount-progress"></v-progress-linear>
             </div>
-            <v-progress-linear
-              :value="level.amount / maxAmount * 100"
-              color="error"
-              height="4"
-              class="amount-progress"
-            ></v-progress-linear>
           </div>
         </div>
       </div>
@@ -96,50 +95,37 @@ import { computed } from 'vue';
 import { useTraderStore } from "@/store/app";
 import { storeToRefs } from "pinia";
 
+const props = defineProps({
+  isGoalAchieved: {
+    type: Boolean,
+    default: false
+  }
+});
+
 const traderStore = useTraderStore();
 const { activeOrders } = storeToRefs(traderStore);
 
-const orderLevels = computed(() => {
-  const levels = {};
+const sortedOrderLevels = computed(() => {
+  const levels = { buy: {}, sell: {} };
   activeOrders.value.forEach(order => {
+    const type = order.order_type === 1 ? 'buy' : 'sell';
     const price = order.price.toString();
-    if (!levels[price]) {
-      levels[price] = { type: order.order_type, amount: 0 };
+    if (!levels[type][price]) {
+      levels[type][price] = { type: order.order_type, amount: 0 };
     }
-    levels[price].amount += order.amount;
+    levels[type][price].amount += order.amount;
   });
 
-  console.log('Processed Order Levels:', levels);
-  return Object.entries(levels)
-    .sort(([priceA], [priceB]) => Number(priceB) - Number(priceA))
-    .reduce((acc, [price, level]) => {
-      acc[price] = level;
-      return acc;
-    }, {});
-});
-
-const buyOrderLevels = computed(() => {
-  return Object.entries(orderLevels.value)
-    .filter(([price, level]) => level.type === 1)
-    .reduce((acc, [price, level]) => {
-      acc[price] = level;
-      return acc;
-    }, {});
-});
-
-const sellOrderLevels = computed(() => {
-  return Object.entries(orderLevels.value)
-    .filter(([price, level]) => level.type !== 1)
-    .reduce((acc, [price, level]) => {
-      acc[price] = level;
-      return acc;
-    }, {});
+  return {
+    buy: Object.entries(levels.buy).sort(([a], [b]) => Number(b) - Number(a)),
+    sell: Object.entries(levels.sell).sort(([a], [b]) => Number(a) - Number(b))
+  };
 });
 
 const maxAmount = computed(() => {
   const allAmounts = [
-    ...Object.values(buyOrderLevels.value).map(level => level.amount),
-    ...Object.values(sellOrderLevels.value).map(level => level.amount)
+    ...Object.values(sortedOrderLevels.value.buy).map(([, level]) => level.amount),
+    ...Object.values(sortedOrderLevels.value.sell).map(([, level]) => level.amount)
   ];
   return Math.max(...allAmounts, 1);
 });
@@ -149,18 +135,17 @@ function formatPrice(price) {
 }
 
 function addOrder(type, price) {
-  const newOrder = {
-    order_type: type,
-    price: Number(price),
-    amount: 1
-  };
-  traderStore.addOrder(newOrder);
+  if (!props.isGoalAchieved) {
+    traderStore.addOrder({ order_type: type, price: Number(price), amount: 1 });
+  }
 }
 
 function cancelOrder(type, price) {
-  const orderToCancel = activeOrders.value.find(order => order.order_type === type && order.price === Number(price));
-  if (orderToCancel) {
-    traderStore.cancelOrder(orderToCancel.id);
+  if (!props.isGoalAchieved) {
+    const orderToCancel = activeOrders.value.find(order => order.order_type === type && order.price === Number(price));
+    if (orderToCancel) {
+      traderStore.cancelOrder(orderToCancel.id);
+    }
   }
 }
 </script>
@@ -267,5 +252,29 @@ function cancelOrder(type, price) {
   text-align: center;
   color: #666;
   padding: 20px;
+}
+
+.order-levels-container {
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+/* Scrollbar styles */
+.order-levels-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.order-levels-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.order-levels-container::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.order-levels-container::-webkit-scrollbar-thumb:hover {
+  background: #555;
 }
 </style>

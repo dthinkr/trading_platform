@@ -1,6 +1,5 @@
 <template>
   <v-card height="100%" elevation="3" class="trading-panel">
-    
     <div class="orders-container">
       <div class="order-column">
         <h3 class="order-type-title">
@@ -15,14 +14,21 @@
           v-for="(price, index) in buyPrices" 
           :key="'buy-' + index" 
           class="order-item bid"
-          :class="{ 'best-price': price === bestAsk }"
+          :class="{ 'best-price': price === bestAsk, 'locked': !canBuy }"
         >
           <div class="order-content">
             <span class="order-type">BUY</span>
             <div class="price">{{ formatPrice(price) }}</div>
             <v-icon v-if="price === bestAsk" color="primary" small>mdi-star</v-icon>
           </div>
-          <v-btn @click="sendOrder('BUY', price)" :disabled="isBuyButtonDisabled" color="primary" small>Buy</v-btn>
+          <v-btn 
+            @click="sendOrder('BUY', price)" 
+            :disabled="isBuyButtonDisabled || isGoalAchieved || !canBuy" 
+            color="primary" 
+            small
+          >
+            Buy
+          </v-btn>
         </div>
       </div>
       
@@ -39,14 +45,21 @@
           v-for="(price, index) in sellPrices" 
           :key="'sell-' + index" 
           class="order-item ask"
-          :class="{ 'best-price': price === bestBid }"
+          :class="{ 'best-price': price === bestBid, 'locked': !canSell }"
         >
           <div class="order-content">
             <span class="order-type">SELL</span>
             <div class="price">{{ formatPrice(price) }}</div>
             <v-icon v-if="price === bestBid" color="error" small>mdi-star</v-icon>
           </div>
-          <v-btn @click="sendOrder('SELL', price)" :disabled="isSellButtonDisabled" color="error" small>Sell</v-btn>
+          <v-btn 
+            @click="sendOrder('SELL', price)" 
+            :disabled="isSellButtonDisabled || isGoalAchieved || !canSell" 
+            color="error" 
+            small
+          >
+            Sell
+          </v-btn>
         </div>
       </div>
     </div>
@@ -57,6 +70,17 @@
 import { computed, ref, onMounted, onUnmounted } from "vue";
 import { useTraderStore } from "@/store/app";
 import { storeToRefs } from "pinia";
+
+const props = defineProps({
+  isGoalAchieved: {
+    type: Boolean,
+    default: false
+  },
+  goalType: {
+    type: String,
+    default: 'free'
+  }
+});
 
 const tradingStore = useTraderStore();
 const { sendMessage } = tradingStore;
@@ -85,15 +109,20 @@ const isSellButtonDisabled = computed(() => !hasBidData.value);
 
 const isMobile = ref(false);
 
+const canBuy = computed(() => props.goalType === 'buy' || props.goalType === 'free');
+const canSell = computed(() => props.goalType === 'sell' || props.goalType === 'free');
+
 function sendOrder(orderType, price) {
-  const newOrder = {
-    id: Date.now().toString(),
-    order_type: orderType,
-    price: price,
-    amount: 1, // You may want to adjust this or add an input for amount
-    status: 'pending'
-  };
-  tradingStore.addOrder(newOrder);
+  if (!props.isGoalAchieved && ((orderType === 'BUY' && canBuy.value) || (orderType === 'SELL' && canSell.value))) {
+    const newOrder = {
+      id: Date.now().toString(),
+      order_type: orderType,
+      price: price,
+      amount: 1, // You may want to adjust this or add an input for amount
+      status: 'pending'
+    };
+    tradingStore.addOrder(newOrder);
+  }
 }
 
 function getButtonColor(price, orderType) {
@@ -145,12 +174,13 @@ onUnmounted(() => {
   flex-grow: 1;
   overflow-y: auto;
   padding: 16px;
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
+  display: flex;
+  justify-content: space-between;
 }
 
 .order-column {
+  flex: 1;
+  max-width: 48%; /* Adjust as needed */
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -214,5 +244,14 @@ onUnmounted(() => {
   font-size: 1.1rem;
   font-weight: bold;
   color: #333;
+}
+
+.order-item.locked {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.order-item.locked .order-content {
+  text-decoration: line-through;
 }
 </style>
