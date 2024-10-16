@@ -61,7 +61,7 @@ const marketDuration = computed(() => {
 });
 
 const numMarkets = computed(() => {
-  return traderStore.traderAttributes?.all_attributes?.params?.num_rounds || 0;
+  return traderStore.traderAttributes?.all_attributes?.params?.max_sessions_per_human || 0;
 });
 
 const canStartTrading = computed(() => {
