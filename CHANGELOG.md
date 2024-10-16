@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Planned]
 
-- [ ] Add a picture of the platform to the instructions
+- [X] Add a picture of the platform to the instructions
 - [X] Implement platform start after reading instructions and pressing the final "begin" button
 - [X] Include VWAP and PnL in the final metrics presentation
 - [X] Reorganize UI layout:
@@ -28,6 +28,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [ ] Implement goal achievement calculations:
   - [ ] For unfulfilled sell goals: remaining orders * initial midprice * 0.5
   - [ ] For unfulfilled buy goals: remaining orders * initial midprice * 1.5
+  - [ ] VWAP and GBP profit calculation from log files
+  - [ ] Reward display system on frontend
+
+## [1.3.5] - 2024-10-16
+
+### Added
+- Google Form integration for participant information collection
+- Automatic task randomization for multiple markets
+- Log file generation for each market session
+
+### Changed
+- Implemented participant verification system for platform login
+- Updated backend to support multiple market sessions per participant
+
+### Fixed
+- Resolved issues with manual task setting in admin panel
+
+## [1.3.4] - 2024-10-16
+
+### Added
+- Implemented automatic periodic update of registered users on server startup
+
+### Changed
+- Refactored startup event to use asyncio for better performance
+
+### Fixed
+- Resolved issue with registered users not being updated regularly
 
 ## [1.3.3] - 2024-10-10
 
@@ -218,6 +245,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Customizable trading scenarios
 - Basic data analysis tools
 
+[1.3.5]: https://github.com/dthinkr/trading_platform/compare/v1.3.4...v1.3.5
+[1.3.4]: https://github.com/dthinkr/trading_platform/compare/v1.3.3...v1.3.4
 [1.3.1]: https://github.com/dthinkr/trading_platform/compare/v1.2.0...v1.3.1
 [1.2.0]: https://github.com/dthinkr/trading_platform/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/dthinkr/trading_platform/compare/v1.1.0...v1.1.1
