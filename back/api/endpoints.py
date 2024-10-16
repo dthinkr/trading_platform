@@ -16,7 +16,7 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.encoders import jsonable_encoder
 from core.trader_manager import TraderManager
 from core.data_models import TraderType, TradingParameters, UserRegistration
-from .auth import get_current_user, get_current_admin_user, get_firebase_auth, extract_gmail_username, is_user_registered, update_google_form_id
+from .auth import get_current_user, get_current_admin_user, get_firebase_auth, extract_gmail_username, is_user_registered, is_user_admin, update_google_form_id
 from .calculate_metrics import process_log_file, write_to_csv
 from firebase_admin import auth
 import secrets
@@ -114,23 +114,35 @@ async def user_login(request: Request):
         raise HTTPException(status_code=500, detail=f"Login failed: {str(e)}")
 
 @app.post("/admin/login")
-async def admin_login(credentials: HTTPBasicCredentials = Depends(security)):
-    correct_username = secrets.compare_digest(credentials.username, "admin")
-    correct_password = secrets.compare_digest(credentials.password, "admin")
-    if not (correct_username and correct_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Basic"},
-        )
-    return {
-        "status": "success",
-        "message": "Admin login successful",
-        "data": {
-            "username": "admin",
-            "is_admin": True
+async def admin_login(request: Request):
+    auth_header = request.headers.get('Authorization')
+    
+    if not auth_header or not auth_header.startswith('Bearer '):
+        raise HTTPException(status_code=401, detail="Invalid authentication method")
+    
+    try:
+        token = auth_header.split('Bearer ')[1]
+        
+        decoded_token = auth.verify_id_token(token, check_revoked=True, clock_skew_seconds=60)
+        email = decoded_token['email']
+        
+        if not is_user_admin(email):
+            raise HTTPException(status_code=403, detail="User does not have admin privileges")
+        
+        return {
+            "status": "success",
+            "message": "Admin login successful",
+            "data": {
+                "username": email,
+                "is_admin": True
+            }
         }
-    }
+    except auth.InvalidIdTokenError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    except auth.RevokedIdTokenError:
+        raise HTTPException(status_code=401, detail="Token has been revoked")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Admin login failed: {str(e)}")
 
 @app.get("/traders/defaults")
 async def get_trader_defaults():

@@ -8,23 +8,14 @@
             <h1 class="text-h4 font-weight-bold mb-2">Trade</h1>
             <p class="text-subtitle-1 mb-6">Sign in to access a trading session</p>
             
-            <v-btn block color="error" size="x-large" @click="signInWithGoogle" class="mb-6">
+            <v-btn block color="error" size="x-large" @click="signInWithGoogle" class="mb-4">
               <v-icon start icon="mdi-google"></v-icon>
               Sign in with Google
             </v-btn>
             
-            <v-expand-transition>
-              <div v-if="showAdminLogin" class="admin-login-form">
-                <v-form @submit.prevent="adminLogin">
-                  <v-text-field v-model="adminUsername" label="Admin Username" prepend-inner-icon="mdi-account" variant="outlined" class="mb-2"></v-text-field>
-                  <v-text-field v-model="adminPassword" label="Admin Password" prepend-inner-icon="mdi-lock" type="password" variant="outlined" class="mb-4"></v-text-field>
-                  <v-btn block color="primary" type="submit" size="x-large">Admin Login</v-btn>
-                </v-form>
-              </div>
-            </v-expand-transition>
-            
-            <v-btn variant="text" @click="showAdminLogin = !showAdminLogin" class="mt-4">
-              {{ showAdminLogin ? 'Hide Admin Login' : 'Admin Login' }}
+            <v-btn block color="primary" size="x-large" @click="adminSignInWithGoogle" class="mb-4">
+              <v-icon start icon="mdi-google"></v-icon>
+              Admin Sign in with Google
             </v-btn>
 
             <v-alert
@@ -54,9 +45,6 @@ const router = useRouter();
 const auth = getAuth();
 const authStore = useAuthStore();
 
-const showAdminLogin = ref(false);
-const adminUsername = ref('');
-const adminPassword = ref('');
 const errorMessage = ref('');
 
 const signInWithGoogle = async () => {
@@ -65,10 +53,8 @@ const signInWithGoogle = async () => {
     const result = await signInWithPopup(auth, provider);
     const user = result.user;
     
-    // Use the updated login method
     await authStore.login(user);
     
-    // Navigate to UserLanding with sessionId and traderId
     router.push({
       name: 'onboarding',
       params: { 
@@ -78,24 +64,26 @@ const signInWithGoogle = async () => {
     });
   } catch (error) {
     console.error("Google sign-in error:", error);
-    if (error.message.includes("Maximum number of sessions reached")) {
-      errorMessage.value = "You have reached the maximum number of allowed sessions.";
-    } else {
-      errorMessage.value = error.message || "An error occurred during sign-in";
-    }
+    errorMessage.value = error.message || "An error occurred during sign-in";
   }
 };
 
-const adminLogin = async () => {
+const adminSignInWithGoogle = async () => {
   try {
-    await authStore.adminLogin({
-      username: adminUsername.value,
-      password: adminPassword.value
-    });
-    router.push('/SessionCreator');
+    const provider = new GoogleAuthProvider();
+    const result = await signInWithPopup(auth, provider);
+    const user = result.user;
+    
+    await authStore.adminLogin(user);
+    
+    if (authStore.isAdmin) {
+      router.push('/SessionCreator');
+    } else {
+      errorMessage.value = "You do not have admin privileges.";
+    }
   } catch (error) {
-    console.error("Admin login error:", error);
-    errorMessage.value = error.message || "An error occurred during admin login";
+    console.error("Admin Google sign-in error:", error);
+    errorMessage.value = error.message || "An error occurred during admin sign-in";
   }
 };
 </script>

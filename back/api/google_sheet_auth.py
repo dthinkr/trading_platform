@@ -18,9 +18,6 @@ creds = service_account.Credentials.from_service_account_file(
 # Google Forms API setup
 forms_service = build('forms', 'v1', credentials=creds)
 
-# List of admin usernames
-ADMIN_USERS = ['venvoooo']
-
 # Cache for registered users
 registered_users_cache = []
 last_update_time = datetime.min
@@ -61,14 +58,18 @@ def get_registered_users(force_update=False, form_id=None):
 def is_user_registered(email, form_id=None):
     """Check if a user's email is registered in the Google Form or is an admin."""
     username = email.split('@')[0]
-    if username in ADMIN_USERS:
+    if username in TradingParameters().admin_users:
         return True
     registered_emails = get_registered_users(form_id=form_id)
     return email in registered_emails
 
 def update_form_id(new_form_id):
     """Update the form ID (in case it changes)."""
-    # Update the TradingParameters instead of a global variable
     params = TradingParameters()
     params.google_form_id = new_form_id
     get_registered_users(force_update=True, form_id=new_form_id)
+
+def is_user_admin(email):
+    """Check if a user's email is in the admin list."""
+    username = email.split('@')[0]
+    return username in TradingParameters().admin_users
