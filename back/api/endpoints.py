@@ -32,6 +32,7 @@ from typing import List
 from .google_sheet_auth import update_form_id, get_registered_users
 import zipfile
 import shutil
+from collections import defaultdict
 
 app = FastAPI()
 security = HTTPBasic()
@@ -50,6 +51,9 @@ trader_manager: TraderManager = None
 
 persistent_settings = {}
 
+active_users = defaultdict(set)  # Maps session_id to set of active usernames
+user_sessions = {}  # Maps username to their current session_id
+
 class PersistentSettings(BaseModel):
     settings: dict
 
@@ -57,8 +61,8 @@ class PersistentSettings(BaseModel):
 async def update_persistent_settings(settings: PersistentSettings):
     global persistent_settings
     if 'num_human_traders' in settings.settings and 'human_goal_amount' in settings.settings:
-        num_traders = settings.settings['num_human_traders']
-        goal_amount = settings.settings['human_goal_amount']
+        num_traders = int(settings.settings['num_human_traders'])
+        goal_amount = int(settings.settings['human_goal_amount'])
         settings.settings['human_goals'] = TradingParameters.generate_human_goals(num_traders, goal_amount)
     persistent_settings = settings.settings
     return {"status": "success", "message": "Persistent settings updated"}
@@ -101,22 +105,35 @@ async def user_login(request: Request):
         gmail_username = extract_gmail_username(email)
         print(f"Extracted Gmail username: {gmail_username}")
         
-        # Check if the user has exceeded the maximum number of sessions
-        user_sessions = [s for s in trader_managers.values() if any(t.id.endswith(gmail_username) for t in s.human_traders)]
-        print(f"User sessions count: {len(user_sessions)}")
-        if len(user_sessions) >= persistent_settings.get('max_sessions_per_human', 4):
-            print(f"Maximum number of sessions reached for user {gmail_username}")
-            raise HTTPException(status_code=403, detail="Maximum number of sessions reached for this user")
+        # Check if the user is already in a session
+        if gmail_username in user_sessions:
+            print(f"User {gmail_username} is already in session {user_sessions[gmail_username]}")
+            raise HTTPException(status_code=409, detail="User is already logged into a session")
+        
+        # Check if the user is an admin
+        is_admin = is_user_admin(email)
+        
+        # Check if the user has exceeded the maximum number of sessions (skip for admins)
+        if not is_admin:
+            user_sessions_count = sum(gmail_username in users for users in active_users.values())
+            print(f"User sessions count: {user_sessions_count}")
+            if user_sessions_count >= persistent_settings.get('max_sessions_per_human', 4):
+                print(f"Maximum number of sessions reached for user {gmail_username}")
+                raise HTTPException(status_code=403, detail="Maximum number of sessions reached for this user")
         
         session_id, trader_id = await find_or_create_session_and_assign_trader(gmail_username)
         print(f"Session ID: {session_id}, Trader ID: {trader_id}")
+        
+        # Add user to active users for this session
+        active_users[session_id].add(gmail_username)
+        user_sessions[gmail_username] = session_id
         
         return {
             "status": "success",
             "message": "Login successful and trader assigned",
             "data": {
                 "username": email,
-                "is_admin": False,
+                "is_admin": is_admin,
                 "session_id": session_id,
                 "trader_id": trader_id
             }
@@ -334,7 +351,7 @@ async def find_or_create_session_and_assign_trader(gmail_username):
             trader_managers[new_trader_manager.trading_session.id] = new_trader_manager
             available_session = new_trader_manager
         else:
-            print("Available session found")
+            print(f"Available session found: {available_session.trading_session.id}")
         
         print(f"Human goals before adding trader: {available_session.params.human_goals}")
         trader_id = await available_session.add_human_trader(gmail_username)
@@ -343,6 +360,8 @@ async def find_or_create_session_and_assign_trader(gmail_username):
         trader_to_session_lookup[trader_id] = session_id
         
         print(f"Trader assigned: {trader_id} in session {session_id}")
+        print(f"Current number of human traders in session: {len(available_session.human_traders)}")
+        print(f"Required number of human traders: {available_session.params.num_human_traders}")
         return session_id, trader_id
     except Exception as e:
         print(f"Error in find_or_create_session_and_assign_trader: {str(e)}")
@@ -426,6 +445,18 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
         return
 
     trader = trader_manager.get_trader(trader_id)
+    
+    # Remove the user from the active users list when they connect
+    # This ensures that if they're reconnecting (e.g., after a refresh), they're not counted twice
+    session_id = trader_to_session_lookup.get(trader_id)
+    if session_id and gmail_username in active_users[session_id]:
+        active_users[session_id].remove(gmail_username)
+    
+    # Add the user back to the active users list
+    if session_id:
+        active_users[session_id].add(gmail_username)
+    user_sessions[gmail_username] = session_id
+    
     await trader.connect_to_socket(websocket)
     
     try:
@@ -444,6 +475,12 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
         pass
     except Exception:
         pass
+    finally:
+        # Remove the user from the active users list when they disconnect
+        if session_id and gmail_username in active_users[session_id]:
+            active_users[session_id].remove(gmail_username)
+        if gmail_username in user_sessions:
+            del user_sessions[gmail_username]
 
 current_dir = Path(__file__).resolve().parent
 ROOT_DIR = current_dir.parent / "logs"
@@ -502,16 +539,27 @@ async def get_file(file_path: str):
 async def start_trading_session(background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)):
     gmail_username = current_user['gmail_username']
     trader_id = f"HUMAN_{gmail_username}"
+    print(f"Attempting to start trading session for trader: {trader_id}")
+    
     session_id = trader_to_session_lookup.get(trader_id)
+    print(f"Session ID for trader {trader_id}: {session_id}")
     
     if not session_id:
+        print(f"No active session found for trader {trader_id}")
         raise HTTPException(status_code=404, detail="No active session found for this user")
     
     trader_manager = trader_managers[session_id]
+    print(f"Trader manager found for session {session_id}")
     
-    if len(trader_manager.human_traders) < trader_manager.params.num_human_traders:
-        raise HTTPException(status_code=400, detail="Not enough human traders to start the session")
+    print(f"Number of human traders: {len(trader_manager.human_traders)}")
+    print(f"Required number of human traders: {trader_manager.params.num_human_traders}")
     
+    # Remove the check for the number of human traders
+    # if len(trader_manager.human_traders) < trader_manager.params.num_human_traders:
+    #     print(f"Not enough human traders. Current: {len(trader_manager.human_traders)}, Required: {trader_manager.params.num_human_traders}")
+    #     raise HTTPException(status_code=400, detail="Not enough human traders to start the session")
+    
+    print(f"Launching trading session for {session_id}")
     background_tasks.add_task(trader_manager.launch)
     
     return {
@@ -562,3 +610,26 @@ async def download_all_files():
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+# Add a new endpoint to handle user logout
+@app.post("/user/logout")
+async def user_logout(current_user: dict = Depends(get_current_user)):
+    gmail_username = current_user['gmail_username']
+    if gmail_username in user_sessions:
+        session_id = user_sessions[gmail_username]
+        active_users[session_id].remove(gmail_username)
+        del user_sessions[gmail_username]
+        if not active_users[session_id]:
+            del active_users[session_id]
+        return {"status": "success", "message": "User logged out successfully"}
+    else:
+        raise HTTPException(status_code=404, detail="User not found in any active session")
+
+# Modify the cleanup function to remove users from active sessions
+async def cleanup(session_id: str):
+    if session_id in active_users:
+        for username in active_users[session_id]:
+            if username in user_sessions:
+                del user_sessions[username]
+        del active_users[session_id]
+    # ... (rest of the cleanup logic)

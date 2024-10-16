@@ -42,7 +42,6 @@ const startTrading = async () => {
 
   isLoading.value = true;
   try {
-
     await traderStore.startTradingSession();
     
     // Navigate to the trading page
