@@ -1,64 +1,42 @@
 import { defineStore } from 'pinia';
-import api from '@/api/axios';
+import axios from '@/api/axios';
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     user: null,
     isAdmin: false,
-    sessionId: null,
     traderId: null,
+    sessionId: null,
   }),
   actions: {
-    async adminLogin(credentials) {
+    async login(user) {
       try {
-        const response = await api.post('/admin/login', {}, {
-          auth: {
-            username: credentials.username,
-            password: credentials.password
-          },
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
-        this.user = response.data.data.username;
+        const response = await axios.post('/user/login');
+        this.user = user;
         this.isAdmin = response.data.data.is_admin;
-        return response.data;
+        this.traderId = response.data.data.trader_id;
+        this.sessionId = response.data.data.session_id;
       } catch (error) {
-        console.error('Admin login failed:', error.response ? error.response.data : error.message);
-        throw error;
+        console.error('Login error:', error);
+        throw new Error(error.message || 'Failed to login');
       }
     },
-    setAdminStatus(status) {
-      this.isAdmin = status;
+    async adminLogin(credentials) {
+      try {
+        const response = await axios.post('/admin/login', credentials);
+        this.user = { username: credentials.username };
+        this.isAdmin = true;
+      } catch (error) {
+        console.error('Admin login error:', error);
+        throw new Error(error.message || 'Failed to login as admin');
+      }
     },
     logout() {
       this.user = null;
       this.isAdmin = false;
-      this.sessionId = null;
       this.traderId = null;
+      this.sessionId = null;
     },
-    async login(user) {
-      try {
-        const idToken = await user.getIdToken();
-        const email = user.email;
-        const gmailUsername = email.split('@')[0]; // Extract the part before @gmail.com
-        
-        const response = await api.post('/user/login', { gmailUsername }, {
-          headers: {
-            'Authorization': `Bearer ${idToken}`
-          }
-        });
-        const { username, is_admin, session_id, trader_id } = response.data.data;
-        this.user = user;
-        this.isAdmin = is_admin;
-        this.sessionId = session_id;
-        this.traderId = trader_id;
-        return response.data;
-      } catch (error) {
-        console.error('User login failed:', error.response ? error.response.data : error.message);
-        throw error;
-      }
-    }
   },
   getters: {
     isAuthenticated: (state) => !!state.user,

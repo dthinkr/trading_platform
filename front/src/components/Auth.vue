@@ -26,6 +26,16 @@
             <v-btn variant="text" @click="showAdminLogin = !showAdminLogin" class="mt-4">
               {{ showAdminLogin ? 'Hide Admin Login' : 'Admin Login' }}
             </v-btn>
+
+            <v-alert
+              v-if="errorMessage"
+              type="error"
+              class="mt-4"
+              closable
+              @click:close="errorMessage = ''"
+            >
+              {{ errorMessage }}
+            </v-alert>
           </v-card-text>
         </v-card>
       </v-col>
@@ -47,6 +57,7 @@ const authStore = useAuthStore();
 const showAdminLogin = ref(false);
 const adminUsername = ref('');
 const adminPassword = ref('');
+const errorMessage = ref('');
 
 const signInWithGoogle = async () => {
   try {
@@ -67,6 +78,11 @@ const signInWithGoogle = async () => {
     });
   } catch (error) {
     console.error("Google sign-in error:", error);
+    if (error.message.includes("Maximum number of sessions reached")) {
+      errorMessage.value = "You have reached the maximum number of allowed sessions.";
+    } else {
+      errorMessage.value = error.message || "An error occurred during sign-in";
+    }
   }
 };
 
@@ -79,7 +95,7 @@ const adminLogin = async () => {
     router.push('/SessionCreator');
   } catch (error) {
     console.error("Admin login error:", error);
-    // Handle error (show error message to user, etc.)
+    errorMessage.value = error.message || "An error occurred during admin login";
   }
 };
 </script>
