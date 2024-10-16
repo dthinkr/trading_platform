@@ -191,6 +191,12 @@ class TradingParameters(BaseModel):
         ge=1,
     )
 
+    google_form_id: str = Field(
+        default='1yDf7vd5wLaPhm30IiGKTkPw4s5spb3Xlm86Li81YDXI',
+        title="Google Form ID",
+        description="model_parameter",
+    )
+
     @field_validator('human_goals')
     def validate_human_goals_length(cls, v, info):
         num_traders = info.data.get('num_human_traders', 2)  # Default to 2 if not set

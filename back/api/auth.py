@@ -7,6 +7,7 @@ from firebase_admin import credentials, auth
 import secrets
 import time
 from .google_sheet_auth import is_user_registered, update_form_id, ADMIN_USERS
+from core.data_models import TradingParameters
 
 # Initialize Firebase Admin SDK using the service account file
 cred = credentials.Certificate('firebase-service-account.json')
@@ -62,7 +63,8 @@ async def get_current_user(request: Request):
             email = decoded_token['email']
             gmail_username = extract_gmail_username(email)
             
-            if not is_user_registered(email):
+            form_id = TradingParameters().google_form_id
+            if not is_user_registered(email, form_id):
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="User not registered in the study",
