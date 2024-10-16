@@ -1,39 +1,38 @@
 <template>
   <div class="trading-dashboard">
     <v-app>
-      <v-app-bar app elevation="2" color="white" :height="appBarHeight">
-        <v-container fluid class="py-2 d-flex flex-column justify-center" style="height: 100%;">
-          <v-row dense align="center">
-            <v-col cols="12" sm="auto" class="mb-2 mb-sm-0">
-              <h1 class="text-h5 font-weight-bold primary--text d-flex align-center">
+      <v-app-bar app elevation="2" color="white">
+        <v-container fluid class="py-0 fill-height">
+          <v-row align="center" no-gutters>
+            <v-col cols="auto">
+              <h1 class="text-h5 font-weight-bold primary--text">
                 <v-icon left color="light-blue" large>mdi-chart-line</v-icon>
                 Trading Dashboard
               </h1>
             </v-col>
-            <v-col cols="12" sm>
-              <v-row dense justify="end" align="center">
-                <v-col v-for="(item, index) in dashboardItems" :key="index" cols="auto" class="pa-1">
-                  <v-chip color="grey lighten-4">
-                    <v-icon left small color="deep-blue">{{ item.icon }}</v-icon>
-                    <span class="black--text">{{ item.label }}: {{ item.value }}</span>
-                  </v-chip>
-                </v-col>
-                <v-col v-if="displayGoalMessage" cols="auto" class="pa-1">
-                  <v-chip :color="getGoalMessageClass" text-color="white">
-                    <v-icon left small>{{ getGoalMessageIcon }}</v-icon>
-                    {{ displayGoalMessage.text }}
-                  </v-chip>
-                </v-col>
-                <v-col cols="auto" class="pa-1">
-                  <v-chip color="deep-blue" text-color="white">
-                    <v-icon left small>mdi-clock-outline</v-icon>
-                    <vue-countdown v-if="remainingTime" :time="remainingTime * 1000" v-slot="{ minutes, seconds }">
-                      {{ minutes }}:{{ seconds.toString().padStart(2, '0') }}
-                    </vue-countdown>
-                    <span v-else>Waiting to start</span>
-                  </v-chip>
-                </v-col>
-              </v-row>
+            <v-spacer></v-spacer>
+            <v-col cols="auto" class="d-flex align-center">
+              <v-chip v-for="(item, index) in [
+                { label: 'VWAP', value: formatNumber(vwap), icon: 'mdi-chart-line' },
+                { label: 'PnL', value: pnl, icon: 'mdi-currency-usd' },
+                { label: 'Shares', value: `${initial_shares} ${formatDelta}`, icon: 'mdi-file-document-outline' },
+                { label: 'Cash', value: cash, icon: 'mdi-cash' },
+                { label: 'Traders', value: `${currentHumanTraders} / ${expectedHumanTraders}`, icon: 'mdi-account-group' }
+              ]" :key="index" class="mr-2" color="grey lighten-4">
+                <v-icon left small color="deep-blue">{{ item.icon }}</v-icon>
+                <span class="black--text">{{ item.label }}: {{ item.value }}</span>
+              </v-chip>
+              <v-chip v-if="displayGoalMessage" :color="getGoalMessageClass" text-color="white" class="mr-2">
+                <v-icon left small>{{ getGoalMessageIcon }}</v-icon>
+                {{ displayGoalMessage.text }}
+              </v-chip>
+              <v-chip color="deep-blue" text-color="white">
+                <v-icon left small>mdi-clock-outline</v-icon>
+                <vue-countdown v-if="remainingTime" :time="remainingTime * 1000" v-slot="{ minutes, seconds }">
+                  {{ minutes }}:{{ seconds.toString().padStart(2, '0') }}
+                </vue-countdown>
+                <span v-else>Waiting to start</span>
+              </v-chip>
             </v-col>
           </v-row>
         </v-container>
@@ -52,7 +51,7 @@
                   {{ tool.title }}
                 </v-card-title>
                 <v-card-text class="pa-0">
-                  <component :is="tool.component" :isGoalAchieved="isGoalAchieved" :goalType="goalType" :ordersLocked="ordersLocked" />
+                  <component :is="tool.component" :isGoalAchieved="isGoalAchieved" :goalType="goalType" />
                 </v-card-text>
               </v-card>
             </v-col>
@@ -71,7 +70,7 @@ import OrderHistory from "@trading/OrderHistory.vue";
 import ActiveOrders from "@trading/ActiveOrders.vue";
 import MarketMessages from "@trading/MarketMessages.vue";
 
-import { computed, watch, nextTick } from "vue";
+import { computed, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useFormatNumber } from "@/composables/utils";
 import { storeToRefs } from "pinia";
@@ -196,7 +195,6 @@ const cancelAllActiveOrders = () => {
 watch(isGoalAchieved, (newValue) => {
   if (newValue) {
     cancelAllActiveOrders();
-    ordersLocked.value = true; // Lock orders when goal is achieved
   }
 });
 
@@ -230,40 +228,6 @@ const getToolIcon = (toolTitle) => {
     default: return 'mdi-help-circle';
   }
 };
-
-// Add this new ref
-const ordersLocked = ref(false);
-
-const appBarHeight = ref(80); // Increased default height
-
-const dashboardItems = computed(() => [
-  { label: 'VWAP', value: formatNumber(vwap.value), icon: 'mdi-chart-line' },
-  { label: 'PnL', value: pnl.value, icon: 'mdi-currency-usd' },
-  { label: 'Shares', value: `${initial_shares.value} ${formatDelta.value}`, icon: 'mdi-file-document-outline' },
-  { label: 'Cash', value: cash.value, icon: 'mdi-cash' },
-  { label: 'Traders', value: `${currentHumanTraders.value} / ${expectedHumanTraders.value}`, icon: 'mdi-account-group' }
-]);
-
-const updateAppBarHeight = () => {
-  nextTick(() => {
-    const appBar = document.querySelector('.v-app-bar');
-    if (appBar) {
-      const content = appBar.querySelector('.v-app-bar__content');
-      if (content) {
-        appBarHeight.value = Math.max(80, content.scrollHeight);
-      }
-    }
-  });
-};
-
-onMounted(() => {
-  window.addEventListener('resize', updateAppBarHeight);
-  updateAppBarHeight();
-});
-
-onUnmounted(() => {
-  window.removeEventListener('resize', updateAppBarHeight);
-});
 </script>
 
 <style scoped>
@@ -329,29 +293,5 @@ onUnmounted(() => {
 
 .black--text {
   color: black !important;
-}
-
-.v-app-bar {
-  transition: height 0.3s ease;
-}
-
-.v-chip {
-  margin: 2px !important;
-}
-
-@media (max-width: 600px) {
-  .v-chip {
-    font-size: 0.75rem !important;
-  }
-}
-
-.v-app-bar .v-container {
-  max-width: 100%;
-}
-
-.v-app-bar .v-container {
-  min-height: 80px;
-  display: flex;
-  align-items: center;
 }
 </style>

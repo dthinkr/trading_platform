@@ -23,7 +23,7 @@
           </div>
           <v-btn 
             @click="sendOrder('BUY', price)" 
-            :disabled="isBuyButtonDisabled || ordersLocked || !canBuy" 
+            :disabled="isBuyButtonDisabled || isGoalAchieved || !canBuy" 
             color="primary" 
             small
           >
@@ -54,7 +54,7 @@
           </div>
           <v-btn 
             @click="sendOrder('SELL', price)" 
-            :disabled="isSellButtonDisabled || ordersLocked || !canSell" 
+            :disabled="isSellButtonDisabled || isGoalAchieved || !canSell" 
             color="error" 
             small
           >
@@ -79,10 +79,6 @@ const props = defineProps({
   goalType: {
     type: String,
     default: 'free'
-  },
-  ordersLocked: {
-    type: Boolean,
-    default: false
   }
 });
 
@@ -139,7 +135,7 @@ const canBuy = computed(() => props.goalType === 'buy' || props.goalType === 'fr
 const canSell = computed(() => props.goalType === 'sell' || props.goalType === 'free');
 
 function sendOrder(orderType, price) {
-  if (!props.ordersLocked && ((orderType === 'BUY' && canBuy.value) || (orderType === 'SELL' && canSell.value))) {
+  if (!props.isGoalAchieved && ((orderType === 'BUY' && canBuy.value) || (orderType === 'SELL' && canSell.value))) {
     const newOrder = {
       id: Date.now().toString(),
       order_type: orderType,
