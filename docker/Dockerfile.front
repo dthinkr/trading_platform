@@ -2,15 +2,18 @@ FROM node:20.12.2
 
 WORKDIR /app
 
-# Copy all files, including secrets
+# Copy package.json and yarn.lock first to leverage Docker cache
+COPY package.json yarn.lock ./
+
+# Install dependencies
+RUN yarn install
+
+# Copy all other files
 COPY . .
 
 # Install Firebase CLI and inotify-tools
 RUN apt-get update && apt-get install -y inotify-tools
 RUN npm install -g firebase-tools
-
-# Install dependencies
-RUN yarn install
 
 # Make the firebase-dev.sh script executable
 RUN chmod +x firebase-dev.sh
