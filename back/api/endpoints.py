@@ -16,7 +16,7 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.encoders import jsonable_encoder
 from core.trader_manager import TraderManager
 from core.data_models import TraderType, TradingParameters, UserRegistration
-from .auth import get_current_user, get_current_admin_user, get_firebase_auth
+from .auth import get_current_user, get_current_admin_user, get_firebase_auth, extract_gmail_username
 from .calculate_metrics import process_log_file, write_to_csv
 from firebase_admin import auth
 import secrets
@@ -78,31 +78,24 @@ async def user_login(request: Request):
         token = auth_header.split('Bearer ')[1]
         
         decoded_token = auth.verify_id_token(token, check_revoked=True, clock_skew_seconds=60)
-        uid = decoded_token['uid']
+        email = decoded_token['email']
+        gmail_username = extract_gmail_username(email)
         
-        session_id, trader_id = await find_or_create_session_and_assign_trader(uid)
+        session_id, trader_id = await find_or_create_session_and_assign_trader(gmail_username)
         
         return {
             "status": "success",
             "message": "Login successful and trader assigned",
             "data": {
-                "username": decoded_token.get('email'),
+                "username": email,
                 "is_admin": False,
                 "session_id": session_id,
                 "trader_id": trader_id
             }
         }
-    except auth.RevokedIdTokenError:
-        raise HTTPException(status_code=401, detail="Token has been revoked")
-    except auth.InvalidIdTokenError:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    except auth.ExpiredIdTokenError:
-        raise HTTPException(status_code=401, detail="Token has expired")
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        import traceback
-        raise HTTPException(status_code=401, detail=str(e))
+        print(f"Error in user_login: {str(e)}")  # Add this line for debugging
+        raise HTTPException(status_code=500, detail=f"Login failed: {str(e)}")
 
 @app.post("/admin/login")
 async def admin_login(credentials: HTTPBasicCredentials = Depends(security)):
@@ -142,14 +135,14 @@ async def create_trading_session(background_tasks: BackgroundTasks, current_user
     global persistent_settings
     
     try:
-        merged_params = TradingParameters.from_dict(persistent_settings)
+        merged_params = TradingParameters(**persistent_settings)
     except ValidationError as e:
         raise HTTPException(status_code=422, detail=str(e))
     
-    uid = current_user['uid']
+    gmail_username = current_user['gmail_username']
     
     try:
-        trader_id = f"HUMAN_{uid}"
+        trader_id = f"HUMAN_{gmail_username}"
         session_id = trader_to_session_lookup.get(trader_id)
         
         if not session_id:
@@ -170,7 +163,8 @@ async def create_trading_session(background_tasks: BackgroundTasks, current_user
             },
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Error retrieving trading session info")
+        print(f"Error in create_trading_session: {str(e)}")  # Add this line for debugging
+        raise HTTPException(status_code=500, detail=f"Error retrieving trading session info: {str(e)}")
         
 def get_manager_by_trader(trader_id: str):
     if trader_id not in trader_to_session_lookup.keys():
@@ -275,24 +269,25 @@ async def root():
     }
 
 
-async def find_or_create_session_and_assign_trader(uid):
+async def find_or_create_session_and_assign_trader(gmail_username):
     global persistent_settings
     try:
         available_session = next((s for s in trader_managers.values() if len(s.human_traders) < s.params.num_human_traders), None)
         
         if available_session is None:
-            params = TradingParameters.from_dict(persistent_settings)
+            params = TradingParameters(**persistent_settings)
             new_trader_manager = TraderManager(params)
             trader_managers[new_trader_manager.trading_session.id] = new_trader_manager
             available_session = new_trader_manager
         
-        trader_id = await available_session.add_human_trader(uid)
+        trader_id = await available_session.add_human_trader(gmail_username)
         session_id = available_session.trading_session.id
         
         trader_to_session_lookup[trader_id] = session_id
         
         return session_id, trader_id
     except Exception as e:
+        print(f"Error in find_or_create_session_and_assign_trader: {str(e)}")  # Add this line for debugging
         raise
 
 
@@ -335,7 +330,7 @@ async def receive_from_frontend(websocket: WebSocket, trader):
 
 @app.get("/session_metrics")
 async def get_session_metrics(trader_id: str, session_id: str, current_user: dict = Depends(get_current_user)):
-    if trader_id != f"HUMAN_{current_user['uid']}":
+    if trader_id != f"HUMAN_{current_user['gmail_username']}":
         raise HTTPException(status_code=403, detail="Unauthorized access to trader data")
     
     log_file_path = f"logs/{session_id}_trading.log"
@@ -362,6 +357,8 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
     await websocket.accept()
     token = await websocket.receive_text()
     decoded_token = auth.verify_id_token(token)
+    email = decoded_token['email']
+    gmail_username = extract_gmail_username(email)
     
     trader_manager = get_manager_by_trader(trader_id)
     if not trader_manager:
@@ -459,8 +456,8 @@ async def delete_file(file_path: str):
 
 @app.post("/trading/start")
 async def start_trading_session(background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)):
-    uid = current_user['uid']
-    trader_id = f"HUMAN_{uid}"
+    gmail_username = current_user['gmail_username']
+    trader_id = f"HUMAN_{gmail_username}"
     session_id = trader_to_session_lookup.get(trader_id)
     
     if not session_id:

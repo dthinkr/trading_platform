@@ -22,7 +22,7 @@ class User(BaseModel):
 
 class Trader(BaseModel):
     id: UUID = Field(default_factory=uuid4)
-    user_id: UUID
+    gmail_username: str  # Change this from user_id to gmail_username
     trading_session_id: UUID
     is_ready: bool = False
 
@@ -290,7 +290,7 @@ class Order(BaseModel):
     order_type: OrderType
     timestamp: datetime = Field(default_factory=datetime.now)
     session_id: str
-    trader_id: str
+    trader_id: str  # This will now contain the Gmail username
     informed_trader_progress: Optional[str] = None  # New field
 
     class ConfigDict:

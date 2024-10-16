@@ -314,10 +314,11 @@ class TradingPlatform:
         """Handle registering a new trader."""
         trader_id = msg_body.get("trader_id")
         trader_type = msg_body.get("trader_type")
-        self.connected_traders[trader_id] = {
+        gmail_username = msg_body.get("gmail_username")  # Add this line
+        self.connected_traders[gmail_username] = {  # Use gmail_username as the key
             "trader_type": trader_type,
         }
-        self.trader_responses[trader_id] = False
+        self.trader_responses[gmail_username] = False  # Use gmail_username as the key
 
         return {
             "respond": True,
@@ -379,17 +380,17 @@ class TradingPlatform:
 
     async def handle_inventory_report(self, data: dict) -> Dict:
         """Handle inventory reports from traders."""
-        trader_id = data.get("trader_id")
-        self.trader_responses[trader_id] = True
+        gmail_username = data.get("gmail_username")  # Change this line
+        self.trader_responses[gmail_username] = True
         
         # Check if the trader is still in connected_traders
-        if trader_id not in self.connected_traders:
-            logger.warning(f"Received inventory report for unknown trader: {trader_id}")
+        if gmail_username not in self.connected_traders:
+            logger.warning(f"Received inventory report for unknown trader: {gmail_username}")
             return {}
 
-        trader_type = self.connected_traders[trader_id].get("trader_type")
+        trader_type = self.connected_traders[gmail_username].get("trader_type")
         if not trader_type:
-            logger.warning(f"Trader type not found for trader: {trader_id}")
+            logger.warning(f"Trader type not found for trader: {gmail_username}")
             return {}
 
         shares = data.get("shares", 0)
@@ -407,7 +408,7 @@ class TradingPlatform:
                 session_id=self.id,
             )
             trader_order = Order(
-                trader_id=trader_id, order_type=trader_order_type, **proto_order
+                trader_id=gmail_username, order_type=trader_order_type, **proto_order
             )
             platform_order = Order(
                 trader_id=self.id, order_type=platform_order_type, **proto_order
