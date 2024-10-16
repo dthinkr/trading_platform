@@ -31,6 +31,10 @@ class TraderManager:
     def __init__(self, params: TradingParameters):
         self.params = params
         self.ensure_human_goals()
+        
+        # Ensure num_human_traders is at least 2
+        self.params.num_human_traders = max(self.params.num_human_traders, 2)
+        
         params = params.model_dump()
         self.tasks = []
 
