@@ -81,7 +81,8 @@ async def user_login(request: Request):
         decoded_token = auth.verify_id_token(token, check_revoked=True, clock_skew_seconds=60)
         email = decoded_token['email']
         
-        if not is_user_registered(email):
+        form_id = TradingParameters().google_form_id
+        if not is_user_registered(email, form_id):
             raise HTTPException(status_code=403, detail="User not registered in the study")
         
         gmail_username = extract_gmail_username(email)
@@ -493,6 +494,8 @@ async def start_trading_session(background_tasks: BackgroundTasks, current_user:
 
 @app.post("/admin/update_google_form_id")
 async def update_google_form_id_endpoint(new_form_id: str, current_user: dict = Depends(get_current_admin_user)):
+    params = TradingParameters()
+    params.google_form_id = new_form_id
     update_form_id(new_form_id)
     return {"status": "success", "message": "Google Form ID updated successfully"}
 
@@ -504,7 +507,8 @@ async def refresh_registered_users(current_user: dict = Depends(get_current_admi
 # Add a background task to periodically update registered users
 async def periodic_update_registered_users():
     while True:
-        get_registered_users(force_update=True)
+        form_id = TradingParameters().google_form_id
+        get_registered_users(force_update=True, form_id=form_id)
         await asyncio.sleep(300)
 
 @app.on_event("startup")
