@@ -40,7 +40,26 @@
 
       <v-main class="grey lighten-4">
         <v-container fluid class="pa-4">
-          <v-row>
+          <v-row v-if="!isTradingStarted" justify="center" align="center" style="height: 80vh;">
+            <v-col cols="12" md="6" class="text-center">
+              <v-card elevation="2" class="pa-6">
+                <v-card-title class="text-h4 mb-4">Waiting for Other Traders</v-card-title>
+                <v-card-text>
+                  <p class="text-h6 mb-4">
+                    {{ currentHumanTraders }} out of {{ expectedHumanTraders }} traders have joined.
+                  </p>
+                  <v-progress-circular
+                    :size="70"
+                    :width="7"
+                    color="primary"
+                    indeterminate
+                  ></v-progress-circular>
+                  <p class="mt-4">The session will start automatically when all traders have joined.</p>
+                </v-card-text>
+              </v-card>
+            </v-col>
+          </v-row>
+          <v-row v-else>
             <v-col v-for="(columnTools, colIndex) in columns" :key="colIndex" :cols="12" :md="colIndex === 0 ? 2 : 5" class="d-flex flex-column">
               <v-card v-for="(tool, toolIndex) in columnTools" :key="toolIndex" 
                       class="mb-4 tool-card" 
