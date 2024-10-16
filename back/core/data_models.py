@@ -184,6 +184,13 @@ class TradingParameters(BaseModel):
         gt=0,
     )
 
+    max_sessions_per_human: int = Field(
+        default=4,
+        title="Max Sessions per Human",
+        description="human_parameter",
+        ge=1,
+    )
+
     @field_validator('human_goals')
     def validate_human_goals_length(cls, v, info):
         num_traders = info.data.get('num_human_traders', 2)  # Default to 2 if not set

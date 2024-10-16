@@ -16,7 +16,7 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.encoders import jsonable_encoder
 from core.trader_manager import TraderManager
 from core.data_models import TraderType, TradingParameters, UserRegistration
-from .auth import get_current_user, get_current_admin_user, get_firebase_auth, extract_gmail_username
+from .auth import get_current_user, get_current_admin_user, get_firebase_auth, extract_gmail_username, is_user_registered, update_google_form_id
 from .calculate_metrics import process_log_file, write_to_csv
 from firebase_admin import auth
 import secrets
@@ -29,6 +29,7 @@ from fastapi import HTTPException, Query, BackgroundTasks
 from fastapi.responses import FileResponse
 from pathlib import Path
 from typing import List
+from .google_sheet_auth import update_form_id, get_registered_users
 
 app = FastAPI()
 security = HTTPBasic()
@@ -79,7 +80,16 @@ async def user_login(request: Request):
         
         decoded_token = auth.verify_id_token(token, check_revoked=True, clock_skew_seconds=60)
         email = decoded_token['email']
+        
+        if not is_user_registered(email):
+            raise HTTPException(status_code=403, detail="User not registered in the study")
+        
         gmail_username = extract_gmail_username(email)
+        
+        # Check if the user has exceeded the maximum number of sessions
+        user_sessions = [s for s in trader_managers.values() if any(t.id.endswith(gmail_username) for t in s.human_traders)]
+        if len(user_sessions) >= persistent_settings.get('max_sessions_per_human', 4):
+            raise HTTPException(status_code=403, detail="Maximum number of sessions reached for this user")
         
         session_id, trader_id = await find_or_create_session_and_assign_trader(gmail_username)
         
@@ -93,8 +103,13 @@ async def user_login(request: Request):
                 "trader_id": trader_id
             }
         }
+    except auth.InvalidIdTokenError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    except auth.RevokedIdTokenError:
+        raise HTTPException(status_code=401, detail="Token has been revoked")
+    except HTTPException as he:
+        raise he
     except Exception as e:
-        print(f"Error in user_login: {str(e)}")  # Add this line for debugging
         raise HTTPException(status_code=500, detail=f"Login failed: {str(e)}")
 
 @app.post("/admin/login")
@@ -163,7 +178,6 @@ async def create_trading_session(background_tasks: BackgroundTasks, current_user
             },
         }
     except Exception as e:
-        print(f"Error in create_trading_session: {str(e)}")  # Add this line for debugging
         raise HTTPException(status_code=500, detail=f"Error retrieving trading session info: {str(e)}")
         
 def get_manager_by_trader(trader_id: str):
@@ -287,7 +301,6 @@ async def find_or_create_session_and_assign_trader(gmail_username):
         
         return session_id, trader_id
     except Exception as e:
-        print(f"Error in find_or_create_session_and_assign_trader: {str(e)}")  # Add this line for debugging
         raise
 
 
@@ -477,3 +490,23 @@ async def start_trading_session(background_tasks: BackgroundTasks, current_user:
             "trading_session_uuid": session_id,
         }
     }
+
+@app.post("/admin/update_google_form_id")
+async def update_google_form_id_endpoint(new_form_id: str, current_user: dict = Depends(get_current_admin_user)):
+    update_form_id(new_form_id)
+    return {"status": "success", "message": "Google Form ID updated successfully"}
+
+@app.get("/admin/refresh_registered_users")
+async def refresh_registered_users(current_user: dict = Depends(get_current_admin_user)):
+    get_registered_users(force_update=True)
+    return {"status": "success", "message": "Registered users refreshed"}
+
+# Add a background task to periodically update registered users
+async def periodic_update_registered_users():
+    while True:
+        get_registered_users(force_update=True)
+        await asyncio.sleep(300)
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(periodic_update_registered_users())
