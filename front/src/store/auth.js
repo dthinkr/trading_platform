@@ -21,11 +21,11 @@ export const useAuthStore = defineStore('auth', {
         throw new Error(error.message || 'Failed to login');
       }
     },
-    async adminLogin(credentials) {
+    async adminLogin(user) {
       try {
-        const response = await axios.post('/admin/login', credentials);
-        this.user = { username: credentials.username };
-        this.isAdmin = true;
+        const response = await axios.post('/admin/login');
+        this.user = user;
+        this.isAdmin = response.data.data.is_admin;
       } catch (error) {
         console.error('Admin login error:', error);
         throw new Error(error.message || 'Failed to login as admin');

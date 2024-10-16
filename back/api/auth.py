@@ -1,12 +1,12 @@
 import os
 from functools import lru_cache
-from fastapi import Depends, HTTPException, status, Request
+from fastapi import Depends, HTTPException, status, Request, Path
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, HTTPBasic, HTTPBasicCredentials
 import firebase_admin
 from firebase_admin import credentials, auth
 import secrets
 import time
-from .google_sheet_auth import is_user_registered, update_form_id, ADMIN_USERS
+from .google_sheet_auth import is_user_registered, is_user_admin, update_form_id
 from core.data_models import TradingParameters
 
 # Initialize Firebase Admin SDK using the service account file
@@ -70,7 +70,7 @@ async def get_current_user(request: Request):
                     detail="User not registered in the study",
                 )
             
-            is_admin = gmail_username in ADMIN_USERS
+            is_admin = is_user_admin(email)
             user = {**decoded_token, "is_admin": is_admin, "gmail_username": gmail_username}
             authenticated_users[gmail_username] = user
             return user

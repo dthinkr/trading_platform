@@ -197,6 +197,12 @@ class TradingParameters(BaseModel):
         description="model_parameter",
     )
 
+    admin_users: List[str] = Field(
+        default=['venvoooo', 'admin'],
+        title="Admin Users",
+        description="model_parameter",
+    )
+
     @field_validator('human_goals')
     def validate_human_goals_length(cls, v, info):
         num_traders = info.data.get('num_human_traders', 2)  # Default to 2 if not set
