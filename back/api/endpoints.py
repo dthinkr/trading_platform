@@ -30,6 +30,8 @@ from fastapi.responses import FileResponse
 from pathlib import Path
 from typing import List
 from .google_sheet_auth import update_form_id, get_registered_users
+import zipfile
+import shutil
 
 app = FastAPI()
 security = HTTPBasic()
@@ -414,6 +416,7 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
 
 current_dir = Path(__file__).resolve().parent
 ROOT_DIR = current_dir.parent / "logs"
+print(f"ROOT_DIR is set to: {ROOT_DIR}")
 
 @app.get("/files")
 async def list_files(
@@ -464,22 +467,6 @@ async def get_file(file_path: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-@app.delete("/files/{file_path:path}")
-async def delete_file(file_path: str):
-    try:
-        full_path = (ROOT_DIR / file_path).resolve()
-        
-        if not full_path.is_relative_to(ROOT_DIR):
-            raise HTTPException(status_code=403, detail=f"Access denied: {full_path} is not relative to {ROOT_DIR}")
-        
-        if not full_path.is_file():
-            raise HTTPException(status_code=404, detail=f"File not found: {full_path}")
-        
-        full_path.unlink()
-        return {"status": "success", "message": f"File {file_path} deleted successfully"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
-
 @app.post("/trading/start")
 async def start_trading_session(background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)):
     gmail_username = current_user['gmail_username']
@@ -526,3 +513,25 @@ async def periodic_update_registered_users():
 @app.on_event("startup")
 async def startup_event():
     asyncio.create_task(periodic_update_registered_users())
+
+# Set up logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
+@app.get("/files/download/all")
+async def download_all_files():
+    try:
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            for file in ROOT_DIR.glob('*'):
+                if file.is_file():
+                    zip_file.write(file, file.name)
+        
+        zip_buffer.seek(0)
+        return StreamingResponse(
+            iter([zip_buffer.getvalue()]),
+            media_type="application/zip",
+            headers={"Content-Disposition": f"attachment; filename=all_log_files.zip"}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
