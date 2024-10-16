@@ -87,7 +87,10 @@ const props = defineProps({
 const isLoading = ref(false);
 
 const cancelTime = computed(() => props.traderAttributes?.all_attributes?.params?.cancel_time || 'Loading...');
-const goalDescription = computed(() => goalMessage.value?.text || 'Loading...');
+const goalDescription = computed(() => {
+  if (!goalMessage.value) return 'You can freely trade in this market. Your goal is to make a profit.';
+  return goalMessage.value.text;
+});
 const initialShares = computed(() => props.traderAttributes?.shares ?? 'Loading...');
 const initialCash = computed(() => props.traderAttributes?.cash ?? 'Loading...');
 const canStartTrading = computed(() => !!props.traderAttributes?.all_attributes?.params);
@@ -98,11 +101,30 @@ const headers = [
   { text: 'Value', value: 'value', align: 'left' },
 ];
 
-const items = computed(() => [
-  { parameter: 'Goal', value: goalDescription.value },
-  { parameter: 'Initial Shares', value: initialShares.value },
-  { parameter: 'Initial Cash', value: initialCash.value ? `${initialCash.value} Liras` : 'Loading...' },
-]);
+const items = computed(() => {
+  const baseItems = [
+    { parameter: 'Goal', value: goalDescription.value },
+    { parameter: 'Initial Shares', value: initialShares.value },
+    { parameter: 'Initial Cash', value: initialCash.value ? `${initialCash.value} Liras` : 'Loading...' },
+  ];
+
+  // If the goal is free trading, we don't need to show additional parameters
+  if (goalDescription.value.toLowerCase().includes('freely trade')) {
+    return baseItems;
+  }
+
+  // For buying or selling goals, add more specific information
+  const goalValue = props.traderAttributes?.goal;
+  if (goalValue !== undefined && goalValue !== null) {
+    if (goalValue > 0) {
+      baseItems.push({ parameter: 'Shares to Buy', value: goalValue });
+    } else if (goalValue < 0) {
+      baseItems.push({ parameter: 'Shares to Sell', value: Math.abs(goalValue) });
+    }
+  }
+
+  return baseItems;
+});
 
 const startTrading = async () => {
   if (!canStartTrading.value) {

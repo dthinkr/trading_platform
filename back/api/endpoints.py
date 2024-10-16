@@ -56,6 +56,10 @@ class PersistentSettings(BaseModel):
 @app.post("/admin/update_persistent_settings")
 async def update_persistent_settings(settings: PersistentSettings):
     global persistent_settings
+    if 'num_human_traders' in settings.settings and 'human_goal_amount' in settings.settings:
+        num_traders = settings.settings['num_human_traders']
+        goal_amount = settings.settings['human_goal_amount']
+        settings.settings['human_goals'] = TradingParameters.generate_human_goals(num_traders, goal_amount)
     persistent_settings = settings.settings
     return {"status": "success", "message": "Persistent settings updated"}
 
@@ -72,29 +76,40 @@ async def websocket_endpoint(websocket: WebSocket):
 
 @app.post("/user/login")
 async def user_login(request: Request):
+    print("User login attempt started")
     auth_header = request.headers.get('Authorization')
     
     if not auth_header or not auth_header.startswith('Bearer '):
+        print("Invalid authentication method")
         raise HTTPException(status_code=401, detail="Invalid authentication method")
     
     try:
         token = auth_header.split('Bearer ')[1]
+        print(f"Token received: {token[:10]}...")  # Print first 10 characters of token
         
         decoded_token = auth.verify_id_token(token, check_revoked=True, clock_skew_seconds=60)
+        print("Token verified successfully")
         email = decoded_token['email']
+        print(f"User email: {email}")
         
         form_id = TradingParameters().google_form_id
+        print(f"Google Form ID: {form_id}")
         if not is_user_registered(email, form_id):
+            print(f"User {email} not registered in the study")
             raise HTTPException(status_code=403, detail="User not registered in the study")
         
         gmail_username = extract_gmail_username(email)
+        print(f"Extracted Gmail username: {gmail_username}")
         
         # Check if the user has exceeded the maximum number of sessions
         user_sessions = [s for s in trader_managers.values() if any(t.id.endswith(gmail_username) for t in s.human_traders)]
+        print(f"User sessions count: {len(user_sessions)}")
         if len(user_sessions) >= persistent_settings.get('max_sessions_per_human', 4):
+            print(f"Maximum number of sessions reached for user {gmail_username}")
             raise HTTPException(status_code=403, detail="Maximum number of sessions reached for this user")
         
         session_id, trader_id = await find_or_create_session_and_assign_trader(gmail_username)
+        print(f"Session ID: {session_id}, Trader ID: {trader_id}")
         
         return {
             "status": "success",
@@ -107,12 +122,18 @@ async def user_login(request: Request):
             }
         }
     except auth.InvalidIdTokenError:
+        print("Invalid or expired token")
         raise HTTPException(status_code=401, detail="Invalid or expired token")
     except auth.RevokedIdTokenError:
+        print("Token has been revoked")
         raise HTTPException(status_code=401, detail="Token has been revoked")
     except HTTPException as he:
+        print(f"HTTP Exception: {he.detail}")
         raise he
     except Exception as e:
+        print(f"Unexpected error in user_login: {str(e)}")
+        print(f"Error type: {type(e)}")
+        print(f"Error traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Login failed: {str(e)}")
 
 @app.post("/admin/login")
@@ -301,21 +322,31 @@ async def root():
 async def find_or_create_session_and_assign_trader(gmail_username):
     global persistent_settings
     try:
+        print(f"Finding or creating session for {gmail_username}")
         available_session = next((s for s in trader_managers.values() if len(s.human_traders) < s.params.num_human_traders), None)
         
         if available_session is None:
+            print("No available session found, creating new session")
             params = TradingParameters(**persistent_settings)
+            print(f"Persistent settings: {persistent_settings}")
+            print(f"Created params: {params}")
             new_trader_manager = TraderManager(params)
             trader_managers[new_trader_manager.trading_session.id] = new_trader_manager
             available_session = new_trader_manager
+        else:
+            print("Available session found")
         
+        print(f"Human goals before adding trader: {available_session.params.human_goals}")
         trader_id = await available_session.add_human_trader(gmail_username)
         session_id = available_session.trading_session.id
         
         trader_to_session_lookup[trader_id] = session_id
         
+        print(f"Trader assigned: {trader_id} in session {session_id}")
         return session_id, trader_id
     except Exception as e:
+        print(f"Error in find_or_create_session_and_assign_trader: {str(e)}")
+        print(f"Error traceback: {traceback.format_exc()}")
         raise
 
 
@@ -513,10 +544,6 @@ async def periodic_update_registered_users():
 @app.on_event("startup")
 async def startup_event():
     asyncio.create_task(periodic_update_registered_users())
-
-# Set up logging
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
 
 @app.get("/files/download/all")
 async def download_all_files():

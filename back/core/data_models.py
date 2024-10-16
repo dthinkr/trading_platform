@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from enum import Enum, IntEnum
 from typing import Optional, List, Dict
 from uuid import UUID, uuid4
-
+import random
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 class StrEnum(str, Enum):
@@ -43,10 +43,11 @@ class TradingParameters(BaseModel):
         description="model_parameter",
         ge=0,
     )
-    human_goals: List[int] = Field(
-        default=[-10],
-        title="Goal Values",
+    human_goal_amount: int = Field(
+        default=60,
+        title="Human Goal Amount",
         description="human_parameter",
+        ge=0,
     )
     num_noise_traders: int = Field(
         default=1,
@@ -165,12 +166,6 @@ class TradingParameters(BaseModel):
         description="model_parameter",
     )
 
-    num_rounds: int = Field(
-        default=3,
-        title="Number of Rounds (Placeholder, not used yet)",
-        description="human_parameter",
-        ge=0,
-    )
     conversion_rate: float = Field(
         default=42.52,
         title="Lira-GBP Conversion Rate",
@@ -203,12 +198,24 @@ class TradingParameters(BaseModel):
         description="model_parameter",
     )
 
+    human_goals: List[int] = Field(
+        default_factory=list,
+        title="Human Goals",
+        description="human_parameter",
+    )
+
     @field_validator('human_goals')
-    def validate_human_goals_length(cls, v, info):
-        num_traders = info.data.get('num_human_traders', 2)  # Default to 2 if not set
+    def validate_human_goals(cls, v, info):
+        num_traders = info.data.get('num_human_traders', 1)
+        goal_amount = info.data.get('human_goal_amount', 60)
         if len(v) != num_traders:
-            raise ValueError(f"Length of human_goals must be equal to num_human_traders ({num_traders})")
+            return cls.generate_human_goals(num_traders, goal_amount)
         return v
+
+    @staticmethod
+    def generate_human_goals(num_traders: int, goal_amount: int) -> List[int]:
+        """Generate human goals with equal probability of being positive, negative, or zero."""
+        return [random.choice([goal_amount, -goal_amount, 0]) for _ in range(num_traders)]
 
     def dump_params_by_description(self) -> dict:
         """Dump parameters into a dict of dict indexed by description."""
