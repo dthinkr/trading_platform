@@ -40,6 +40,27 @@
 - 🔧 Customizable trading scenarios
 - 📊 Advanced data analysis tools
 
+## User Authentication and Session Management
+
+```mermaid
+graph TD
+    A[User attempts login] --> B{Verify user credentials}
+    B -->|Valid| C{Is user registered?}
+    B -->|Invalid| D[Login failed]
+    C -->|Yes| E{Is user already logged in?}
+    C -->|No| D
+    E -->|No| F{Is user an admin?}
+    E -->|Yes| G[Cannot login twice]
+    F -->|Yes| H[Assign admin to session]
+    F -->|No| I{Has user reached session limit?}
+    I -->|No| J[Assign regular user to session]
+    I -->|Yes| K[Cannot join more sessions]
+    H --> L[Grant unlimited access]
+    J --> M[Grant limited access]
+    L --> N[Login successful]
+    M --> N
+```
+
 ## Installation
 
 ### One-liner Self-Host
@@ -117,6 +138,8 @@ trading_platform/
 └── README.md
 ```
 
+
+
 ## Recent Updates
 
 Key highlights from version 1.3.0:
@@ -134,16 +157,6 @@ Key highlights from version 1.3.0:
 
 For a full list of changes, please refer to our [Changelog](CHANGELOG.md).
 
-## Contributing
-
-We welcome contributions! Here's how you can help:
-
-1. Fork the project
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
@@ -156,7 +169,3 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 - [Highcharts](https://www.highcharts.com/)
 
 ---
-
-<p align="center">
-  Made with ❤️ by the Team
-</p>
