@@ -136,7 +136,7 @@ const autoTradeMultiplier = computed(() => {
 });
 
 const goalDescription = computed(() => {
-  if (!goalMessage.value) return 'Your trading goal is currently being determined...';
+  if (!goalMessage.value) return 'You can freely trade in this market. Your goal is to make a profit.';
   return goalMessage.value.text;
 });
 </script>

@@ -153,7 +153,7 @@ const startTraderSession = (traderId) => {
   const params = {
     traderUuid: traderId,
     duration: tradingSessionParameters.value.trading_day_duration,
-    numRounds: tradingSessionParameters.value.num_rounds
+    numRounds: tradingSessionParameters.value.max_sessions_per_human
   };
   router.push({ 
     name: 'onboarding',  // Change this from 'TraderLanding' to 'onboarding'

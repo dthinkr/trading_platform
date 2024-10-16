@@ -30,6 +30,7 @@ class TraderManager:
 
     def __init__(self, params: TradingParameters):
         self.params = params
+        self.ensure_human_goals()
         params = params.model_dump()
         self.tasks = []
 
@@ -109,13 +110,20 @@ class TraderManager:
             for i in range(n_informed_traders)
         ]
 
+    def ensure_human_goals(self):
+        if not self.params.human_goals or len(self.params.human_goals) < self.params.num_human_traders:
+            self.params.human_goals = TradingParameters.generate_human_goals(
+                self.params.num_human_traders, 
+                self.params.human_goal_amount
+            )
+
     async def add_human_trader(self, uid):
         if len(self.human_traders) >= self.params.num_human_traders:
             raise ValueError("Session is full")
         
         trader_id = f"HUMAN_{uid}"
         
-        # Assign goal based on the current number of human traders
+        self.ensure_human_goals()  # Ensure we have enough goals
         goal_index = len(self.human_traders) % len(self.params.human_goals)
         
         new_trader = HumanTrader(
