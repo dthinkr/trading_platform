@@ -21,6 +21,10 @@ def get_firebase_auth():
 # Store authenticated users
 authenticated_users = {}
 
+# Add a new function to extract Gmail username
+def extract_gmail_username(email):
+    return email.split('@')[0] if '@' in email else email
+
 async def get_current_user(request: Request):
     auth_header = request.headers.get('Authorization')
     
@@ -28,9 +32,10 @@ async def get_current_user(request: Request):
     path = request.url.path
     if path.startswith("/trader_info/"):
         trader_id = path.split("/")[-1]
-        uid = trader_id.split('_')[1]  # Assuming trader_id format is "HUMAN_uid"
-        if uid in authenticated_users:
-            return authenticated_users[uid]
+        # Update this line to use Gmail username instead of uid
+        gmail_username = trader_id.split('_')[1]  # Assuming trader_id format is now "HUMAN_gmailusername"
+        if gmail_username in authenticated_users:
+            return authenticated_users[gmail_username]
     
     if not auth_header:
         raise HTTPException(
@@ -58,8 +63,10 @@ async def get_current_user(request: Request):
         token = auth_header.split('Bearer ')[1]
         try:
             decoded_token = firebase_auth.verify_id_token(token)
-            user = {**decoded_token, "is_admin": False}
-            authenticated_users[decoded_token['uid']] = user
+            email = decoded_token['email']
+            gmail_username = extract_gmail_username(email)
+            user = {**decoded_token, "is_admin": False, "gmail_username": gmail_username}
+            authenticated_users[gmail_username] = user
             return user
         except Exception as e:
             raise HTTPException(

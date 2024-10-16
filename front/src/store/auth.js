@@ -40,7 +40,10 @@ export const useAuthStore = defineStore('auth', {
     async login(user) {
       try {
         const idToken = await user.getIdToken();
-        const response = await api.post('/user/login', {}, {
+        const email = user.email;
+        const gmailUsername = email.split('@')[0]; // Extract the part before @gmail.com
+        
+        const response = await api.post('/user/login', { gmailUsername }, {
           headers: {
             'Authorization': `Bearer ${idToken}`
           }
