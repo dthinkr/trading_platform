@@ -54,6 +54,15 @@ persistent_settings = {}
 active_users = defaultdict(set)  # Maps session_id to set of active usernames
 user_sessions = {}  # Maps username to their current session_id
 
+# Add this near the top of the file, with other global variables
+user_historical_sessions = defaultdict(set)
+
+def get_historical_sessions_count(username):
+    return len(user_historical_sessions[username])
+
+def record_session_for_user(username, session_id):
+    user_historical_sessions[username].add(session_id)
+
 class PersistentSettings(BaseModel):
     settings: dict
 
@@ -97,24 +106,23 @@ async def user_login(request: Request):
         
         gmail_username = extract_gmail_username(email)
         
-        # Check if the user is already in a session
-        if gmail_username in user_sessions:
-            raise HTTPException(status_code=409, detail="User is already logged into a session")
-        
         # Check if the user is an admin
         is_admin = is_user_admin(email)
         
-        # Check if the user has exceeded the maximum number of sessions (skip for admins)
+        # Check if the user has exceeded the maximum number of historical sessions (skip for admins)
         if not is_admin:
-            user_sessions_count = sum(gmail_username in users for users in active_users.values())
-            if user_sessions_count >= persistent_settings.get('max_sessions_per_human', 4):
-                raise HTTPException(status_code=403, detail="Maximum number of sessions reached for this user")
+            historical_sessions_count = get_historical_sessions_count(gmail_username)
+            if historical_sessions_count >= persistent_settings.get('max_sessions_per_human', 4):
+                raise HTTPException(status_code=403, detail="Maximum number of allowed sessions reached for this user")
         
         session_id, trader_id = await find_or_create_session_and_assign_trader(gmail_username)
         
         # Add user to active users for this session
         active_users[session_id].add(gmail_username)
         user_sessions[gmail_username] = session_id
+        
+        # Record this session in the user's historical sessions
+        record_session_for_user(gmail_username, session_id)
         
         return {
             "status": "success",
