@@ -16,7 +16,7 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.encoders import jsonable_encoder
 from core.trader_manager import TraderManager
 from core.data_models import TraderType, TradingParameters, UserRegistration
-from .auth import get_current_user, get_current_admin_user, get_firebase_auth, extract_gmail_username, is_user_registered, is_user_admin, update_google_form_id
+from .auth import get_current_user, get_current_admin_user, get_firebase_auth, extract_gmail_username, is_user_registered, is_user_admin, update_google_form_id, custom_verify_id_token
 from .calculate_metrics import process_log_file, write_to_csv
 from firebase_admin import auth
 import secrets
@@ -33,6 +33,12 @@ from .google_sheet_auth import update_form_id, get_registered_users
 import zipfile
 import shutil
 from collections import defaultdict
+import time
+import jwt
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 security = HTTPBasic()
@@ -97,6 +103,7 @@ async def user_login(request: Request):
     try:
         token = auth_header.split('Bearer ')[1]
         
+        # Add clock_skew_seconds parameter here as well
         decoded_token = auth.verify_id_token(token, check_revoked=True, clock_skew_seconds=60)
         email = decoded_token['email']
         
@@ -412,53 +419,71 @@ async def get_session_metrics(trader_id: str, session_id: str, current_user: dic
 async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
     await websocket.accept()
     token = await websocket.receive_text()
-    decoded_token = auth.verify_id_token(token)
-    email = decoded_token['email']
-    gmail_username = extract_gmail_username(email)
-    
-    trader_manager = get_manager_by_trader(trader_id)
-    if not trader_manager:
-        await websocket.send_json({"status": "error", "message": "Trader not found", "data": {}})
-        await websocket.close()
-        return
-
-    trader = trader_manager.get_trader(trader_id)
-    
-    # Remove the user from the active users list when they connect
-    # This ensures that if they're reconnecting (e.g., after a refresh), they're not counted twice
-    session_id = trader_to_session_lookup.get(trader_id)
-    if session_id and gmail_username in active_users[session_id]:
-        active_users[session_id].remove(gmail_username)
-    
-    # Add the user back to the active users list
-    if session_id:
-        active_users[session_id].add(gmail_username)
-    user_sessions[gmail_username] = session_id
-    
-    await trader.connect_to_socket(websocket)
-    
     try:
-        send_task = asyncio.create_task(send_to_frontend(websocket, trader_manager))
-        receive_task = asyncio.create_task(receive_from_frontend(websocket, trader))
+        decoded_token = custom_verify_id_token(token)  # Remove any clock_skew_seconds parameter here
+        email = decoded_token['email']
+        gmail_username = extract_gmail_username(email)
         
-        done, pending = await asyncio.wait(
-            [send_task, receive_task],
-            return_when=asyncio.FIRST_COMPLETED
-        )
+        current_time = int(time.time())
+        token_issued_at = decoded_token.get('iat', 0)
+        token_expiry = decoded_token.get('exp', 0)
         
-        for task in pending:
-            task.cancel()
-            
-    except (asyncio.CancelledError, WebSocketDisconnect):
-        pass
-    except Exception:
-        pass
-    finally:
-        # Remove the user from the active users list when they disconnect
+        logger.info(f"WebSocket - Current time: {current_time}, Token issued at: {token_issued_at}, Token expiry: {token_expiry}")
+        
+        trader_manager = get_manager_by_trader(trader_id)
+        if not trader_manager:
+            await websocket.send_json({"status": "error", "message": "Trader not found", "data": {}})
+            await websocket.close()
+            return
+
+        trader = trader_manager.get_trader(trader_id)
+        
+        # Remove the user from the active users list when they connect
+        # This ensures that if they're reconnecting (e.g., after a refresh), they're not counted twice
+        session_id = trader_to_session_lookup.get(trader_id)
         if session_id and gmail_username in active_users[session_id]:
             active_users[session_id].remove(gmail_username)
-        if gmail_username in user_sessions:
-            del user_sessions[gmail_username]
+        
+        # Add the user back to the active users list
+        if session_id:
+            active_users[session_id].add(gmail_username)
+        user_sessions[gmail_username] = session_id
+        
+        await trader.connect_to_socket(websocket)
+        
+        try:
+            send_task = asyncio.create_task(send_to_frontend(websocket, trader_manager))
+            receive_task = asyncio.create_task(receive_from_frontend(websocket, trader))
+            
+            done, pending = await asyncio.wait(
+                [send_task, receive_task],
+                return_when=asyncio.FIRST_COMPLETED
+            )
+            
+            for task in pending:
+                task.cancel()
+            
+        except (asyncio.CancelledError, WebSocketDisconnect):
+            pass
+        except Exception:
+            pass
+        finally:
+            # Remove the user from the active users list when they disconnect
+            if session_id and gmail_username in active_users[session_id]:
+                active_users[session_id].remove(gmail_username)
+            if gmail_username in user_sessions:
+                del user_sessions[gmail_username]
+
+    except jwt.InvalidTokenError as e:
+        logger.error(f"Invalid token error: {str(e)}")
+        await websocket.send_json({"status": "error", "message": f"Invalid token: {str(e)}", "data": {}})
+        await websocket.close()
+        return
+    except Exception as e:
+        logger.error(f"Unexpected error: {str(e)}")
+        await websocket.send_json({"status": "error", "message": f"Unexpected error: {str(e)}", "data": {}})
+        await websocket.close()
+        return
 
 current_dir = Path(__file__).resolve().parent
 ROOT_DIR = current_dir.parent / "logs"
@@ -567,9 +592,15 @@ async def periodic_update_registered_users():
         get_registered_users(force_update=True, form_id=form_id)
         await asyncio.sleep(300)
 
+async def periodic_time_offset_calculation():
+    while True:
+        # Remove the calculate_time_offset() call
+        await asyncio.sleep(3600)  # Sleep for an hour
+
 @app.on_event("startup")
 async def startup_event():
     asyncio.create_task(periodic_update_registered_users())
+    asyncio.create_task(periodic_time_offset_calculation())
 
 @app.get("/files/download/all")
 async def download_all_files():
