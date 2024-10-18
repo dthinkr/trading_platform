@@ -6,8 +6,16 @@ import firebase_admin
 from firebase_admin import credentials, auth
 import secrets
 import time
+import logging
 from .google_sheet_auth import is_user_registered, is_user_admin, update_form_id
 from core.data_models import TradingParameters
+from pytz import timezone
+from datetime import datetime, timedelta
+import jwt
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Initialize Firebase Admin SDK using the service account file
 cred = credentials.Certificate('firebase-service-account.json')
@@ -26,8 +34,43 @@ authenticated_users = {}
 def extract_gmail_username(email):
     return email.split('@')[0] if '@' in email else email
 
+def get_user_timezone(user_timezone_str):
+    try:
+        return timezone(user_timezone_str)
+    except:
+        return timezone('UTC')  # Default to UTC if timezone is invalid
+
+def custom_verify_id_token(token, clock_skew_seconds=60):
+    try:
+        # Decode the token without verifying it first
+        decoded_token = jwt.decode(token, options={"verify_signature": False})
+        
+        current_time = int(time.time())
+        token_issued_at = decoded_token.get('iat', 0)
+        token_expiry = decoded_token.get('exp', 0)
+        
+        logger.info(f"Custom verification - Current time: {current_time}, Token issued at: {token_issued_at}, Token expiry: {token_expiry}")
+        
+        # Check if the token is within the acceptable time range
+        if current_time < token_issued_at - clock_skew_seconds:
+            raise jwt.InvalidTokenError("Token used too early")
+        
+        if current_time > token_expiry + clock_skew_seconds:
+            raise jwt.ExpiredSignatureError("Token has expired")
+        
+        # If time checks pass, verify the token with Firebase
+        return auth.verify_id_token(token, check_revoked=True, clock_skew_seconds=clock_skew_seconds)
+    except jwt.InvalidTokenError as e:
+        logger.error(f"Invalid token: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
+    except Exception as e:
+        logger.error(f"Token verification error: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
+
 async def get_current_user(request: Request):
     auth_header = request.headers.get('Authorization')
+    user_timezone_str = request.headers.get('X-User-Timezone', 'UTC')
+    user_timezone = get_user_timezone(user_timezone_str)
     
     path = request.url.path
     if path.startswith("/trader_info/"):
@@ -53,28 +96,32 @@ async def get_current_user(request: Request):
                 detail="Incorrect admin credentials",
                 headers={"WWW-Authenticate": "Basic"},
             )
-        return {"username": "admin", "is_admin": True}
+        return {"username": "admin", "is_admin": True, "timezone": user_timezone}
     
     elif auth_header.startswith('Bearer '):
-        firebase_auth = get_firebase_auth()
         token = auth_header.split('Bearer ')[1]
         try:
-            decoded_token = firebase_auth.verify_id_token(token)
+            logger.info(f"Attempting to verify token for path: {path}")
+            decoded_token = custom_verify_id_token(token)
+            
             email = decoded_token['email']
             gmail_username = extract_gmail_username(email)
             
             form_id = TradingParameters().google_form_id
             if not is_user_registered(email, form_id):
+                logger.warning(f"User not registered: {email}")
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="User not registered in the study",
                 )
             
             is_admin = is_user_admin(email)
-            user = {**decoded_token, "is_admin": is_admin, "gmail_username": gmail_username}
+            user = {**decoded_token, "is_admin": is_admin, "gmail_username": gmail_username, "timezone": user_timezone}
             authenticated_users[gmail_username] = user
+            logger.info(f"User authenticated successfully: {gmail_username}")
             return user
         except Exception as e:
+            logger.error(f"Token verification error: {str(e)}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail=f"Invalid Firebase token or user not registered: {str(e)}",
@@ -98,3 +145,6 @@ def get_current_admin_user(current_user: dict = Depends(get_current_user)):
 
 def update_google_form_id(new_form_id: str):
     update_form_id(new_form_id)
+
+def get_user_local_time(user):
+    return datetime.now(user['timezone'])
