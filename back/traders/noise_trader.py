@@ -153,10 +153,10 @@ class NoiseTrader(BaseTrader):
             action = "cancel"
 
         # Handle empty sides
-        if not self.order_book['bids'] or not self.order_book['asks']:
-            empty_side = "bids" if not self.order_book['bids'] else "asks"
-            await self.place_passive_orders(amt, empty_side)
-            return
+        # if not self.order_book['bids'] or not self.order_book['asks']:
+        #     empty_side = "bids" if not self.order_book['bids'] else "asks"
+        #     await self.place_passive_orders(amt, empty_side)
+        #     return
 
         pr_passive = self.params["noise_passive_probability"]
         pr_bid = self.params["noise_bid_probability"]
