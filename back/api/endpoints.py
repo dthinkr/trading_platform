@@ -18,9 +18,9 @@ from core.trader_manager import TraderManager
 from core.data_models import TraderType, TradingParameters, UserRegistration
 from .auth import get_current_user, get_current_admin_user, get_firebase_auth, extract_gmail_username, is_user_registered, is_user_admin, update_google_form_id, custom_verify_id_token
 from .calculate_metrics import process_log_file, write_to_csv
+from .logfiles_analysis import order_book_contruction
 from firebase_admin import auth
 import secrets
-import logging
 import traceback
 import json
 from pydantic import BaseModel
@@ -35,10 +35,6 @@ import shutil
 from collections import defaultdict
 import time
 import jwt
-
-# Set up logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 app = FastAPI()
 security = HTTPBasic()
@@ -257,7 +253,7 @@ async def get_trader_info(trader_id: str, current_user: dict = Depends(get_curre
         raise HTTPException(status_code=404, detail="Trader not found")
 
     trader = trader_manager.get_trader(trader_id)
-    
+
     def is_jsonable(x):
         try:
             json.dumps(x)
@@ -273,6 +269,25 @@ async def get_trader_info(trader_id: str, current_user: dict = Depends(get_curre
     
     serializable_attributes = {k: v for k, v in all_attributes.items() if is_jsonable(v)}
 
+    # Get the session ID for this trader
+    session_id = trader_to_session_lookup.get(trader_id)
+    
+    # Construct the log file path
+    log_file_path = os.path.join("logs", f"{session_id}_trading.log")
+    
+    # Get the order book metrics
+    try:
+        order_book_metrics = order_book_contruction(log_file_path)
+        
+        # Extract the specific trader's metrics
+        trader_specific_metrics = order_book_metrics.get(f"'{trader_id}'", {})
+        
+        # Remove the trader-specific metrics from the general metrics
+        general_metrics = {k: v for k, v in order_book_metrics.items() if k != f"'{trader_id}'"}
+    except Exception as e:
+        general_metrics = {"error": "Unable to process log file"}
+        trader_specific_metrics = {}
+
     trader_info = {
         "status": "success",
         "message": "Trader found",
@@ -286,7 +301,9 @@ async def get_trader_info(trader_id: str, current_user: dict = Depends(get_curre
             "delta_cash": trader.delta_cash,
             "initial_cash": trader.initial_cash,
             "initial_shares": trader.initial_shares,
-            "all_attributes": serializable_attributes
+            "all_attributes": serializable_attributes,
+            "order_book_metrics": general_metrics,
+            "trader_specific_metrics": trader_specific_metrics
         },
     }
     
@@ -428,8 +445,6 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
         token_issued_at = decoded_token.get('iat', 0)
         token_expiry = decoded_token.get('exp', 0)
         
-        logger.info(f"WebSocket - Current time: {current_time}, Token issued at: {token_issued_at}, Token expiry: {token_expiry}")
-        
         trader_manager = get_manager_by_trader(trader_id)
         if not trader_manager:
             await websocket.send_json({"status": "error", "message": "Trader not found", "data": {}})
@@ -475,12 +490,10 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
                 del user_sessions[gmail_username]
 
     except jwt.InvalidTokenError as e:
-        logger.error(f"Invalid token error: {str(e)}")
         await websocket.send_json({"status": "error", "message": f"Invalid token: {str(e)}", "data": {}})
         await websocket.close()
         return
     except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}")
         await websocket.send_json({"status": "error", "message": f"Unexpected error: {str(e)}", "data": {}})
         await websocket.close()
         return
@@ -542,27 +555,14 @@ async def get_file(file_path: str):
 async def start_trading_session(background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)):
     gmail_username = current_user['gmail_username']
     trader_id = f"HUMAN_{gmail_username}"
-    print(f"Attempting to start trading session for trader: {trader_id}")
     
     session_id = trader_to_session_lookup.get(trader_id)
-    print(f"Session ID for trader {trader_id}: {session_id}")
     
     if not session_id:
-        print(f"No active session found for trader {trader_id}")
         raise HTTPException(status_code=404, detail="No active session found for this user")
     
     trader_manager = trader_managers[session_id]
-    print(f"Trader manager found for session {session_id}")
     
-    print(f"Number of human traders: {len(trader_manager.human_traders)}")
-    print(f"Required number of human traders: {trader_manager.params.num_human_traders}")
-    
-    # Remove the check for the number of human traders
-    # if len(trader_manager.human_traders) < trader_manager.params.num_human_traders:
-    #     print(f"Not enough human traders. Current: {len(trader_manager.human_traders)}, Required: {trader_manager.params.num_human_traders}")
-    #     raise HTTPException(status_code=400, detail="Not enough human traders to start the session")
-    
-    print(f"Launching trading session for {session_id}")
     background_tasks.add_task(trader_manager.launch)
     
     return {
@@ -642,3 +642,8 @@ async def cleanup(session_id: str):
                 del user_sessions[username]
         del active_users[session_id]
     # ... (rest of the cleanup logic)
+
+
+
+
+
