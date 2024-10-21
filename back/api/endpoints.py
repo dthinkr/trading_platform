@@ -247,9 +247,12 @@ async def get_trader(trader_id: str, current_user: dict = Depends(get_current_us
     return {"status": "success", "message": "Trader found", "data": data}
 
 @app.get("/trader_info/{trader_id}")
-async def get_trader_info(trader_id: str, current_user: dict = Depends(get_current_user)):
+async def get_trader_info(trader_id: str):
+    print(f"Accessing trader info for trader_id: {trader_id}")
+
     trader_manager = get_manager_by_trader(trader_id)
     if not trader_manager:
+        print(f"Trader manager not found for trader_id: {trader_id}")
         raise HTTPException(status_code=404, detail="Trader not found")
 
     trader = trader_manager.get_trader(trader_id)
@@ -642,6 +645,8 @@ async def cleanup(session_id: str):
                 del user_sessions[username]
         del active_users[session_id]
     # ... (rest of the cleanup logic)
+
+
 
 
 
