@@ -47,6 +47,35 @@
                   </div>
                 </div>
               </v-col>
+              <!-- New content: Order Book Metrics -->
+              <v-col cols="12">
+                <div class="metric-card pa-4 mb-4">
+                  <h3 class="text-h6 font-weight-medium mb-2">Order Book Metrics</h3>
+                  <div class="d-flex justify-space-between align-center mb-2">
+                    <span class="text-subtitle-1">Total Orders:</span>
+                    <span class="text-h6 font-weight-bold">{{ formatValue(orderBookMetrics?.Total_Orders, 'number') }}</span>
+                  </div>
+                  <div class="d-flex justify-space-between align-center mb-2">
+                    <span class="text-subtitle-1">Total Trades:</span>
+                    <span class="text-h6 font-weight-bold">{{ formatValue(orderBookMetrics?.Total_Trades, 'number') }}</span>
+                  </div>
+                  <div class="d-flex justify-space-between align-center mb-2">
+                    <span class="text-subtitle-1">Total Cancellations:</span>
+                    <span class="text-h6 font-weight-bold">{{ formatValue(orderBookMetrics?.Total_Cancellations, 'number') }}</span>
+                  </div>
+                  <div v-if="traderSpecificMetrics" class="mt-3">
+                    <h4 class="text-subtitle-1 font-weight-medium mb-2">Your Trading Activity</h4>
+                    <div class="d-flex justify-space-between align-center mb-2">
+                      <span class="text-subtitle-1">Your Trades:</span>
+                      <span class="text-h6 font-weight-bold">{{ formatValue(traderSpecificMetrics.Trades, 'number') }}</span>
+                    </div>
+                    <div class="d-flex justify-space-between align-center">
+                      <span class="text-subtitle-1">Your VWAP:</span>
+                      <span class="text-h6 font-weight-bold">{{ formatValue(traderSpecificMetrics.VWAP, 'currency') }}</span>
+                    </div>
+                  </div>
+                </div>
+              </v-col>
             </v-row>
           </v-card-text>
           <v-card-actions class="justify-center pa-6">
@@ -78,12 +107,16 @@ const router = useRouter();
 const traderStore = useTraderStore();
 const { pnl, vwap } = storeToRefs(traderStore);
 const traderInfo = ref(null);
+const orderBookMetrics = ref(null);
+const traderSpecificMetrics = ref(null);
 const httpUrl = import.meta.env.VITE_HTTP_URL;
 
 async function fetchTraderInfo() {
   try {
     const response = await axios.get(`${httpUrl}trader_info/${props.traderUuid}`);
     traderInfo.value = response.data.data;
+    orderBookMetrics.value = response.data.data.order_book_metrics;
+    traderSpecificMetrics.value = response.data.data.trader_specific_metrics;
   } catch (error) {
     console.error('Failed to fetch trader info:', error);
   }
@@ -105,6 +138,7 @@ const goToRegister = () => {
     window.location.href = '/register';
   });
 };
+
 const downloadSessionMetrics = async () => {
   try {
     // Ensure the traderUuid is set in the store
