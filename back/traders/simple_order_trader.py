@@ -25,11 +25,9 @@ class SimpleOrderTrader(BaseTrader):
                 print(
                     f"Placing order: price {order['price']}, type {order['order_type']}"
                 )
-                logger.info(f"Trader {self.id} placed order: {order}")
                 await asyncio.sleep(3)
 
             self.all_orders_placed = True
-            logger.info(f"Trader {self.id} has placed all orders")
 
             # Continue running and printing information
             while not self._stop_requested.is_set():

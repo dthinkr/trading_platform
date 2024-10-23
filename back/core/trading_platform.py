@@ -201,8 +201,6 @@ class TradingPlatform:
     ) -> Tuple[str, str, TransactionModel]:
         ask_trader_id, bid_trader_id, transaction, transaction_details = await self.transaction_manager.create_transaction(bid, ask, transaction_price)
 
-        logger.info(f"Transaction enqueued: {transaction}")
-
         # Use RabbitMQManager to publish the message
         await self.rabbitmq_manager.publish(
             self.broadcast_exchange_name,
@@ -475,9 +473,6 @@ class TradingPlatform:
         await self.send_broadcast({"type": "closure"})
         self.is_finished = True
         
-        # Log the end of the trading session
-        logger.info(f"Trading session {self.id} ended. Cleanup will occur in 1 minute.")
-
     async def _handle_final_inventory_reports(self) -> None:
         """Handle final inventory reports from all traders."""
         await asyncio.gather(

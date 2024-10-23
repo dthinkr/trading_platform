@@ -18,7 +18,7 @@ from core.trader_manager import TraderManager
 from core.data_models import TraderType, TradingParameters, UserRegistration
 from .auth import get_current_user, get_current_admin_user, get_firebase_auth, extract_gmail_username, is_user_registered, is_user_admin, update_google_form_id, custom_verify_id_token
 from .calculate_metrics import process_log_file, write_to_csv
-from .logfiles_analysis import order_book_contruction
+from .logfiles_analysis import order_book_contruction, is_jsonable, calculate_trader_specific_metrics
 from firebase_admin import auth
 import secrets
 import traceback
@@ -258,13 +258,6 @@ async def get_trader_info(trader_id: str):
 
     trader = trader_manager.get_trader(trader_id)
 
-    def is_jsonable(x):
-        try:
-            json.dumps(x)
-            return True
-        except (TypeError, OverflowError):
-            return False
-
     all_attributes = {
         attr: getattr(trader, attr)
         for attr in dir(trader)
@@ -291,27 +284,12 @@ async def get_trader_info(trader_id: str):
         print(general_metrics)
         print(trader_specific_metrics)
 
-
-        if trader.goal !=0 :
-            if trader.goal > 0:
-                trader_specific_metrics['Remaining_Trades'] = abs(abs(trader.goal) - abs(trader_specific_metrics['Trades']))
-                expenditure= trader_specific_metrics['VWAP'] * trader_specific_metrics['Trades']
-                total_expenditure = expenditure + trader_specific_metrics['Remaining_Trades'] * general_metrics['Last_Midprice'] * 1.5
-                trader_specific_metrics['Penalized_VWAP'] = total_expenditure/abs(trader.goal)
-                trader_specific_metrics['Slippage'] = -abs(general_metrics['Initial_Midprice'] - trader_specific_metrics['Penalized_VWAP']) / np.sqrt(abs(trader.goal))
-                trader_specific_metrics['PnL'] = '-'
-            else:
-                trader_specific_metrics['Remaining_Trades'] = abs(abs(trader.goal) - abs(trader_specific_metrics['Trades']))
-                expenditure= trader_specific_metrics['VWAP'] * trader_specific_metrics['Trades']
-                total_expenditure = expenditure + trader_specific_metrics['Remaining_Trades'] * general_metrics['Last_Midprice'] * 0.5
-                trader_specific_metrics['Penalized_VWAP'] = total_expenditure/abs(trader.goal)
-                trader_specific_metrics['Slippage'] = -abs(general_metrics['Initial_Midprice'] - trader_specific_metrics['Penalized_VWAP']) / np.sqrt(abs(trader.goal))
-                trader_specific_metrics['PnL'] = '-'
-        else:
-            trader_specific_metrics['Remaining_Trades'] = abs(trader_specific_metrics['Num_Sell'] - trader_specific_metrics['Num_Buy'])
-            trader_specific_metrics['VWAP'] = '-'
-            trader_specific_metrics['Penalized_VWAP'] = '-'
-            trader_specific_metrics['Slippage'] = '-'
+        # Calculate trader-specific metrics
+        trader_specific_metrics = calculate_trader_specific_metrics(
+            trader_specific_metrics, 
+            general_metrics, 
+            trader.goal
+        )
 
     except Exception as e:
         general_metrics = {"error": "Unable to process log file"}
@@ -671,6 +649,10 @@ async def cleanup(session_id: str):
                 del user_sessions[username]
         del active_users[session_id]
     # ... (rest of the cleanup logic)
+
+
+
+
 
 
 
