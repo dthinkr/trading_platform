@@ -152,6 +152,7 @@ def process_logfile(logfile_name):
     orders = {'BIDS': [],'ASKS': []}
     total_trades = 0
     total_cancellations = 0
+    all_midprices = []
     
     for index, row in message_df.iterrows():
         timestamp = row['Timestamp']
@@ -183,7 +184,14 @@ def process_logfile(logfile_name):
                     total_trades +=1
                     if trader in trades_by_human:
                         trades_by_human[trader].append({'Price': order_to_remove['Price'],
-                                                        'Amount': order_to_remove['Amount']})
+                                                        'Amount': order_to_remove['Amount'],
+                                                        'Type': 'Buy'})
+                    if order_to_remove['Trader'] in trades_by_human:
+                        name_to_use = order_to_remove['Trader']
+                        trades_by_human[name_to_use].append({'Price': order_to_remove['Price'],
+                                                        'Amount': order_to_remove['Amount'],
+                                                        'Type': 'Sell'})
+
                         
             else:
                 if best_bid_price is None:
@@ -196,7 +204,13 @@ def process_logfile(logfile_name):
                     total_trades +=1
                     if trader in trades_by_human:
                         trades_by_human[trader].append({'Price': order_to_remove['Price'],
-                                                        'Amount': order_to_remove['Amount']})
+                                                        'Amount': order_to_remove['Amount'],
+                                                        'Type': 'Sell'})
+                    if order_to_remove['Trader'] in trades_by_human:
+                        name_to_use = order_to_remove['Trader']
+                        trades_by_human[name_to_use].append({'Price': order_to_remove['Price'],
+                                                        'Amount': order_to_remove['Amount'],
+                                                        'Type': 'Buy'})
             
         elif order_type == 'CANCEL_ORDER':
             if direction == 'BID':
@@ -209,37 +223,63 @@ def process_logfile(logfile_name):
                 total_cancellations +=1
         
         
-        
+        best_bid_price = max((order['Price'] for order in orders['BIDS']), default=None)
+        best_ask_price = min((order['Price'] for order in orders['ASKS']), default=None)
+
+        if (best_bid_price is not None) and (best_ask_price is not None):
+            midprice = (best_bid_price + best_ask_price) / 2
+            all_midprices.append(midprice)
+      
         
     all_metrics = {'Total_Orders': message_df.shape[0],
                    'Total_Trades': total_trades,
-                   'Total_Cancellations': total_cancellations}
+                   'Total_Cancellations': total_cancellations,
+                   'Initial_Midprice': all_midprices[0],
+                   'Last_Midprice': all_midprices[-1]}
+    
     
     for trader in trades_by_human:
         trades_human_i = trades_by_human[trader]
         all_amounts = []
         all_prices = []
         
+        num_buy = 0
+        num_sell = 0
+        prices_buy = []
+        prices_sell = []
         for trade in trades_human_i:
             all_amounts.append(trade['Amount'])
             all_prices.append(trade['Price'])
+            if trade['Type'] == 'Buy':
+                prices_buy.append(trade['Price'])
+                num_buy +=1
+            else:
+                prices_sell.append(trade['Price'])
+                num_sell +=1
         
         total_trades_trader_i = sum(all_amounts)
         trader_i_vwap = sum(all_prices) / total_trades_trader_i if total_trades_trader_i > 0 else 0
         
-        all_metrics[trader] = {'Trades': total_trades_trader_i, 'VWAP': trader_i_vwap}
+        if num_buy == num_sell:
+            pnl = sum(prices_sell) - sum(prices_buy)
+        elif num_buy > num_sell:
+            pnl = sum(prices_sell) - sum(prices_buy) + (num_buy - num_sell) * all_midprices[-1]
+        else:
+            pnl = sum(prices_sell) - sum(prices_buy) - (num_sell - num_buy) * all_midprices[-1]
+        
+        all_metrics[trader] = {'Trades': total_trades_trader_i, 'VWAP': trader_i_vwap, 'PnL': pnl, 'Num_Sell': num_sell, 'Num_Buy': num_buy}
     
     return message_df, all_metrics
 
 if __name__ == '__main__':
-    location = '/Users/marioljonuzaj/Downloads/'
+    location = '/Users/marioljonuzaj/Desktop/'
     logfile_name = location + 'SESSION_1729076783_trading.log'  # Replace with your log file path
     session_id = logfile_name.split('/')[-1].split('_trading')[0]
     
-    message_df, all_metrics = order_book_contruction(logfile_name)
-    
+    all_metrics = order_book_contruction(logfile_name)
+    print(all_metrics)
     output_message_file = location  + session_id + '_' + 'message_book.csv'
-    message_df.to_csv(output_message_file, index=False)
+    #message_df.to_csv(output_message_file, index=False)
     
     output_metrics_file = location  + session_id + '_' + ' metrics.json'
 

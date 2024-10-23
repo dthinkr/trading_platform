@@ -35,6 +35,7 @@ import shutil
 from collections import defaultdict
 import time
 import jwt
+import numpy as np
 
 app = FastAPI()
 security = HTTPBasic()
@@ -287,6 +288,31 @@ async def get_trader_info(trader_id: str):
         
         # Remove the trader-specific metrics from the general metrics
         general_metrics = {k: v for k, v in order_book_metrics.items() if k != f"'{trader_id}'"}
+        print(general_metrics)
+        print(trader_specific_metrics)
+
+
+        if trader.goal !=0 :
+            if trader.goal > 0:
+                trader_specific_metrics['Remaining_Trades'] = abs(abs(trader.goal) - abs(trader_specific_metrics['Trades']))
+                expenditure= trader_specific_metrics['VWAP'] * trader_specific_metrics['Trades']
+                total_expenditure = expenditure + trader_specific_metrics['Remaining_Trades'] * general_metrics['Last_Midprice'] * 1.5
+                trader_specific_metrics['Penalized_VWAP'] = total_expenditure/abs(trader.goal)
+                trader_specific_metrics['Slippage'] = -abs(general_metrics['Initial_Midprice'] - trader_specific_metrics['Penalized_VWAP']) / np.sqrt(abs(trader.goal))
+                trader_specific_metrics['PnL'] = '-'
+            else:
+                trader_specific_metrics['Remaining_Trades'] = abs(abs(trader.goal) - abs(trader_specific_metrics['Trades']))
+                expenditure= trader_specific_metrics['VWAP'] * trader_specific_metrics['Trades']
+                total_expenditure = expenditure + trader_specific_metrics['Remaining_Trades'] * general_metrics['Last_Midprice'] * 0.5
+                trader_specific_metrics['Penalized_VWAP'] = total_expenditure/abs(trader.goal)
+                trader_specific_metrics['Slippage'] = -abs(general_metrics['Initial_Midprice'] - trader_specific_metrics['Penalized_VWAP']) / np.sqrt(abs(trader.goal))
+                trader_specific_metrics['PnL'] = '-'
+        else:
+            trader_specific_metrics['Remaining_Trades'] = abs(trader_specific_metrics['Num_Sell'] - trader_specific_metrics['Num_Buy'])
+            trader_specific_metrics['VWAP'] = '-'
+            trader_specific_metrics['Penalized_VWAP'] = '-'
+            trader_specific_metrics['Slippage'] = '-'
+
     except Exception as e:
         general_metrics = {"error": "Unable to process log file"}
         trader_specific_metrics = {}
