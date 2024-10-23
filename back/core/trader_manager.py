@@ -70,8 +70,6 @@ class TraderManager:
             params=params
         )
 
-        print(f"Using duration to create trading session: {params['trading_day_duration']}")
-
     def _create_simple_order_traders(self, params):
         traders = []
         num_traders = params["num_simple_order_traders"]
@@ -145,17 +143,12 @@ class TraderManager:
         }
         self.traders[trader_id] = new_trader
         self.human_traders.append(new_trader)
-
-        print(f"Human trader {trader_id} added, now we have {len(self.human_traders)} human traders in session {self.trading_session.id}")
         return trader_id
 
     async def launch(self):
-        print("Starting launch process")
         await self.trading_session.initialize()
-        print("Trading session initialized")
 
         for trader_id, trader in self.traders.items():
-            print(f"Initializing trader: {trader_id}")
             await trader.initialize()
 
             if not isinstance(trader, HumanTrader):
@@ -163,36 +156,22 @@ class TraderManager:
                     trading_session_uuid=self.trading_session.id
                 )
 
-        print("Initializing order book")
         await self.book_initializer.initialize_order_book()
-        print("Order book initialized")
 
         self.trading_session.set_initialization_complete()
-        print("Trading session initialization complete")
 
-        print(f"Waiting for {self.params.num_human_traders} human traders to join")
         while len(self.human_traders) < self.params.num_human_traders:
-            print(f"Current human traders: {len(self.human_traders)} in session {self.trading_session.id}")
             await asyncio.sleep(1)
 
-        print("All required human traders have joined")
-
-        print("Starting trading")
         await self.trading_session.start_trading()
-        print(f"Trading started, the flag is {self.trading_session.trading_started}")
 
-        print("Creating trading session task")
         trading_session_task = asyncio.create_task(self.trading_session.run())
-        print("Creating trader tasks")
         trader_tasks = [asyncio.create_task(i.run()) for i in self.traders.values()]
 
         self.tasks.append(trading_session_task)
         self.tasks.extend(trader_tasks)
-        print(f"Created {len(self.tasks)} tasks")
 
-        print("Waiting for trading session task to complete")
         await trading_session_task
-        print("Trading session task completed")
 
     async def cleanup(self):
         await self.trading_session.clean_up()

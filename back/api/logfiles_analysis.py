@@ -271,6 +271,52 @@ def process_logfile(logfile_name):
     
     return message_df, all_metrics
 
+def is_jsonable(x):
+    try:
+        json.dumps(x)
+        return True
+    except (TypeError, OverflowError):
+        return False
+
+def calculate_trader_specific_metrics(trader_specific_metrics, general_metrics, trader_goal):
+    """Calculate trader-specific metrics based on trading activity and goals."""
+    if trader_goal != 0:
+        if trader_goal > 0:
+            remaining_trades = abs(abs(trader_goal) - abs(trader_specific_metrics['Trades']))
+            expenditure = trader_specific_metrics['VWAP'] * trader_specific_metrics['Trades']
+            total_expenditure = expenditure + remaining_trades * general_metrics['Last_Midprice'] * 1.5
+            penalized_vwap = total_expenditure/abs(trader_goal)
+            slippage = -abs(general_metrics['Initial_Midprice'] - penalized_vwap) / np.sqrt(abs(trader_goal))
+            
+            trader_specific_metrics.update({
+                'Remaining_Trades': remaining_trades,
+                'Penalized_VWAP': penalized_vwap,
+                'Slippage': slippage,
+                'PnL': '-'
+            })
+        else:
+            remaining_trades = abs(abs(trader_goal) - abs(trader_specific_metrics['Trades']))
+            expenditure = trader_specific_metrics['VWAP'] * trader_specific_metrics['Trades']
+            total_expenditure = expenditure + remaining_trades * general_metrics['Last_Midprice'] * 0.5
+            penalized_vwap = total_expenditure/abs(trader_goal)
+            slippage = -abs(general_metrics['Initial_Midprice'] - penalized_vwap) / np.sqrt(abs(trader_goal))
+            
+            trader_specific_metrics.update({
+                'Remaining_Trades': remaining_trades,
+                'Penalized_VWAP': penalized_vwap,
+                'Slippage': slippage,
+                'PnL': '-'
+            })
+    else:
+        trader_specific_metrics.update({
+            'Remaining_Trades': abs(trader_specific_metrics['Num_Sell'] - trader_specific_metrics['Num_Buy']),
+            'VWAP': '-',
+            'Penalized_VWAP': '-',
+            'Slippage': '-'
+        })
+    
+    return trader_specific_metrics
+
 if __name__ == '__main__':
     location = '/Users/marioljonuzaj/Desktop/'
     logfile_name = location + 'SESSION_1729076783_trading.log'  # Replace with your log file path
@@ -290,5 +336,7 @@ if __name__ == '__main__':
     
     
     
+
+
 
 
