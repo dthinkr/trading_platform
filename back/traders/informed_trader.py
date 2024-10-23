@@ -80,7 +80,7 @@ class InformedTrader(BaseTrader):
 
     def adjust_urgency(self):
         progress_difference = self.progress - self.target_progress
-
+        
         if progress_difference < -0.05:  # Behind schedule
             self.urgency_factor = min(2.0, self.urgency_factor * 1.1)
         elif progress_difference > 0.05:  # Ahead of schedule
@@ -234,6 +234,7 @@ class InformedTrader(BaseTrader):
             try:
                 await self.check()
                 await asyncio.sleep(self.check_frequency)
+                print(self.check_frequency)
                 # print(f"my {self.id} filled orders and my active orders are {self.filled_orders} and {self.orders}")
             except asyncio.CancelledError:
                 print("Run method cancelled, performing cleanup...")
