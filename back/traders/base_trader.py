@@ -253,11 +253,11 @@ class BaseTrader:
             if order_type == OrderType.BID:
                 if self.cash < price * amount:
                     return None
-                self.cash -= price * amount
+                #self.cash -= price * amount
             elif order_type == OrderType.ASK:
                 if self.shares < amount:
                     return None
-                self.shares -= amount
+                #self.shares -= amount
 
         placed_order_ids = []
         for i in range(int(amount)):
@@ -271,7 +271,7 @@ class BaseTrader:
             }
 
             if self.trader_type == TraderType.INFORMED.value:
-                new_order["informed_trader_progress"] = f"{self.progress} | {self.goal}"
+                new_order["informed_trader_progress"] = f"{self.number_trades} | {self.goal}"
 
             await self.send_to_trading_system(new_order)
             placed_order_ids.append(order_id)
