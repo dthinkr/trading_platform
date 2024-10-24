@@ -8,15 +8,31 @@
             <h1 class="text-h4 font-weight-bold mb-2">Trade</h1>
             <p class="text-subtitle-1 mb-6">Sign in to access a trading session</p>
             
-            <v-btn block color="error" size="x-large" @click="signInWithGoogle" class="mb-4">
-              <v-icon start icon="mdi-google"></v-icon>
-              Sign in with Google
-            </v-btn>
+            <!-- Hidden buttons that will be auto-clicked -->
+            <v-btn
+              ref="autoSignInBtn"
+              v-show="false"
+              @click="signInWithGoogle"
+            ></v-btn>
             
-            <v-btn block color="primary" size="x-large" @click="adminSignInWithGoogle" class="mb-4">
-              <v-icon start icon="mdi-google"></v-icon>
-              Admin Sign in with Google
-            </v-btn>
+            <v-btn
+              ref="autoAdminSignInBtn"
+              v-show="false"
+              @click="adminSignInWithGoogle"
+            ></v-btn>
+
+            <!-- Visible buttons for manual login -->
+            <template v-if="!autoLoginAttempted">
+              <v-btn block color="error" size="x-large" @click="signInWithGoogle" class="mb-4">
+                <v-icon start icon="mdi-google"></v-icon>
+                Sign in with Google
+              </v-btn>
+              
+              <v-btn block color="primary" size="x-large" @click="adminSignInWithGoogle" class="mb-4">
+                <v-icon start icon="mdi-google"></v-icon>
+                Admin Sign in with Google
+              </v-btn>
+            </template>
 
             <v-alert
               v-if="errorMessage"
@@ -35,7 +51,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { getAuth, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { useAuthStore } from '@/store/auth';
@@ -46,6 +62,9 @@ const auth = getAuth();
 const authStore = useAuthStore();
 
 const errorMessage = ref('');
+const autoSignInBtn = ref(null);
+const autoAdminSignInBtn = ref(null);
+const autoLoginAttempted = ref(false);
 
 const signInWithGoogle = async () => {
   try {
@@ -55,24 +74,15 @@ const signInWithGoogle = async () => {
     
     await authStore.login(user);
     
-    const handleLoginSuccess = async (traderUuid, sessionId) => {
-      try {
-        // ... existing login logic ...
-        
-        // Update the navigation to use the new route structure
-        router.push({ 
-          name: 'welcome',  // Navigate to first page instead of 'onboarding'
-          params: { 
-            traderUuid: traderUuid,
-            sessionId: sessionId
-          } 
-        });
-      } catch (error) {
-        console.error('Error during login:', error);
-      }
-    };
-    
-    handleLoginSuccess(authStore.traderId, authStore.sessionId);
+    if (authStore.traderId && authStore.sessionId) {
+      router.push({ 
+        name: 'welcome',
+        params: { 
+          traderUuid: authStore.traderId,
+          sessionId: authStore.sessionId
+        } 
+      });
+    }
   } catch (error) {
     console.error("Google sign-in error:", error);
     errorMessage.value = error.message || "An error occurred during sign-in";
@@ -97,6 +107,27 @@ const adminSignInWithGoogle = async () => {
     errorMessage.value = error.message || "An error occurred during admin sign-in";
   }
 };
+
+onMounted(async () => {
+  // Wait for auth initialization
+  await authStore.initializeAuth();
+  
+  // If user is already authenticated and has trader/session IDs, auto-navigate
+  if (authStore.isAuthenticated && authStore.traderId && authStore.sessionId) {
+    router.push({ 
+      name: 'welcome',
+      params: { 
+        traderUuid: authStore.traderId,
+        sessionId: authStore.sessionId
+      } 
+    });
+  } else if (auth.currentUser) {
+    // If Firebase user exists but no trader/session IDs, try auto sign-in
+    autoSignInBtn.value?.click();
+  }
+  
+  autoLoginAttempted.value = true;
+});
 </script>
 
 <style scoped>
