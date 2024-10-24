@@ -23,12 +23,12 @@ from firebase_admin import auth
 import secrets
 import traceback
 import json
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 import os
 from fastapi import HTTPException, Query, BackgroundTasks
 from fastapi.responses import FileResponse
 from pathlib import Path
-from typing import List
+from typing import List, Dict, Any
 from .google_sheet_auth import update_form_id, get_registered_users
 import zipfile
 import shutil
@@ -251,6 +251,57 @@ async def get_trader(trader_id: str, current_user: dict = Depends(get_current_us
     data["goal"] = trader_data["goal"]
     return {"status": "success", "message": "Trader found", "data": data}
 
+def get_trader_info_with_session_data(trader_manager: TraderManager, trader_id: str) -> Dict[str, Any]:
+    """Helper function to get trader info with additional session data"""
+    try:
+        trader = trader_manager.get_trader(trader_id)
+        if not trader:
+            raise HTTPException(status_code=404, detail="Trader not found")
+        
+        # Get base trader attributes
+        trader_data = trader.get_trader_params_as_dict()
+        
+        # Initialize all_attributes if it doesn't exist
+        if 'all_attributes' not in trader_data:
+            trader_data['all_attributes'] = {}
+            
+        # Extract gmail username from trader_id (format is "HUMAN_gmail_username")
+        gmail_username = trader_id.split("HUMAN_")[-1] if trader_id.startswith("HUMAN_") else None
+        
+        # Get historical sessions count from the global tracking
+        historical_sessions_count = len(user_historical_sessions.get(gmail_username, set()))
+        
+        # Get trading parameters
+        params = trader_manager.params.model_dump() if trader_manager.params else {}
+        
+        # Check if user is admin (safely get admin_users list)
+        admin_users = params.get('admin_users', [])
+        is_admin = gmail_username in admin_users if gmail_username else False
+        
+        # Add additional attributes
+        trader_data['all_attributes'].update({
+            'historical_sessions_count': historical_sessions_count,
+            'is_admin': is_admin,
+            'params': params
+        })
+        
+        # Add basic trader info if not present
+        if 'cash' not in trader_data:
+            trader_data['cash'] = getattr(trader, 'cash', 0)
+        if 'shares' not in trader_data:
+            trader_data['shares'] = getattr(trader, 'shares', 0)
+        if 'goal' not in trader_data:
+            trader_data['goal'] = getattr(trader, 'goal', 0)
+            
+        return trader_data
+        
+    except Exception as e:
+        print(f"Error in get_trader_info_with_session_data: {str(e)}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Error getting trader info: {str(e)}"
+        )
+
 @app.get("/trader_info/{trader_id}")
 async def get_trader_info(trader_id: str):
     print(f"Accessing trader info for trader_id: {trader_id}")
@@ -260,66 +311,50 @@ async def get_trader_info(trader_id: str):
         print(f"Trader manager not found for trader_id: {trader_id}")
         raise HTTPException(status_code=404, detail="Trader not found")
 
-    trader = trader_manager.get_trader(trader_id)
-
-    all_attributes = {
-        attr: getattr(trader, attr)
-        for attr in dir(trader)
-        if not attr.startswith('_') and not callable(getattr(trader, attr)) and attr != 'trading_session'
-    }
-    
-    serializable_attributes = {k: v for k, v in all_attributes.items() if is_jsonable(v)}
-
-    # Get the session ID for this trader
-    session_id = trader_to_session_lookup.get(trader_id)
-    
-    # Construct the log file path
-    log_file_path = os.path.join("logs", f"{session_id}_trading.log")
-    
-    # Get the order book metrics
     try:
-        order_book_metrics = order_book_contruction(log_file_path)
+        # Use the new helper function to get enhanced trader info
+        trader_data = get_trader_info_with_session_data(trader_manager, trader_id)
         
-        # Extract the specific trader's metrics
-        trader_specific_metrics = order_book_metrics.get(f"'{trader_id}'", {})
+        # Get the session ID for this trader
+        session_id = trader_to_session_lookup.get(trader_id)
         
-        # Remove the trader-specific metrics from the general metrics
-        general_metrics = {k: v for k, v in order_book_metrics.items() if k != f"'{trader_id}'"}
-        print(general_metrics)
-        print(trader_specific_metrics)
+        # Get the order book metrics
+        log_file_path = os.path.join("logs", f"{session_id}_trading.log")
+        
+        try:
+            order_book_metrics = order_book_contruction(log_file_path)
+            
+            # Extract the specific trader's metrics
+            trader_specific_metrics = order_book_metrics.get(f"'{trader_id}'", {})
+            
+            # Remove the trader-specific metrics from the general metrics
+            general_metrics = {k: v for k, v in order_book_metrics.items() if k != f"'{trader_id}'"}
 
-        # Calculate trader-specific metrics
-        trader_specific_metrics = calculate_trader_specific_metrics(
-            trader_specific_metrics, 
-            general_metrics, 
-            trader.goal
-        )
+            # Calculate trader-specific metrics
+            trader_specific_metrics = calculate_trader_specific_metrics(
+                trader_specific_metrics, 
+                general_metrics, 
+                trader_data.get('goal', 0)
+            )
 
+        except Exception as e:
+            general_metrics = {"error": "Unable to process log file"}
+            trader_specific_metrics = {}
+
+        return {
+            "status": "success",
+            "message": "Trader found",
+            "data": {
+                **trader_data,
+                "order_book_metrics": general_metrics,
+                "trader_specific_metrics": trader_specific_metrics
+            }
+        }
+        
     except Exception as e:
-        general_metrics = {"error": "Unable to process log file"}
-        trader_specific_metrics = {}
+        print(f"Error getting trader info: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error getting trader info: {str(e)}")
 
-    trader_info = {
-        "status": "success",
-        "message": "Trader found",
-        "data": {
-            "cash": trader.cash,
-            "goal": trader.goal,
-            "shares": trader.shares,
-            "orders": trader.orders,
-            "filled_orders": trader.filled_orders,
-            "placed_orders": trader.placed_orders,
-            "delta_cash": trader.delta_cash,
-            "initial_cash": trader.initial_cash,
-            "initial_shares": trader.initial_shares,
-            "all_attributes": serializable_attributes,
-            "order_book_metrics": general_metrics,
-            "trader_specific_metrics": trader_specific_metrics
-        },
-    }
-    
-    return trader_info
-    
 @app.get("/trader/{trader_id}/session")
 async def get_trader_session(trader_id: str, current_user: dict = Depends(get_current_user)):
     session_id = trader_to_session_lookup.get(trader_id)
@@ -725,7 +760,5 @@ async def get_user_role(current_user: dict = Depends(get_current_user)):
             "role": role
         }
     }
-
-
 
 

@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { auth } from '@/firebaseConfig';
+import router from '@/router';  // You'll need to export router from your router file
 
 const instance = axios.create({
   baseURL: import.meta.env.VITE_HTTP_URL,
@@ -33,19 +34,27 @@ instance.interceptors.request.use(async (config) => {
 
 instance.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     if (error.response) {
       if (error.response.status === 401) {
-        // Token expired or invalid, force refresh
-        return auth.currentUser?.getIdToken(true)
-          .then(token => {
+        // Check if user is logged in
+        if (auth.currentUser) {
+          try {
+            // Try to refresh token
+            const token = await auth.currentUser.getIdToken(true);
             error.config.headers.Authorization = `Bearer ${token}`;
             return axios(error.config);
-          })
-          .catch(refreshError => {
-            console.error('Token refresh failed:', refreshError);
+          } catch (refreshError) {
+            // If refresh fails, force logout
+            await auth.signOut();
+            router.push('/');
             return Promise.reject(error);
-          });
+          }
+        } else {
+          // No user logged in, redirect to login
+          router.push('/');
+          return Promise.reject(error);
+        }
       }
       if (error.response.status === 403 && error.response.data.detail.includes("Maximum number of sessions reached")) {
         error.message = "You have reached the maximum number of allowed sessions.";

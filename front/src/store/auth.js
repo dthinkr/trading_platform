@@ -63,11 +63,16 @@ export const useAuthStore = defineStore('auth', {
     },
 
     logout() {
+      // Clear all state
       this.user = null;
       this.isAdmin = false;
       this.traderId = null;
       this.sessionId = null;
       this.isPersisted = false;
+      this.isInitialized = false;  // Reset initialization state
+      
+      // Clear localStorage
+      localStorage.removeItem('auth');  // Remove persisted auth state
     },
   },
   getters: {

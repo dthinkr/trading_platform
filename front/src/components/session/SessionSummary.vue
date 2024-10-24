@@ -100,6 +100,19 @@
                   </div>
                 </div>
               </v-col>
+              <v-col cols="12">
+                <div class="metric-card pa-4 mb-4">
+                  <h3 class="text-h6 font-weight-medium mb-2">Session Progress</h3>
+                  <div class="d-flex justify-space-between align-center mb-2">
+                    <span class="text-subtitle-1">Current Session:</span>
+                    <span class="text-h6 font-weight-bold">{{ currentSession }}</span>
+                  </div>
+                  <div class="d-flex justify-space-between align-center">
+                    <span class="text-subtitle-1">Maximum Sessions:</span>
+                    <span class="text-h6 font-weight-bold">{{ maxSessionsDisplay }}</span>
+                  </div>
+                </div>
+              </v-col>
             </v-row>
           </v-card-text>
           <v-card-actions class="justify-center pa-6">
@@ -174,6 +187,17 @@ const downloadSessionMetrics = async () => {
     console.error('Failed to download session metrics:', error);
   }
 };
+
+const currentSession = computed(() => {
+  return traderInfo.value?.all_attributes?.historical_sessions_count || 1;
+});
+
+const maxSessionsDisplay = computed(() => {
+  if (traderInfo.value?.all_attributes?.is_admin) {
+    return '∞';
+  }
+  return traderInfo.value?.all_attributes?.params?.max_sessions_per_human || 'Loading...';
+});
 
 onMounted(() => {
   fetchTraderInfo();
