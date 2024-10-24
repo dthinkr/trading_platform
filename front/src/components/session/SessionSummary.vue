@@ -116,10 +116,19 @@
             </v-row>
           </v-card-text>
           <v-card-actions class="justify-center pa-6">
-            <v-btn color="primary" x-large @click="goToRegister" class="mr-4">
-              Return to Login
+            <v-btn
+              color="primary" 
+              x-large 
+              @click="goToRegister" 
+              class="mr-4"
+            >
+              {{ canContinue ? 'Continue to Next Session' : 'End of Sessions' }}
             </v-btn>
-            <v-btn color="secondary" x-large @click="downloadSessionMetrics">
+            <v-btn 
+              color="secondary" 
+              x-large 
+              @click="downloadSessionMetrics"
+            >
               Download Metrics
             </v-btn>
           </v-card-actions>
@@ -127,6 +136,16 @@
       </v-col>
     </v-row>
   </v-container>
+  <v-dialog v-model="showDialog" max-width="400">
+    <v-card>
+      <v-card-title class="headline">{{ dialogTitle }}</v-card-title>
+      <v-card-text>{{ dialogMessage }}</v-card-text>
+      <v-card-actions>
+        <v-spacer></v-spacer>
+        <v-btn color="primary" text @click="closeDialog">OK</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <script setup>
@@ -147,6 +166,9 @@ const traderInfo = ref(null);
 const orderBookMetrics = ref(null);
 const traderSpecificMetrics = ref(null);
 const httpUrl = import.meta.env.VITE_HTTP_URL;
+const showDialog = ref(false);
+const dialogTitle = ref('');
+const dialogMessage = ref('');
 
 async function fetchTraderInfo() {
   try {
@@ -169,24 +191,17 @@ const formatValue = (value, format) => {
 };
 
 const goToRegister = () => {
-  // Navigate to the Register page
   router.push({ name: 'Register', replace: true }).then(() => {
-    // After navigation is confirmed, refresh the Register page
     window.location.href = '/register';
   });
 };
 
-const downloadSessionMetrics = async () => {
-  try {
-    // Ensure the traderUuid is set in the store
-    traderStore.traderUuid = props.traderUuid;
-    
-    // Call the fetchSessionMetrics action from the store
-    await traderStore.fetchSessionMetrics();
-  } catch (error) {
-    console.error('Failed to download session metrics:', error);
-  }
-};
+const canContinue = computed(() => {
+  if (traderInfo.value?.all_attributes?.is_admin) return true;
+  const currentCount = traderInfo.value?.all_attributes?.historical_sessions_count || 1;
+  const maxSessions = traderInfo.value?.all_attributes?.params?.max_sessions_per_human || 4;
+  return currentCount < maxSessions;
+});
 
 const currentSession = computed(() => {
   return traderInfo.value?.all_attributes?.historical_sessions_count || 1;

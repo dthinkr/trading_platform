@@ -50,7 +50,7 @@
         </v-card>
       </div>
 
-      <div class="info-section">
+      <!-- <div class="info-section">
         <h2>
           <v-icon left :color="iconColor">mdi-information-outline</v-icon>
           Important Rules
@@ -81,7 +81,7 @@
             </v-card>
           </v-col>
         </v-row>
-      </div>
+      </div> -->
 
       <div class="button-group mt-6">
         <v-btn
