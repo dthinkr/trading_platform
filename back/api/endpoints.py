@@ -36,6 +36,7 @@ from collections import defaultdict
 import time
 import jwt
 import numpy as np
+import random
 
 app = FastAPI()
 security = HTTPBasic()
@@ -59,6 +60,9 @@ user_sessions = {}  # Maps username to their current session_id
 
 # Add this near the top of the file, with other global variables
 user_historical_sessions = defaultdict(set)
+
+# Add these near the top with other global variables
+user_roles = {}  # Maps username to their assigned role ('informed' or 'speculator')
 
 def get_historical_sessions_count(username):
     return len(user_historical_sessions[username])
@@ -360,13 +364,44 @@ async def root():
 async def find_or_create_session_and_assign_trader(gmail_username):
     global persistent_settings
     try:
-        available_session = next((s for s in trader_managers.values() if len(s.human_traders) < s.params.num_human_traders), None)
+        available_session = next((s for s in trader_managers.values() 
+                                if len(s.human_traders) < s.params.num_human_traders), None)
         
         if available_session is None:
             params = TradingParameters(**persistent_settings)
-            new_trader_manager = TraderManager(params)
+            new_trader_manager = TraderManager(params, user_roles)  # Pass user_roles here
             trader_managers[new_trader_manager.trading_session.id] = new_trader_manager
             available_session = new_trader_manager
+        
+        # Assign role before adding trader
+        role = assign_user_role(gmail_username)
+        
+        # Ensure one informed trader per session
+        current_informed_count = sum(1 for trader in available_session.human_traders 
+                                     if user_roles.get(trader.gmail_username) == 'informed')
+        
+        if role == 'informed' and current_informed_count >= 1:
+            # If the session already has an informed trader, reassign this user as a speculator
+            role = 'speculator'
+            user_roles[gmail_username] = role
+        
+        # Modify goals based on role
+        if role == 'informed':
+            # For informed traders, randomly assign positive or negative goal
+            goal_amount = available_session.params.human_goal_amount
+            goal = random.choice([goal_amount, -goal_amount])
+            
+            # Update the goals list in the session's parameters
+            current_traders = len(available_session.human_traders)
+            while len(available_session.params.human_goals) <= current_traders:
+                available_session.params.human_goals.append(0)  # Add placeholder goals
+            available_session.params.human_goals[current_traders] = goal
+        else:  # speculator
+            # For speculators, always set goal to 0
+            current_traders = len(available_session.human_traders)
+            while len(available_session.params.human_goals) <= current_traders:
+                available_session.params.human_goals.append(0)
+            available_session.params.human_goals[current_traders] = 0
         
         trader_id = await available_session.add_human_trader(gmail_username)
         session_id = available_session.trading_session.id
@@ -650,13 +685,39 @@ async def cleanup(session_id: str):
         del active_users[session_id]
     # ... (rest of the cleanup logic)
 
+def assign_user_role(username: str) -> str:
+    """
+    Assigns a role to a user if they don't have one, maintaining their existing role if they do.
+    Returns 'informed' or 'speculator'.
+    """
+    if username in user_roles:
+        return user_roles[username]
+    
+    # Count existing informed traders
+    informed_count = sum(1 for role in user_roles.values() if role == 'informed')
+    
+    # If we don't have any informed traders yet, make this user informed
+    if informed_count == 0:
+        user_roles[username] = 'informed'
+    else:
+        user_roles[username] = 'speculator'
+    
+    # No need to save roles to a file anymore
+    
+    return user_roles[username]
 
-
-
-
-
-
-
+# Add this endpoint to get user role information
+@app.get("/user/role")
+async def get_user_role(current_user: dict = Depends(get_current_user)):
+    gmail_username = current_user['gmail_username']
+    role = user_roles.get(gmail_username, 'unknown')
+    return {
+        "status": "success",
+        "data": {
+            "username": gmail_username,
+            "role": role
+        }
+    }
 
 
 

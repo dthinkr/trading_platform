@@ -38,7 +38,7 @@ class UserRegistration(BaseModel):
 
 class TradingParameters(BaseModel):
     num_human_traders: int = Field(
-        default=1,
+        default=2,
         title="Number of Human Traders",
         description="model_parameter",
         ge=1,  # Changed from ge=0 to ge=1 to ensure at least one human trader
@@ -210,16 +210,25 @@ class TradingParameters(BaseModel):
 
     @field_validator('human_goals')
     def validate_human_goals(cls, v, info):
-        num_traders = info.data.get('num_human_traders', 2)  # Default to 2 if not set
-        goal_amount = info.data.get('human_goal_amount', 60)
+        num_traders = info.data.get('num_human_traders', 2)
         if len(v) != num_traders:
-            return cls.generate_human_goals(num_traders, goal_amount)
+            # Only generate new goals if they haven't been set
+            return cls.generate_human_goals(num_traders, info.data.get('human_goal_amount', 60))
         return v
 
     @staticmethod
     def generate_human_goals(num_traders: int, goal_amount: int) -> List[int]:
-        """Generate human goals with equal probability of being positive, negative, or zero."""
-        return [random.choice([goal_amount, -goal_amount, 0]) for _ in range(num_traders)]
+        """
+        Generate human goals with exactly one informed trader and the rest as speculators.
+        This is a fallback method - goals should typically be set explicitly based on user roles.
+        """
+        goals = [0] * num_traders  # Initialize all traders as speculators
+        if num_traders > 0:
+            # Randomly select one trader to be informed
+            informed_index = random.randrange(num_traders)
+            # Randomly assign positive or negative goal to the informed trader
+            goals[informed_index] = random.choice([goal_amount, -goal_amount])
+        return goals
 
     def dump_params_by_description(self) -> dict:
         """Dump parameters into a dict of dict indexed by description."""
@@ -367,3 +376,4 @@ class Message:
             "timestamp": self.timestamp.isoformat(),
             "type": self.type
         }
+

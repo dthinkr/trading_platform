@@ -27,10 +27,11 @@ class TraderManager:
     human_traders = List[HumanTrader]
     noise_traders = List[NoiseTrader]
     informed_traders = List[InformedTrader]
+    user_roles: dict  # Store user_roles in the instance
 
-    def __init__(self, params: TradingParameters):
+    def __init__(self, params: TradingParameters, user_roles: dict):
         self.params = params
-        self.ensure_human_goals()
+        self.user_roles = user_roles  # Store user_roles in the instance
         
         # Ensure num_human_traders is at least 2
         self.params.num_human_traders = max(self.params.num_human_traders, 2)
@@ -112,29 +113,30 @@ class TraderManager:
             for i in range(n_informed_traders)
         ]
 
-    def ensure_human_goals(self):
-        if not self.params.human_goals or len(self.params.human_goals) < self.params.num_human_traders:
-            self.params.human_goals = TradingParameters.generate_human_goals(
-                self.params.num_human_traders, 
-                self.params.human_goal_amount
-            )
-
     async def add_human_trader(self, uid):
         if len(self.human_traders) >= self.params.num_human_traders:
             raise ValueError("Session is full")
         
         trader_id = f"HUMAN_{uid}"
         
-        self.ensure_human_goals()  # Ensure we have enough goals
-        goal_index = len(self.human_traders) % len(self.params.human_goals)
+        # Determine the goal based on the user's role
+        role = self.user_roles.get(uid, 'speculator')  # Use self.user_roles
+        if role == 'informed':
+            # For informed traders, use the goal assigned in endpoints.py
+            goal_index = len(self.human_traders) % len(self.params.human_goals)
+            goal = self.params.human_goals[goal_index]
+        else:
+            # For speculators, the goal is always 0
+            goal = 0
         
         new_trader = HumanTrader(
             id=trader_id,
             cash=self.params.initial_cash,
             shares=self.params.initial_stocks,
-            goal=self.params.human_goals[goal_index],
+            goal=goal,
             trading_session=self.trading_session,
-            params=self.params.model_dump()
+            params=self.params.model_dump(),
+            gmail_username=uid  # Pass the gmail_username here
         )
         self.trading_session.connected_traders[trader_id] = {
             "trader_type": TraderType.HUMAN,
