@@ -18,6 +18,7 @@
                   <router-view 
                     :traderAttributes="traderAttributes"
                     :iconColor="deepBlueColor"
+                    @update:canProgress="canProgressFromQuestions = $event"
                   />
                 </v-col>
               </v-row>
@@ -26,7 +27,13 @@
           <v-card-actions>
             <v-btn @click="prevPage" :disabled="isFirstPage">Previous</v-btn>
             <v-spacer></v-spacer>
-            <v-btn @click="nextPage" v-if="!isLastPage">Next</v-btn>
+            <v-btn 
+              @click="nextPage" 
+              v-if="!isLastPage"
+              :disabled="shouldDisableNext"
+            >
+              Next
+            </v-btn>
           </v-card-actions>
         </v-card>
       </v-col>
@@ -35,7 +42,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useTraderStore } from "@/store/app";
 import { storeToRefs } from "pinia";
 import { useRouter, useRoute } from 'vue-router';
@@ -97,6 +104,14 @@ const prevPage = () => {
   }
 };
 
+const canProgressFromQuestions = ref(false);
+const currentRouteName = computed(() => route.name);
+
+// Add this computed property to handle Next button disabled state
+const shouldDisableNext = computed(() => {
+  return currentRouteName.value === 'questions' && !canProgressFromQuestions.value;
+});
+
 onMounted(async () => {
   if (traderUuid.value && sessionId.value) {
     try {
@@ -104,10 +119,11 @@ onMounted(async () => {
       await traderStore.initializeTradingSystemWithPersistentSettings();
       await traderStore.getTraderAttributes(traderUuid.value);
       
-      // Redirect to first page if no specific page is selected
+      // Redirect based on whether this is a persisted login or not
       if (!route.name || route.name === 'onboarding') {
+        const targetRoute = authStore.isPersisted ? 'practice' : 'welcome';
         router.push({ 
-          name: 'welcome',
+          name: targetRoute,
           params: { sessionId: sessionId.value, traderUuid: traderUuid.value }
         });
       }
@@ -116,6 +132,13 @@ onMounted(async () => {
     }
   } else {
     console.error("Trader UUID or Session ID not provided");
+  }
+});
+
+// Reset canProgressFromQuestions when leaving questions page
+watch(currentRouteName, (newRoute, oldRoute) => {
+  if (oldRoute === 'questions') {
+    canProgressFromQuestions.value = false;
   }
 });
 

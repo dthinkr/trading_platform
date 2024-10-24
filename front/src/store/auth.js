@@ -10,6 +10,7 @@ export const useAuthStore = defineStore('auth', {
     traderId: null,
     sessionId: null,
     isInitialized: false,
+    isPersisted: false,  // Add this new state property
   }),
   actions: {
     async initializeAuth() {
@@ -17,13 +18,16 @@ export const useAuthStore = defineStore('auth', {
         onAuthStateChanged(auth, async (user) => {
           if (user) {
             try {
+              this.isPersisted = true;  // Set this flag for persisted logins
               await this.login(user, true);
             } catch (error) {
               console.error('Auto-login failed:', error);
               this.user = null;
+              this.isPersisted = false;
             }
           } else {
             this.user = null;
+            this.isPersisted = false;
           }
           this.isInitialized = true;
           resolve();
@@ -38,6 +42,9 @@ export const useAuthStore = defineStore('auth', {
         this.isAdmin = response.data.data.is_admin;
         this.traderId = response.data.data.trader_id;
         this.sessionId = response.data.data.session_id;
+        if (!isAutoLogin) {
+          this.isPersisted = false;  // Reset the flag for new logins
+        }
       } catch (error) {
         console.error('Login error:', error);
         throw new Error(error.message || 'Failed to login');
@@ -60,6 +67,7 @@ export const useAuthStore = defineStore('auth', {
       this.isAdmin = false;
       this.traderId = null;
       this.sessionId = null;
+      this.isPersisted = false;
     },
   },
   getters: {
@@ -70,7 +78,7 @@ export const useAuthStore = defineStore('auth', {
     strategies: [
       {
         storage: localStorage,
-        paths: ['isAdmin', 'traderId', 'sessionId']
+        paths: ['isAdmin', 'traderId', 'sessionId', 'isPersisted']  // Add isPersisted to persisted paths
       }
     ]
   }
