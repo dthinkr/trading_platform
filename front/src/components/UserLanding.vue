@@ -9,14 +9,13 @@
                 <v-col cols="12">
                   <div class="info-section mb-6">
                     <h2 class="text-h4 font-weight-bold primary--text">
-                      <v-icon left color="light-blue" large>{{ pageIcons[currentPageIndex] }}</v-icon>
-                      {{ pageTitles[currentPageIndex] }}
+                      <v-icon left color="light-blue" large>{{ currentPageIcon }}</v-icon>
+                      {{ currentPageTitle }}
                     </h2>
                   </div>
                 </v-col>
                 <v-col cols="12">
-                  <component 
-                    :is="pageComponents[currentPageIndex]" 
+                  <router-view 
                     :traderAttributes="traderAttributes"
                     :iconColor="deepBlueColor"
                   />
@@ -25,9 +24,9 @@
             </v-container>
           </v-card-text>
           <v-card-actions>
-            <v-btn @click="prevPage" :disabled="currentPageIndex === 0">Previous</v-btn>
+            <v-btn @click="prevPage" :disabled="isFirstPage">Previous</v-btn>
             <v-spacer></v-spacer>
-            <v-btn @click="nextPage" v-if="currentPageIndex < pageComponents.length - 1">Next</v-btn>
+            <v-btn @click="nextPage" v-if="!isLastPage">Next</v-btn>
           </v-card-actions>
         </v-card>
       </v-col>
@@ -42,14 +41,6 @@ import { storeToRefs } from "pinia";
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '@/store/auth';
 
-import Page1 from './pages/1.vue';
-import Page2 from './pages/2.vue';
-import Page3 from './pages/3.vue';
-import Page4 from './pages/4.vue';
-import Page6 from './pages/6.vue';
-import Page7 from './pages/7.vue';
-import Page8 from './pages/8.vue';
-
 const router = useRouter();
 const route = useRoute();
 const authStore = useAuthStore();
@@ -60,13 +51,51 @@ const { initializeTrader } = traderStore;
 
 const traderUuid = ref(route.params.traderUuid);
 const sessionId = ref(route.params.sessionId);
-const duration = ref(parseInt(route.params.duration) || 5);
-const numRounds = ref(parseInt(route.params.numRounds) || 3);
 
-const playerGoal = computed(() => {
-  const trader = tradingSessionData.value?.human_traders?.find(t => t.id === traderUuid.value);
-  return trader ? trader.goal : '';
+const pages = [
+  { name: 'welcome', title: 'Welcome', icon: 'mdi-handshake' },
+  { name: 'platform', title: 'Trading Platform', icon: 'mdi-monitor' },
+  { name: 'setup', title: 'Setup', icon: 'mdi-cog' },
+  { name: 'earnings', title: 'Your Earnings', icon: 'mdi-cash' },
+  { name: 'participants', title: 'Other Participants', icon: 'mdi-account-group' },
+  { name: 'questions', title: 'Control Questions', icon: 'mdi-help-circle' },
+  { name: 'practice', title: 'Practice', icon: 'mdi-school' },
+];
+
+const currentPageIndex = computed(() => {
+  return pages.findIndex(page => page.name === route.name);
 });
+
+const currentPageTitle = computed(() => {
+  return pages[currentPageIndex.value]?.title || '';
+});
+
+const currentPageIcon = computed(() => {
+  return pages[currentPageIndex.value]?.icon || '';
+});
+
+const isFirstPage = computed(() => currentPageIndex.value === 0);
+const isLastPage = computed(() => currentPageIndex.value === pages.length - 1);
+
+const nextPage = () => {
+  if (!isLastPage.value) {
+    const nextPageName = pages[currentPageIndex.value + 1].name;
+    router.push({ 
+      name: nextPageName,
+      params: { sessionId: sessionId.value, traderUuid: traderUuid.value }
+    });
+  }
+};
+
+const prevPage = () => {
+  if (!isFirstPage.value) {
+    const prevPageName = pages[currentPageIndex.value - 1].name;
+    router.push({ 
+      name: prevPageName,
+      params: { sessionId: sessionId.value, traderUuid: traderUuid.value }
+    });
+  }
+};
 
 onMounted(async () => {
   if (traderUuid.value && sessionId.value) {
@@ -74,6 +103,14 @@ onMounted(async () => {
       await initializeTrader(traderUuid.value);
       await traderStore.initializeTradingSystemWithPersistentSettings();
       await traderStore.getTraderAttributes(traderUuid.value);
+      
+      // Redirect to first page if no specific page is selected
+      if (!route.name || route.name === 'onboarding') {
+        router.push({ 
+          name: 'welcome',
+          params: { sessionId: sessionId.value, traderUuid: traderUuid.value }
+        });
+      }
     } catch (error) {
       console.error("Error initializing trader:", error);
     }
@@ -82,54 +119,9 @@ onMounted(async () => {
   }
 });
 
-const currentPageIndex = ref(0);
-
-const pageComponents = [
-  Page1,
-  Page2,
-  Page3,
-  Page4,
-  Page6,
-  Page7,
-  Page8,
-].filter(component => component);
-
-const pageTitles = [
-  "Welcome",
-  "Trading Platform",
-  "Setup",
-  "Your Earnings",
-  "Other Participants in the Market",
-  "Control Questions",
-  "Practice"
-];
-
-const pageIcons = [
-  "mdi-handshake",
-  "mdi-monitor", // Changed from "mdi-desktop-mac" to "mdi-monitor"
-  "mdi-cog",
-  "mdi-cash",
-  "mdi-account-group",
-  "mdi-help-circle",
-  "mdi-school"
-];
-
 // Define colors
 const lightBlueColor = ref('light-blue');
 const deepBlueColor = ref('deep-blue');
-
-const nextPage = () => {
-  if (currentPageIndex.value < pageComponents.length - 1) {
-    currentPageIndex.value++;
-  }
-};
-
-const prevPage = () => {
-  if (currentPageIndex.value > 0) {
-    currentPageIndex.value--;
-  }
-};
-
 </script>
 
 <style>

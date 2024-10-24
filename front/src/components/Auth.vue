@@ -55,13 +55,24 @@ const signInWithGoogle = async () => {
     
     await authStore.login(user);
     
-    router.push({
-      name: 'onboarding',
-      params: { 
-        traderUuid: authStore.traderId,
-        sessionId: authStore.sessionId
+    const handleLoginSuccess = async (traderUuid, sessionId) => {
+      try {
+        // ... existing login logic ...
+        
+        // Update the navigation to use the new route structure
+        router.push({ 
+          name: 'welcome',  // Navigate to first page instead of 'onboarding'
+          params: { 
+            traderUuid: traderUuid,
+            sessionId: sessionId
+          } 
+        });
+      } catch (error) {
+        console.error('Error during login:', error);
       }
-    });
+    };
+    
+    handleLoginSuccess(authStore.traderId, authStore.sessionId);
   } catch (error) {
     console.error("Google sign-in error:", error);
     errorMessage.value = error.message || "An error occurred during sign-in";
