@@ -33,28 +33,14 @@
         <p>In the following pages, you will learn more about the trading platform and how to trade.</p>
       </div>
     </div>
-
-    <v-btn
-      @click="startTrading"
-      :loading="isLoading"
-      :disabled="!canStartTrading"
-      class="start-button mt-6"
-    >
-      <v-icon left>mdi-play-circle-outline</v-icon>
-      {{ startButtonText }}
-    </v-btn>
   </div>
 </template>
 
 <script setup>
-import { useRouter } from 'vue-router';
+import { computed } from 'vue';
 import { useTraderStore } from "@/store/app";
-import { computed, ref } from 'vue';
 
-const router = useRouter();
 const traderStore = useTraderStore();
-
-const isLoading = ref(false);
 
 const marketDuration = computed(() => {
   return traderStore.traderAttributes?.all_attributes?.params?.trading_day_duration || 0;
@@ -63,33 +49,6 @@ const marketDuration = computed(() => {
 const numMarkets = computed(() => {
   return traderStore.traderAttributes?.all_attributes?.params?.max_sessions_per_human || 0;
 });
-
-const canStartTrading = computed(() => {
-  return !!traderStore.traderAttributes?.all_attributes?.params;
-});
-
-const startButtonText = computed(() => {
-  return isLoading.value ? 'Starting...' : 'Start Trading';
-});
-
-const startTrading = async () => {
-  if (!canStartTrading.value) {
-    console.error('Cannot start trading: parameters are not available');
-    return;
-  }
-
-  isLoading.value = true;
-  try {
-    await traderStore.initializeTradingSystemWithPersistentSettings();
-    await traderStore.getTraderAttributes(traderStore.traderUuid);
-    await traderStore.startTradingSession();
-    router.push({ name: 'trading', params: { traderUuid: traderStore.traderUuid } });
-  } catch (error) {
-    console.error('Failed to initialize trading system:', error);
-  } finally {
-    isLoading.value = false;
-  }
-};
 </script>
 
 <style scoped>

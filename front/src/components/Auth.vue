@@ -75,13 +75,24 @@ const signInWithGoogle = async () => {
     await authStore.login(user);
     
     if (authStore.traderId && authStore.sessionId) {
-      router.push({ 
-        name: 'welcome',
-        params: { 
-          traderUuid: authStore.traderId,
-          sessionId: authStore.sessionId
-        } 
-      });
+      // Check if this is a persisted login
+      if (authStore.isPersisted) {
+        router.push({ 
+          name: 'practice',  // Go directly to practice page
+          params: { 
+            traderUuid: authStore.traderId,
+            sessionId: authStore.sessionId
+          } 
+        });
+      } else {
+        router.push({ 
+          name: 'welcome',  // New users start from welcome page
+          params: { 
+            traderUuid: authStore.traderId,
+            sessionId: authStore.sessionId
+          } 
+        });
+      }
     }
   } catch (error) {
     console.error("Google sign-in error:", error);
@@ -115,7 +126,7 @@ onMounted(async () => {
   // If user is already authenticated and has trader/session IDs, auto-navigate
   if (authStore.isAuthenticated && authStore.traderId && authStore.sessionId) {
     router.push({ 
-      name: 'welcome',
+      name: 'practice',  // Changed from 'welcome' to 'practice'
       params: { 
         traderUuid: authStore.traderId,
         sessionId: authStore.sessionId
