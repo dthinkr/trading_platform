@@ -9,6 +9,18 @@
               Trading Session Configuration
             </v-card-title>
             
+            <v-card-subtitle class="py-2">
+              <v-chip
+                small
+                outlined
+                color="error"
+                class="mr-2"
+              >
+                <v-icon left small color="error">mdi-information-outline</v-icon>
+                Highlighted fields in red indicate treatment values that differ from defaults
+              </v-chip>
+            </v-card-subtitle>
+            
             <v-card-text>
               <v-form>
                 <div class="parameter-grid">
@@ -29,6 +41,7 @@
                             outlined
                             hide-details="auto"
                             class="mb-2 short-input"
+                            :class="getFieldStyle(field.name)"
                             @input="updatePersistentSettings"
                           ></v-text-field>
                           <v-text-field
@@ -39,6 +52,7 @@
                             outlined
                             hide-details="auto"
                             class="mb-2 short-input"
+                            :class="getFieldStyle(field.name)"
                             @input="handleArrayInput(field.name, $event)"
                           ></v-text-field>
                         </v-col>
@@ -259,6 +273,28 @@ const downloadAllFiles = async () => {
   } catch (error) {
     console.error("Error downloading all files:", error);
   }
+};
+
+// Add this computed property in the script section after other computed properties:
+const getFieldStyle = (fieldName) => {
+  const defaultValue = formFields.value.find(f => f.name === fieldName)?.default;
+  const currentValue = formState.value[fieldName];
+  
+  // Check if the values are different, handling different types
+  const isDifferent = (() => {
+    // Handle array type fields
+    if (Array.isArray(defaultValue) || Array.isArray(currentValue)) {
+      return JSON.stringify(defaultValue) !== JSON.stringify(currentValue);
+    }
+    // Handle number type fields
+    if (typeof defaultValue === 'number' || typeof currentValue === 'number') {
+      return Number(defaultValue) !== Number(currentValue);
+    }
+    // Handle other types
+    return defaultValue !== currentValue;
+  })();
+
+  return isDifferent ? 'treatment-value' : '';
 };
 
 onMounted(fetchData);
@@ -483,4 +519,24 @@ onMounted(fetchData);
   padding: 8px 12px;
   border-top: 1px solid #eee;
 }
+
+.treatment-value {
+  background-color: rgba(244, 67, 54, 0.05) !important; /* Light red background */
+}
+
+.treatment-value :deep(.v-input__slot) {
+  border: 2px solid #f44336 !important; /* Red border */
+}
+
+.treatment-value :deep(.v-label) {
+  color: #f44336 !important; /* Red label */
+  font-weight: 600;
+}
+
+.treatment-value :deep(input) {
+  color: #f44336 !important; /* Red text */
+  font-weight: 600;
+}
 </style>
+
+
