@@ -14,18 +14,18 @@ class InformedTrader(BaseTrader):
         params: dict,
     ):
         super().__init__(trader_type=TraderType.INFORMED, id=id)
-        self.default_price = params.get("default_price", 2000)
-        self.informed_edge = params.get("informed_edge", 5)
-        self.next_sleep_time = params.get("noise_activity_frequency", 1)
+        self.default_price = params.get("default_price", 100)
+        self.informed_edge = params.get("informed_edge", 2)
         self.params = params
-
         self.informed_order_book_levels = params.get("informed_order_book_levels", 3)
         self.informed_order_book_depth = params.get("informed_order_book_depth", 10)
-
         self.goal = self.initialize_inventory(params)
+        #self.urgency_factor = params.get("informed_urgency_factor", 1.0)
+        self.next_sleep_time = params.get("trading_day_duration",5) * 60 / self.goal
+        self.shares_traded = 0
+        print(f'\033[91mInformed trader params are {self.params}\033[0m')
 
-        self.check_frequency = 1  # Check every second
-        self.urgency_factor = params.get("informed_urgency_factor", 1.0)
+        
 
     @property
     def outstanding_levels(self) -> dict:
@@ -92,7 +92,7 @@ class InformedTrader(BaseTrader):
     def initialize_inventory(self, params: dict) -> int:
         expected_noise_amount_per_action = (1 + params["max_order_amount"]) / 2
         expected_noise_number_of_actions = (
-            params["trading_day_duration"] * 60 / params["noise_activity_frequency"]
+            params["trading_day_duration"] * 60 * params["noise_activity_frequency"]
         )
         expected_noise_volume = (
             expected_noise_amount_per_action
@@ -103,18 +103,11 @@ class InformedTrader(BaseTrader):
 
         goal = int((x / (1 - x)) * expected_noise_volume)
 
-        adjusted_inventory_accounting_for_passive_orders = (
-            goal + self.informed_order_book_levels * self.informed_order_book_depth * 10
-        )
-
         if params["informed_trade_direction"] == TradeDirection.BUY:
             self.shares = 0
-            self.cash = (
-                adjusted_inventory_accounting_for_passive_orders
-                * params["default_price"]
-            )
+            self.cash = goal * params["default_price"] * 2
         else:
-            self.shares = adjusted_inventory_accounting_for_passive_orders
+            self.shares = goal
             self.cash = 0
 
         return goal
@@ -143,6 +136,7 @@ class InformedTrader(BaseTrader):
     ) -> str:
         if order_side == OrderType.BID:
             proposed_price = top_bid + self.informed_edge
+            
         else:  # OrderType.ASK
             proposed_price = top_ask - self.informed_edge
 
@@ -164,11 +158,24 @@ class InformedTrader(BaseTrader):
     def get_best_price(self, order_side: OrderType) -> float:
         if order_side == OrderType.BID:
             bids = self.order_book.get("bids", [])
-            return max(bid["x"] for bid in bids) if bids else self.default_price
+            return max(bid["x"] for bid in bids) if bids else None
         else:  # OrderType.ASK
             asks = self.order_book.get("asks", [])
-            return min(ask["x"] for ask in asks) if asks else float("inf")
+            return min(ask["x"] for ask in asks) if asks else None
 
+    def calculate_spread(self,top_bid_price, top_ask_price):
+        if top_bid_price is None or top_ask_price is None:
+            spread = float('Inf')
+        else:
+            spread = top_ask_price - top_bid_price
+            
+        return spread
+
+    def calculate_sleep_time(self,remaining_time,number_trades,goal):
+        sleep_time = max(1,(remaining_time - 5) / (goal - number_trades))
+        return sleep_time
+        
+    
     async def manage_passive_orders(self):
         trade_direction = self.params["informed_trade_direction"]
         order_side = (
@@ -204,37 +211,46 @@ class InformedTrader(BaseTrader):
 
     async def check(self) -> None:
         remaining_time = self.get_remaining_time()
-        if remaining_time <= 0 or self.progress >= 1:
-            await self.cancel_all_outstanding_orders()
-            # print("Informed trader is done trading with progress: ", self.progress)
+        self.number_trades = len(self.filled_orders)
+
+        if remaining_time < 5 or (abs(self.goal - self.number_trades) == 0):
             return
 
-        self.adjust_urgency()
-        await self.manage_passive_orders()
 
         trade_direction = self.params["informed_trade_direction"]
         order_side = OrderType.BID if trade_direction == TradeDirection.BUY else OrderType.ASK
 
-        top_bid = self.get_best_price(OrderType.BID)
-        top_ask = self.get_best_price(OrderType.ASK)
+        top_bid_price = self.get_best_price(OrderType.BID)
+        top_ask_price = self.get_best_price(OrderType.ASK)
+        
+        spread = self.calculate_spread(top_bid_price,top_ask_price)
+        
 
-        # Adjust aggressive order placement based on urgency
-        if self.should_place_aggressive_order(order_side, top_bid, top_ask):
-            aggressive_order_count = max(1, int(self.urgency_factor * 2))
-            for _ in range(aggressive_order_count):
-                await self.place_aggressive_order(order_side, top_bid, top_ask)
+        if order_side == OrderType.BID:
+            if spread <= self.informed_edge:
+                price_to_send = top_ask_price
+                amount = 1
+                await self.post_new_order(amount, price_to_send, order_side)
+        else:
+            if spread <= self.informed_edge:
+                price_to_send = top_bid_price
+                amount = 1
+                await self.post_new_order(amount, price_to_send, order_side)
+        
+        self.number_trades = sum(order['amount'] for order in self.filled_orders)
 
-        # print(f"Urgency factor: {self.urgency_factor}")
-        # print(f"Progress: {self.progress}")
-        # print(f"Outstanding levels: {self.outstanding_levels}")
-        # print(f"Desired levels: {self.order_placement_levels}")
+        self.next_sleep_time = self.calculate_sleep_time(remaining_time, self.number_trades, self.goal)
+
+        #print(f'\033[91m total number of trades is {self.number_trades}\033[0m')
+        #print(f'\033[91m self shares is {self.shares}\033[0m')
+        #print(f'\033[91m self cash is {self.cash}\033[0m')
+        
 
     async def run(self) -> None:
         while not self._stop_requested.is_set():
             try:
                 await self.check()
-                await asyncio.sleep(self.check_frequency)
-                print(self.check_frequency)
+                await asyncio.sleep(self.next_sleep_time)
                 # print(f"my {self.id} filled orders and my active orders are {self.filled_orders} and {self.orders}")
             except asyncio.CancelledError:
                 print("Run method cancelled, performing cleanup...")
