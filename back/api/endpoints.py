@@ -364,6 +364,12 @@ async def root():
 async def find_or_create_session_and_assign_trader(gmail_username):
     global persistent_settings
     try:
+        # Check if the user is already in an active session
+        if gmail_username in user_sessions:
+            session_id = user_sessions[gmail_username]
+            trader_id = f"HUMAN_{gmail_username}"
+            return session_id, trader_id
+
         available_session = next((s for s in trader_managers.values() 
                                 if len(s.human_traders) < s.params.num_human_traders), None)
         
@@ -407,6 +413,7 @@ async def find_or_create_session_and_assign_trader(gmail_username):
         session_id = available_session.trading_session.id
         
         trader_to_session_lookup[trader_id] = session_id
+        user_sessions[gmail_username] = session_id  # Track the user's session
         
         return session_id, trader_id
     except Exception as e:
@@ -718,6 +725,7 @@ async def get_user_role(current_user: dict = Depends(get_current_user)):
             "role": role
         }
     }
+
 
 
 
