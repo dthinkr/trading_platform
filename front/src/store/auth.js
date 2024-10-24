@@ -1,5 +1,7 @@
 import { defineStore } from 'pinia';
 import axios from '@/api/axios';
+import { auth } from '@/firebaseConfig';
+import { onAuthStateChanged } from 'firebase/auth';
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -7,9 +9,29 @@ export const useAuthStore = defineStore('auth', {
     isAdmin: false,
     traderId: null,
     sessionId: null,
+    isInitialized: false,
   }),
   actions: {
-    async login(user) {
+    async initializeAuth() {
+      return new Promise((resolve) => {
+        onAuthStateChanged(auth, async (user) => {
+          if (user) {
+            try {
+              await this.login(user, true);
+            } catch (error) {
+              console.error('Auto-login failed:', error);
+              this.user = null;
+            }
+          } else {
+            this.user = null;
+          }
+          this.isInitialized = true;
+          resolve();
+        });
+      });
+    },
+    
+    async login(user, isAutoLogin = false) {
       try {
         const response = await axios.post('/user/login');
         this.user = user;
@@ -21,6 +43,7 @@ export const useAuthStore = defineStore('auth', {
         throw new Error(error.message || 'Failed to login');
       }
     },
+
     async adminLogin(user) {
       try {
         const response = await axios.post('/admin/login');
@@ -31,6 +54,7 @@ export const useAuthStore = defineStore('auth', {
         throw new Error(error.message || 'Failed to login as admin');
       }
     },
+
     logout() {
       this.user = null;
       this.isAdmin = false;
@@ -40,5 +64,14 @@ export const useAuthStore = defineStore('auth', {
   },
   getters: {
     isAuthenticated: (state) => !!state.user,
+  },
+  persist: {
+    enabled: true,
+    strategies: [
+      {
+        storage: localStorage,
+        paths: ['isAdmin', 'traderId', 'sessionId']
+      }
+    ]
   }
 });
