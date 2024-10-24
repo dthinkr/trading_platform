@@ -1,9 +1,9 @@
 <template>
   <div class="session-creator">
     <v-container fluid class="pa-4">
-      <v-row>
-        <v-col cols="12" md="8">
-          <v-card class="mb-4" elevation="2">
+      <v-row class="mb-4">
+        <v-col cols="12">
+          <v-card elevation="2">
             <v-card-title class="headline">
               <v-icon left color="deep-blue">mdi-cog-outline</v-icon>
               Trading Session Configuration
@@ -127,7 +127,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
 import { useTraderStore } from "@/store/app";
-import axios from 'axios';
+import axios from '@/api/axios';  // Use our custom axios instance instead of the default one
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
 
@@ -207,6 +207,7 @@ const updatePersistentSettings = async () => {
 const saveSettings = async () => {
   try {
     await updatePersistentSettings();
+    
     console.log("Settings saved successfully");
   } catch (error) {
     console.error("Error saving settings:", error);
@@ -402,5 +403,84 @@ onMounted(fetchData);
 
 .download-all-btn .v-icon {
   font-size: 1.5rem !important;
+}
+
+.v-chip {
+  font-family: 'Inter', sans-serif !important;
+}
+
+.treatment-changes {
+  background-color: #f5f5f5;
+  border-radius: 4px;
+  padding: 8px;
+}
+
+.treatments-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 8px;
+}
+
+.treatment-card {
+  flex: 0 0 300px;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  border: 2px solid transparent;
+}
+
+.treatment-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.treatment-card-active {
+  border-color: var(--v-primary-base);
+  background-color: rgba(var(--v-primary-base), 0.05);
+}
+
+.treatment-title {
+  font-size: 1rem;
+  padding: 12px;
+}
+
+.treatment-changes {
+  padding: 8px 12px;
+}
+
+.change-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+  font-size: 0.9rem;
+}
+
+.change-field {
+  font-weight: 500;
+  color: #666;
+}
+
+.change-value {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.old-value {
+  color: #999;
+  text-decoration: line-through;
+}
+
+.new-value {
+  color: var(--v-primary-base);
+  font-weight: 500;
+}
+
+.treatment-timestamp {
+  font-size: 0.8rem;
+  color: #999;
+  padding: 8px 12px;
+  border-top: 1px solid #eee;
 }
 </style>

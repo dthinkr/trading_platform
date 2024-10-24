@@ -23,6 +23,33 @@
         ></v-data-table>
       </div>
 
+      <div class="info-section mt-4">
+        <h2>
+          <v-icon left :color="iconColor">mdi-progress-check</v-icon>
+          Session Progress
+        </h2>
+        <v-card outlined class="progress-card">
+          <v-card-text>
+            <div class="d-flex justify-space-between align-center">
+              <span class="text-subtitle-1">Current Session:</span>
+              <span class="text-h6 font-weight-bold">{{ currentSession }}</span>
+            </div>
+            <div class="d-flex justify-space-between align-center mt-2">
+              <span class="text-subtitle-1">Maximum Sessions:</span>
+              <span class="text-h6 font-weight-bold">{{ maxSessionsDisplay }}</span>
+            </div>
+            <v-progress-linear
+              v-if="!isAdmin"
+              :value="sessionProgress"
+              height="10"
+              rounded
+              class="mt-4"
+              color="primary"
+            ></v-progress-linear>
+          </v-card-text>
+        </v-card>
+      </div>
+
       <div class="info-section">
         <h2>
           <v-icon left :color="iconColor">mdi-information-outline</v-icon>
@@ -56,15 +83,29 @@
         </v-row>
       </div>
 
-      <v-btn
-        @click="startTrading"
-        :loading="isLoading"
-        :disabled="!canStartTrading"
-        class="start-button mt-6"
-      >
-        <v-icon left>mdi-play-circle-outline</v-icon>
-        {{ startButtonText }}
-      </v-btn>
+      <div class="button-group mt-6">
+        <v-btn
+          @click="startTrading"
+          :loading="isLoading"
+          :disabled="!canStartTrading"
+          class="start-button mb-2"
+        >
+          <v-icon left>mdi-play-circle-outline</v-icon>
+          {{ startButtonText }}
+        </v-btn>
+
+        <v-btn
+          @click="handleLogout"
+          color="error"
+          variant="text"
+          class="logout-button"
+          :disabled="isLoading"
+          size="small"
+        >
+          <v-icon left small>mdi-logout</v-icon>
+          Logout
+        </v-btn>
+      </div>
     </div>
   </div>
 </template>
@@ -74,6 +115,8 @@ import { computed, ref } from 'vue';
 import { useTraderStore } from "@/store/app";
 import { storeToRefs } from "pinia";
 import { useRouter, useRoute } from 'vue-router';
+import { useAuthStore } from "@/store/auth";
+import { auth } from "@/firebaseConfig";
 
 const router = useRouter();
 const route = useRoute();
@@ -152,6 +195,47 @@ const startTrading = async () => {
     isLoading.value = false;
   }
 };
+
+const authStore = useAuthStore();
+
+const handleLogout = async () => {
+  try {
+    // Sign out from Firebase
+    await auth.signOut();
+    // Clear auth store state
+    authStore.logout();
+    // Clear trader store state
+    traderStore.$reset();
+    // Redirect to registration page
+    router.push('/');
+  } catch (error) {
+    console.error('Logout failed:', error);
+  }
+};
+
+const currentSession = computed(() => {
+  return props.traderAttributes?.all_attributes?.historical_sessions_count || 1;
+});
+
+const maxSessionsPerHuman = computed(() => {
+  return props.traderAttributes?.all_attributes?.params?.max_sessions_per_human || 4;
+});
+
+const isAdmin = computed(() => {
+  return props.traderAttributes?.all_attributes?.is_admin || false;
+});
+
+const maxSessionsDisplay = computed(() => {
+  if (isAdmin.value) {
+    return '∞';
+  }
+  return maxSessionsPerHuman.value;
+});
+
+const sessionProgress = computed(() => {
+  if (isAdmin.value) return 100;
+  return (currentSession.value / maxSessionsPerHuman.value) * 100;
+});
 </script>
 
 <style scoped>
@@ -170,5 +254,39 @@ const startTrading = async () => {
 .start-button:hover {
   background-color: #45a049 !important;
   box-shadow: 0 4px 8px rgba(76, 175, 80, 0.3);
+}
+
+.button-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+}
+
+.logout-button {
+  width: auto !important;
+  height: auto !important;
+  font-size: 0.875rem !important;
+  font-weight: 400 !important;
+  text-transform: none;
+  letter-spacing: 0.5px;
+  transition: all 0.3s ease;
+  margin: 0 auto;
+}
+
+.logout-button:hover {
+  box-shadow: none !important;
+  opacity: 0.8;
+}
+
+.progress-card {
+  background-color: rgba(245, 247, 250, 0.8);
+  transition: all 0.3s ease;
+}
+
+.progress-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
 }
 </style>

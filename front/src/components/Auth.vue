@@ -22,7 +22,7 @@
             ></v-btn>
 
             <!-- Visible buttons for manual login -->
-            <template v-if="!autoLoginAttempted">
+            <template v-if="!authStore.isAuthenticated">
               <v-btn block color="error" size="x-large" @click="signInWithGoogle" class="mb-4">
                 <v-icon start icon="mdi-google"></v-icon>
                 Sign in with Google
@@ -64,7 +64,22 @@ const authStore = useAuthStore();
 const errorMessage = ref('');
 const autoSignInBtn = ref(null);
 const autoAdminSignInBtn = ref(null);
-const autoLoginAttempted = ref(false);
+
+onMounted(async () => {
+  // Wait for auth initialization
+  await authStore.initializeAuth();
+  
+  // If user is already authenticated and has trader/session IDs, auto-navigate
+  if (authStore.isAuthenticated && authStore.traderId && authStore.sessionId) {
+    router.push({ 
+      name: 'practice',
+      params: { 
+        traderUuid: authStore.traderId,
+        sessionId: authStore.sessionId
+      } 
+    });
+  }
+});
 
 const signInWithGoogle = async () => {
   try {
@@ -118,27 +133,6 @@ const adminSignInWithGoogle = async () => {
     errorMessage.value = error.message || "An error occurred during admin sign-in";
   }
 };
-
-onMounted(async () => {
-  // Wait for auth initialization
-  await authStore.initializeAuth();
-  
-  // If user is already authenticated and has trader/session IDs, auto-navigate
-  if (authStore.isAuthenticated && authStore.traderId && authStore.sessionId) {
-    router.push({ 
-      name: 'practice',  // Changed from 'welcome' to 'practice'
-      params: { 
-        traderUuid: authStore.traderId,
-        sessionId: authStore.sessionId
-      } 
-    });
-  } else if (auth.currentUser) {
-    // If Firebase user exists but no trader/session IDs, try auto sign-in
-    autoSignInBtn.value?.click();
-  }
-  
-  autoLoginAttempted.value = true;
-});
 </script>
 
 <style scoped>
