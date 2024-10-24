@@ -11,12 +11,13 @@ logger = setup_custom_logger(__name__)
 
 class HumanTrader(BaseTrader):
 
-    def __init__(self, id, cash, shares, goal, params, trading_session, *args, **kwargs):
+    def __init__(self, id, cash, shares, goal, params, trading_session, gmail_username, *args, **kwargs):
         super().__init__(trader_type=TraderType.HUMAN, id=id, cash=cash, shares=shares, *args, **kwargs)
         self.id = id
         self.params = params
         self.goal = goal
         self.trading_session = trading_session
+        self.gmail_username = gmail_username  # Add this line
         self.websocket = None
         self.socket_status = False
         self.inventory = {
