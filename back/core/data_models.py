@@ -44,7 +44,7 @@ class TradingParameters(BaseModel):
         ge=1,  # Changed from ge=0 to ge=1 to ensure at least one human trader
     )
     human_goal_amount: int = Field(
-        default=60,
+        default=10,
         title="Human Goal Amount",
         description="human_parameter",
         ge=0,
@@ -56,7 +56,7 @@ class TradingParameters(BaseModel):
         ge=0,
     )
     num_informed_traders: int = Field(
-        default=0,
+        default=1,
         title="Number of Informed Traders",
         description="model_parameter",
         ge=0,
@@ -74,7 +74,7 @@ class TradingParameters(BaseModel):
         ge=0,
     )
     trading_day_duration: int = Field(
-        default=1,
+        default=5,
         title="Trading Day Duration",
         description="model_parameter",
         gt=0,
@@ -111,17 +111,17 @@ class TradingParameters(BaseModel):
         description="noise_parameter",
     )
     informed_trade_intensity: float = Field(
-        default=0.4,
+        default=0.52,
         title="Trade Intensity",
         description="informed_parameter",
     )
-    informed_urgency_factor: float = Field(
-        default=3,
-        title="Urgency Factor",
-        description="informed_parameter",
-    )
+    # informed_urgency_factor: float = Field(
+    #     default=0,
+    #     title="Urgency Factor",
+    #     description="informed_parameter",
+    # )
     informed_trade_direction: TradeDirection = Field(
-        default=TradeDirection.SELL,
+        default=TradeDirection.BUY,
         title="Trade Direction",
         description="informed_parameter",
     )
@@ -146,7 +146,7 @@ class TradingParameters(BaseModel):
         description="human_parameter",
     )
     initial_stocks: int = Field(
-        default=100,
+        default=300,
         title="Initial Stocks",
         description="human_parameter",
     )
