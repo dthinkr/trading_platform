@@ -13,6 +13,53 @@ const routes = [
     component: () => import("@/components/Auth.vue"),
   },
   {
+    path: "/onboarding/:sessionId/:traderUuid",
+    component: () => import("@/components/UserLanding.vue"),
+    props: true,
+    meta: { requiresAuth: true },
+    children: [
+      {
+        path: "",
+        redirect: "welcome"
+      },
+      {
+        path: "welcome",
+        name: "welcome",
+        component: () => import("@/components/pages/1.vue"),
+      },
+      {
+        path: "platform",
+        name: "platform",
+        component: () => import("@/components/pages/2.vue"),
+      },
+      {
+        path: "setup",
+        name: "setup",
+        component: () => import("@/components/pages/3.vue"),
+      },
+      {
+        path: "earnings",
+        name: "earnings",
+        component: () => import("@/components/pages/4.vue"),
+      },
+      {
+        path: "participants",
+        name: "participants",
+        component: () => import("@/components/pages/6.vue"),
+      },
+      {
+        path: "questions",
+        name: "questions",
+        component: () => import("@/components/pages/7.vue"),
+      },
+      {
+        path: "practice",
+        name: "practice",
+        component: () => import("@/components/pages/8.vue"),
+      },
+    ]
+  },
+  {
     path: "/SessionCreator",
     name: "SessionCreator",
     component: () => import("@/components/session/SessionCreator.vue"),
@@ -25,13 +72,6 @@ const routes = [
     component: () => import("@/components/AdminPage.vue"),
     props: true,
     meta: { requiresAuth: true, requiresAdmin: true }
-  },
-  {
-    path: "/onboarding/:sessionId/:traderUuid",
-    name: "onboarding",
-    component: () => import("@/components/UserLanding.vue"),
-    props: true,
-    meta: { requiresAuth: true }
   },
   {
     path: "/trading/:traderUuid/:sessionId",

@@ -73,9 +73,11 @@
 import { computed, ref } from 'vue';
 import { useTraderStore } from "@/store/app";
 import { storeToRefs } from "pinia";
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 
 const router = useRouter();
+const route = useRoute();
+
 const traderStore = useTraderStore();
 const { goalMessage } = storeToRefs(traderStore);
 
@@ -137,7 +139,13 @@ const startTrading = async () => {
     await traderStore.initializeTradingSystemWithPersistentSettings();
     await traderStore.getTraderAttributes(traderStore.traderUuid);
     await traderStore.startTradingSession();
-    router.push({ name: 'trading', params: { traderUuid: traderStore.traderUuid } });
+    router.push({ 
+      name: 'trading', 
+      params: { 
+        traderUuid: traderStore.traderUuid,
+        sessionId: route.params.sessionId  // Now route is defined
+      } 
+    });
   } catch (error) {
     console.error('Failed to initialize trading system:', error);
   } finally {
