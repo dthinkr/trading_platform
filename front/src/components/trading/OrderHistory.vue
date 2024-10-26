@@ -1,84 +1,59 @@
 <script setup>
-import { computed, onMounted, watch } from "vue";
+import { computed } from "vue";
 import { useTraderStore } from "@/store/app";
 import { storeToRefs } from "pinia";
 
 const traderStore = useTraderStore();
 const { executedOrders, recentTransactions, traderUuid } = storeToRefs(traderStore);
 
-// Add session ID to storage key
-const getStorageKey = () => {
-  const sessionId = localStorage.getItem('currentSessionId');
-  return `orderHistory_${traderUuid.value}_${sessionId}`;
-};
-
-// Load saved orders from localStorage for current session only
-const loadSavedOrders = () => {
-  const savedOrders = localStorage.getItem(getStorageKey());
-  return savedOrders ? JSON.parse(savedOrders) : [];
-};
-
-// Save orders to localStorage with session ID
-const saveOrders = (orders) => {
-  localStorage.setItem(getStorageKey(), JSON.stringify(orders));
-};
-
-// Clear previous session data on mount
-onMounted(() => {
-  // Get current session ID from the URL or store
-  const currentSessionId = window.location.pathname.split('/').pop();
-  const previousSessionId = localStorage.getItem('currentSessionId');
-  
-  // If session has changed, clear old order history
-  if (currentSessionId !== previousSessionId) {
-    // Clear old session data
-    const oldStorageKey = `orderHistory_${traderUuid.value}_${previousSessionId}`;
-    localStorage.removeItem(oldStorageKey);
-    
-    // Set new session ID
-    localStorage.setItem('currentSessionId', currentSessionId);
-  }
-});
-
 const filledOrders = computed(() => {
-  const relevantTransactions = recentTransactions.value.filter(t => t.isRelevantToTrader);
-  const allOrders = [...executedOrders.value, ...relevantTransactions, ...loadSavedOrders()];
-  
-  // Remove duplicates based on some unique identifier (e.g., id or timestamp)
-  const uniqueOrders = Array.from(new Map(
+  // Filter transactions to only include those where the current trader was involved
+  const relevantTransactions = recentTransactions.value.filter(t => {
+    const isBidTrader = t.bid_trader_id === traderUuid.value;
+    const isAskTrader = t.ask_trader_id === traderUuid.value;
+    return isBidTrader || isAskTrader;
+  });
+
+  // Filter executed orders to ensure they belong to the current trader
+  const relevantExecutedOrders = executedOrders.value.filter(order => 
+    order.trader_id === traderUuid.value
+  );
+
+  // Combine and remove duplicates
+  const allOrders = [...relevantExecutedOrders, ...relevantTransactions];
+  return Array.from(new Map(
     allOrders.map(order => [order.id || order.timestamp, order])
   ).values());
-  
-  // Save the updated list
-  saveOrders(uniqueOrders);
-  
-  return uniqueOrders;
 });
-
-// Watch for new orders and save them
-watch([executedOrders, recentTransactions], () => {
-  const orders = filledOrders.value;
-  saveOrders(orders);
-}, { deep: true });
 
 const groupedOrders = computed(() => {
   const bids = {};
   const asks = {};
 
   filledOrders.value.forEach(order => {
-    const isBid = order.type === 1 || order.type === 'BID' || order.type === 'BUY' || order.bid_order_id?.startsWith(traderUuid.value);
-    const isAsk = order.type === 2 || order.type === 'ASK' || order.type === 'SELL' || order.ask_order_id?.startsWith(traderUuid.value);
-    
-    // Only process the order if it's on the side the trader placed
-    if (!(isBid || isAsk)) return;
+    // Determine if this is a bid or ask for the current trader
+    const isBid = (order.bid_trader_id === traderUuid.value) || 
+                 (order.trader_id === traderUuid.value && 
+                  ['BUY', 'BID', 1].includes(order.type || order.order_type));
+                  
+    const isAsk = (order.ask_trader_id === traderUuid.value) || 
+                 (order.trader_id === traderUuid.value && 
+                  ['SELL', 'ASK', -1].includes(order.type || order.order_type));
+
+    // Skip if not the current trader's order
+    if (!isBid && !isAsk) return;
 
     const group = isBid ? bids : asks;
     const price = order.price || order.transaction_price;
-    const amount = order.amount || order.transaction_amount;
+    const amount = order.amount || 1;
     const timestamp = new Date(order.timestamp || order.transaction_time).getTime();
 
     if (!group[price]) {
-      group[price] = { price: price, amount: amount, latestTime: timestamp };
+      group[price] = { 
+        price, 
+        amount, 
+        latestTime: timestamp
+      };
     } else {
       group[price].amount += amount;
       if (timestamp > group[price].latestTime) {
