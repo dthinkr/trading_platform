@@ -463,76 +463,33 @@ async def cleanup_session(session_id: str, reason: str = "normal"):
         return True
 
 async def find_or_create_session_and_assign_trader(gmail_username):
-    """Modified to handle session timeouts and errors"""
+    """Modified to always create a new session for refreshed connections"""
     try:
-        # First, check if user has an existing session that's still active
-        if gmail_username in user_sessions:
-            session_id = user_sessions[gmail_username]
-            trader_id = f"HUMAN_{gmail_username}"
-            
-            try:
-                # Check for session timeout
-                if await check_session_timeout(session_id):
-                    del user_sessions[gmail_username]
-                # Verify the session still exists and is active
-                elif session_id in trader_managers:
-                    trader_manager = trader_managers[session_id]
-                    if trader_manager.trading_session.active:
-                        active_users[session_id].add(gmail_username)
-                        return session_id, trader_id
-                    else:
-                        del user_sessions[gmail_username]
-                        active_users[session_id].discard(gmail_username)
-            except Exception as e:
-                logger.error(f"Error checking existing session: {str(e)}")
-                # Clean up the problematic session
-                if session_id in trader_managers:
-                    await cleanup_session(session_id, reason="error")
-        
-        # Clean up any timed-out sessions before looking for available ones
-        for session_id in list(trader_managers.keys()):
-            try:
-                await check_session_timeout(session_id)
-            except Exception as e:
-                logger.error(f"Error checking session timeout: {str(e)}")
-                await cleanup_session(session_id, reason="error")
-        
-        # Look for an available session
-        available_session = next(
-            (s for s in trader_managers.values() 
-             if len(s.human_traders) < s.params.num_human_traders 
-             and s.trading_session.active),
-            None
-        )
-        
-        if available_session is None:
-            params = TradingParameters(**persistent_settings)
-            new_trader_manager = TraderManager(params, user_roles)
-            session_id = new_trader_manager.trading_session.id
-            trader_managers[session_id] = new_trader_manager
-            session_creation_times[session_id] = time.time()  # Record creation time
-            available_session = new_trader_manager
-        
-        session_id = available_session.trading_session.id
-        
+        # Remove the check for existing session - we'll always create a new one
+        params = TradingParameters(**persistent_settings)
+        new_trader_manager = TraderManager(params, user_roles)
+        session_id = new_trader_manager.trading_session.id
+        trader_managers[session_id] = new_trader_manager
+        session_creation_times[session_id] = time.time()
+
         # Assign role and add trader to session
         role = assign_user_role(gmail_username, session_id)
         
         # Set goal based on role
         if role == 'informed':
-            goal_amount = available_session.params.human_goal_amount
+            goal_amount = new_trader_manager.params.human_goal_amount
             goal = random.choice([goal_amount, -goal_amount])
         else:
             goal = 0
         
         # Update the goals list
-        current_traders = len(available_session.human_traders)
-        while len(available_session.params.human_goals) <= current_traders:
-            available_session.params.human_goals.append(0)
-        available_session.params.human_goals[current_traders] = goal
+        current_traders = len(new_trader_manager.human_traders)
+        while len(new_trader_manager.params.human_goals) <= current_traders:
+            new_trader_manager.params.human_goals.append(0)
+        new_trader_manager.params.human_goals[current_traders] = goal
         
         # Add trader to session
-        trader_id = await available_session.add_human_trader(gmail_username)
+        trader_id = await new_trader_manager.add_human_trader(gmail_username)
         
         # Update tracking dictionaries
         trader_to_session_lookup[trader_id] = session_id
@@ -618,27 +575,10 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
         email = decoded_token['email']
         gmail_username = extract_gmail_username(email)
         
-        # Get or verify session
-        session_id = trader_to_session_lookup.get(trader_id)
-        
-        # Check for timeout if session exists
-        if session_id and await check_session_timeout(session_id):
-            await websocket.send_json({
-                "type": "SESSION_TERMINATED",
-                "reason": "timeout",
-                "message": "Session terminated due to timeout - not enough traders joined"
-            })
-            return
-        
-        if session_id and is_session_valid(session_id):
-            trader_manager = trader_managers[session_id]
-            trader = trader_manager.get_trader(trader_id)
-            if not trader:
-                trader_id = await trader_manager.add_human_trader(gmail_username)
-        else:
-            session_id, trader_id = await find_or_create_session_and_assign_trader(gmail_username)
-            trader_manager = trader_managers[session_id]
-            trader = trader_manager.get_trader(trader_id)
+        # Always create a new session
+        session_id, new_trader_id = await find_or_create_session_and_assign_trader(gmail_username)
+        trader_manager = trader_managers[session_id]
+        trader = trader_manager.get_trader(new_trader_id)
         
         # Update active users
         active_users[session_id].add(gmail_username)
@@ -919,6 +859,8 @@ def is_session_valid(session_id: str) -> bool:
     
     trader_manager = trader_managers[session_id]
     return trader_manager.trading_session.active
+
+
 
 
 
