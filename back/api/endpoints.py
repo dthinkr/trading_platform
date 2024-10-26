@@ -398,18 +398,32 @@ async def root():
 
 
 async def find_or_create_session_and_assign_trader(gmail_username):
-    """Modified to handle role assignment and session management"""
+    """Modified to handle role assignment, session management, and session rejoining"""
     try:
-        # Check if user is already in a session
+        # First, check if user has an existing session that's still active
         if gmail_username in user_sessions:
             session_id = user_sessions[gmail_username]
             trader_id = f"HUMAN_{gmail_username}"
-            return session_id, trader_id
-
-        # Find available session or create new one
+            
+            # Verify the session still exists and is active
+            if session_id in trader_managers:
+                trader_manager = trader_managers[session_id]
+                # Check if the session is still within its duration
+                if trader_manager.trading_session.active:
+                    # Re-add user to active users if they're not there
+                    active_users[session_id].add(gmail_username)
+                    return session_id, trader_id
+                else:
+                    # Clean up expired session references
+                    del user_sessions[gmail_username]
+                    active_users[session_id].discard(gmail_username)
+        
+        # If we get here, either user had no session or their session expired
+        # Look for an available session
         available_session = next(
             (s for s in trader_managers.values() 
-             if len(s.human_traders) < s.params.num_human_traders),
+             if len(s.human_traders) < s.params.num_human_traders 
+             and s.trading_session.active),
             None
         )
         
@@ -518,31 +532,27 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
     await websocket.accept()
     token = await websocket.receive_text()
     try:
-        decoded_token = custom_verify_id_token(token)  # Remove any clock_skew_seconds parameter here
+        decoded_token = custom_verify_id_token(token)
         email = decoded_token['email']
         gmail_username = extract_gmail_username(email)
         
-        current_time = int(time.time())
-        token_issued_at = decoded_token.get('iat', 0)
-        token_expiry = decoded_token.get('exp', 0)
-        
-        trader_manager = get_manager_by_trader(trader_id)
-        if not trader_manager:
-            await websocket.send_json({"status": "error", "message": "Trader not found", "data": {}})
-            await websocket.close()
-            return
-
-        trader = trader_manager.get_trader(trader_id)
-        
-        # Remove the user from the active users list when they connect
-        # This ensures that if they're reconnecting (e.g., after a refresh), they're not counted twice
+        # Get or verify session
         session_id = trader_to_session_lookup.get(trader_id)
-        if session_id and gmail_username in active_users[session_id]:
-            active_users[session_id].remove(gmail_username)
+        if session_id and is_session_valid(session_id):
+            # Reconnecting to existing session
+            trader_manager = trader_managers[session_id]
+            trader = trader_manager.get_trader(trader_id)
+            if not trader:
+                # Trader exists in lookup but not in manager - recreate it
+                trader_id = await trader_manager.add_human_trader(gmail_username)
+        else:
+            # Need to find or create new session
+            session_id, trader_id = await find_or_create_session_and_assign_trader(gmail_username)
+            trader_manager = trader_managers[session_id]
+            trader = trader_manager.get_trader(trader_id)
         
-        # Add the user back to the active users list
-        if session_id:
-            active_users[session_id].add(gmail_username)
+        # Update active users
+        active_users[session_id].add(gmail_username)
         user_sessions[gmail_username] = session_id
         
         await trader.connect_to_socket(websocket)
@@ -559,25 +569,21 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
             for task in pending:
                 task.cancel()
             
-        except (asyncio.CancelledError, WebSocketDisconnect):
-            pass
-        except Exception:
+        except WebSocketDisconnect:
+            # Don't remove from session on disconnect - only on explicit logout
             pass
         finally:
-            # Remove the user from the active users list when they disconnect
-            if session_id and gmail_username in active_users[session_id]:
-                active_users[session_id].remove(gmail_username)
-            if gmail_username in user_sessions:
-                del user_sessions[gmail_username]
-
-    except jwt.InvalidTokenError as e:
-        await websocket.send_json({"status": "error", "message": f"Invalid token: {str(e)}", "data": {}})
-        await websocket.close()
-        return
+            # Mark user as inactive but keep their session assignment
+            if session_id in active_users:
+                active_users[session_id].discard(gmail_username)
+            
     except Exception as e:
-        await websocket.send_json({"status": "error", "message": f"Unexpected error: {str(e)}", "data": {}})
+        await websocket.send_json({
+            "status": "error",
+            "message": f"Connection error: {str(e)}",
+            "data": {}
+        })
         await websocket.close()
-        return
 
 current_dir = Path(__file__).resolve().parent
 ROOT_DIR = current_dir.parent / "logs"
@@ -799,3 +805,12 @@ async def validate_session(session_id: str, current_user: dict = Depends(get_cur
         "violations": violations,
         "is_valid": len(violations) == 0
     }
+
+# Add a helper function to check session validity
+def is_session_valid(session_id: str) -> bool:
+    """Check if a session exists and is still active"""
+    if session_id not in trader_managers:
+        return False
+    
+    trader_manager = trader_managers[session_id]
+    return trader_manager.trading_session.active
