@@ -1,16 +1,65 @@
 <script setup>
-import { computed } from "vue";
+import { computed, onMounted, watch } from "vue";
 import { useTraderStore } from "@/store/app";
 import { storeToRefs } from "pinia";
 
 const traderStore = useTraderStore();
 const { executedOrders, recentTransactions, traderUuid } = storeToRefs(traderStore);
 
-const filledOrders = computed(() => {
-  // Combine executedOrders and relevant recentTransactions
-  const relevantTransactions = recentTransactions.value.filter(t => t.isRelevantToTrader);
-  return [...executedOrders.value, ...relevantTransactions];
+// Add session ID to storage key
+const getStorageKey = () => {
+  const sessionId = localStorage.getItem('currentSessionId');
+  return `orderHistory_${traderUuid.value}_${sessionId}`;
+};
+
+// Load saved orders from localStorage for current session only
+const loadSavedOrders = () => {
+  const savedOrders = localStorage.getItem(getStorageKey());
+  return savedOrders ? JSON.parse(savedOrders) : [];
+};
+
+// Save orders to localStorage with session ID
+const saveOrders = (orders) => {
+  localStorage.setItem(getStorageKey(), JSON.stringify(orders));
+};
+
+// Clear previous session data on mount
+onMounted(() => {
+  // Get current session ID from the URL or store
+  const currentSessionId = window.location.pathname.split('/').pop();
+  const previousSessionId = localStorage.getItem('currentSessionId');
+  
+  // If session has changed, clear old order history
+  if (currentSessionId !== previousSessionId) {
+    // Clear old session data
+    const oldStorageKey = `orderHistory_${traderUuid.value}_${previousSessionId}`;
+    localStorage.removeItem(oldStorageKey);
+    
+    // Set new session ID
+    localStorage.setItem('currentSessionId', currentSessionId);
+  }
 });
+
+const filledOrders = computed(() => {
+  const relevantTransactions = recentTransactions.value.filter(t => t.isRelevantToTrader);
+  const allOrders = [...executedOrders.value, ...relevantTransactions, ...loadSavedOrders()];
+  
+  // Remove duplicates based on some unique identifier (e.g., id or timestamp)
+  const uniqueOrders = Array.from(new Map(
+    allOrders.map(order => [order.id || order.timestamp, order])
+  ).values());
+  
+  // Save the updated list
+  saveOrders(uniqueOrders);
+  
+  return uniqueOrders;
+});
+
+// Watch for new orders and save them
+watch([executedOrders, recentTransactions], () => {
+  const orders = filledOrders.value;
+  saveOrders(orders);
+}, { deep: true });
 
 const groupedOrders = computed(() => {
   const bids = {};

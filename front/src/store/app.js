@@ -248,16 +248,26 @@ export const useTraderStore = defineStore("trader", {
         vwap,
         sum_dinv,
         initial_shares,
-        matched_orders, 
-        type
+        matched_orders,
+        type,
+        goal,           // Add these lines
+        goal_progress   // Add these lines
       } = data;
 
-      // Handle matched orders if present (likely in a FILLED_ORDER type message)
+      // Update trader attributes whenever we receive a message
+      if (goal !== undefined || goal_progress !== undefined) {
+        this.traderAttributes = {
+          ...this.traderAttributes,
+          goal: goal !== undefined ? goal : this.traderAttributes?.goal,
+          goal_progress: goal_progress !== undefined ? goal_progress : this.traderAttributes?.goal_progress
+        };
+      }
+
+      // Handle matched orders if present
       if (type === "transaction_update" && matched_orders) {
         this.handleFilledOrder(matched_orders, transaction_price);
       }
 
-      // Rest of your existing update logic
       if (transaction_price && midpoint && spread) {
         const market_level_data = {
           transaction_price,
@@ -311,7 +321,6 @@ export const useTraderStore = defineStore("trader", {
     },
 
     handleFilledOrder(matched_orders, transaction_price) {
-      console.log("Processing filled order:", matched_orders, "at price:", transaction_price);
 
       // Update your store state
       this.lastMatchedOrders = matched_orders;
@@ -331,7 +340,6 @@ export const useTraderStore = defineStore("trader", {
       });
 
       if (isInvolvedInTransaction) {
-        console.log("This transaction involves the current trader");
         
         // Determine which order (bid or ask) belongs to this trader
         const isBid = matched_orders.bid_trader_id === this.traderUuid;
@@ -363,9 +371,6 @@ export const useTraderStore = defineStore("trader", {
     },
 
     notifyTransactionOccurred(isRelevantToTrader) {
-      console.log(`New transaction occurred. Relevant to this trader: ${isRelevantToTrader}`);
-      // You can implement additional logic here to notify components
-      // For example, you might want to update a transactions list component
     },
 
     async initializeWebSocket() {
@@ -561,7 +566,6 @@ export const useTraderStore = defineStore("trader", {
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
 
-        console.log('Session metrics CSV downloaded successfully');
       } catch (error) {
         console.error('Error fetching session metrics:', error);
         if (error.response) {
@@ -593,7 +597,6 @@ export const useTraderStore = defineStore("trader", {
     async initializeTradingSystemWithPersistentSettings() {
       try {
         const persistentSettings = await this.fetchPersistentSettings();
-        console.log("Persistent settings:", persistentSettings);
         await this.initializeTradingSystem(persistentSettings);
       } catch (error) {
         console.error('Error initializing trading system with persistent settings:', error);
@@ -609,7 +612,6 @@ export const useTraderStore = defineStore("trader", {
       try {
         const response = await axios.post(`${import.meta.env.VITE_HTTP_URL}trading/start`);
         if (response.data.status === "success") {
-          console.log("Trading session started successfully");
           // You might want to update some state here, e.g.:
           // this.isTradingStarted = true;
         }

@@ -38,7 +38,7 @@ class UserRegistration(BaseModel):
 
 class TradingParameters(BaseModel):
     num_human_traders: int = Field(
-        default=2,
+        default=1,
         title="Number of Human Traders",
         description="model_parameter",
         ge=1,  # Changed from ge=0 to ge=1 to ensure at least one human trader

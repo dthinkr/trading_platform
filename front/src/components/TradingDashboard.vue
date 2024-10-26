@@ -12,6 +12,11 @@
             </v-col>
             <v-spacer></v-spacer>
             <v-col cols="auto" class="d-flex align-center">
+              <!-- Add role chip before other chips -->
+              <v-chip class="mr-2" :color="roleColor" text-color="white">
+                <v-icon left small>{{ roleIcon }}</v-icon>
+                {{ userRole }}
+              </v-chip>
               <v-chip v-for="(item, index) in [
                 { label: 'VWAP', value: formatNumber(vwap), icon: 'mdi-chart-line' },
                 { label: 'PnL', value: pnl, icon: 'mdi-currency-usd' },
@@ -22,9 +27,25 @@
                 <v-icon left small color="deep-blue">{{ item.icon }}</v-icon>
                 <span class="black--text">{{ item.label }}: {{ item.value }}</span>
               </v-chip>
-              <v-chip v-if="displayGoalMessage" :color="getGoalMessageClass" text-color="white" class="mr-2">
-                <v-icon left small>{{ getGoalMessageIcon }}</v-icon>
-                {{ displayGoalMessage.text }}
+              <v-chip 
+                v-if="hasGoal" 
+                :color="getGoalMessageClass" 
+                text-color="white" 
+                class="mr-2 goal-chip"
+              >
+                <div class="d-flex align-center">
+                  <v-icon left small>{{ getGoalMessageIcon }}</v-icon>
+                  <span class="goal-type-text mr-2">{{ goalTypeText }}</span>
+                </div>
+                <v-progress-linear
+                  :value="goalProgressPercentage"
+                  :color="progressBarColor"
+                  height="6"
+                  rounded
+                  striped
+                  class="ml-2"
+                ></v-progress-linear>
+                <span class="progress-text ml-2">{{ Math.abs(goalProgress) }}/{{ Math.abs(goal) }}</span>
               </v-chip>
               <v-chip color="deep-blue" text-color="white">
                 <v-icon left small>mdi-clock-outline</v-icon>
@@ -40,6 +61,18 @@
 
       <v-main class="grey lighten-4">
         <v-container fluid class="pa-4">
+          <!-- Session timeout warning -->
+          <v-alert
+            v-if="!isTradingStarted && sessionTimeRemaining > 0"
+            type="warning"
+            prominent
+            border="left"
+            class="mb-4"
+          >
+            Session will timeout in {{ Math.ceil(sessionTimeRemaining) }} seconds if not enough traders join
+          </v-alert>
+
+          <!-- Modified waiting screen -->
           <v-row v-if="!isTradingStarted" justify="center" align="center" style="height: 80vh;">
             <v-col cols="12" md="6" class="text-center">
               <v-card elevation="2" class="pa-6">
@@ -48,13 +81,26 @@
                   <p class="text-h6 mb-4">
                     {{ currentHumanTraders }} out of {{ expectedHumanTraders }} traders have joined.
                   </p>
+                  <p class="subtitle-1 mb-4">
+                    Your Role: 
+                    <v-chip :color="roleColor" text-color="white" small>
+                      <v-icon left small>{{ roleIcon }}</v-icon>
+                      {{ userRole }}
+                    </v-chip>
+                  </p>
                   <v-progress-circular
                     :size="70"
                     :width="7"
                     color="primary"
                     indeterminate
                   ></v-progress-circular>
-                  <p class="mt-4">The session will start automatically when all traders have joined.</p>
+                  <p class="mt-4">
+                    The session will start automatically when all traders have joined.
+                    <br>
+                    <span class="red--text" v-if="sessionTimeRemaining > 0">
+                      Session will timeout in {{ Math.ceil(sessionTimeRemaining) }} seconds if not enough traders join.
+                    </span>
+                  </p>
                 </v-card-text>
               </v-card>
             </v-col>
@@ -95,7 +141,7 @@ import { useFormatNumber } from "@/composables/utils";
 import { storeToRefs } from "pinia";
 import { useTraderStore } from "@/store/app";
 
-import { onMounted, onUnmounted, ref } from 'vue';
+import { onMounted, onUnmounted, ref, onBeforeUnmount } from 'vue';
 
 const { formatNumber } = useFormatNumber();
 const router = useRouter();
@@ -170,27 +216,75 @@ const handleResize = () => {
   calculateZoom();
 };
 
-onMounted(() => {
+onMounted(async () => {
   calculateZoom();
   window.addEventListener('resize', handleResize);
+  
+  // Fetch user role
+  try {
+    const response = await fetch('/api/user/role', {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+    const data = await response.json();
+    if (data.status === 'success') {
+      userRole.value = data.data.role;
+    }
+  } catch (error) {
+    console.error('Error fetching user role:', error);
+  }
+
+  // Start session timeout countdown if not started
+  if (!isTradingStarted.value) {
+    sessionTimeoutInterval.value = setInterval(() => {
+      if (sessionTimeRemaining.value > 0) {
+        sessionTimeRemaining.value--;
+      }
+    }, 1000);
+  }
 });
 
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize);
 });
 
+// First, define the basic computed properties
+const goal = computed(() => store.traderAttributes?.goal || 0);
+const goalProgress = computed(() => store.traderAttributes?.goal_progress || 0);
+const hasGoal = computed(() => goal.value !== 0);
+
+// Then define the dependent computed properties
 const isGoalAchieved = computed(() => {
-  return goalMessage.value && goalMessage.value.type === 'success';
+  if (!hasGoal.value) return false;
+  return Math.abs(goalProgress.value) >= Math.abs(goal.value);
 });
 
 const goalType = computed(() => {
-  if (goalMessage.value) {
-    const goalText = goalMessage.value.text.toLowerCase();
-    if (goalText.includes('buy')) return 'buy';
-    if (goalText.includes('sell')) return 'sell';
-    if (goalText.includes('0') || goalText.includes('zero')) return 'free';
-  }
-  return 'free';
+  if (!hasGoal.value) return 'free';
+  return goal.value > 0 ? 'buy' : 'sell';
+});
+
+const goalProgressPercentage = computed(() => {
+  if (!hasGoal.value) return 0;
+  const targetGoal = Math.abs(goal.value);
+  const currentProgress = Math.abs(goalProgress.value);
+  return Math.min((currentProgress / targetGoal) * 100, 100);
+});
+
+const goalProgressColor = computed(() => {
+  if (isGoalAchieved.value) return 'light-green accent-4';
+  return goal.value > 0 ? 'blue lighten-1' : 'red lighten-1';
+});
+
+const getGoalMessageClass = computed(() => {
+  if (isGoalAchieved.value) return 'success-bg';
+  return goal.value > 0 ? 'buy-bg' : 'sell-bg';
+});
+
+const getGoalMessageIcon = computed(() => {
+  if (!hasGoal.value) return 'mdi-information';
+  return goal.value > 0 ? 'mdi-arrow-up-bold' : 'mdi-arrow-down-bold';
 });
 
 const displayGoalMessage = computed(() => {
@@ -217,24 +311,6 @@ watch(isGoalAchieved, (newValue) => {
   }
 });
 
-const getGoalMessageClass = computed(() => {
-  if (displayGoalMessage.value.type === 'success') return 'goal-success';
-  if (displayGoalMessage.value.type === 'warning') return 'goal-warning';
-  return 'goal-info';
-});
-
-const getGoalMessageIconColor = computed(() => {
-  if (displayGoalMessage.value.type === 'success') return 'light-green darken-1';
-  if (displayGoalMessage.value.type === 'warning') return 'amber darken-2';
-  return 'blue darken-1';
-});
-
-const getGoalMessageIcon = computed(() => {
-  if (displayGoalMessage.value.type === 'success') return 'mdi-check-circle';
-  if (displayGoalMessage.value.type === 'warning') return 'mdi-alert-circle';
-  return 'mdi-information';
-});
-
 // Add this function to get icons for each tool
 const getToolIcon = (toolTitle) => {
   switch (toolTitle) {
@@ -247,6 +323,56 @@ const getToolIcon = (toolTitle) => {
     default: return 'mdi-help-circle';
   }
 };
+
+// Add these to your existing refs/computed
+const userRole = ref('');
+const sessionTimeRemaining = ref(30); // 30 seconds timeout
+const sessionTimeoutInterval = ref(null);
+
+// Add computed properties for role styling
+const roleColor = computed(() => {
+  return userRole.value === 'informed' ? 'deep-purple' : 'teal';
+});
+
+const roleIcon = computed(() => {
+  return userRole.value === 'informed' ? 'mdi-eye' : 'mdi-account-search';
+});
+
+// Add watcher for trading started
+watch(isTradingStarted, (newValue) => {
+  if (newValue && sessionTimeoutInterval.value) {
+    clearInterval(sessionTimeoutInterval.value);
+    sessionTimeRemaining.value = 0;
+  }
+});
+
+// Add handler for session timeout
+watch(sessionTimeRemaining, (newValue) => {
+  if (newValue === 0 && !isTradingStarted.value) {
+    router.push({ name: 'Register', query: { error: 'Session timed out - not enough traders joined' } });
+  }
+});
+
+const goalTypeText = computed(() => {
+  if (!hasGoal.value) return 'FREE';
+  return goal.value > 0 ? 'BUY' : 'SELL';
+});
+
+const progressBarColor = computed(() => {
+  if (goalProgressPercentage.value === 100) {
+    return 'light-green accent-3';
+  }
+  if (goalProgressPercentage.value > 75) {
+    return 'light-green lighten-1';
+  }
+  if (goalProgressPercentage.value > 50) {
+    return 'amber lighten-1';
+  }
+  if (goalProgressPercentage.value > 25) {
+    return 'orange lighten-1';
+  }
+  return 'deep-orange lighten-1';
+});
 </script>
 
 <style scoped>
@@ -313,4 +439,57 @@ const getToolIcon = (toolTitle) => {
 .black--text {
   color: black !important;
 }
+
+/* Add to existing styles */
+.role-chip {
+  font-weight: 500;
+}
+
+.session-timeout {
+  color: #ff5252;
+  font-weight: 500;
+}
+
+.goal-chip {
+  min-width: 150px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+}
+
+.goal-type-text {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  min-width: 35px;
+}
+
+.v-progress-linear {
+  width: 60px;
+  margin: 0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-text {
+  font-size: 0.75rem;
+  min-width: 32px;
+  text-align: right;
+  font-weight: 500;
+}
+
+/* Update the background colors */
+.success-bg {
+  background-color: #2e7d32 !important; /* Darker green */
+}
+
+.buy-bg {
+  background-color: #1565c0 !important; /* Darker blue */
+}
+
+.sell-bg {
+  background-color: #c62828 !important; /* Darker red */
+}
 </style>
+

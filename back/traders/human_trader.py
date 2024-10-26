@@ -15,7 +15,7 @@ class HumanTrader(BaseTrader):
         super().__init__(trader_type=TraderType.HUMAN, id=id, cash=cash, shares=shares, *args, **kwargs)
         self.id = id
         self.params = params
-        self.goal = goal
+        self.goal = goal  # This will now properly set the goal in BaseTrader
         self.trading_session = trading_session
         self.gmail_username = gmail_username  # Add this line
         self.websocket = None
@@ -32,6 +32,7 @@ class HumanTrader(BaseTrader):
             "initial_cash": self.initial_cash,
             "initial_shares": self.initial_shares,
             "goal": self.goal,
+            "goal_progress": self.goal_progress,  # Add this line
             **self.params
         }
 
@@ -72,6 +73,8 @@ class HumanTrader(BaseTrader):
                 "pnl": self.get_current_pnl(),
                 "type": message_type,
                 "inventory": dict(shares=self.shares, cash=self.cash),
+                "goal": self.goal,  # Add this line
+                "goal_progress": self.goal_progress,  # Add this line
                 **kwargs,
                 "order_book": order_book,
                 "initial_cash": self.initial_cash,

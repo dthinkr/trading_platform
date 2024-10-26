@@ -119,14 +119,17 @@ class TraderManager:
         
         trader_id = f"HUMAN_{uid}"
         
+        # Check if trader already exists
+        existing_trader = self.traders.get(trader_id)
+        if existing_trader:
+            return trader_id
+            
         # Determine the goal based on the user's role
-        role = self.user_roles.get(uid, 'speculator')  # Use self.user_roles
+        role = self.user_roles.get(uid, 'speculator')
         if role == 'informed':
-            # For informed traders, use the goal assigned in endpoints.py
             goal_index = len(self.human_traders) % len(self.params.human_goals)
             goal = self.params.human_goals[goal_index]
         else:
-            # For speculators, the goal is always 0
             goal = 0
         
         new_trader = HumanTrader(
@@ -136,8 +139,9 @@ class TraderManager:
             goal=goal,
             trading_session=self.trading_session,
             params=self.params.model_dump(),
-            gmail_username=uid  # Pass the gmail_username here
+            gmail_username=uid
         )
+        
         self.trading_session.connected_traders[trader_id] = {
             "trader_type": TraderType.HUMAN,
             "uid": uid,
@@ -185,7 +189,12 @@ class TraderManager:
         self.tasks.clear()  # Clear the list of tasks after cancellation
 
     def get_trader(self, trader_id):
-        return self.traders.get(trader_id)
+        trader = self.traders.get(trader_id)
+        if trader and isinstance(trader, HumanTrader):
+            # Ensure trader info includes goal progress
+            trader_info = trader.get_trader_params_as_dict()
+            return trader
+        return trader
 
     def exists(self, trader_id):
         return trader_id in self.traders
