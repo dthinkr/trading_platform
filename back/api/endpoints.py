@@ -38,6 +38,7 @@ import jwt
 import numpy as np
 import random
 from utils import setup_custom_logger
+import ssl
 
 logger = setup_custom_logger(__name__)
 
@@ -463,42 +464,78 @@ async def cleanup_session(session_id: str, reason: str = "normal"):
         return True
 
 async def find_or_create_session_and_assign_trader(gmail_username):
-    """Modified to always create a new session for refreshed connections"""
+    """Modified to try joining existing sessions first"""
     try:
-        # Remove the check for existing session - we'll always create a new one
-        params = TradingParameters(**persistent_settings)
-        new_trader_manager = TraderManager(params, user_roles)
-        session_id = new_trader_manager.trading_session.id
-        trader_managers[session_id] = new_trader_manager
-        session_creation_times[session_id] = time.time()
+        print(f"\n=== Starting session assignment for {gmail_username} ===")
+        print(f"Current active sessions: {list(trader_managers.keys())}")
+        print(f"Current user roles: {user_roles}")
+        print(f"Current session informed traders: {dict(session_informed_traders)}")
+        
+        # First, try to find an available session
+        available_session = None
+        available_session_id = None
+        
+        for session_id, manager in trader_managers.items():
+            print(f"Checking session {session_id}:")
+            print(f"- Current traders: {len(manager.human_traders)}")
+            print(f"- Max traders: {manager.params.num_human_traders}")
+            
+            if len(manager.human_traders) < manager.params.num_human_traders:
+                available_session = manager
+                available_session_id = session_id
+                print(f"Found available session: {session_id}")
+                break
 
+        # If no available session found, create a new one
+        if not available_session:
+            print("No available session found, creating new one")
+            params = TradingParameters(**persistent_settings)
+            new_trader_manager = TraderManager(params, user_roles)
+            session_id = new_trader_manager.trading_session.id
+            trader_managers[session_id] = new_trader_manager
+            session_creation_times[session_id] = time.time()
+            available_session = new_trader_manager
+            available_session_id = session_id
+            print(f"Created new session: {session_id}")
+        
         # Assign role and add trader to session
-        role = assign_user_role(gmail_username, session_id)
+        role = assign_user_role(gmail_username, available_session_id)
+        print(f"Assigned role '{role}' to {gmail_username}")
         
         # Set goal based on role
         if role == 'informed':
-            goal_amount = new_trader_manager.params.human_goal_amount
+            goal_amount = available_session.params.human_goal_amount
             goal = random.choice([goal_amount, -goal_amount])
+            print(f"Set informed trader goal: {goal}")
         else:
             goal = 0
+            print("Set speculator goal: 0")
         
         # Update the goals list
-        current_traders = len(new_trader_manager.human_traders)
-        while len(new_trader_manager.params.human_goals) <= current_traders:
-            new_trader_manager.params.human_goals.append(0)
-        new_trader_manager.params.human_goals[current_traders] = goal
+        current_traders = len(available_session.human_traders)
+        while len(available_session.params.human_goals) <= current_traders:
+            available_session.params.human_goals.append(0)
+        available_session.params.human_goals[current_traders] = goal
         
         # Add trader to session
-        trader_id = await new_trader_manager.add_human_trader(gmail_username)
+        trader_id = await available_session.add_human_trader(gmail_username)
+        print(f"Added trader to session with ID: {trader_id}")
         
         # Update tracking dictionaries
-        trader_to_session_lookup[trader_id] = session_id
-        user_sessions[gmail_username] = session_id
-        active_users[session_id].add(gmail_username)
+        trader_to_session_lookup[trader_id] = available_session_id
+        user_sessions[gmail_username] = available_session_id
+        active_users[available_session_id].add(gmail_username)
         
-        return session_id, trader_id
+        print(f"Final session state:")
+        print(f"- Active users in session: {active_users[available_session_id]}")
+        print(f"- Session informed trader: {session_informed_traders[available_session_id]}")
+        print(f"- Total traders in session: {len(available_session.human_traders)}")
+        print("=== Session assignment complete ===\n")
+        
+        return available_session_id, trader_id
         
     except Exception as e:
+        print(f"ERROR in session assignment: {str(e)}")
         logger.error(f"Error in find_or_create_session_and_assign_trader: {str(e)}")
         raise HTTPException(
             status_code=500,
@@ -720,9 +757,16 @@ async def refresh_registered_users(current_user: dict = Depends(get_current_admi
 # Add a background task to periodically update registered users
 async def periodic_update_registered_users():
     while True:
-        form_id = TradingParameters().google_form_id
-        get_registered_users(force_update=True, form_id=form_id)
-        await asyncio.sleep(300)
+        try:
+            form_id = TradingParameters().google_form_id
+            get_registered_users(force_update=True, form_id=form_id)
+        except ssl.SSLEOFError as e:
+            logger.warning(f"SSL connection closed during periodic update: {str(e)}")
+        except Exception as e:
+            logger.error(f"Error during periodic update of registered users: {str(e)}")
+        finally:
+            # Continue the loop regardless of errors
+            await asyncio.sleep(300)  # Sleep for 5 minutes before next update
 
 async def periodic_time_offset_calculation():
     while True:
@@ -788,24 +832,28 @@ async def cleanup(session_id: str):
     # ... (rest of the cleanup logic)
 
 def assign_user_role(username: str, session_id: str) -> str:
-    """
-    Assigns a role to a user, ensuring:
-    1. Users maintain consistent roles across sessions
-    2. Each session has exactly one informed trader
-    """
+    print(f"\n--- Role assignment for {username} ---")
+    print(f"Current user roles: {user_roles}")
+    print(f"Current session informed traders: {dict(session_informed_traders)}")
+    
     # If user already has a role, maintain it
     if username in user_roles:
+        print(f"User already has role: {user_roles[username]}")
         return user_roles[username]
     
     # Check if session already has an informed trader
     if session_id in session_informed_traders:
+        print(f"Session {session_id} already has informed trader: {session_informed_traders[session_id]}")
         # If session has an informed trader, new user must be speculator
         user_roles[username] = 'speculator'
+        print(f"Assigned speculator role to {username}")
         return 'speculator'
     
     # If no informed trader in session yet, make this user informed
     user_roles[username] = 'informed'
     session_informed_traders[session_id] = username
+    print(f"Assigned informed role to {username}")
+    print("--- Role assignment complete ---\n")
     return 'informed'
 
 # Add this endpoint to get user role information
@@ -859,6 +907,10 @@ def is_session_valid(session_id: str) -> bool:
     
     trader_manager = trader_managers[session_id]
     return trader_manager.trading_session.active
+
+
+
+
 
 
 
