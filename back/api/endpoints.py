@@ -37,6 +37,9 @@ import time
 import jwt
 import numpy as np
 import random
+from utils import setup_custom_logger
+
+logger = setup_custom_logger(__name__)
 
 app = FastAPI()
 security = HTTPBasic()
@@ -64,6 +67,10 @@ user_historical_sessions = defaultdict(set)
 # Add these near the top with other global variables
 user_roles = {}  # Maps username to their assigned role ('informed' or 'speculator')
 session_informed_traders = defaultdict(str)  # Maps session_id to its informed trader's username
+
+# Add near the top with other globals
+session_creation_times = {}  # Maps session_id to its creation timestamp
+SESSION_TIMEOUT = 60  # Timeout in seconds
 
 def get_historical_sessions_count(username):
     return len(user_historical_sessions[username])
@@ -346,7 +353,7 @@ async def get_trader_info(trader_id: str):
             "status": "success",
             "message": "Trader found",
             "data": {
-                **trader_data,
+                **trader_data,  # This includes goal and goal_progress from get_trader_params_as_dict()
                 "order_book_metrics": general_metrics,
                 "trader_specific_metrics": trader_specific_metrics
             }
@@ -396,29 +403,100 @@ async def root():
         "comment": "this is only for accessing trading platform mostly via websockets",
     }
 
+async def check_session_timeout(session_id: str):
+    """Check if a session has timed out and clean it up if necessary"""
+    if session_id not in session_creation_times:
+        return False
+    
+    elapsed_time = time.time() - session_creation_times[session_id]
+    if elapsed_time > SESSION_TIMEOUT and not trader_managers[session_id].trading_session.trading_started:
+        print(f"Session {session_id} timed out after {elapsed_time:.1f} seconds")
+        await cleanup_session(session_id, reason="timeout")
+        return True
+    return False
+
+async def cleanup_session(session_id: str, reason: str = "normal"):
+    """Clean up a session and notify its users"""
+    if session_id in trader_managers:
+        trader_manager = trader_managers[session_id]
+        
+        # Notify all connected traders about the cleanup
+        for trader in trader_manager.human_traders:
+            if hasattr(trader, 'websocket') and trader.websocket:
+                try:
+                    # Check if websocket is still connected using application state
+                    if not trader.websocket.application_state.name == "DISCONNECTED":
+                        await trader.websocket.send_json({
+                            "type": "SESSION_TERMINATED",
+                            "reason": reason,
+                            "message": "Session terminated due to " + 
+                                     ("timeout - not enough traders joined" if reason == "timeout" 
+                                      else "normal cleanup")
+                        })
+                except Exception as e:
+                    logger.error(f"Error notifying trader during cleanup: {str(e)}")
+                    continue  # Continue with cleanup even if notification fails
+
+        try:
+            # Clean up session data
+            await trader_manager.cleanup()
+            del trader_managers[session_id]
+            
+            # Clean up tracking dictionaries
+            if session_id in session_creation_times:
+                del session_creation_times[session_id]
+            if session_id in session_informed_traders:
+                del session_informed_traders[session_id]
+                
+            # Update user tracking
+            for username in list(active_users[session_id]):
+                if username in user_sessions:
+                    del user_sessions[username]
+            if session_id in active_users:
+                del active_users[session_id]
+                
+        except Exception as e:
+            logger.error(f"Error during session cleanup: {str(e)}")
+            # Don't raise HTTPException here as it might be called from non-HTTP contexts
+            return False
+            
+        return True
 
 async def find_or_create_session_and_assign_trader(gmail_username):
-    """Modified to handle role assignment, session management, and session rejoining"""
+    """Modified to handle session timeouts and errors"""
     try:
         # First, check if user has an existing session that's still active
         if gmail_username in user_sessions:
             session_id = user_sessions[gmail_username]
             trader_id = f"HUMAN_{gmail_username}"
             
-            # Verify the session still exists and is active
-            if session_id in trader_managers:
-                trader_manager = trader_managers[session_id]
-                # Check if the session is still within its duration
-                if trader_manager.trading_session.active:
-                    # Re-add user to active users if they're not there
-                    active_users[session_id].add(gmail_username)
-                    return session_id, trader_id
-                else:
-                    # Clean up expired session references
+            try:
+                # Check for session timeout
+                if await check_session_timeout(session_id):
                     del user_sessions[gmail_username]
-                    active_users[session_id].discard(gmail_username)
+                # Verify the session still exists and is active
+                elif session_id in trader_managers:
+                    trader_manager = trader_managers[session_id]
+                    if trader_manager.trading_session.active:
+                        active_users[session_id].add(gmail_username)
+                        return session_id, trader_id
+                    else:
+                        del user_sessions[gmail_username]
+                        active_users[session_id].discard(gmail_username)
+            except Exception as e:
+                logger.error(f"Error checking existing session: {str(e)}")
+                # Clean up the problematic session
+                if session_id in trader_managers:
+                    await cleanup_session(session_id, reason="error")
         
-        # If we get here, either user had no session or their session expired
+        # Clean up any timed-out sessions before looking for available ones
+        for session_id in list(trader_managers.keys()):
+            try:
+                await check_session_timeout(session_id)
+            except Exception as e:
+                logger.error(f"Error checking session timeout: {str(e)}")
+                await cleanup_session(session_id, reason="error")
+        
         # Look for an available session
         available_session = next(
             (s for s in trader_managers.values() 
@@ -430,12 +508,14 @@ async def find_or_create_session_and_assign_trader(gmail_username):
         if available_session is None:
             params = TradingParameters(**persistent_settings)
             new_trader_manager = TraderManager(params, user_roles)
-            trader_managers[new_trader_manager.trading_session.id] = new_trader_manager
+            session_id = new_trader_manager.trading_session.id
+            trader_managers[session_id] = new_trader_manager
+            session_creation_times[session_id] = time.time()  # Record creation time
             available_session = new_trader_manager
         
         session_id = available_session.trading_session.id
         
-        # Assign role before adding trader
+        # Assign role and add trader to session
         role = assign_user_role(gmail_username, session_id)
         
         # Set goal based on role
@@ -445,7 +525,7 @@ async def find_or_create_session_and_assign_trader(gmail_username):
         else:
             goal = 0
         
-        # Update the goals list in the session's parameters
+        # Update the goals list
         current_traders = len(available_session.human_traders)
         while len(available_session.params.human_goals) <= current_traders:
             available_session.params.human_goals.append(0)
@@ -463,8 +543,10 @@ async def find_or_create_session_and_assign_trader(gmail_username):
         
     except Exception as e:
         logger.error(f"Error in find_or_create_session_and_assign_trader: {str(e)}")
-        raise
-
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error assigning trader to session: {str(e)}"
+        )
 
 async def send_to_frontend(websocket: WebSocket, trader_manager):
     while True:
@@ -530,23 +612,30 @@ async def get_session_metrics(trader_id: str, session_id: str, current_user: dic
 @app.websocket("/trader/{trader_id}")
 async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
     await websocket.accept()
-    token = await websocket.receive_text()
     try:
+        token = await websocket.receive_text()
         decoded_token = custom_verify_id_token(token)
         email = decoded_token['email']
         gmail_username = extract_gmail_username(email)
         
         # Get or verify session
         session_id = trader_to_session_lookup.get(trader_id)
+        
+        # Check for timeout if session exists
+        if session_id and await check_session_timeout(session_id):
+            await websocket.send_json({
+                "type": "SESSION_TERMINATED",
+                "reason": "timeout",
+                "message": "Session terminated due to timeout - not enough traders joined"
+            })
+            return
+        
         if session_id and is_session_valid(session_id):
-            # Reconnecting to existing session
             trader_manager = trader_managers[session_id]
             trader = trader_manager.get_trader(trader_id)
             if not trader:
-                # Trader exists in lookup but not in manager - recreate it
                 trader_id = await trader_manager.add_human_trader(gmail_username)
         else:
-            # Need to find or create new session
             session_id, trader_id = await find_or_create_session_and_assign_trader(gmail_username)
             trader_manager = trader_managers[session_id]
             trader = trader_manager.get_trader(trader_id)
@@ -560,9 +649,12 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
         try:
             send_task = asyncio.create_task(send_to_frontend(websocket, trader_manager))
             receive_task = asyncio.create_task(receive_from_frontend(websocket, trader))
+            timeout_check_task = asyncio.create_task(
+                periodic_timeout_check(session_id, websocket)
+            )
             
             done, pending = await asyncio.wait(
-                [send_task, receive_task],
+                [send_task, receive_task, timeout_check_task],
                 return_when=asyncio.FIRST_COMPLETED
             )
             
@@ -570,13 +662,11 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
                 task.cancel()
             
         except WebSocketDisconnect:
-            # Don't remove from session on disconnect - only on explicit logout
             pass
         finally:
-            # Mark user as inactive but keep their session assignment
             if session_id in active_users:
                 active_users[session_id].discard(gmail_username)
-            
+                
     except Exception as e:
         await websocket.send_json({
             "status": "error",
@@ -584,6 +674,21 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
             "data": {}
         })
         await websocket.close()
+
+async def periodic_timeout_check(session_id: str, websocket: WebSocket):
+    """Periodically check for session timeout"""
+    while True:
+        if await check_session_timeout(session_id):
+            try:
+                await websocket.send_json({
+                    "type": "SESSION_TERMINATED",
+                    "reason": "timeout",
+                    "message": "Session terminated due to timeout - not enough traders joined"
+                })
+            except Exception:
+                pass
+            break
+        await asyncio.sleep(1)
 
 current_dir = Path(__file__).resolve().parent
 ROOT_DIR = current_dir.parent / "logs"
@@ -814,3 +919,8 @@ def is_session_valid(session_id: str) -> bool:
     
     trader_manager = trader_managers[session_id]
     return trader_manager.trading_session.active
+
+
+
+
+

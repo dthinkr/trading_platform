@@ -83,7 +83,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, onMounted, watch } from 'vue';
 import { useTraderStore } from "@/store/app";
 import { storeToRefs } from "pinia";
 
@@ -95,11 +95,43 @@ const props = defineProps({
 });
 
 const traderStore = useTraderStore();
-const { activeOrders } = storeToRefs(traderStore);
+const { activeOrders, traderUuid } = storeToRefs(traderStore);
+
+// Initialize active orders from backend on component mount
+onMounted(async () => {
+  try {
+    // Get trader session info which includes active orders
+    const response = await fetch(`/api/trader/${traderUuid.value}/session`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (data.status === "success") {
+        // Update store with active orders from backend
+        const traderOrders = data.data.game_params.active_orders || [];
+        activeOrders.value = traderOrders.filter(order => 
+          order.trader_id === traderUuid.value
+        );
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching active orders:', error);
+  }
+});
+
+// Watch for changes in active orders and save them
+watch(activeOrders, (newOrders) => {
+  saveActiveOrders(newOrders);
+}, { deep: true });
 
 const sortedOrderLevels = computed(() => {
+  const orders = activeOrders.value;
   const levels = { buy: {}, sell: {} };
-  activeOrders.value.forEach(order => {
+  
+  orders.forEach(order => {
     const type = order.order_type === 1 ? 'buy' : 'sell';
     const price = order.price.toString();
     if (!levels[type][price]) {
@@ -140,6 +172,11 @@ function cancelOrder(type, price) {
     }
   }
 }
+
+// Save active orders to localStorage
+const saveActiveOrders = (orders) => {
+  localStorage.setItem(`activeOrders_${traderUuid.value}`, JSON.stringify(orders));
+};
 </script>
 
 <style scoped>

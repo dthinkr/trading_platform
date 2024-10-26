@@ -53,6 +53,10 @@ class BaseTrader:
         self.filled_orders = []
         self.placed_orders = []
 
+        # Add goal tracking
+        self.goal = 0  # Will be overridden by HumanTrader
+        self.goal_progress = 0  # Track progress towards goal
+
     def get_elapsed_time(self) -> float:
         current_time = asyncio.get_event_loop().time()
         return current_time - self.start_time
@@ -192,6 +196,7 @@ class BaseTrader:
                 self.filled_orders.append(filled_order)
 
                 self.update_inventory([transaction])
+                self.update_goal_progress(transaction)  # Add this line
 
                 self.update_data_for_pnl(
                     transaction["amount"]
@@ -338,3 +343,14 @@ class BaseTrader:
             }
         )
         self._stop_requested.set()
+
+    def update_goal_progress(self, transaction):
+        """Update progress towards the trader's goal"""
+        if self.goal == 0:  # No goal to track
+            return
+            
+        amount = transaction.get('amount', 1)
+        if transaction['type'] == 'bid':
+            self.goal_progress += amount
+        elif transaction['type'] == 'ask':
+            self.goal_progress -= amount
