@@ -110,12 +110,6 @@ def simulate_fixed_traders():
         user = users[user_id]
         session = sessions[session_id]
         
-        if not user.is_available:
-            return False
-            
-        if session.state != SessionState.PENDING or session.is_full:
-            return False
-        
         # Calculate remaining slots before role assignment
         remaining_slots = session.capacity - len(session.traders)
         
@@ -135,8 +129,8 @@ def simulate_fixed_traders():
         # Check if role is compatible with session
         if role == RoleType.INFORMED:
             if session.informed_locked:
-                return False
-            session.informed_locked = True
+                return False  # Reject if session already has an informed trader
+            session.informed_locked = True  # Lock informed slot when assigned
         else:  # SPECULATOR
             # Don't allow speculator to join if they would block the informed slot
             if not session.informed_locked and remaining_slots <= 1:
