@@ -63,6 +63,7 @@ user_historical_sessions = defaultdict(set)
 
 # Add these near the top with other global variables
 user_roles = {}  # Maps username to their assigned role ('informed' or 'speculator')
+session_informed_traders = defaultdict(str)  # Maps session_id to its informed trader's username
 
 def get_historical_sessions_count(username):
     return len(user_historical_sessions[username])
@@ -397,61 +398,57 @@ async def root():
 
 
 async def find_or_create_session_and_assign_trader(gmail_username):
-    global persistent_settings
+    """Modified to handle role assignment and session management"""
     try:
-        # Check if the user is already in an active session
+        # Check if user is already in a session
         if gmail_username in user_sessions:
             session_id = user_sessions[gmail_username]
             trader_id = f"HUMAN_{gmail_username}"
             return session_id, trader_id
 
-        available_session = next((s for s in trader_managers.values() 
-                                if len(s.human_traders) < s.params.num_human_traders), None)
+        # Find available session or create new one
+        available_session = next(
+            (s for s in trader_managers.values() 
+             if len(s.human_traders) < s.params.num_human_traders),
+            None
+        )
         
         if available_session is None:
             params = TradingParameters(**persistent_settings)
-            new_trader_manager = TraderManager(params, user_roles)  # Pass user_roles here
+            new_trader_manager = TraderManager(params, user_roles)
             trader_managers[new_trader_manager.trading_session.id] = new_trader_manager
             available_session = new_trader_manager
         
-        # Assign role before adding trader
-        role = assign_user_role(gmail_username)
-        
-        # Ensure one informed trader per session
-        current_informed_count = sum(1 for trader in available_session.human_traders 
-                                     if user_roles.get(trader.gmail_username) == 'informed')
-        
-        if role == 'informed' and current_informed_count >= 1:
-            # If the session already has an informed trader, reassign this user as a speculator
-            role = 'speculator'
-            user_roles[gmail_username] = role
-        
-        # Modify goals based on role
-        if role == 'informed':
-            # For informed traders, randomly assign positive or negative goal
-            goal_amount = available_session.params.human_goal_amount
-            goal = random.choice([goal_amount, -goal_amount])
-            
-            # Update the goals list in the session's parameters
-            current_traders = len(available_session.human_traders)
-            while len(available_session.params.human_goals) <= current_traders:
-                available_session.params.human_goals.append(0)  # Add placeholder goals
-            available_session.params.human_goals[current_traders] = goal
-        else:  # speculator
-            # For speculators, always set goal to 0
-            current_traders = len(available_session.human_traders)
-            while len(available_session.params.human_goals) <= current_traders:
-                available_session.params.human_goals.append(0)
-            available_session.params.human_goals[current_traders] = 0
-        
-        trader_id = await available_session.add_human_trader(gmail_username)
         session_id = available_session.trading_session.id
         
+        # Assign role before adding trader
+        role = assign_user_role(gmail_username, session_id)
+        
+        # Set goal based on role
+        if role == 'informed':
+            goal_amount = available_session.params.human_goal_amount
+            goal = random.choice([goal_amount, -goal_amount])
+        else:
+            goal = 0
+        
+        # Update the goals list in the session's parameters
+        current_traders = len(available_session.human_traders)
+        while len(available_session.params.human_goals) <= current_traders:
+            available_session.params.human_goals.append(0)
+        available_session.params.human_goals[current_traders] = goal
+        
+        # Add trader to session
+        trader_id = await available_session.add_human_trader(gmail_username)
+        
+        # Update tracking dictionaries
         trader_to_session_lookup[trader_id] = session_id
-        user_sessions[gmail_username] = session_id  # Track the user's session
+        user_sessions[gmail_username] = session_id
+        active_users[session_id].add(gmail_username)
         
         return session_id, trader_id
+        
     except Exception as e:
+        logger.error(f"Error in find_or_create_session_and_assign_trader: {str(e)}")
         raise
 
 
@@ -707,13 +704,25 @@ async def download_all_files():
 # Add a new endpoint to handle user logout
 @app.post("/user/logout")
 async def user_logout(current_user: dict = Depends(get_current_user)):
+    """Modified to handle role cleanup"""
     gmail_username = current_user['gmail_username']
     if gmail_username in user_sessions:
         session_id = user_sessions[gmail_username]
+        
+        # Remove user from active users
         active_users[session_id].remove(gmail_username)
         del user_sessions[gmail_username]
+        
+        # If this was the informed trader for the session, clean up
+        if session_informed_traders.get(session_id) == gmail_username:
+            del session_informed_traders[session_id]
+        
         if not active_users[session_id]:
             del active_users[session_id]
+            if session_id in trader_managers:
+                await trader_managers[session_id].cleanup()
+                del trader_managers[session_id]
+        
         return {"status": "success", "message": "User logged out successfully"}
     else:
         raise HTTPException(status_code=404, detail="User not found in any active session")
@@ -727,26 +736,26 @@ async def cleanup(session_id: str):
         del active_users[session_id]
     # ... (rest of the cleanup logic)
 
-def assign_user_role(username: str) -> str:
+def assign_user_role(username: str, session_id: str) -> str:
     """
-    Assigns a role to a user if they don't have one, maintaining their existing role if they do.
-    Returns 'informed' or 'speculator'.
+    Assigns a role to a user, ensuring:
+    1. Users maintain consistent roles across sessions
+    2. Each session has exactly one informed trader
     """
+    # If user already has a role, maintain it
     if username in user_roles:
         return user_roles[username]
     
-    # Count existing informed traders
-    informed_count = sum(1 for role in user_roles.values() if role == 'informed')
-    
-    # If we don't have any informed traders yet, make this user informed
-    if informed_count == 0:
-        user_roles[username] = 'informed'
-    else:
+    # Check if session already has an informed trader
+    if session_id in session_informed_traders:
+        # If session has an informed trader, new user must be speculator
         user_roles[username] = 'speculator'
+        return 'speculator'
     
-    # No need to save roles to a file anymore
-    
-    return user_roles[username]
+    # If no informed trader in session yet, make this user informed
+    user_roles[username] = 'informed'
+    session_informed_traders[session_id] = username
+    return 'informed'
 
 # Add this endpoint to get user role information
 @app.get("/user/role")
@@ -761,4 +770,32 @@ async def get_user_role(current_user: dict = Depends(get_current_user)):
         }
     }
 
-
+# Add validation endpoint
+@app.get("/session/validate/{session_id}")
+async def validate_session(session_id: str, current_user: dict = Depends(get_current_admin_user)):
+    """Validate session conditions"""
+    if session_id not in trader_managers:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    session_traders = active_users[session_id]
+    informed_trader = session_informed_traders.get(session_id)
+    
+    violations = []
+    
+    # Check for exactly one informed trader
+    if not informed_trader:
+        violations.append("Session has no informed trader")
+    
+    # Check role consistency
+    for username in session_traders:
+        if username in user_roles:
+            role = user_roles[username]
+            if role == 'informed' and username != informed_trader:
+                violations.append(f"Multiple informed traders found: {username} and {informed_trader}")
+    
+    return {
+        "status": "success",
+        "session_id": session_id,
+        "violations": violations,
+        "is_valid": len(violations) == 0
+    }
