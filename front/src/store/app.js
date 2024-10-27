@@ -95,6 +95,8 @@ export const useTraderStore = defineStore("trader", {
     lastTransactionPrice: null,
     recentTransactions: [],
     traderProgress: 0,
+    allTradersReady: false,
+    readyCount: 0,
   }),
   getters: {
     goalMessage: (state) => {
@@ -317,6 +319,12 @@ export const useTraderStore = defineStore("trader", {
         this.spread = spread;
         this.pnl = pnl;
         this.vwap = vwap;
+      }
+
+      if (data.type === "session_status_update") {
+        this.allTradersReady = data.data.all_ready;
+        this.readyCount = data.data.ready_count;
+        // ... handle other status updates
       }
     },
 
@@ -626,3 +634,4 @@ export const useTraderStore = defineStore("trader", {
     },
   },
 });
+
