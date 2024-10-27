@@ -5,7 +5,7 @@
 <h1 align="center">Trading Platform</h1>
 
 <p align="center">
-  A simple platform for conducting financial market experiments and simulations.
+  A platform for conducting financial market experiments with multiple traders and role-based interactions.
 </p>
 
 <p align="center">
@@ -17,155 +17,61 @@
   <a href="https://github.com/dthinkr/trading_platform/blob/master/LICENSE"><img src="https://img.shields.io/github/license/dthinkr/trading_platform?color=2b9348" alt="License Badge"/></a>
 </p>
 
-<p align="center">
-  <a href="#key-features">Key Features</a> •
-  <a href="#installation">Installation</a> •
-  <a href="#usage">Usage</a> •
-  <a href="#project-structure">Project Structure</a> •
-  <a href="#contributing">Contributing</a> •
-  <a href="#license">License</a>
-</p>
+## Key Features (v2.0.0)
 
-<p align="center">
-    <img src="front/src/assets/demo.gif" alt="Trading Platform Demo" width="600">
-  </p>
-</div>
+- 🎭 Advanced Role-Based Trading System
+  - Informed Traders (Buy/Sell specialists)
+  - Speculators (Free trading)
+  - Persistent roles across sessions
+- 👥 Multi-Trader Sessions
+  - Coordinated session starts
+  - Real-time trader status updates
+  - Enhanced waiting room interface
+- 📊 Real-Time Market Data
+  - Live order book visualization
+  - Dynamic price charts
+  - Instant trade execution feedback
+- 🔒 Secure Authentication
+  - Google-based login
+  - Role persistence
+  - Session management
+- 📈 Advanced Analytics
+  - Session metrics download
+  - Performance tracking
+  - Goal achievement monitoring
 
-## Key Features
+## Quick Start
 
-- 🚀 Real-time trading simulation
-- 🌐 WebSocket-based communication
-- 🖥️ Vue.js front with Vuetify
-- ⚡ FastAPI back
-- 🔧 Customizable trading scenarios
-- 📊 Advanced data analysis tools
-
-## User Authentication and Session Management
-
-```mermaid
-graph TD
-    A[User attempts login] --> B{Verify user credentials}
-    B -->|Valid| C{Is user registered?}
-    B -->|Invalid| D[Login failed]
-    C -->|Yes| E{Is user already logged in?}
-    C -->|No| D
-    E -->|No| F{Is user an admin?}
-    E -->|Yes| G[Cannot login twice]
-    F -->|Yes| H[Assign admin to session]
-    F -->|No| I{Has user reached session limit?}
-    I -->|No| J[Assign regular user to session]
-    I -->|Yes| K[Cannot join more sessions]
-    H --> L[Grant unlimited access]
-    J --> M[Grant limited access]
-    L --> N[Login successful]
-    M --> N
-```
-
-## Installation
-
-### One-liner Self-Host
+### One-Line Installation
 
 ```bash
 bash <(curl -sSL https://raw.githubusercontent.com/dthinkr/trading_platform/main/trading_platform_run.sh)
 ```
 
-### Manual Setup
-
-#### front
+### Development Setup
 
 ```bash
+# Frontend
 cd front
 npm install
-```
+npm run dev
 
-#### back
-
-```bash
+# Backend
 cd back
 pip install -r requirements.txt
-```
-
-## Usage
-
-### Development Server
-
-#### front
-
-```bash
-cd front
-npm run dev
-```
-
-Access at `http://localhost:3000`
-
-#### back
-
-```bash
-cd back
 uvicorn api.endpoints:app --reload
 ```
 
-API available at `http://localhost:8000`
+## Documentation
 
-### Production Build
-
-```bash
-cd front
-npm run build
-```
-
-## Project Structure
-
-```
-trading_platform/
-├── front/                 # Vue.js front
-│   ├── src/
-│   │   ├── assets/
-│   │   ├── components/
-│   │   ├── layouts/
-│   │   ├── pages/
-│   │   ├── plugins/
-│   │   ├── store/
-│   │   └── styles/
-│   ├── public/
-│   └── package.json
-├── back/                  # FastAPI back
-│   ├── api/
-│   ├── core/
-│   ├── traders/
-│   ├── data_models/
-│   └── analysis/
-└── README.md
-```
-
-
+For detailed documentation, feature explanations, and API references, please visit our [Wiki](https://github.com/dthinkr/trading_platform/wiki).
 
 ## Recent Updates
 
-Key highlights from version 1.3.0:
-
-- 🔄 Implemented multi-trader, multi-session trading functionality
-- 🔐 Added user authentication system
-- 📊 Enabled download of session metrics from log files
-- 🎯 Introduced manual goal setting for each human trader
-- 🧠 Added options to set trader as Informed or Speculator
-- 🖥️ Enhanced trading dashboard with improved order display
-- 💹 Implemented Market Earnings calculation and display
-- 🔢 Improved share counting for goal tracking
-- 🗃️ Shifted from database to log-based data storage
-- 🧹 Removed potentially confusing metrics for clearer user experience
-
-For a full list of changes, please refer to our [Changelog](CHANGELOG.md).
+See our [Changelog](CHANGELOG.md) for detailed version history and updates.
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
-## Acknowledgements
-
-- [Vue.js](https://vuejs.org/)
-- [Vuetify](https://vuetifyjs.com/)
-- [FastAPI](https://fastapi.tiangolo.com/)
-- [Highcharts](https://www.highcharts.com/)
+MIT License - see [LICENSE](LICENSE) for details.
 
 ---
