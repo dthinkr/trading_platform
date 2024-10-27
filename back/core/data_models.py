@@ -24,7 +24,7 @@ class Trader(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     gmail_username: str  # Change this from user_id to gmail_username
     trading_session_id: UUID
-    is_ready: bool = False
+    is_ready: bool = False  # Add this field to track if user pressed start
 
 class TradingPlatform(BaseModel):
     id: UUID = Field(default_factory=uuid4)

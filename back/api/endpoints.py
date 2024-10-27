@@ -73,6 +73,9 @@ session_informed_traders = defaultdict(str)  # Maps session_id to its informed t
 session_creation_times = {}  # Maps session_id to its creation timestamp
 SESSION_TIMEOUT = 60  # Timeout in seconds
 
+# Add this near the top with other global variables
+session_ready_traders = defaultdict(set)  # Maps session_id to set of ready traders
+
 def get_historical_sessions_count(username):
     return len(user_historical_sessions[username])
 
@@ -456,6 +459,10 @@ async def cleanup_session(session_id: str, reason: str = "normal"):
             if session_id in active_users:
                 del active_users[session_id]
                 
+            # Add this line to clean up ready traders
+            if session_id in session_ready_traders:
+                del session_ready_traders[session_id]
+                
         except Exception as e:
             logger.error(f"Error during session cleanup: {str(e)}")
             # Don't raise HTTPException here as it might be called from non-HTTP contexts
@@ -612,14 +619,21 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
         email = decoded_token['email']
         gmail_username = extract_gmail_username(email)
         
-        # Always create a new session
-        session_id, new_trader_id = await find_or_create_session_and_assign_trader(gmail_username)
+        session_id = trader_to_session_lookup.get(trader_id)
+        if not session_id:
+            raise HTTPException(status_code=404, detail="No active session found for this trader")
+            
         trader_manager = trader_managers[session_id]
-        trader = trader_manager.get_trader(new_trader_id)
+        trader = trader_manager.get_trader(trader_id)
+        if not trader:
+            raise HTTPException(status_code=404, detail="Trader not found in session")
         
         # Update active users
         active_users[session_id].add(gmail_username)
         user_sessions[gmail_username] = session_id
+        
+        # Send initial session status
+        await broadcast_session_status(session_id)
         
         await trader.connect_to_socket(websocket)
         
@@ -720,6 +734,37 @@ async def get_file(file_path: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
+# Add this near the top with other global variables
+async def broadcast_session_status(session_id: str):
+    """Broadcast session status to all traders in the session"""
+    if session_id not in trader_managers:
+        return
+        
+    trader_manager = trader_managers[session_id]
+    ready_traders = session_ready_traders[session_id]
+    expected_traders = trader_manager.params.num_human_traders
+    all_ready = len(ready_traders) == expected_traders and len(active_users[session_id]) == expected_traders
+    
+    status_message = {
+        "type": "session_status_update",
+        "data": {
+            "ready_count": len(ready_traders),
+            "total_needed": expected_traders,
+            "ready_traders": list(ready_traders),
+            "all_ready": all_ready,
+            "can_start": all_ready
+        }
+    }
+    
+    # Broadcast to all traders in the session
+    for trader in trader_manager.human_traders:
+        if hasattr(trader, 'websocket') and trader.websocket:
+            try:
+                await trader.websocket.send_json(status_message)
+            except Exception as e:
+                logger.error(f"Error broadcasting to trader: {str(e)}")
+
+# Modify the start_trading_session endpoint
 @app.post("/trading/start")
 async def start_trading_session(background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)):
     gmail_username = current_user['gmail_username']
@@ -732,15 +777,48 @@ async def start_trading_session(background_tasks: BackgroundTasks, current_user:
     
     trader_manager = trader_managers[session_id]
     
-    background_tasks.add_task(trader_manager.launch)
+    # Mark this trader as ready
+    session_ready_traders[session_id].add(gmail_username)
     
-    return {
+    # Broadcast updated status to all traders
+    await broadcast_session_status(session_id)
+    
+    # Check if all traders in the session are ready
+    current_traders = active_users[session_id]
+    expected_traders = trader_manager.params.num_human_traders
+    all_ready = (len(session_ready_traders[session_id]) == expected_traders and 
+                len(current_traders) == expected_traders)
+    
+    response_data = {
         "status": "success",
-        "message": "Trading session started",
-        "data": {
-            "trading_session_uuid": session_id,
-        }
+        "ready_count": len(session_ready_traders[session_id]),
+        "total_needed": expected_traders,
+        "all_ready": all_ready
     }
+    
+    # Only start trading if we have all expected traders and they're all ready
+    if all_ready:
+        # Notify all traders that trading is starting
+        start_message = {
+            "type": "trading_starting",
+            "data": {
+                "message": "All traders ready. Trading session starting..."
+            }
+        }
+        
+        for trader in trader_manager.human_traders:
+            if hasattr(trader, 'websocket') and trader.websocket:
+                try:
+                    await trader.websocket.send_json(start_message)
+                except Exception as e:
+                    logger.error(f"Error notifying trader of start: {str(e)}")
+        
+        background_tasks.add_task(trader_manager.launch)
+        response_data["message"] = "Trading session started"
+    else:
+        response_data["message"] = f"Waiting for other traders ({len(session_ready_traders[session_id])}/{expected_traders} ready)"
+    
+    return response_data
 
 @app.post("/admin/update_google_form_id")
 async def update_google_form_id_endpoint(new_form_id: str, current_user: dict = Depends(get_current_admin_user)):
@@ -908,13 +986,25 @@ def is_session_valid(session_id: str) -> bool:
     trader_manager = trader_managers[session_id]
     return trader_manager.trading_session.active
 
-
-
-
-
-
-
-
+# Add this new endpoint to check session status
+@app.get("/session/{session_id}/status")
+async def get_session_status(session_id: str, current_user: dict = Depends(get_current_user)):
+    if session_id not in trader_managers:
+        raise HTTPException(status_code=404, detail="Session not found")
+        
+    trader_manager = trader_managers[session_id]
+    ready_traders = session_ready_traders[session_id]
+    expected_traders = trader_manager.params.num_human_traders
+    
+    return {
+        "status": "success",
+        "data": {
+            "ready_count": len(ready_traders),
+            "total_needed": expected_traders,
+            "ready_traders": list(ready_traders),
+            "all_ready": len(ready_traders) == expected_traders
+        }
+    }
 
 
 

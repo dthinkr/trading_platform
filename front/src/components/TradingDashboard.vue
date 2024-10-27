@@ -62,7 +62,8 @@
       <v-main class="grey lighten-4">
         <v-container fluid class="pa-4">
           <!-- Session timeout warning -->
-          <v-alert
+          <!-- Remove this v-alert block entirely -->
+          <!-- <v-alert
             v-if="!isTradingStarted && sessionTimeRemaining > 0"
             type="warning"
             prominent
@@ -70,7 +71,7 @@
             class="mb-4"
           >
             Session will timeout in {{ Math.ceil(sessionTimeRemaining) }} seconds if not enough traders join
-          </v-alert>
+          </v-alert> -->
 
           <!-- Modified waiting screen -->
           <v-row v-if="!isTradingStarted" justify="center" align="center" style="height: 80vh;">
@@ -97,8 +98,8 @@
                   <p class="mt-4">
                     The session will start automatically when all traders have joined.
                     <br>
-                    <span class="red--text" v-if="sessionTimeRemaining > 0">
-                      Session will timeout in {{ Math.ceil(sessionTimeRemaining) }} seconds if not enough traders join.
+                    <span v-if="sessionTimeRemaining > 0" class="text--secondary">
+                      Session will close in {{ Math.ceil(sessionTimeRemaining) }} seconds if not enough traders join.
                     </span>
                   </p>
                 </v-card-text>
@@ -326,7 +327,7 @@ const getToolIcon = (toolTitle) => {
 
 // Add these to your existing refs/computed
 const userRole = ref('');
-const sessionTimeRemaining = ref(30); // 30 seconds timeout
+const sessionTimeRemaining = ref(60); // Change from 30 to 60 seconds
 const sessionTimeoutInterval = ref(null);
 
 // Add computed properties for role styling
