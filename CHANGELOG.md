@@ -31,6 +31,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - [ ] VWAP and GBP profit calculation from log files
   - [ ] Reward display system on frontend
 
+## [2.0.0] - 2024-03-19
+
+### Added
+- New role assignment system with persistent user roles across sessions
+- Real-time session status updates showing ready traders count
+- Enhanced waiting room interface with clear session status indicators
+- Improved trader role display with distinct visual indicators for:
+  - Informed (Buy) traders
+  - Informed (Sell) traders
+  - Speculator traders
+- Session coordination system requiring all traders to be ready before start
+
+### Changed
+- Fundamentally changed session management:
+  - Sessions now require all traders to actively press "Start Trading"
+  - Trading only begins when all expected traders are present and ready
+  - Each session now maintains exactly one informed trader
+- Improved role persistence: user roles now persist across session refreshes
+- Enhanced user experience:
+  - Clearer role indicators with color-coded chips and icons
+  - Better visual feedback for session status
+  - More intuitive waiting room interface
+
+### Fixed
+- Session state preservation when refreshing the page
+- Role assignment consistency across multiple sessions
+- User authentication and session management
+- Gmail address now correctly associated with one human trader at any time
+
+### Removed
+- Session timeout functionality for more stable session management
+- Automatic session termination for incomplete trader groups
+
 ## [1.3.5] - 2024-10-16
 
 ### Added

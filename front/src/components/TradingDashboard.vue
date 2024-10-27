@@ -15,7 +15,7 @@
               <!-- Add role chip before other chips -->
               <v-chip class="mr-2" :color="roleColor" text-color="white">
                 <v-icon left small>{{ roleIcon }}</v-icon>
-                {{ userRole }}
+                {{ roleDisplay.text }}
               </v-chip>
               <v-chip v-for="(item, index) in [
                 { label: 'VWAP', value: formatNumber(vwap), icon: 'mdi-chart-line' },
@@ -77,16 +77,16 @@
           <v-row v-if="!isTradingStarted" justify="center" align="center" style="height: 80vh;">
             <v-col cols="12" md="6" class="text-center">
               <v-card elevation="2" class="pa-6">
-                <v-card-title class="text-h4 mb-4">Waiting for Other Traders</v-card-title>
+                <v-card-title class="text-h4 mb-4">Waiting for Traders</v-card-title>
                 <v-card-text>
                   <p class="text-h6 mb-4">
-                    {{ currentHumanTraders }} out of {{ expectedHumanTraders }} traders have joined.
+                    {{ currentHumanTraders }} out of {{ expectedHumanTraders }} traders have joined
                   </p>
                   <p class="subtitle-1 mb-4">
                     Your Role: 
                     <v-chip :color="roleColor" text-color="white" small>
                       <v-icon left small>{{ roleIcon }}</v-icon>
-                      {{ userRole }}
+                      {{ roleDisplay.text }}
                     </v-chip>
                   </p>
                   <v-progress-circular
@@ -95,13 +95,31 @@
                     color="primary"
                     indeterminate
                   ></v-progress-circular>
-                  <p class="mt-4">
-                    The session will start automatically when all traders have joined.
-                    <br>
+                  <div class="mt-4">
+                    <p class="mb-2">
+                      <strong>To start trading:</strong>
+                    </p>
+                    <p class="mb-2">
+                      1. All {{ expectedHumanTraders }} traders must join
+                      <v-icon v-if="currentHumanTraders === expectedHumanTraders" 
+                              color="success" small>
+                        mdi-check-circle
+                      </v-icon>
+                    </p>
+                    <p class="mb-2">
+                      2. Each trader must press "Start Trading"
+                      <span class="ml-1">
+                        ({{ readyCount }} of {{ expectedHumanTraders }} ready)
+                      </span>
+                      <v-icon v-if="allTradersReady" 
+                              color="success" small>
+                        mdi-check-circle
+                      </v-icon>
+                    </p>
                     <span v-if="sessionTimeRemaining > 0" class="text--secondary">
                       Session will close in {{ Math.ceil(sessionTimeRemaining) }} seconds if not enough traders join.
                     </span>
-                  </p>
+                  </div>
                 </v-card-text>
               </v-card>
             </v-col>
@@ -330,14 +348,33 @@ const userRole = ref('');
 const sessionTimeRemaining = ref(60); // Change from 30 to 60 seconds
 const sessionTimeoutInterval = ref(null);
 
-// Add computed properties for role styling
-const roleColor = computed(() => {
-  return userRole.value === 'informed' ? 'deep-purple' : 'teal';
+// Add these computed properties
+const roleDisplay = computed(() => {
+  if (!hasGoal.value) {
+    return {
+      text: 'SPECULATOR',
+      icon: 'mdi-account-search',
+      color: 'teal'
+    };
+  }
+  // Informed trader with different types
+  if (goal.value > 0) {
+    return {
+      text: 'INFORMED (BUY)',
+      icon: 'mdi-trending-up',
+      color: 'indigo'
+    };
+  }
+  return {
+    text: 'INFORMED (SELL)',
+    icon: 'mdi-trending-down',
+    color: 'deep-purple'
+  };
 });
 
-const roleIcon = computed(() => {
-  return userRole.value === 'informed' ? 'mdi-eye' : 'mdi-account-search';
-});
+// Replace the existing roleColor and roleIcon computed properties
+const roleColor = computed(() => roleDisplay.value.color);
+const roleIcon = computed(() => roleDisplay.value.icon);
 
 // Add watcher for trading started
 watch(isTradingStarted, (newValue) => {
@@ -373,6 +410,18 @@ const progressBarColor = computed(() => {
     return 'orange lighten-1';
   }
   return 'deep-orange lighten-1';
+});
+
+// Add this computed property
+const allTradersReady = computed(() => {
+  // This should be updated based on the WebSocket status updates
+  // You'll need to track this in your store
+  return store.allTradersReady;
+});
+
+// Add this computed property
+const readyCount = computed(() => {
+  return store.readyCount || 0;
 });
 </script>
 
@@ -492,5 +541,30 @@ const progressBarColor = computed(() => {
 .sell-bg {
   background-color: #c62828 !important; /* Darker red */
 }
+
+/* Add to your existing styles */
+.v-chip {
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+/* Role-specific colors */
+.informed-buy {
+  background-color: #3949ab !important; /* Indigo */
+}
+
+.informed-sell {
+  background-color: #673ab7 !important; /* Deep Purple */
+}
+
+.speculator {
+  background-color: #00897b !important; /* Teal */
+}
 </style>
+
+
+
+
+
+
 

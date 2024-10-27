@@ -428,18 +428,15 @@ async def cleanup_session(session_id: str, reason: str = "normal"):
         for trader in trader_manager.human_traders:
             if hasattr(trader, 'websocket') and trader.websocket:
                 try:
-                    # Check if websocket is still connected using application state
                     if not trader.websocket.application_state.name == "DISCONNECTED":
                         await trader.websocket.send_json({
                             "type": "SESSION_TERMINATED",
                             "reason": reason,
-                            "message": "Session terminated due to " + 
-                                     ("timeout - not enough traders joined" if reason == "timeout" 
-                                      else "normal cleanup")
+                            "message": "Session terminated due to normal cleanup"
                         })
                 except Exception as e:
                     logger.error(f"Error notifying trader during cleanup: {str(e)}")
-                    continue  # Continue with cleanup even if notification fails
+                    continue
 
         try:
             # Clean up session data
@@ -447,8 +444,6 @@ async def cleanup_session(session_id: str, reason: str = "normal"):
             del trader_managers[session_id]
             
             # Clean up tracking dictionaries
-            if session_id in session_creation_times:
-                del session_creation_times[session_id]
             if session_id in session_informed_traders:
                 del session_informed_traders[session_id]
                 
@@ -459,13 +454,11 @@ async def cleanup_session(session_id: str, reason: str = "normal"):
             if session_id in active_users:
                 del active_users[session_id]
                 
-            # Add this line to clean up ready traders
             if session_id in session_ready_traders:
                 del session_ready_traders[session_id]
                 
         except Exception as e:
             logger.error(f"Error during session cleanup: {str(e)}")
-            # Don't raise HTTPException here as it might be called from non-HTTP contexts
             return False
             
         return True
@@ -640,12 +633,9 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
         try:
             send_task = asyncio.create_task(send_to_frontend(websocket, trader_manager))
             receive_task = asyncio.create_task(receive_from_frontend(websocket, trader))
-            timeout_check_task = asyncio.create_task(
-                periodic_timeout_check(session_id, websocket)
-            )
             
             done, pending = await asyncio.wait(
-                [send_task, receive_task, timeout_check_task],
+                [send_task, receive_task],
                 return_when=asyncio.FIRST_COMPLETED
             )
             
@@ -665,21 +655,6 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
             "data": {}
         })
         await websocket.close()
-
-async def periodic_timeout_check(session_id: str, websocket: WebSocket):
-    """Periodically check for session timeout"""
-    while True:
-        if await check_session_timeout(session_id):
-            try:
-                await websocket.send_json({
-                    "type": "SESSION_TERMINATED",
-                    "reason": "timeout",
-                    "message": "Session terminated due to timeout - not enough traders joined"
-                })
-            except Exception:
-                pass
-            break
-        await asyncio.sleep(1)
 
 current_dir = Path(__file__).resolve().parent
 ROOT_DIR = current_dir.parent / "logs"
@@ -1005,6 +980,7 @@ async def get_session_status(session_id: str, current_user: dict = Depends(get_c
             "all_ready": len(ready_traders) == expected_traders
         }
     }
+
 
 
 
