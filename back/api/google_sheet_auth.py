@@ -22,6 +22,13 @@ forms_service = build('forms', 'v1', credentials=creds)
 registered_users_cache = []
 last_update_time = datetime.min
 
+def normalize_email(email):
+    """Normalize email to lowercase and ensure @gmail.com is present."""
+    email = email.lower().strip()
+    if '@' not in email:
+        email = f"{email}@gmail.com"
+    return email
+
 def get_registered_users(force_update=False, form_id=None):
     """Fetch registered users from the Google Form."""
     global registered_users_cache, last_update_time
@@ -46,8 +53,9 @@ def get_registered_users(force_update=False, form_id=None):
                 for question_id, answer in response['answers'].items():
                     question_title = questions.get(question_id, "Unknown Question")
                     if question_title == "Gmail":
-                        email = answer['textAnswers']['answers'][0]['value'] + "@gmail.com"
-                        registered_users_cache.append(email)
+                        email_input = answer['textAnswers']['answers'][0]['value']
+                        normalized_email = normalize_email(email_input)
+                        registered_users_cache.append(normalized_email)
 
             last_update_time = datetime.now()
         except HttpError:
@@ -57,11 +65,20 @@ def get_registered_users(force_update=False, form_id=None):
 
 def is_user_registered(email, form_id=None):
     """Check if a user's email is registered in the Google Form or is an admin."""
-    username = email.split('@')[0]
-    if username in TradingParameters().admin_users:
+    # Normalize the input email
+    normalized_email = normalize_email(email)
+    username = normalized_email.split('@')[0]
+    
+    # Check admin users (case insensitive)
+    admin_users = [admin.lower() for admin in TradingParameters().admin_users]
+    if username in admin_users:
         return True
+    
+    # Get registered emails and normalize them
     registered_emails = get_registered_users(form_id=form_id)
-    return email in registered_emails
+    registered_emails = [normalize_email(email) for email in registered_emails]
+    
+    return normalized_email in registered_emails
 
 def update_form_id(new_form_id):
     """Update the form ID (in case it changes)."""
@@ -71,5 +88,7 @@ def update_form_id(new_form_id):
 
 def is_user_admin(email):
     """Check if a user's email is in the admin list."""
-    username = email.split('@')[0]
-    return username in TradingParameters().admin_users
+    normalized_email = normalize_email(email)
+    username = normalized_email.split('@')[0]
+    admin_users = [admin.lower() for admin in TradingParameters().admin_users]
+    return username in admin_users
