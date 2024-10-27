@@ -278,6 +278,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Customizable trading scenarios
 - Basic data analysis tools
 
+[2.0.0]: https://github.com/dthinkr/trading_platform/compare/v1.3.5...v2.0.0
 [1.3.5]: https://github.com/dthinkr/trading_platform/compare/v1.3.4...v1.3.5
 [1.3.4]: https://github.com/dthinkr/trading_platform/compare/v1.3.3...v1.3.4
 [1.3.1]: https://github.com/dthinkr/trading_platform/compare/v1.2.0...v1.3.1
