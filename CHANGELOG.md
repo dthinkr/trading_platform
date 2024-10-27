@@ -22,14 +22,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - [X] Move market indicators up, next to the plots
 - [X] Update bid-ask distribution window:
   - [X] Replace "bid" with "buy" and "ask" with "sell" in title and graph labels
-- [ ] Make all Control Questions mandatory and show correct answers with explanations
-- [ ] Adjust profits to range from 5 to 15 GBP
-- [ ] For informed traders, determine number of shares by participation rate (informed intensity)
-- [ ] Implement goal achievement calculations:
-  - [ ] For unfulfilled sell goals: remaining orders * initial midprice * 0.5
-  - [ ] For unfulfilled buy goals: remaining orders * initial midprice * 1.5
-  - [ ] VWAP and GBP profit calculation from log files
-  - [ ] Reward display system on frontend
+- [X] Make all Control Questions mandatory and show correct answers with explanations
+- [X] For informed traders, determine number of shares by participation rate (informed intensity)
+- [X] Implement goal achievement calculations:
+  - [X] For unfulfilled sell goals: remaining orders * initial midprice * 0.5
+  - [X] For unfulfilled buy goals: remaining orders * initial midprice * 1.5
+  - [X] VWAP and GBP profit calculation from log files
+  - [X] Reward display system on frontend
 
 ## [2.0.0] - 2024-03-19
 
