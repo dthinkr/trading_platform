@@ -76,6 +76,10 @@ SESSION_TIMEOUT = 60  # Timeout in seconds
 # Add this near the top with other global variables
 session_ready_traders = defaultdict(set)  # Maps session_id to set of ready traders
 
+# Add these near the top with other global variables
+user_goals = {}  # Maps username to their assigned goal
+goal_assignments = {}  # Maps session_id to list of already assigned goal indices
+
 def get_historical_sessions_count(username):
     return len(user_historical_sessions[username])
 
@@ -88,10 +92,6 @@ class PersistentSettings(BaseModel):
 @app.post("/admin/update_persistent_settings")
 async def update_persistent_settings(settings: PersistentSettings):
     global persistent_settings
-    if 'num_human_traders' in settings.settings and 'human_goal_amount' in settings.settings:
-        num_traders = int(settings.settings['num_human_traders'])
-        goal_amount = int(settings.settings['human_goal_amount'])
-        settings.settings['human_goals'] = TradingParameters.generate_human_goals(num_traders, goal_amount)
     persistent_settings = settings.settings
     return {"status": "success", "message": "Persistent settings updated"}
 
@@ -213,24 +213,40 @@ async def create_trading_session(background_tasks: BackgroundTasks, current_user
     global persistent_settings
     
     try:
-        merged_params = TradingParameters(**persistent_settings)
-    except ValidationError as e:
-        raise HTTPException(status_code=422, detail=str(e))
+        print("\n=== Trading Session Initiation ===")
+        print(f"Current user: {current_user}")
+        print(f"Persistent settings: {persistent_settings}")
+        
+        try:
+            merged_params = TradingParameters(**persistent_settings)
+            print(f"Successfully created TradingParameters with: {merged_params.model_dump()}")
+        except ValidationError as e:
+            print(f"ValidationError creating TradingParameters: {str(e)}")
+            raise HTTPException(status_code=422, detail=str(e))
+        except Exception as e:
+            print(f"Unexpected error creating TradingParameters: {str(e)}")
+            raise HTTPException(status_code=500, detail=str(e))
     
-    gmail_username = current_user['gmail_username']
-    
-    try:
+        gmail_username = current_user['gmail_username']
+        print(f"Gmail username: {gmail_username}")
+        
         trader_id = f"HUMAN_{gmail_username}"
+        print(f"Looking for trader_id: {trader_id}")
+        
         session_id = trader_to_session_lookup.get(trader_id)
+        print(f"Found session_id: {session_id}")
         
         if not session_id:
+            print("No active session found for this user")
             raise HTTPException(status_code=404, detail="No active session found for this user")
         
         trader_manager = trader_managers[session_id]
+        print(f"Found trader manager for session {session_id}")
         
         trader_manager.params = merged_params
+        print("Updated trader manager params")
         
-        return {
+        response_data = {
             "status": "success",
             "message": "Trading session info retrieved",
             "data": {
@@ -238,11 +254,22 @@ async def create_trading_session(background_tasks: BackgroundTasks, current_user
                 "trader_id": trader_id,
                 "traders": list(trader_manager.traders.keys()),
                 "human_traders": [t.id for t in trader_manager.human_traders],
-            },
+            }
         }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error retrieving trading session info: {str(e)}")
+        print(f"Prepared response: {response_data}")
+        print("=== Trading Session Initiation Complete ===\n")
         
+        return response_data
+        
+    except Exception as e:
+        print(f"ERROR in create_trading_session: {str(e)}")
+        print(f"Error type: {type(e)}")
+        print(f"Error traceback: {traceback.format_exc()}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error retrieving trading session info: {str(e)}"
+        )
+
 def get_manager_by_trader(trader_id: str):
     if trader_id not in trader_to_session_lookup.keys():
         return None
@@ -444,8 +471,8 @@ async def cleanup_session(session_id: str, reason: str = "normal"):
             del trader_managers[session_id]
             
             # Clean up tracking dictionaries
-            if session_id in session_informed_traders:
-                del session_informed_traders[session_id]
+            if session_id in goal_assignments:
+                del goal_assignments[session_id]
                 
             # Update user tracking
             for username in list(active_users[session_id]):
@@ -464,14 +491,14 @@ async def cleanup_session(session_id: str, reason: str = "normal"):
         return True
 
 async def find_or_create_session_and_assign_trader(gmail_username):
-    """Modified to try joining existing sessions first"""
+    """Modified to use predefined goals for role assignment"""
     try:
         print(f"\n=== Starting session assignment for {gmail_username} ===")
-        print(f"Current active sessions: {list(trader_managers.keys())}")
-        print(f"Current user roles: {user_roles}")
-        print(f"Current session informed traders: {dict(session_informed_traders)}")
         
-        # First, try to find an available session
+        # First check if user already has an assigned goal
+        existing_goal = user_goals.get(gmail_username)
+        
+        # Try to find an available session
         available_session = None
         available_session_id = None
         
@@ -490,36 +517,48 @@ async def find_or_create_session_and_assign_trader(gmail_username):
         if not available_session:
             print("No available session found, creating new one")
             params = TradingParameters(**persistent_settings)
-            new_trader_manager = TraderManager(params, user_roles)
+            print(f"Informed trader params are {params.model_dump()}")
+            
+            # Create new trader manager without user_roles
+            new_trader_manager = TraderManager(params)
+            
             session_id = new_trader_manager.trading_session.id
             trader_managers[session_id] = new_trader_manager
             session_creation_times[session_id] = time.time()
             available_session = new_trader_manager
             available_session_id = session_id
+            goal_assignments[session_id] = []
             print(f"Created new session: {session_id}")
-        
-        # Assign role and add trader to session
-        role = assign_user_role(gmail_username, available_session_id)
-        print(f"Assigned role '{role}' to {gmail_username}")
-        
-        # Set goal based on role
-        if role == 'informed':
-            goal_amount = available_session.params.human_goal_amount
-            goal = random.choice([goal_amount, -goal_amount])
-            print(f"Set informed trader goal: {goal}")
+
+        # Assign goal if user doesn't have one yet
+        if existing_goal is None:
+            # Get the next available goal index for this session
+            assigned_indices = goal_assignments[available_session_id]
+            available_indices = [i for i in range(len(available_session.params.predefined_goals)) 
+                               if i not in assigned_indices]
+            
+            if not available_indices:
+                raise HTTPException(
+                    status_code=400,
+                    detail="No available roles in this session"
+                )
+                
+            next_index = available_indices[0]
+            goal = available_session.params.predefined_goals[next_index]
+            user_goals[gmail_username] = goal
+            goal_assignments[available_session_id].append(next_index)
+            print(f"Assigned new goal {goal} to {gmail_username}")
         else:
-            goal = 0
-            print("Set speculator goal: 0")
-        
-        # Update the goals list
-        current_traders = len(available_session.human_traders)
-        while len(available_session.params.human_goals) <= current_traders:
-            available_session.params.human_goals.append(0)
-        available_session.params.human_goals[current_traders] = goal
-        
-        # Add trader to session
-        trader_id = await available_session.add_human_trader(gmail_username)
+            print(f"Using existing goal {existing_goal} for {gmail_username}")
+            goal = existing_goal
+
+        # Add trader to session with goal
+        trader_id = await available_session.add_human_trader(gmail_username, goal=goal)
         print(f"Added trader to session with ID: {trader_id}")
+        
+        # After adding trader, set their goal in the trader manager
+        if hasattr(available_session, 'set_trader_goal'):
+            await available_session.set_trader_goal(trader_id, goal)
         
         # Update tracking dictionaries
         trader_to_session_lookup[trader_id] = available_session_id
@@ -528,8 +567,8 @@ async def find_or_create_session_and_assign_trader(gmail_username):
         
         print(f"Final session state:")
         print(f"- Active users in session: {active_users[available_session_id]}")
-        print(f"- Session informed trader: {session_informed_traders[available_session_id]}")
-        print(f"- Total traders in session: {len(available_session.human_traders)}")
+        print(f"- User goals: {user_goals}")
+        print(f"- Goal assignments for session: {goal_assignments[available_session_id]}")
         print("=== Session assignment complete ===\n")
         
         return available_session_id, trader_id
@@ -884,41 +923,27 @@ async def cleanup(session_id: str):
         del active_users[session_id]
     # ... (rest of the cleanup logic)
 
-def assign_user_role(username: str, session_id: str) -> str:
-    print(f"\n--- Role assignment for {username} ---")
-    print(f"Current user roles: {user_roles}")
-    print(f"Current session informed traders: {dict(session_informed_traders)}")
-    
-    # If user already has a role, maintain it
-    if username in user_roles:
-        print(f"User already has role: {user_roles[username]}")
-        return user_roles[username]
-    
-    # Check if session already has an informed trader
-    if session_id in session_informed_traders:
-        print(f"Session {session_id} already has informed trader: {session_informed_traders[session_id]}")
-        # If session has an informed trader, new user must be speculator
-        user_roles[username] = 'speculator'
-        print(f"Assigned speculator role to {username}")
-        return 'speculator'
-    
-    # If no informed trader in session yet, make this user informed
-    user_roles[username] = 'informed'
-    session_informed_traders[session_id] = username
-    print(f"Assigned informed role to {username}")
-    print("--- Role assignment complete ---\n")
-    return 'informed'
-
-# Add this endpoint to get user role information
+# Update get_user_role endpoint to use goals
 @app.get("/user/role")
 async def get_user_role(current_user: dict = Depends(get_current_user)):
     gmail_username = current_user['gmail_username']
-    role = user_roles.get(gmail_username, 'unknown')
+    goal = user_goals.get(gmail_username, None)
+    
+    role = "unknown"
+    if goal is not None:
+        if goal > 0:
+            role = "buyer"
+        elif goal < 0:
+            role = "seller"
+        else:
+            role = "speculator"
+            
     return {
         "status": "success",
         "data": {
             "username": gmail_username,
-            "role": role
+            "role": role,
+            "goal": goal
         }
     }
 
@@ -980,6 +1005,44 @@ async def get_session_status(session_id: str, current_user: dict = Depends(get_c
             "all_ready": len(ready_traders) == expected_traders
         }
     }
+
+@app.post("/admin/reset_state")
+async def reset_state(current_user: dict = Depends(get_current_admin_user)):
+    """Reset all internal state variables to default"""
+    try:
+        print("\n=== Resetting Internal State ===")
+        
+        global user_goals, goal_assignments, user_historical_sessions
+        
+        # Clear all tracking dictionaries
+        user_goals.clear()
+        goal_assignments.clear()
+        user_historical_sessions.clear()
+        
+        # Clean up all active sessions
+        for session_id in list(trader_managers.keys()):
+            await cleanup_session(session_id, reason="admin_reset")
+            
+        # Clear remaining global state
+        trader_managers.clear()
+        trader_to_session_lookup.clear()
+        active_users.clear()
+        user_sessions.clear()
+        session_ready_traders.clear()
+        session_creation_times.clear()
+        
+        print("All internal state has been reset")
+        print("=== Reset Complete ===\n")
+        
+        return {"status": "success", "message": "Internal state reset successfully"}
+        
+    except Exception as e:
+        print(f"ERROR in reset_state: {str(e)}")
+        print(f"Error traceback: {traceback.format_exc()}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error resetting state: {str(e)}"
+        )
 
 
 

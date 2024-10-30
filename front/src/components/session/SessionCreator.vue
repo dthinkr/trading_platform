@@ -175,10 +175,21 @@ const isArrayField = (field) => {
 };
 
 const handleArrayInput = (fieldName, value) => {
-  if (value === '') {
-    formState.value[fieldName] = [];
+  if (fieldName === 'predefined_goals') {
+    if (value === '') {
+      formState.value[fieldName] = [];
+    } else if (Array.isArray(value)) {
+      formState.value[fieldName] = value.map(v => parseInt(v));
+    } else {
+      // Convert string input to array of numbers
+      formState.value[fieldName] = value.split(',')
+        .map(v => parseInt(v.trim()))
+        .filter(n => !isNaN(n));
+    }
+    console.log(`Updated ${fieldName}:`, formState.value[fieldName]); // Debug log
   } else {
-    formState.value[fieldName] = value.split(',').map(item => item.trim());
+    // Handle other array fields
+    formState.value[fieldName] = value === '' ? [] : value.split(',').map(item => item.trim());
   }
   updatePersistentSettings();
 };
@@ -209,8 +220,26 @@ const fetchData = async () => {
 
 const updatePersistentSettings = async () => {
   try {
+    // Create a copy of formState with properly formatted values
+    const settings = {};
+    for (const [key, value] of Object.entries(formState.value)) {
+      if (key === 'predefined_goals') {
+        // Ensure predefined_goals is always an array of numbers
+        if (typeof value === 'string') {
+          settings[key] = value.split(',').map(v => parseInt(v.trim())).filter(n => !isNaN(n));
+        } else if (Array.isArray(value)) {
+          settings[key] = value.map(v => parseInt(v));
+        } else {
+          settings[key] = [0]; // Default fallback
+        }
+        console.log(`Formatted ${key}:`, settings[key]); // Debug log
+      } else {
+        settings[key] = value;
+      }
+    }
+    
     await axios.post(`${import.meta.env.VITE_HTTP_URL}admin/update_persistent_settings`, {
-      settings: formState.value
+      settings: settings
     });
   } catch (error) {
     console.error("Failed to update persistent settings:", error);
@@ -222,7 +251,9 @@ const saveSettings = async () => {
   try {
     await updatePersistentSettings();
     
-    console.log("Settings saved successfully");
+    await axios.post(`${import.meta.env.VITE_HTTP_URL}admin/reset_state`);
+    
+    console.log("Settings saved and state reset successfully");
   } catch (error) {
     console.error("Error saving settings:", error);
   }

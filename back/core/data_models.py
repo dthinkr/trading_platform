@@ -38,16 +38,10 @@ class UserRegistration(BaseModel):
 
 class TradingParameters(BaseModel):
     num_human_traders: int = Field(
-        default=1,
+        default=3,
         title="Number of Human Traders",
         description="model_parameter",
         ge=1,  # Changed from ge=0 to ge=1 to ensure at least one human trader
-    )
-    human_goal_amount: int = Field(
-        default=10,
-        title="Human Goal Amount",
-        description="human_parameter",
-        ge=0,
     )
     num_noise_traders: int = Field(
         default=1,
@@ -193,47 +187,35 @@ class TradingParameters(BaseModel):
     )
 
     admin_users: List[str] = Field(
-        default=['venvoooo', 'asancetta', 'marjonuzaj'],
+        default=['venvoooo', 'asancetta', 'marjonuzaj', 'fra160756', 'expecon'],
         title="Admin Users",
         description="model_parameter",
     )
 
-    human_goals: List[int] = Field(
-        default_factory=list,
-        title="Human Goals",
-        description="human_parameter",
+    # Add new field for predefined goals
+    predefined_goals: List[int] = Field(
+        default=[100, 0, -100],  # Default goals: buy 100, speculate, sell 100
+        title="Predefined Goals",
+        description="model_parameter",
     )
 
     @field_validator('num_human_traders')
     def ensure_integer(cls, v):
         return max(int(v), 1)  # Allow minimum of 1 human trader now
 
-    @field_validator('human_goals')
-    def validate_human_goals(cls, v, info):
-        num_traders = info.data.get('num_human_traders', 2)
-        if len(v) != num_traders:
-            # For single trader case, always set goal to 0
-            if num_traders == 1:
-                return [0]
-            # For multiple traders, use existing logic
-            return cls.generate_human_goals(num_traders, info.data.get('human_goal_amount', 60))
-        return v
-
-    @staticmethod
-    def generate_human_goals(num_traders: int, goal_amount: int) -> List[int]:
-        """
-        Generate human goals with exactly one informed trader and the rest as speculators.
-        For single trader case, they are always a speculator.
-        """
-        if num_traders == 1:
-            return [0]  # Single trader is always a speculator
-            
-        goals = [0] * num_traders  # Initialize all traders as speculators
-        # Randomly select one trader to be informed (only for multi-trader cases)
-        informed_index = random.randrange(num_traders)
-        # Randomly assign positive or negative goal to the informed trader
-        goals[informed_index] = random.choice([goal_amount, -goal_amount])
-        return goals
+    @field_validator('predefined_goals', mode='before')
+    def validate_predefined_goals(cls, v):
+        if isinstance(v, str):
+            try:
+                # Convert string input to list of integers
+                return [int(x.strip()) for x in v.split(',')]
+            except ValueError:
+                raise ValueError("Predefined goals must be comma-separated integers")
+        elif isinstance(v, list):
+            # If it's already a list, ensure all elements are integers
+            return [int(x) for x in v]
+        else:
+            raise ValueError("Predefined goals must be either a comma-separated string or a list of integers")
 
     def dump_params_by_description(self) -> dict:
         """Dump parameters into a dict of dict indexed by description."""
