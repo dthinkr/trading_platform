@@ -1,93 +1,140 @@
 <template>
-  <div class="card-content">
-    <div class="content-wrapper">
-      <div class="info-section">
-        <h2>
-          <v-icon left :color="iconColor">mdi-robot</v-icon>
-          Artificial Traders
-        </h2>
-        <p>The other participants in the market are all artificial (algorithmic) traders, i.e., non-human.</p>
-        <v-alert
-          color="info"
-          border="start"
-          elevation="2"
-          colored-border
-          icon="mdi-information"
-          class="mt-3"
-          icon-color="grey darken-1"
-        >
-          All artificial traders have no objective in terms of earnings.
-        </v-alert>
+  <div class="page-container">
+    <v-scale-transition>
+      <div class="header-section">
+        <v-icon size="40" :color="iconColor" class="pulse-icon">mdi-robot-industrial</v-icon>
+        <h2 class="text-h4 gradient-text">Market Participants</h2>
       </div>
+    </v-scale-transition>
 
-      <div class="info-section">
-        <h2>
-          <v-icon left :color="iconColor">mdi-refresh</v-icon>
-          Trader Behavior
-        </h2>
-        <v-list>
-          <v-list-item>
-            <v-list-item-icon>
-              <v-icon color="iconColor">mdi-login</v-icon>
-            </v-list-item-icon>
-            <v-list-item-content>
-              Artificial traders randomly join the market for a short period
-            </v-list-item-content>
-          </v-list-item>
-          <v-list-item>
-            <v-list-item-icon>
-              <v-icon color="iconColor">mdi-swap-horizontal</v-icon>
-            </v-list-item-icon>
-            <v-list-item-content>
-              They buy and sell during their time in the market
-            </v-list-item-content>
-          </v-list-item>
-          <v-list-item>
-            <v-list-item-icon>
-              <v-icon color="iconColor">mdi-logout</v-icon>
-            </v-list-item-icon>
-            <v-list-item-content>
-              They are then replaced by other artificial traders
-            </v-list-item-content>
-          </v-list-item>
-        </v-list>
-      </div>
+    <v-container class="content-grid">
+      <v-row>
+        <!-- Main Info Card -->
+        <v-col cols="12">
+          <v-hover v-slot="{ isHovering, props }">
+            <v-card
+              v-bind="props"
+              :elevation="isHovering ? 8 : 2"
+              class="info-card"
+            >
+              <v-card-text>
+                <div class="d-flex align-center mb-4">
+                  <v-icon size="28" :color="iconColor" class="mr-2">mdi-robot</v-icon>
+                  <span class="text-h6">Artificial Traders</span>
+                </div>
+                <p class="text-body-1">
+                  The other participants in the market are all artificial (algorithmic) traders, i.e., non-human.
+                </p>
+                <v-alert
+                  color="info"
+                  variant="tonal"
+                  border="start"
+                  class="mt-4"
+                >
+                  All artificial traders have no objective in terms of earnings.
+                </v-alert>
+              </v-card-text>
+            </v-card>
+          </v-hover>
+        </v-col>
 
-      <div class="info-section">
-        <h2>
-          <v-icon left :color="iconColor">mdi-chart-line</v-icon>
-          Market Activity
-        </h2>
-        <p>These traders ensure activity in the market that enables you to buy and sell.</p>
-      </div>
+        <!-- Behavior Cards -->
+        <v-col cols="12" md="4">
+          <v-hover v-slot="{ isHovering, props }">
+            <v-card
+              v-bind="props"
+              :elevation="isHovering ? 8 : 2"
+              class="info-card success-gradient"
+            >
+              <v-card-text>
+                <div class="d-flex align-center mb-4">
+                  <v-icon size="28" color="success" class="mr-2">mdi-login</v-icon>
+                  <span class="text-h6">Market Entry</span>
+                </div>
+                <p class="text-body-1">
+                  Artificial traders randomly join the market for a short period
+                </p>
+              </v-card-text>
+            </v-card>
+          </v-hover>
+        </v-col>
 
-      <div class="info-section">
-        <h2>
-          <v-icon left :color="iconColor">mdi-school</v-icon>
-          Next Steps
-        </h2>
-        <v-list>
-          <v-list-item>
-            <v-list-item-icon>
-              <v-icon color="iconColor">mdi-checkbox-marked-circle</v-icon>
-            </v-list-item-icon>
-            <v-list-item-content>
-              <v-list-item-title class="font-weight-bold">Control Questions</v-list-item-title>
-              <v-list-item-subtitle>You will answer some control questions</v-list-item-subtitle>
-            </v-list-item-content>
-          </v-list-item>
-          <v-list-item>
-            <v-list-item-icon>
-              <v-icon color="iconColor">mdi-checkbox-marked-circle</v-icon>
-            </v-list-item-icon>
-            <v-list-item-content>
-              <v-list-item-title class="font-weight-bold">Practice Session</v-list-item-title>
-              <v-list-item-subtitle>You will practice trading to familiarize yourself with the trading platform</v-list-item-subtitle>
-            </v-list-item-content>
-          </v-list-item>
-        </v-list>
-      </div>
-    </div>
+        <v-col cols="12" md="4">
+          <v-hover v-slot="{ isHovering, props }">
+            <v-card
+              v-bind="props"
+              :elevation="isHovering ? 8 : 2"
+              class="info-card info-gradient"
+            >
+              <v-card-text>
+                <div class="d-flex align-center mb-4">
+                  <v-icon size="28" color="info" class="mr-2">mdi-swap-horizontal</v-icon>
+                  <span class="text-h6">Trading Activity</span>
+                </div>
+                <p class="text-body-1">
+                  They buy and sell during their time in the market
+                </p>
+              </v-card-text>
+            </v-card>
+          </v-hover>
+        </v-col>
+
+        <v-col cols="12" md="4">
+          <v-hover v-slot="{ isHovering, props }">
+            <v-card
+              v-bind="props"
+              :elevation="isHovering ? 8 : 2"
+              class="info-card warning-gradient"
+            >
+              <v-card-text>
+                <div class="d-flex align-center mb-4">
+                  <v-icon size="28" color="warning" class="mr-2">mdi-logout</v-icon>
+                  <span class="text-h6">Market Exit</span>
+                </div>
+                <p class="text-body-1">
+                  They are then replaced by other artificial traders
+                </p>
+              </v-card-text>
+            </v-card>
+          </v-hover>
+        </v-col>
+
+        <!-- Next Steps Card -->
+        <v-col cols="12">
+          <v-hover v-slot="{ isHovering, props }">
+            <v-card
+              v-bind="props"
+              :elevation="isHovering ? 8 : 2"
+              class="info-card"
+            >
+              <v-card-text>
+                <div class="d-flex align-center mb-4">
+                  <v-icon size="28" :color="iconColor" class="mr-2">mdi-school</v-icon>
+                  <span class="text-h6">Next Steps</span>
+                </div>
+                <v-timeline density="compact" align="start">
+                  <v-timeline-item
+                    dot-color="success"
+                    icon="mdi-checkbox-marked-circle"
+                  >
+                    <div class="text-subtitle-1 font-weight-bold">Control Questions</div>
+                    <div class="text-body-2">You will answer some control questions</div>
+                  </v-timeline-item>
+                  
+                  <v-timeline-item
+                    dot-color="info"
+                    icon="mdi-play-circle"
+                  >
+                    <div class="text-subtitle-1 font-weight-bold">Practice Session</div>
+                    <div class="text-body-2">You will practice trading to familiarize yourself with the trading platform</div>
+                  </v-timeline-item>
+                </v-timeline>
+              </v-card-text>
+            </v-card>
+          </v-hover>
+        </v-col>
+      </v-row>
+    </v-container>
   </div>
 </template>
 
@@ -96,3 +143,58 @@ const props = defineProps({
   iconColor: String
 });
 </script>
+
+<style scoped>
+.page-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.header-section {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.gradient-text {
+  background: linear-gradient(45deg, #2196F3, #4CAF50);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: bold;
+  margin: 1rem 0;
+}
+
+.pulse-icon {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+.info-card {
+  height: 100%;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.success-gradient {
+  background: linear-gradient(135deg, #4CAF5011, #81C78411) !important;
+}
+
+.info-gradient {
+  background: linear-gradient(135deg, #2196F311, #64B5F611) !important;
+}
+
+.warning-gradient {
+  background: linear-gradient(135deg, #FFA00011, #FFD54F11) !important;
+}
+
+@media (max-width: 960px) {
+  .page-container {
+    padding: 1rem;
+  }
+}
+</style>
