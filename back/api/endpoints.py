@@ -645,6 +645,7 @@ async def get_session_metrics(trader_id: str, session_id: str, current_user: dic
 @app.websocket("/trader/{trader_id}")
 async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
     await websocket.accept()
+    session_id = None
     try:
         token = await websocket.receive_text()
         decoded_token = custom_verify_id_token(token)
@@ -664,7 +665,19 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
         active_users[session_id].add(gmail_username)
         user_sessions[gmail_username] = session_id
         
-        # Send initial session status
+        # Send initial counts immediately after connection
+        initial_count = {
+            "type": "trader_count_update",
+            "data": {
+                "current_human_traders": len(active_users[session_id]),
+                "expected_human_traders": trader_manager.params.num_human_traders,
+                "session_id": session_id
+            }
+        }
+        await websocket.send_json(initial_count)
+        
+        # Then broadcast to all traders
+        await broadcast_trader_count(session_id)
         await broadcast_session_status(session_id)
         
         await trader.connect_to_socket(websocket)
@@ -684,10 +697,12 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
         except WebSocketDisconnect:
             pass
         finally:
-            if session_id in active_users:
-                active_users[session_id].discard(gmail_username)
-                
+            if session_id:
+                await remove_trader_from_session(trader_id, session_id)
+            
     except Exception as e:
+        if session_id:
+            await remove_trader_from_session(trader_id, session_id)
         await websocket.send_json({
             "status": "error",
             "message": f"Connection error: {str(e)}",
@@ -891,25 +906,12 @@ async def download_all_files():
 # Add a new endpoint to handle user logout
 @app.post("/user/logout")
 async def user_logout(current_user: dict = Depends(get_current_user)):
-    """Modified to handle role cleanup"""
     gmail_username = current_user['gmail_username']
+    trader_id = f"HUMAN_{gmail_username}"
+    
     if gmail_username in user_sessions:
         session_id = user_sessions[gmail_username]
-        
-        # Remove user from active users
-        active_users[session_id].remove(gmail_username)
-        del user_sessions[gmail_username]
-        
-        # If this was the informed trader for the session, clean up
-        if session_informed_traders.get(session_id) == gmail_username:
-            del session_informed_traders[session_id]
-        
-        if not active_users[session_id]:
-            del active_users[session_id]
-            if session_id in trader_managers:
-                await trader_managers[session_id].cleanup()
-                del trader_managers[session_id]
-        
+        await remove_trader_from_session(trader_id, session_id)
         return {"status": "success", "message": "User logged out successfully"}
     else:
         raise HTTPException(status_code=404, detail="User not found in any active session")
@@ -1043,6 +1045,73 @@ async def reset_state(current_user: dict = Depends(get_current_admin_user)):
             status_code=500,
             detail=f"Error resetting state: {str(e)}"
         )
+
+# Add this new helper function
+async def remove_trader_from_session(trader_id: str, session_id: str):
+    """Remove a trader from a session and update counts"""
+    try:
+        if session_id in trader_managers:
+            trader_manager = trader_managers[session_id]
+            
+            # Remove trader from manager
+            if hasattr(trader_manager, 'remove_trader'):
+                await trader_manager.remove_trader(trader_id)
+            
+            # Remove from ready traders if present
+            gmail_username = trader_id.split("HUMAN_")[-1] if trader_id.startswith("HUMAN_") else None
+            if gmail_username and session_id in session_ready_traders:
+                session_ready_traders[session_id].discard(gmail_username)
+            
+            # Remove from active users
+            if gmail_username and session_id in active_users:
+                active_users[session_id].discard(gmail_username)
+            
+            # Clean up trader lookup
+            if trader_id in trader_to_session_lookup:
+                del trader_to_session_lookup[trader_id]
+            
+            # Immediately broadcast updated trader count
+            await broadcast_trader_count(session_id)
+            
+            # Then broadcast session status
+            await broadcast_session_status(session_id)
+            
+            # If no traders left, clean up session
+            if len(active_users.get(session_id, set())) == 0:
+                await cleanup_session(session_id, reason="no_active_traders")
+                
+    except Exception as e:
+        logger.error(f"Error removing trader from session: {str(e)}")
+
+# Add this function near the top with other helper functions
+async def broadcast_trader_count(session_id: str):
+    """Broadcast current trader count to all traders in the session"""
+    if session_id not in trader_managers:
+        return
+        
+    trader_manager = trader_managers[session_id]
+    current_traders = len(active_users[session_id])
+    expected_traders = trader_manager.params.num_human_traders
+    
+    count_message = {
+        "type": "trader_count_update",
+        "data": {
+            "current_human_traders": current_traders,
+            "expected_human_traders": expected_traders,
+            "session_id": session_id  # Add session ID for verification
+        }
+    }
+    
+    # Log the counts being broadcast
+    print(f"Broadcasting trader count for session {session_id}: {current_traders}/{expected_traders}")
+    
+    # Broadcast to all connected traders
+    for trader in trader_manager.human_traders:
+        if hasattr(trader, 'websocket') and trader.websocket:
+            try:
+                await trader.websocket.send_json(count_message)
+            except Exception as e:
+                logger.error(f"Error broadcasting trader count: {str(e)}")
 
 
 
