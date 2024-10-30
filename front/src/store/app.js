@@ -219,21 +219,58 @@ export const useTraderStore = defineStore("trader", {
       this.traderUuid = traderUuid;
       
       try {
+        console.log("Initializing trader:", traderUuid);
         await this.getTraderAttributes(traderUuid);
+        
+        // Get the session info to initialize counts properly
+        try {
+          const response = await axios.get(`trader/${traderUuid}/session`);
+          if (response.data.status === "success") {
+            const sessionData = response.data.data;
+            console.log("Session data received:", sessionData);
+            
+            // Update session data and counts
+            this.tradingSessionData = {
+              trading_session_uuid: sessionData.trading_session_uuid,
+              ...sessionData
+            };
+            
+            // Set initial counts from session data
+            this.$patch({
+              currentHumanTraders: sessionData.human_traders.length,
+              expectedHumanTraders: sessionData.game_params.num_human_traders
+            });
+          }
+        } catch (error) {
+          console.error("Error fetching session data:", error);
+        }
+        
+        // Initialize WebSocket after setting initial values
         this.initializeWebSocket();
       } catch (error) {
-        // Handle error
+        console.error("Error initializing trader:", error);
       }
     },
     
     handle_update(data) {
+      // Add debug logging
+      console.log("Received WebSocket message:", data);
+
+      if (data.type === "trader_count_update") {
+        console.log("Received trader count update:", data.data);
+        // Remove session verification to ensure updates are processed
+        this.$patch({
+          currentHumanTraders: data.data.current_human_traders,
+          expectedHumanTraders: data.data.expected_human_traders
+        });
+        return;
+      }
+
       if (data.type === "time_update") {
         this.$patch({
           currentTime: new Date(data.data.current_time),
           isTradingStarted: data.data.is_trading_started,
           remainingTime: data.data.remaining_time,
-          currentHumanTraders: data.data.current_human_traders,
-          expectedHumanTraders: data.data.expected_human_traders
         });
         return;
       }

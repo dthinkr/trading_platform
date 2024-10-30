@@ -423,6 +423,16 @@ const allTradersReady = computed(() => {
 const readyCount = computed(() => {
   return store.readyCount || 0;
 });
+
+// Add a computed property to track trader count changes
+const traderCountDisplay = computed(() => {
+  return `${currentHumanTraders.value} / ${expectedHumanTraders.value}`;
+});
+
+// Add a watcher to log changes (for debugging)
+watch([currentHumanTraders, expectedHumanTraders], ([newCurrent, newExpected], [oldCurrent, oldExpected]) => {
+  console.log(`Trader count updated: ${oldCurrent}/${oldExpected} -> ${newCurrent}/${newExpected}`);
+});
 </script>
 
 <style scoped>
