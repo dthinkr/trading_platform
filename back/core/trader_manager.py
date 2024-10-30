@@ -33,9 +33,7 @@ class TraderManager:
         self.params = params
         self.user_roles = user_roles  # Store user_roles in the instance
         
-        # Ensure num_human_traders is at least 2
-        self.params.num_human_traders = max(self.params.num_human_traders, 2)
-        
+        # Remove the minimum 2 traders enforcement
         params = params.model_dump()
         self.tasks = []
 
@@ -124,13 +122,18 @@ class TraderManager:
         if existing_trader:
             return trader_id
             
-        # Determine the goal based on the user's role
-        role = self.user_roles.get(uid, 'speculator')
-        if role == 'informed':
-            goal_index = len(self.human_traders) % len(self.params.human_goals)
-            goal = self.params.human_goals[goal_index]
-        else:
+        # Determine the goal based on number of traders and role
+        if self.params.num_human_traders == 1:
+            # Single trader is always a speculator
             goal = 0
+        else:
+            # Use existing role-based logic for multiple traders
+            role = self.user_roles.get(uid, 'speculator')
+            if role == 'informed':
+                goal_index = len(self.human_traders) % len(self.params.human_goals)
+                goal = self.params.human_goals[goal_index]
+            else:
+                goal = 0
         
         new_trader = HumanTrader(
             id=trader_id,

@@ -38,7 +38,7 @@ class UserRegistration(BaseModel):
 
 class TradingParameters(BaseModel):
     num_human_traders: int = Field(
-        default=3,
+        default=1,
         title="Number of Human Traders",
         description="model_parameter",
         ge=1,  # Changed from ge=0 to ge=1 to ensure at least one human trader
@@ -204,15 +204,18 @@ class TradingParameters(BaseModel):
         description="human_parameter",
     )
 
-    @field_validator('num_human_traders', 'human_goal_amount')
+    @field_validator('num_human_traders')
     def ensure_integer(cls, v):
-        return max(int(v), 1)  # Ensure at least 1 human trader
+        return max(int(v), 1)  # Allow minimum of 1 human trader now
 
     @field_validator('human_goals')
     def validate_human_goals(cls, v, info):
         num_traders = info.data.get('num_human_traders', 2)
         if len(v) != num_traders:
-            # Only generate new goals if they haven't been set
+            # For single trader case, always set goal to 0
+            if num_traders == 1:
+                return [0]
+            # For multiple traders, use existing logic
             return cls.generate_human_goals(num_traders, info.data.get('human_goal_amount', 60))
         return v
 
@@ -220,14 +223,16 @@ class TradingParameters(BaseModel):
     def generate_human_goals(num_traders: int, goal_amount: int) -> List[int]:
         """
         Generate human goals with exactly one informed trader and the rest as speculators.
-        This is a fallback method - goals should typically be set explicitly based on user roles.
+        For single trader case, they are always a speculator.
         """
+        if num_traders == 1:
+            return [0]  # Single trader is always a speculator
+            
         goals = [0] * num_traders  # Initialize all traders as speculators
-        if num_traders > 0:
-            # Randomly select one trader to be informed
-            informed_index = random.randrange(num_traders)
-            # Randomly assign positive or negative goal to the informed trader
-            goals[informed_index] = random.choice([goal_amount, -goal_amount])
+        # Randomly select one trader to be informed (only for multi-trader cases)
+        informed_index = random.randrange(num_traders)
+        # Randomly assign positive or negative goal to the informed trader
+        goals[informed_index] = random.choice([goal_amount, -goal_amount])
         return goals
 
     def dump_params_by_description(self) -> dict:
