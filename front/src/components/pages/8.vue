@@ -1,96 +1,106 @@
 <template>
-  <div class="card-content">
-    <div class="content-wrapper">
-      <div class="info-section">
-        <h2>
-          <v-icon left :color="iconColor">mdi-clock-outline</v-icon>
-          Duration
-        </h2>
-        <p>Now you will practice using the trading platform for <span class="dynamic-value">5 minutes</span>.</p>
+  <div class="page-container">
+    <v-scale-transition>
+      <div class="header-section">
+        <v-icon size="40" :color="iconColor" class="pulse-icon">mdi-rocket-launch</v-icon>
+        <h2 class="text-h4 gradient-text">Ready to Trade</h2>
       </div>
+    </v-scale-transition>
 
-      <div class="info-section">
-        <h2>
-          <v-icon left :color="iconColor">mdi-table</v-icon>
-          Your Trading Parameters
-        </h2>
-        <v-data-table
-          :headers="headers"
-          :items="items"
-          hide-default-footer
-          disable-pagination
-          class="elevation-1"
-        ></v-data-table>
-      </div>
-
-      <div class="info-section mt-4">
-        <h2>
-          <v-icon left :color="iconColor">mdi-progress-check</v-icon>
-          Session Progress
-        </h2>
-        <v-card outlined class="progress-card">
-          <v-card-text>
-            <div class="d-flex justify-space-between align-center">
-              <span class="text-subtitle-1">Current Session:</span>
-              <span class="text-h6 font-weight-bold">{{ currentSession }}</span>
-            </div>
-            <div class="d-flex justify-space-between align-center mt-2">
-              <span class="text-subtitle-1">Maximum Sessions:</span>
-              <span class="text-h6 font-weight-bold">{{ maxSessionsDisplay }}</span>
-            </div>
-            <v-progress-linear
-              v-if="!isAdmin"
-              :value="sessionProgress"
-              height="10"
-              rounded
-              class="mt-4"
-              color="primary"
-            ></v-progress-linear>
-          </v-card-text>
-        </v-card>
-      </div>
-
-      <!-- <div class="info-section">
-        <h2>
-          <v-icon left :color="iconColor">mdi-information-outline</v-icon>
-          Important Rules
-        </h2>
-        <v-row>
-          <v-col cols="12" md="6">
-            <v-card outlined>
-              <v-card-title>
-                <v-icon left color="warning">mdi-timer-sand</v-icon>
-                Cancellation Policy
-              </v-card-title>
+    <v-container class="content-grid">
+      <v-row>
+        <!-- Duration Card -->
+        <v-col cols="12" md="6">
+          <v-hover v-slot="{ isHovering, props }">
+            <v-card
+              v-bind="props"
+              :elevation="isHovering ? 8 : 2"
+              class="info-card"
+            >
               <v-card-text>
-                When you place a passive order (bid or ask) you cannot cancel it for {{ cancelTime }} seconds. 
-                After {{ cancelTime }} seconds have passed you can cancel it (if you want).
+                <div class="d-flex align-center mb-4">
+                  <v-icon size="28" :color="iconColor" class="mr-2">mdi-clock-outline</v-icon>
+                  <span class="text-h6">Duration</span>
+                </div>
+                <p class="text-body-1">
+                  Practice trading for <span class="highlight-text">5 minutes</span>
+                </p>
               </v-card-text>
             </v-card>
-          </v-col>
-          <v-col cols="12" md="6">
-            <v-card outlined>
-              <v-card-title>
-                <v-icon left color="info">mdi-file-document-multiple-outline</v-icon>
-                Order Quantity
-              </v-card-title>
+          </v-hover>
+        </v-col>
+
+        <!-- Progress Card -->
+        <v-col cols="12" md="6">
+          <v-hover v-slot="{ isHovering, props }">
+            <v-card
+              v-bind="props"
+              :elevation="isHovering ? 8 : 2"
+              class="info-card"
+            >
               <v-card-text>
-                Each order is for one share only and you can choose the price. 
-                If you want to place an order for a quantity of X shares at price P, you need to place X orders at price P.
+                <div class="d-flex align-center mb-4">
+                  <v-icon size="28" :color="iconColor" class="mr-2">mdi-progress-check</v-icon>
+                  <span class="text-h6">Session Progress</span>
+                </div>
+                <div class="d-flex justify-space-between align-center mb-2">
+                  <span>Current Session:</span>
+                  <span class="highlight-text">{{ currentSession }}</span>
+                </div>
+                <div class="d-flex justify-space-between align-center mb-3">
+                  <span>Maximum Sessions:</span>
+                  <span class="highlight-text">{{ maxSessionsDisplay }}</span>
+                </div>
+                <v-progress-linear
+                  v-if="!isAdmin"
+                  :value="sessionProgress"
+                  height="8"
+                  rounded
+                  striped
+                  color="primary"
+                ></v-progress-linear>
               </v-card-text>
             </v-card>
-          </v-col>
-        </v-row>
-      </div> -->
+          </v-hover>
+        </v-col>
 
-      <div class="button-group mt-6">
+        <!-- Parameters Table Card -->
+        <v-col cols="12">
+          <v-hover v-slot="{ isHovering, props }">
+            <v-card
+              v-bind="props"
+              :elevation="isHovering ? 8 : 2"
+              class="info-card"
+            >
+              <v-card-text>
+                <div class="d-flex align-center mb-4">
+                  <v-icon size="28" :color="iconColor" class="mr-2">mdi-table</v-icon>
+                  <span class="text-h6">Trading Parameters</span>
+                </div>
+                <v-data-table
+                  :headers="headers"
+                  :items="items"
+                  hide-default-footer
+                  disable-pagination
+                  class="parameters-table"
+                ></v-data-table>
+              </v-card-text>
+            </v-card>
+          </v-hover>
+        </v-col>
+      </v-row>
+
+      <!-- Action Buttons -->
+      <div class="action-buttons mt-6">
         <v-btn
           @click="startTrading"
           :loading="isLoading"
           :disabled="!canStartTrading"
-          class="start-button mb-2"
+          class="start-button"
+          size="x-large"
+          elevation="2"
         >
-          <v-icon left>mdi-play-circle-outline</v-icon>
+          <v-icon left class="mr-2">mdi-play-circle-outline</v-icon>
           {{ startButtonText }}
         </v-btn>
 
@@ -98,15 +108,14 @@
           @click="handleLogout"
           color="error"
           variant="text"
-          class="logout-button"
+          class="logout-button mt-2"
           :disabled="isLoading"
-          size="small"
         >
-          <v-icon left small>mdi-logout</v-icon>
+          <v-icon left class="mr-1">mdi-logout</v-icon>
           Logout
         </v-btn>
       </div>
-    </div>
+    </v-container>
   </div>
 </template>
 
@@ -239,54 +248,85 @@ const sessionProgress = computed(() => {
 </script>
 
 <style scoped>
+.page-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.header-section {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.gradient-text {
+  background: linear-gradient(45deg, #2196F3, #4CAF50);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: bold;
+  margin: 1rem 0;
+}
+
+.pulse-icon {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+.info-card {
+  height: 100%;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.highlight-text {
+  color: #1976D2;
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.parameters-table {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
 .start-button {
   width: 100%;
-  height: 3.5rem;
+  max-width: 400px;
+  height: 56px;
   font-size: 1.1rem;
   font-weight: 600;
   text-transform: none;
   letter-spacing: 0.5px;
-  background-color: #4caf50 !important;
+  background: linear-gradient(45deg, #2196F3, #4CAF50) !important;
   color: white !important;
   transition: all 0.3s ease;
 }
 
 .start-button:hover {
-  background-color: #45a049 !important;
-  box-shadow: 0 4px 8px rgba(76, 175, 80, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(33, 150, 243, 0.3);
 }
 
-.button-group {
+.action-buttons {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  max-width: 100%;
+  margin-top: 2rem;
 }
 
 .logout-button {
-  width: auto !important;
-  height: auto !important;
-  font-size: 0.875rem !important;
-  font-weight: 400 !important;
+  font-size: 0.9rem;
   text-transform: none;
-  letter-spacing: 0.5px;
-  transition: all 0.3s ease;
-  margin: 0 auto;
 }
 
-.logout-button:hover {
-  box-shadow: none !important;
-  opacity: 0.8;
-}
-
-.progress-card {
-  background-color: rgba(245, 247, 250, 0.8);
-  transition: all 0.3s ease;
-}
-
-.progress-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+@media (max-width: 960px) {
+  .page-container {
+    padding: 1rem;
+  }
 }
 </style>
