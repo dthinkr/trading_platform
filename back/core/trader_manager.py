@@ -27,32 +27,30 @@ class TraderManager:
     human_traders = List[HumanTrader]
     noise_traders = List[NoiseTrader]
     informed_traders = List[InformedTrader]
-    user_roles: dict  # Store user_roles in the instance
 
-    def __init__(self, params: TradingParameters, user_roles: dict):
+    def __init__(self, params: TradingParameters, user_roles: dict = None):
         self.params = params
-        self.user_roles = user_roles  # Store user_roles in the instance
-        
-        # Remove the minimum 2 traders enforcement
-        params = params.model_dump()
         self.tasks = []
 
         # Generate a new session ID
         current_timestamp = int(time.time())
         session_id = f"SESSION_{current_timestamp}"
 
-        n_noise_traders = params.get("num_noise_traders", 1)
-        n_informed_traders = params.get("num_informed_traders", 1)
-        n_human_traders = params.get("num_human_traders", 2)  # Default to 2 if not specified
+        # Convert params to dict for easier access
+        params_dict = params.model_dump()
 
-        cash = params.get("initial_cash", 0)
-        shares = params.get("initial_stocks", 0)
+        n_noise_traders = params_dict["num_noise_traders"]
+        n_informed_traders = params_dict["num_informed_traders"]
+        n_human_traders = params_dict["num_human_traders"]
+
+        cash = params_dict["initial_cash"]
+        shares = params_dict["initial_stocks"]
 
         # Initialize traders
-        self.book_initializer = self._create_book_initializer(params)
-        self.simple_order_traders = self._create_simple_order_traders(params)
-        self.noise_traders = self._create_noise_traders(n_noise_traders, params)
-        self.informed_traders = self._create_informed_traders(n_informed_traders, params)
+        self.book_initializer = self._create_book_initializer(params_dict)
+        self.simple_order_traders = self._create_simple_order_traders(params_dict)
+        self.noise_traders = self._create_noise_traders(n_noise_traders, params_dict)
+        self.informed_traders = self._create_informed_traders(n_informed_traders, params_dict)
         self.human_traders = []  # Initialize as an empty list
 
         self.traders = {
@@ -63,10 +61,10 @@ class TraderManager:
             + self.simple_order_traders
         }
         self.trading_session = TradingPlatform(
-            session_id=session_id,  # Pass the new session ID here
-            duration=params["trading_day_duration"],
-            default_price=params.get("default_price"),
-            params=params
+            session_id=session_id,
+            duration=params_dict["trading_day_duration"],
+            default_price=params_dict["default_price"],
+            params=params_dict
         )
 
     def _create_simple_order_traders(self, params):
@@ -111,7 +109,7 @@ class TraderManager:
             for i in range(n_informed_traders)
         ]
 
-    async def add_human_trader(self, uid):
+    async def add_human_trader(self, uid, goal=None):
         if len(self.human_traders) >= self.params.num_human_traders:
             raise ValueError("Session is full")
         
@@ -121,25 +119,15 @@ class TraderManager:
         existing_trader = self.traders.get(trader_id)
         if existing_trader:
             return trader_id
-            
-        # Determine the goal based on number of traders and role
-        if self.params.num_human_traders == 1:
-            # Single trader is always a speculator
-            goal = 0
-        else:
-            # Use existing role-based logic for multiple traders
-            role = self.user_roles.get(uid, 'speculator')
-            if role == 'informed':
-                goal_index = len(self.human_traders) % len(self.params.human_goals)
-                goal = self.params.human_goals[goal_index]
-            else:
-                goal = 0
+        
+        # Use provided goal or default to 0
+        trader_goal = goal if goal is not None else 0
         
         new_trader = HumanTrader(
             id=trader_id,
             cash=self.params.initial_cash,
             shares=self.params.initial_stocks,
-            goal=goal,
+            goal=trader_goal,
             trading_session=self.trading_session,
             params=self.params.model_dump(),
             gmail_username=uid
@@ -153,6 +141,14 @@ class TraderManager:
         self.traders[trader_id] = new_trader
         self.human_traders.append(new_trader)
         return trader_id
+
+    async def set_trader_goal(self, trader_id: str, goal: int):
+        """Set or update a trader's goal"""
+        trader = self.traders.get(trader_id)
+        if trader and isinstance(trader, HumanTrader):
+            trader.goal = goal
+            return True
+        return False
 
     async def launch(self):
         await self.trading_session.initialize()
