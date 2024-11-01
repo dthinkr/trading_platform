@@ -192,11 +192,18 @@ class TradingParameters(BaseModel):
         description="model_parameter",
     )
 
-    # Add new field for predefined goals
+    # Move predefined_goals to human parameters section and update description
     predefined_goals: List[int] = Field(
-        default=[100, 0, -100],  # Default goals: buy 100, speculate, sell 100
+        default=[100, 0, -100],
         title="Predefined Goals",
-        description="model_parameter",
+        description="human_parameter",
+    )
+
+    # Move allow_random_goals to human parameters and update description
+    allow_random_goals: bool = Field(
+        default=False,
+        title="Allow Random Goal Assignment",
+        description="human_parameter",
     )
 
     @field_validator('num_human_traders')

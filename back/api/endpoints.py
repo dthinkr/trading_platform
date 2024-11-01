@@ -491,7 +491,6 @@ async def cleanup_session(session_id: str, reason: str = "normal"):
         return True
 
 async def find_or_create_session_and_assign_trader(gmail_username):
-    """Modified to use predefined goals for role assignment"""
     try:
         print(f"\n=== Starting session assignment for {gmail_username} ===")
         
@@ -503,10 +502,6 @@ async def find_or_create_session_and_assign_trader(gmail_username):
         available_session_id = None
         
         for session_id, manager in trader_managers.items():
-            print(f"Checking session {session_id}:")
-            print(f"- Current traders: {len(manager.human_traders)}")
-            print(f"- Max traders: {manager.params.num_human_traders}")
-            
             if len(manager.human_traders) < manager.params.num_human_traders:
                 available_session = manager
                 available_session_id = session_id
@@ -517,9 +512,6 @@ async def find_or_create_session_and_assign_trader(gmail_username):
         if not available_session:
             print("No available session found, creating new one")
             params = TradingParameters(**persistent_settings)
-            print(f"Informed trader params are {params.model_dump()}")
-            
-            # Create new trader manager without user_roles
             new_trader_manager = TraderManager(params)
             
             session_id = new_trader_manager.trading_session.id
@@ -530,9 +522,9 @@ async def find_or_create_session_and_assign_trader(gmail_username):
             goal_assignments[session_id] = []
             print(f"Created new session: {session_id}")
 
-        # Assign goal if user doesn't have one yet
+        # Handle goal assignment
         if existing_goal is None:
-            # Get the next available goal index for this session
+            # First time assignment - pick a role (abs value) from predefined goals
             assigned_indices = goal_assignments[available_session_id]
             available_indices = [i for i in range(len(available_session.params.predefined_goals)) 
                                if i not in assigned_indices]
@@ -544,21 +536,30 @@ async def find_or_create_session_and_assign_trader(gmail_username):
                 )
                 
             next_index = available_indices[0]
-            goal = available_session.params.predefined_goals[next_index]
-            user_goals[gmail_username] = goal
+            base_goal = available_session.params.predefined_goals[next_index]
             goal_assignments[available_session_id].append(next_index)
-            print(f"Assigned new goal {goal} to {gmail_username}")
+            
+            # Store the absolute value of the goal for this user
+            user_goals[gmail_username] = abs(base_goal)
+            goal = base_goal  # For first assignment, use the predefined goal as is
+            
         else:
-            print(f"Using existing goal {existing_goal} for {gmail_username}")
-            goal = existing_goal
-
+            # User already has a role (abs value)
+            abs_goal = user_goals[gmail_username]
+            if abs_goal == 0:
+                # Speculator (0) stays as 0
+                goal = 0
+            else:
+                # Non-zero goals can flip sign if random assignment is enabled
+                if available_session.params.allow_random_goals:
+                    goal = abs_goal * random.choice([-1, 1])
+                else:
+                    goal = abs_goal  # Keep the original sign if random assignment is disabled
+        
+        print(f"Assigned goal {goal} to {gmail_username} (abs value: {user_goals[gmail_username]})")
+        
         # Add trader to session with goal
         trader_id = await available_session.add_human_trader(gmail_username, goal=goal)
-        print(f"Added trader to session with ID: {trader_id}")
-        
-        # After adding trader, set their goal in the trader manager
-        if hasattr(available_session, 'set_trader_goal'):
-            await available_session.set_trader_goal(trader_id, goal)
         
         # Update tracking dictionaries
         trader_to_session_lookup[trader_id] = available_session_id

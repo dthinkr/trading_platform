@@ -17,6 +17,7 @@ from core import TradingPlatform
 import asyncio
 from utils import setup_custom_logger
 import time
+import random
 
 logger = setup_custom_logger(__name__)
 
@@ -120,14 +121,28 @@ class TraderManager:
         if existing_trader:
             return trader_id
         
-        # Use provided goal or default to 0
-        trader_goal = goal if goal is not None else 0
+        # Handle goal assignment
+        if goal is None:
+            available_goals = self.params.predefined_goals
+            if self.params.allow_random_goals:
+                # Get a non-zero goal from predefined goals
+                non_zero_goals = [g for g in available_goals if g != 0]
+                if non_zero_goals:
+                    # Randomly choose magnitude and sign
+                    magnitude = abs(random.choice(non_zero_goals))
+                    goal = magnitude * random.choice([-1, 1])
+                else:
+                    # If no non-zero goals, just choose from available goals
+                    goal = random.choice(available_goals)
+            else:
+                # Use predefined goals as is
+                goal = random.choice(available_goals)
         
         new_trader = HumanTrader(
             id=trader_id,
             cash=self.params.initial_cash,
             shares=self.params.initial_stocks,
-            goal=trader_goal,
+            goal=goal,
             trading_session=self.trading_session,
             params=self.params.model_dump(),
             gmail_username=uid
