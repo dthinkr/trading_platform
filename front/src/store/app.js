@@ -366,7 +366,6 @@ export const useTraderStore = defineStore("trader", {
     },
 
     handleFilledOrder(matched_orders, transaction_price) {
-
       // Update your store state
       this.lastMatchedOrders = matched_orders;
       this.lastTransactionPrice = transaction_price;
@@ -385,13 +384,17 @@ export const useTraderStore = defineStore("trader", {
       });
 
       if (isInvolvedInTransaction) {
-        
         // Determine which order (bid or ask) belongs to this trader
         const isBid = matched_orders.bid_trader_id === this.traderUuid;
         const relevantOrderId = isBid ? matched_orders.bid_order_id : matched_orders.ask_order_id;
 
+        // For passive orders, we only want to update the status, not add to executedOrders
+        // since it will already be in recentTransactions
+        const isPassive = (isBid && matched_orders.initiator === 'ask') || 
+                         (!isBid && matched_orders.initiator === 'bid');
+
         // Update the status of the relevant order
-        this.updateOrderStatus(relevantOrderId, 'executed');
+        this.updateOrderStatus(relevantOrderId, 'executed', isPassive);
 
         // Update traderProgress
         const amount = matched_orders.amount || 1;
@@ -402,16 +405,17 @@ export const useTraderStore = defineStore("trader", {
       this.notifyTransactionOccurred(isInvolvedInTransaction);
     },
 
-    updateOrderStatus(orderId, newStatus) {
+    updateOrderStatus(orderId, newStatus, isPassive) {
       const orderIndex = this.placedOrders.findIndex(order => order.id === orderId);
       if (orderIndex !== -1) {
         const order = this.placedOrders[orderIndex];
         order.status = newStatus;
         
-        if (newStatus === 'executed') {
+        if (newStatus === 'executed' && !isPassive) {
+          // Only add to executedOrders if it's not a passive order
           this.executedOrders.push({ ...order });
-          this.placedOrders.splice(orderIndex, 1);
         }
+        this.placedOrders.splice(orderIndex, 1);
       }
     },
 

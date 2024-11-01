@@ -14,9 +14,16 @@ const filledOrders = computed(() => {
     return isBidTrader || isAskTrader;
   });
 
+  // Get all order IDs that appear in transactions as either order_id or matched_order_id
+  const transactionOrderIds = new Set(
+    relevantTransactions.flatMap(t => [t.order_id, t.matched_order_id, t.bid_order_id, t.ask_order_id]
+      .filter(Boolean))
+  );
+
   // Filter executed orders to ensure they belong to the current trader
+  // and exclude orders that appear in any transaction order IDs
   const relevantExecutedOrders = executedOrders.value.filter(order => 
-    order.trader_id === traderUuid.value
+    order.trader_id === traderUuid.value && !transactionOrderIds.has(order.id)
   );
 
   // Combine and remove duplicates

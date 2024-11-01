@@ -36,7 +36,7 @@ def get_registered_users(force_update=False, form_id=None):
     if form_id is None:
         form_id = TradingParameters().google_form_id
 
-    # Check if we need to update the cache
+    # Check if we need to update the cache–
     if force_update or datetime.now() - last_update_time > timedelta(minutes=5):
         try:
             # Get form structure
