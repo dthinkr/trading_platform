@@ -6,33 +6,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+To propose changes:
+1. Edit this section directly in CHANGELOG.md
+2. Add your proposed change under the appropriate category below
+3. Use the format: "- [ ] Your proposed change"
 
-### Known Issues
+### Proposed Features
+- [ ] Example 1
+- [ ] Example 2
 
-* [X] Informed Trader now achieves approximately 1.3 times its expected goal
-* [X] Order book log does not update correctly when there is matched trade
+## [2.0.1][2.0.1] - 2024-11-01
 
-## [Planned]
+### Fixed
 
-- [X] Add a picture of the platform to the instructions
-- [X] Implement platform start after reading instructions and pressing the final "begin" button
-- [X] Include VWAP and PnL in the final metrics presentation
-- [X] Reorganize UI layout:
-  - [X] Move market orders pane down, next to active orders
-  - [X] Move market indicators up, next to the plots
-- [X] Update bid-ask distribution window:
-  - [X] Replace "bid" with "buy" and "ask" with "sell" in title and graph labels
-- [X] Make all Control Questions mandatory and show correct answers with explanations
-- [X] For informed traders, determine number of shares by participation rate (informed intensity)
-- [X] Implement goal achievement calculations:
-  - [X] For unfulfilled sell goals: remaining orders * initial midprice * 0.5
-  - [X] For unfulfilled buy goals: remaining orders * initial midprice * 1.5
-  - [X] VWAP and GBP profit calculation from log files
-  - [X] Reward display system on frontend
+- Fixed double counting of passive orders in trade history display
+- Improved goal assignment system to maintain consistent roles across sessions
+- Renamed "Order History" to "Trades History" for clarity
+- Enhanced trade history display with better position tracking and VWAP calculations
 
-## [2.0.0] - 2024-03-19
+### Changed
+
+- Moved goal assignment parameters to human parameters section
+- Simplified random goal assignment to maintain role consistency while allowing sign flips
+- Added visual improvements to trade history display including better organization of buy/sell trades
+
+## [2.0.0][2.0.0] - 2024-10-25
 
 ### Added
+
 - New role assignment system with persistent user roles across sessions
 - Real-time session status updates showing ready traders count
 - Enhanced waiting room interface with clear session status indicators
@@ -43,6 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Session coordination system requiring all traders to be ready before start
 
 ### Changed
+
 - Fundamentally changed session management:
   - Sessions now require all traders to actively press "Start Trading"
   - Trading only begins when all expected traders are present and ready
@@ -54,38 +56,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - More intuitive waiting room interface
 
 ### Fixed
+
 - Session state preservation when refreshing the page
 - Role assignment consistency across multiple sessions
 - User authentication and session management
 - Gmail address now correctly associated with one human trader at any time
 
 ### Removed
+
 - Session timeout functionality for more stable session management
 - Automatic session termination for incomplete trader groups
 
-## [1.3.5] - 2024-10-16
+## [1.3.5][1.3.5] - 2024-10-16
 
 ### Added
+
 - Google Form integration for participant information collection
 - Automatic task randomization for multiple markets
 - Log file generation for each market session
 
 ### Changed
+
 - Implemented participant verification system for platform login
 - Updated backend to support multiple market sessions per participant
 
 ### Fixed
+
 - Resolved issues with manual task setting in admin panel
 
-## [1.3.4] - 2024-10-16
+## [1.3.4][1.3.4] - 2024-10-16
 
 ### Added
+
 - Implemented automatic periodic update of registered users on server startup
 
 ### Changed
+
 - Refactored startup event to use asyncio for better performance
 
 ### Fixed
+
 - Resolved issue with registered users not being updated regularly
 
 ## [1.3.3] - 2024-10-10
@@ -277,6 +287,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Customizable trading scenarios
 - Basic data analysis tools
 
+[2.0.1]: https://github.com/dthinkr/trading_platform/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/dthinkr/trading_platform/compare/v1.3.5...v2.0.0
 [1.3.5]: https://github.com/dthinkr/trading_platform/compare/v1.3.4...v1.3.5
 [1.3.4]: https://github.com/dthinkr/trading_platform/compare/v1.3.3...v1.3.4
