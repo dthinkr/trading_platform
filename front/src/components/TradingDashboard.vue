@@ -182,7 +182,7 @@ const {
 
 const columns = [
   [
-    { title: "Order History", component: OrderHistory },
+    { title: "Trades History", component: OrderHistory },
     { title: "Market Info", component: MarketMessages },
   ],
   [
