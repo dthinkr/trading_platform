@@ -170,12 +170,47 @@ const showDialog = ref(false);
 const dialogTitle = ref('');
 const dialogMessage = ref('');
 
+const maxRetries = 3;
+const retryDelay = 1000; // 1 second
+
 async function fetchTraderInfo() {
   try {
     const response = await axios.get(`${httpUrl}trader_info/${props.traderUuid}`);
     traderInfo.value = response.data.data;
     orderBookMetrics.value = response.data.data.order_book_metrics;
     traderSpecificMetrics.value = response.data.data.trader_specific_metrics;
+
+    // If metrics are missing, retry just for metrics
+    if (traderInfo.value && (!orderBookMetrics.value || !traderSpecificMetrics.value)) {
+      let retryCount = 0;
+      const retryMetrics = async () => {
+        if (retryCount >= maxRetries) return;
+        
+        console.log(`Retrying metrics fetch attempt ${retryCount + 1}`);
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+        
+        try {
+          const retryResponse = await axios.get(`${httpUrl}trader_info/${props.traderUuid}`);
+          if (retryResponse.data.data) {
+            orderBookMetrics.value = retryResponse.data.data.order_book_metrics;
+            traderSpecificMetrics.value = retryResponse.data.data.trader_specific_metrics;
+            
+            if (orderBookMetrics.value && traderSpecificMetrics.value) {
+              console.log('Successfully loaded metrics on retry');
+              return;
+            }
+          }
+          retryCount++;
+          await retryMetrics();
+        } catch (error) {
+          console.error('Error in metrics retry:', error);
+          retryCount++;
+          await retryMetrics();
+        }
+      };
+      
+      retryMetrics();
+    }
   } catch (error) {
     console.error('Failed to fetch trader info:', error);
   }
