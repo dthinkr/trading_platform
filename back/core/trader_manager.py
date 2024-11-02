@@ -5,7 +5,7 @@ launches new trading sessions when clients ask for them
 helps find existing traders and returns their ids
 """
 
-from .data_models import TradingParameters, OrderType, ActionType, TraderType
+from .data_models import TradingParameters, OrderType, ActionType, TraderType, TraderRole
 from typing import List
 from traders import (
     HumanTrader,
@@ -29,6 +29,7 @@ class TraderManager:
     human_traders = List[HumanTrader]
     noise_traders = List[NoiseTrader]
     informed_traders = List[InformedTrader]
+    informed_trader = None  # Track the informed trader in this session
 
     def __init__(self, params: TradingParameters, user_roles: dict = None):
         self.params = params
@@ -111,49 +112,58 @@ class TraderManager:
             for i in range(n_informed_traders)
         ]
 
-    async def add_human_trader(self, uid, goal=None):
+    async def add_human_trader(self, gmail_username, goal=None, role=None):
+        """Add human trader with role tracking"""
         if len(self.human_traders) >= self.params.num_human_traders:
             raise ValueError("Session is full")
         
-        trader_id = f"HUMAN_{uid}"
+        trader_id = f"HUMAN_{gmail_username}"
         
-        # check if they're already here
+        # Check if they're already here
         existing_trader = self.traders.get(trader_id)
         if existing_trader:
             return trader_id
-        
-        # figure out their goal
+
+        # Role assignment logic
+        if role is None:
+            if not self.informed_trader and len(self.human_traders) < self.params.num_human_traders:
+                role = TraderRole.INFORMED
+            else:
+                role = TraderRole.SPECULATOR
+
+        # Goal assignment based on role
         if goal is None:
-            available_goals = self.params.predefined_goals
-            if self.params.allow_random_goals:
-                # grab a non-zero goal if we can
-                non_zero_goals = [g for g in available_goals if g != 0]
+            if role == TraderRole.INFORMED:
+                # Informed traders get non-zero goals
+                non_zero_goals = [g for g in self.params.predefined_goals if g != 0]
                 if non_zero_goals:
-                    # flip a coin for positive/negative
+                    # Get magnitude of the goal
                     magnitude = abs(random.choice(non_zero_goals))
+                    # Randomly assign positive or negative
                     goal = magnitude * random.choice([-1, 1])
                 else:
-                    # no non-zero goals? just pick whatever
-                    goal = random.choice(available_goals)
+                    goal = 100  # fallback
+                print(f"Assigned informed trader goal: {goal}")
             else:
-                # stick to the script
-                goal = random.choice(available_goals)
-        
+                # Speculators get 0
+                goal = 0
+                print(f"Assigned speculator goal: {goal}")
+
         new_trader = HumanTrader(
             id=trader_id,
             cash=self.params.initial_cash,
             shares=self.params.initial_stocks,
             goal=goal,
+            role=role,
             trading_session=self.trading_session,
             params=self.params.model_dump(),
-            gmail_username=uid
+            gmail_username=gmail_username
         )
         
-        self.trading_session.connected_traders[trader_id] = {
-            "trader_type": TraderType.HUMAN,
-            "uid": uid,
-            "trader": new_trader
-        }
+        if role == TraderRole.INFORMED:
+            self.informed_trader = new_trader
+            print(f"Set {gmail_username} as informed trader with goal {goal}")
+
         self.traders[trader_id] = new_trader
         self.human_traders.append(new_trader)
         return trader_id
