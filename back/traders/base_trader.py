@@ -53,9 +53,9 @@ class BaseTrader:
         self.filled_orders = []
         self.placed_orders = []
 
-        # Add goal tracking
-        self.goal = 0  # Will be overridden by HumanTrader
-        self.goal_progress = 0  # Track progress towards goal
+        # Basic goal tracking that can be overridden
+        self.goal = 0
+        self.goal_progress = 0
 
     def get_elapsed_time(self) -> float:
         current_time = asyncio.get_event_loop().time()

@@ -215,6 +215,20 @@ class TradingParameters(BaseModel):
         description="human_parameter",
     )
 
+    # Add role-related fields
+    min_informed_traders_per_session: int = Field(
+        default=1,
+        title="Minimum Informed Traders per Session",
+        description="human_parameter",
+        ge=1,
+    )
+    max_informed_traders_per_session: int = Field(
+        default=1,
+        title="Maximum Informed Traders per Session",
+        description="human_parameter",
+        ge=1,
+    )
+
     @field_validator('num_human_traders')
     def ensure_integer(cls, v):
         return max(int(v), 1)  # gotta have at least 1 human!
@@ -381,3 +395,8 @@ class Message:
             "timestamp": self.timestamp.isoformat(),
             "type": self.type
         }
+
+# Add this with other enums at the top
+class TraderRole(str, Enum):
+    INFORMED = "informed"
+    SPECULATOR = "speculator"
