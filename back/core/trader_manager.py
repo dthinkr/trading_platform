@@ -124,9 +124,11 @@ class TraderManager:
         if existing_trader:
             return trader_id
 
-        # Role assignment logic
+        # Role assignment logic - removed forced informed trader requirement
         if role is None:
-            if not self.informed_trader and len(self.human_traders) < self.params.num_human_traders:
+            # Assign role based on predefined goals
+            available_goals = self.params.predefined_goals
+            if any(g != 0 for g in available_goals):
                 role = TraderRole.INFORMED
             else:
                 role = TraderRole.SPECULATOR
