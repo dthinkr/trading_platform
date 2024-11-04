@@ -3,6 +3,7 @@ import io
 from datetime import timedelta, datetime
 from uuid import UUID, uuid4
 
+# main imports
 from fastapi import (
     FastAPI, WebSocket, HTTPException, WebSocketDisconnect, 
     BackgroundTasks, Depends, status, Request
@@ -14,12 +15,16 @@ from fastapi.responses import JSONResponse, StreamingResponse, Response
 import polars as pl
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.encoders import jsonable_encoder
+
+# our stuff
 from core.trader_manager import TraderManager
 from core.data_models import TraderType, TradingParameters, UserRegistration
 from .auth import get_current_user, get_current_admin_user, get_firebase_auth, extract_gmail_username, is_user_registered, is_user_admin, update_google_form_id, custom_verify_id_token
 from .calculate_metrics import process_log_file, write_to_csv
 from .logfiles_analysis import order_book_contruction, is_jsonable, calculate_trader_specific_metrics
 from firebase_admin import auth
+
+# python stuff we need
 import secrets
 import traceback
 import json
@@ -39,9 +44,13 @@ import numpy as np
 import random
 from utils import setup_custom_logger
 import ssl
+from asyncio import Lock
+from asyncio import sleep
 
+# setup logging
 logger = setup_custom_logger(__name__)
 
+# init fastapi
 app = FastAPI()
 security = HTTPBasic()
 app.add_middleware(
@@ -53,33 +62,42 @@ app.add_middleware(
     expose_headers=["Content-Disposition"],
 )
 
+# global state stuff
 trader_managers = {}
 trader_to_session_lookup = {}
 trader_manager: TraderManager = None
-
 persistent_settings = {}
 
-active_users = defaultdict(set)  # Maps session_id to set of active usernames
-user_sessions = {}  # Maps username to their current session_id
+# user tracking
+active_users = defaultdict(set)  # session -> users
+user_sessions = {}  # user -> session
+user_historical_sessions = defaultdict(set)  # user -> all sessions ever
 
-# Add this near the top of the file, with other global variables
-user_historical_sessions = defaultdict(set)
+# role tracking 
+user_roles = {}  # user -> role
+session_informed_traders = defaultdict(str)  # session -> informed trader
 
-# Add these near the top with other global variables
-user_roles = {}  # Maps username to their assigned role ('informed' or 'speculator')
-session_informed_traders = defaultdict(str)  # Maps session_id to its informed trader's username
+# session tracking
+session_creation_times = {}  # when sessions were made
+SESSION_TIMEOUT = 60  # how long til timeout
+session_ready_traders = defaultdict(set)  # who's ready to go
 
-# Add near the top with other globals
-session_creation_times = {}  # Maps session_id to its creation timestamp
-SESSION_TIMEOUT = 60  # Timeout in seconds
+# goal tracking
+user_goals = {}  # user -> goal
+goal_assignments = {}  # session -> used goals
 
-# Add this near the top with other global variables
-session_ready_traders = defaultdict(set)  # Maps session_id to set of ready traders
+# locks for thread safety
+session_assignment_lock = Lock()
+state_lock = Lock()
+cleanup_lock = Lock()
+session_locks = defaultdict(Lock)  # per-session locks
+trader_locks = defaultdict(Lock)   # per-trader locks
 
-# Add these near the top with other global variables
-user_goals = {}  # Maps username to their assigned goal
-goal_assignments = {}  # Maps session_id to list of already assigned goal indices
+# test mode stuff
+TEST_MODE = os.getenv('TEST_MODE', 'false').lower() == 'true'
+TEST_ADMIN_TOKEN = "test_admin_token_for_load_testing"
 
+# helper funcs
 def get_historical_sessions_count(username):
     return len(user_historical_sessions[username])
 
@@ -116,7 +134,7 @@ async def user_login(request: Request):
     try:
         token = auth_header.split('Bearer ')[1]
         
-        # Add clock_skew_seconds parameter here as well
+        # verify token with some clock skew allowed
         decoded_token = auth.verify_id_token(token, check_revoked=True, clock_skew_seconds=60)
         email = decoded_token['email']
         
@@ -126,10 +144,10 @@ async def user_login(request: Request):
         
         gmail_username = extract_gmail_username(email)
         
-        # Check if the user is an admin
+        # admin check
         is_admin = is_user_admin(email)
         
-        # Check if the user has exceeded the maximum number of historical sessions (skip for admins)
+        # check session limits unless admin
         if not is_admin:
             historical_sessions_count = get_historical_sessions_count(gmail_username)
             if historical_sessions_count >= persistent_settings.get('max_sessions_per_human', 4):
@@ -137,11 +155,11 @@ async def user_login(request: Request):
         
         session_id, trader_id = await find_or_create_session_and_assign_trader(gmail_username)
         
-        # Add user to active users for this session
+        # track the user
         active_users[session_id].add(gmail_username)
         user_sessions[gmail_username] = session_id
         
-        # Record this session in the user's historical sessions
+        # remember they did this session
         record_session_for_user(gmail_username, session_id)
         
         return {
@@ -291,40 +309,40 @@ async def get_trader(trader_id: str, current_user: dict = Depends(get_current_us
     return {"status": "success", "message": "Trader found", "data": data}
 
 def get_trader_info_with_session_data(trader_manager: TraderManager, trader_id: str) -> Dict[str, Any]:
-    """Helper function to get trader info with additional session data"""
+    """get all the trader info plus session stuff"""
     try:
         trader = trader_manager.get_trader(trader_id)
         if not trader:
             raise HTTPException(status_code=404, detail="Trader not found")
         
-        # Get base trader attributes
+        # get basic trader stuff
         trader_data = trader.get_trader_params_as_dict()
         
-        # Initialize all_attributes if it doesn't exist
+        # make sure we have a place for extra stuff
         if 'all_attributes' not in trader_data:
             trader_data['all_attributes'] = {}
             
-        # Extract gmail username from trader_id (format is "HUMAN_gmail_username")
+        # get username from trader id
         gmail_username = trader_id.split("HUMAN_")[-1] if trader_id.startswith("HUMAN_") else None
         
-        # Get historical sessions count from the global tracking
+        # how many sessions they've done
         historical_sessions_count = len(user_historical_sessions.get(gmail_username, set()))
         
-        # Get trading parameters
+        # get session settings
         params = trader_manager.params.model_dump() if trader_manager.params else {}
         
-        # Check if user is admin (safely get admin_users list)
+        # check if they're special
         admin_users = params.get('admin_users', [])
         is_admin = gmail_username in admin_users if gmail_username else False
         
-        # Add additional attributes
+        # add the extra stuff
         trader_data['all_attributes'].update({
             'historical_sessions_count': historical_sessions_count,
             'is_admin': is_admin,
             'params': params
         })
         
-        # Add basic trader info if not present
+        # make sure we have the basics
         if 'cash' not in trader_data:
             trader_data['cash'] = getattr(trader, 'cash', 0)
         if 'shares' not in trader_data:
@@ -351,22 +369,22 @@ async def get_trader_info(trader_id: str):
         raise HTTPException(status_code=404, detail="Trader not found")
 
     try:
-        # Use the new helper function to get enhanced trader info
+        # get all the trader details
         trader_data = get_trader_info_with_session_data(trader_manager, trader_id)
         
-        # Get the session ID for this trader
+        # find their session
         session_id = trader_to_session_lookup.get(trader_id)
         
-        # Get the order book metrics
+        # get their trading history
         log_file_path = os.path.join("logs", f"{session_id}_trading.log")
         
         try:
             order_book_metrics = order_book_contruction(log_file_path)
             
-            # Extract the specific trader's metrics
+            # just their stuff
             trader_specific_metrics = order_book_metrics.get(f"'{trader_id}'", {})
             
-            # Remove the trader-specific metrics from the general metrics
+            # everyone else's stuff
             general_metrics = {k: v for k, v in order_book_metrics.items() if k != f"'{trader_id}'"}
 
             # Calculate trader-specific metrics
@@ -377,6 +395,7 @@ async def get_trader_info(trader_id: str):
                     trader_data.get('goal', 0)
                 )
 
+
         except Exception as e:
             general_metrics = {"error": "Unable to process log file"}
             trader_specific_metrics = {}
@@ -385,7 +404,7 @@ async def get_trader_info(trader_id: str):
             "status": "success",
             "message": "Trader found",
             "data": {
-                **trader_data,  # This includes goal and goal_progress from get_trader_params_as_dict()
+                **trader_data,  # all their basic info
                 "order_book_metrics": general_metrics,
                 "trader_specific_metrics": trader_specific_metrics
             }
@@ -436,7 +455,7 @@ async def root():
     }
 
 async def check_session_timeout(session_id: str):
-    """Check if a session has timed out and clean it up if necessary"""
+    """check if we need to kill an old session"""
     if session_id not in session_creation_times:
         return False
     
@@ -448,140 +467,164 @@ async def check_session_timeout(session_id: str):
     return False
 
 async def cleanup_session(session_id: str, reason: str = "normal"):
-    """Clean up a session and notify its users"""
-    if session_id in trader_managers:
-        trader_manager = trader_managers[session_id]
-        
-        # Notify all connected traders about the cleanup
-        for trader in trader_manager.human_traders:
-            if hasattr(trader, 'websocket') and trader.websocket:
-                try:
-                    if not trader.websocket.application_state.name == "DISCONNECTED":
-                        await trader.websocket.send_json({
-                            "type": "SESSION_TERMINATED",
-                            "reason": reason,
-                            "message": "Session terminated due to normal cleanup"
-                        })
-                except Exception as e:
-                    logger.error(f"Error notifying trader during cleanup: {str(e)}")
-                    continue
-
+    """clean up everything about a session"""
+    async with cleanup_lock:
         try:
-            # Clean up session data
-            await trader_manager.cleanup()
-            del trader_managers[session_id]
+            if session_id not in trader_managers:
+                return False
+                
+            trader_manager = trader_managers[session_id]
             
-            # Clean up tracking dictionaries
+            # remember who was here
+            affected_users = active_users.get(session_id, set()).copy()
+            
+            # clean up the manager
+            await trader_manager.cleanup()
+            
+            # clean up all the tracking
+            if session_id in trader_managers:
+                del trader_managers[session_id]
+            
             if session_id in goal_assignments:
                 del goal_assignments[session_id]
-                
-            # Update user tracking
-            for username in list(active_users[session_id]):
-                if username in user_sessions:
-                    del user_sessions[username]
-            if session_id in active_users:
-                del active_users[session_id]
                 
             if session_id in session_ready_traders:
                 del session_ready_traders[session_id]
                 
+            if session_id in session_creation_times:
+                del session_creation_times[session_id]
+                
+            # clean up user stuff
+            for username in affected_users:
+                if username in user_sessions:
+                    del user_sessions[username]
+                    
+            if session_id in active_users:
+                del active_users[session_id]
+            
+            # clean up trader lookups
+            traders_to_remove = [
+                tid for tid, sid in trader_to_session_lookup.items() 
+                if sid == session_id
+            ]
+            for trader_id in traders_to_remove:
+                del trader_to_session_lookup[trader_id]
+                
+            return True
+            
         except Exception as e:
             logger.error(f"Error during session cleanup: {str(e)}")
             return False
-            
-        return True
+
+# Add these to the global state variables at the top
+ROLE_INFORMED = "informed"
+ROLE_SPECULATOR = "speculator"
+session_informed_roles = {}  # session_id -> username of informed trader
 
 async def find_or_create_session_and_assign_trader(gmail_username):
-    try:
-        print(f"\n=== Starting session assignment for {gmail_username} ===")
-        
-        # First check if user already has an assigned goal
-        existing_goal = user_goals.get(gmail_username)
-        
-        # Try to find an available session
-        available_session = None
-        available_session_id = None
-        
-        for session_id, manager in trader_managers.items():
-            if len(manager.human_traders) < manager.params.num_human_traders:
-                available_session = manager
-                available_session_id = session_id
-                print(f"Found available session: {session_id}")
-                break
-
-        # If no available session found, create a new one
-        if not available_session:
-            print("No available session found, creating new one")
-            params = TradingParameters(**persistent_settings)
-            new_trader_manager = TraderManager(params)
+    async with session_assignment_lock:  # lock while assigning
+        try:
+            print(f"\n=== Starting session assignment for {gmail_username} ===")
+            print(f"Current trader_managers: {list(trader_managers.keys())}")
+            print(f"Current user_sessions: {user_sessions}")
+            print(f"Current trader_to_session_lookup: {trader_to_session_lookup}")
             
-            session_id = new_trader_manager.trading_session.id
-            trader_managers[session_id] = new_trader_manager
-            session_creation_times[session_id] = time.time()
-            available_session = new_trader_manager
-            available_session_id = session_id
-            goal_assignments[session_id] = []
-            print(f"Created new session: {session_id}")
-
-        # Handle goal assignment
-        if existing_goal is None:
-            # First time assignment - pick a role (abs value) from predefined goals
-            assigned_indices = goal_assignments[available_session_id]
-            available_indices = [i for i in range(len(available_session.params.predefined_goals)) 
-                               if i not in assigned_indices]
-            
-            if not available_indices:
-                raise HTTPException(
-                    status_code=400,
-                    detail="No available roles in this session"
-                )
+            # First check - if already in session, validate it still exists
+            if gmail_username in user_sessions:
+                session_id = user_sessions[gmail_username]
+                trader_id = f"HUMAN_{gmail_username}"
                 
-            next_index = available_indices[0]
-            base_goal = available_session.params.predefined_goals[next_index]
-            goal_assignments[available_session_id].append(next_index)
+                if session_id in trader_managers:
+                    # Session exists and trading hasn't started - can rejoin
+                    trader_manager = trader_managers[session_id]
+                    if not trader_manager.trading_session.trading_started:
+                        print(f"User rejoining session: {session_id}")
+                        # Re-add to active users if needed
+                        active_users[session_id].add(gmail_username)
+                        trader_to_session_lookup[trader_id] = session_id
+                        return session_id, trader_id
+                    else:
+                        print(f"Session {session_id} already started, cleaning up references")
+                
+                # Session invalid or started - clean up references
+                print(f"Cleaning up invalid session reference: {session_id}")
+                del user_sessions[gmail_username]
+                if trader_id in trader_to_session_lookup:
+                    del trader_to_session_lookup[trader_id]
+
+            # Get user's historical role if any
+            historical_role = user_roles.get(gmail_username)
+            print(f"User's historical role: {historical_role}")
+
+            # Look for available session with role constraints
+            available_session = None
+            available_session_id = None
             
-            # Store the absolute value of the goal for this user
-            user_goals[gmail_username] = abs(base_goal)
-            goal = base_goal  # For first assignment, use the predefined goal as is
-            
-        else:
-            # User already has a role (abs value)
-            abs_goal = user_goals[gmail_username]
-            if abs_goal == 0:
-                # Speculator (0) stays as 0
-                goal = 0
+            for session_id, manager in trader_managers.items():
+                current_traders = len(active_users[session_id])
+                expected_traders = manager.params.num_human_traders
+                
+                if current_traders >= expected_traders or manager.trading_session.trading_started:
+                    continue
+
+                # Check if session needs an informed trader
+                has_informed = bool(manager.informed_trader)
+                needs_informed = not has_informed
+                
+                can_join = True
+                if historical_role == ROLE_INFORMED and not needs_informed:
+                    can_join = False  # Informed traders can only join sessions needing informed
+                elif historical_role == ROLE_SPECULATOR and needs_informed and current_traders == expected_traders - 1:
+                    can_join = False  # Don't let last spot be taken by speculator if we need informed
+                
+                if can_join:
+                    available_session = manager
+                    available_session_id = session_id
+                    break
+
+            # If no suitable session found, create new one
+            if not available_session:
+                params = TradingParameters(**persistent_settings)
+                new_trader_manager = TraderManager(params)
+                session_id = new_trader_manager.trading_session.id
+                trader_managers[session_id] = new_trader_manager
+                available_session = new_trader_manager
+                available_session_id = session_id
+
+            # Determine role for this session
+            if historical_role:
+                role = historical_role
             else:
-                # Non-zero goals can flip sign if random assignment is enabled
-                if available_session.params.allow_random_goals:
-                    goal = abs_goal * random.choice([-1, 1])
+                # If session needs informed and (this is last spot or random chance),
+                # make them informed
+                needs_informed = not available_session.informed_trader
+                is_last_spot = len(active_users[available_session_id]) == available_session.params.num_human_traders - 1
+                
+                if needs_informed and (is_last_spot or random.random() < 0.5):
+                    role = ROLE_INFORMED
                 else:
-                    goal = abs_goal  # Keep the original sign if random assignment is disabled
-        
-        print(f"Assigned goal {goal} to {gmail_username} (abs value: {user_goals[gmail_username]})")
-        
-        # Add trader to session with goal
-        trader_id = await available_session.add_human_trader(gmail_username, goal=goal)
-        
-        # Update tracking dictionaries
-        trader_to_session_lookup[trader_id] = available_session_id
-        user_sessions[gmail_username] = available_session_id
-        active_users[available_session_id].add(gmail_username)
-        
-        print(f"Final session state:")
-        print(f"- Active users in session: {active_users[available_session_id]}")
-        print(f"- User goals: {user_goals}")
-        print(f"- Goal assignments for session: {goal_assignments[available_session_id]}")
-        print("=== Session assignment complete ===\n")
-        
-        return available_session_id, trader_id
-        
-    except Exception as e:
-        print(f"ERROR in session assignment: {str(e)}")
-        logger.error(f"Error in find_or_create_session_and_assign_trader: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error assigning trader to session: {str(e)}"
-        )
+                    role = ROLE_SPECULATOR
+                user_roles[gmail_username] = role
+
+            # Add them to the session with their role
+            trader_id = await available_session.add_human_trader(
+                gmail_username, 
+                role=role
+            )
+
+            # Update tracking
+            trader_to_session_lookup[trader_id] = available_session_id
+            active_users[available_session_id].add(gmail_username)
+            user_sessions[gmail_username] = available_session_id
+
+            return available_session_id, trader_id
+
+        except Exception as e:
+            print(f"Error in session assignment: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error assigning trader to session: {str(e)}"
+            )
 
 async def send_to_frontend(websocket: WebSocket, trader_manager):
     while True:
@@ -610,7 +653,15 @@ async def receive_from_frontend(websocket: WebSocket, trader):
         try:
             message = await asyncio.wait_for(websocket.receive_text(), timeout=0.1)
             parsed_message = json.loads(message)
-            await trader.on_message_from_client(message)
+            
+            # only lock for orders
+            if parsed_message.get('type') == 'order':
+                async with trader_locks[trader.id]:
+                    await trader.on_message_from_client(message)
+            else:
+                # other messages don't need locks
+                await trader.on_message_from_client(message)
+                
         except asyncio.TimeoutError:
             pass
         except WebSocketDisconnect:
@@ -656,18 +707,22 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
         
         session_id = trader_to_session_lookup.get(trader_id)
         if not session_id:
-            raise HTTPException(status_code=404, detail="No active session found for this trader")
+            print(f"No active session found for trader {trader_id}")
+            await websocket.close()
+            return
             
         trader_manager = trader_managers[session_id]
         trader = trader_manager.get_trader(trader_id)
         if not trader:
-            raise HTTPException(status_code=404, detail="Trader not found in session")
+            print(f"Trader not found in session {session_id}")
+            await websocket.close()
+            return
         
-        # Update active users
+        # track them
         active_users[session_id].add(gmail_username)
         user_sessions[gmail_username] = session_id
         
-        # Send initial counts immediately after connection
+        # tell everyone the counts
         initial_count = {
             "type": "trader_count_update",
             "data": {
@@ -677,10 +732,6 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
             }
         }
         await websocket.send_json(initial_count)
-        
-        # Then broadcast to all traders
-        await broadcast_trader_count(session_id)
-        await broadcast_session_status(session_id)
         
         await trader.connect_to_socket(websocket)
         
@@ -700,16 +751,17 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
             pass
         finally:
             if session_id:
-                await remove_trader_from_session(trader_id, session_id)
+                # Only remove from active users, don't delete session
+                if gmail_username in active_users[session_id]:
+                    active_users[session_id].discard(gmail_username)
+                await broadcast_trader_count(session_id)
             
     except Exception as e:
         if session_id:
-            await remove_trader_from_session(trader_id, session_id)
-        await websocket.send_json({
-            "status": "error",
-            "message": f"Connection error: {str(e)}",
-            "data": {}
-        })
+            # Only remove from active users, don't delete session
+            if gmail_username in active_users[session_id]:
+                active_users[session_id].discard(gmail_username)
+            await broadcast_trader_count(session_id)
         await websocket.close()
 
 current_dir = Path(__file__).resolve().parent
@@ -765,9 +817,8 @@ async def get_file(file_path: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-# Add this near the top with other global variables
 async def broadcast_session_status(session_id: str):
-    """Broadcast session status to all traders in the session"""
+    """tell everyone what's up with the session"""
     if session_id not in trader_managers:
         return
         
@@ -787,7 +838,7 @@ async def broadcast_session_status(session_id: str):
         }
     }
     
-    # Broadcast to all traders in the session
+    # tell everyone
     for trader in trader_manager.human_traders:
         if hasattr(trader, 'websocket') and trader.websocket:
             try:
@@ -795,7 +846,7 @@ async def broadcast_session_status(session_id: str):
             except Exception as e:
                 logger.error(f"Error broadcasting to trader: {str(e)}")
 
-# Modify the start_trading_session endpoint
+# lets start trading!
 @app.post("/trading/start")
 async def start_trading_session(background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)):
     gmail_username = current_user['gmail_username']
@@ -808,13 +859,13 @@ async def start_trading_session(background_tasks: BackgroundTasks, current_user:
     
     trader_manager = trader_managers[session_id]
     
-    # Mark this trader as ready
+    # mark em ready
     session_ready_traders[session_id].add(gmail_username)
     
-    # Broadcast updated status to all traders
+    # tell everyone whats up
     await broadcast_session_status(session_id)
     
-    # Check if all traders in the session are ready
+    # check if we got everyone
     current_traders = active_users[session_id]
     expected_traders = trader_manager.params.num_human_traders
     all_ready = (len(session_ready_traders[session_id]) == expected_traders and 
@@ -827,9 +878,9 @@ async def start_trading_session(background_tasks: BackgroundTasks, current_user:
         "all_ready": all_ready
     }
     
-    # Only start trading if we have all expected traders and they're all ready
+    # if everyones here, lets get this party started
     if all_ready:
-        # Notify all traders that trading is starting
+        # hype message to get people ready
         start_message = {
             "type": "trading_starting",
             "data": {
@@ -851,6 +902,7 @@ async def start_trading_session(background_tasks: BackgroundTasks, current_user:
     
     return response_data
 
+# admin stuff - update the google form id
 @app.post("/admin/update_google_form_id")
 async def update_google_form_id_endpoint(new_form_id: str, current_user: dict = Depends(get_current_admin_user)):
     params = TradingParameters()
@@ -858,12 +910,13 @@ async def update_google_form_id_endpoint(new_form_id: str, current_user: dict = 
     update_form_id(new_form_id)
     return {"status": "success", "message": "Google Form ID updated successfully"}
 
+# refresh our user list
 @app.get("/admin/refresh_registered_users")
 async def refresh_registered_users(current_user: dict = Depends(get_current_admin_user)):
     get_registered_users(force_update=True)
     return {"status": "success", "message": "Registered users refreshed"}
 
-# Add a background task to periodically update registered users
+# keep our user list fresh
 async def periodic_update_registered_users():
     while True:
         try:
@@ -874,19 +927,22 @@ async def periodic_update_registered_users():
         except Exception as e:
             logger.error(f"Error during periodic update of registered users: {str(e)}")
         finally:
-            # Continue the loop regardless of errors
-            await asyncio.sleep(300)  # Sleep for 5 minutes before next update
+            # keep on truckin
+            await asyncio.sleep(300)  # nap for 5 mins
 
+# time offset calc loop
 async def periodic_time_offset_calculation():
     while True:
-        # Remove the calculate_time_offset() call
-        await asyncio.sleep(3600)  # Sleep for an hour
+        # nothing to do here anymore
+        await asyncio.sleep(3600)  # snooze for an hour
 
+# startup tasks
 @app.on_event("startup")
 async def startup_event():
     asyncio.create_task(periodic_update_registered_users())
     asyncio.create_task(periodic_time_offset_calculation())
 
+# zip up all the files for download
 @app.get("/files/download/all")
 async def download_all_files():
     try:
@@ -905,7 +961,7 @@ async def download_all_files():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-# Add a new endpoint to handle user logout
+# peace out ✌️
 @app.post("/user/logout")
 async def user_logout(current_user: dict = Depends(get_current_user)):
     gmail_username = current_user['gmail_username']
@@ -918,7 +974,7 @@ async def user_logout(current_user: dict = Depends(get_current_user)):
     else:
         raise HTTPException(status_code=404, detail="User not found in any active session")
 
-# Modify the cleanup function to remove users from active sessions
+# cleanup crew
 async def cleanup(session_id: str):
     if session_id in active_users:
         for username in active_users[session_id]:
@@ -927,7 +983,7 @@ async def cleanup(session_id: str):
         del active_users[session_id]
     # ... (rest of the cleanup logic)
 
-# Update get_user_role endpoint to use goals
+# what role you playin?
 @app.get("/user/role")
 async def get_user_role(current_user: dict = Depends(get_current_user)):
     gmail_username = current_user['gmail_username']
@@ -951,10 +1007,10 @@ async def get_user_role(current_user: dict = Depends(get_current_user)):
         }
     }
 
-# Add validation endpoint
+# make sure everything looks good
 @app.get("/session/validate/{session_id}")
 async def validate_session(session_id: str, current_user: dict = Depends(get_current_admin_user)):
-    """Validate session conditions"""
+    """check if session is set up right"""
     if session_id not in trader_managers:
         raise HTTPException(status_code=404, detail="Session not found")
     
@@ -963,11 +1019,11 @@ async def validate_session(session_id: str, current_user: dict = Depends(get_cur
     
     violations = []
     
-    # Check for exactly one informed trader
+    # need exactly one informed trader
     if not informed_trader:
         violations.append("Session has no informed trader")
     
-    # Check role consistency
+    # make sure roles make sense
     for username in session_traders:
         if username in user_roles:
             role = user_roles[username]
@@ -981,16 +1037,16 @@ async def validate_session(session_id: str, current_user: dict = Depends(get_cur
         "is_valid": len(violations) == 0
     }
 
-# Add a helper function to check session validity
+# quick session check
 def is_session_valid(session_id: str) -> bool:
-    """Check if a session exists and is still active"""
+    """is this session still kickin?"""
     if session_id not in trader_managers:
         return False
     
     trader_manager = trader_managers[session_id]
     return trader_manager.trading_session.active
 
-# Add this new endpoint to check session status
+# whats the status?
 @app.get("/session/{session_id}/status")
 async def get_session_status(session_id: str, current_user: dict = Depends(get_current_user)):
     if session_id not in trader_managers:
@@ -1010,24 +1066,25 @@ async def get_session_status(session_id: str, current_user: dict = Depends(get_c
         }
     }
 
+# nuke everything from orbit
 @app.post("/admin/reset_state")
 async def reset_state(current_user: dict = Depends(get_current_admin_user)):
-    """Reset all internal state variables to default"""
+    """start fresh"""
     try:
         print("\n=== Resetting Internal State ===")
         
         global user_goals, goal_assignments, user_historical_sessions
         
-        # Clear all tracking dictionaries
+        # clear all the things
         user_goals.clear()
         goal_assignments.clear()
         user_historical_sessions.clear()
         
-        # Clean up all active sessions
+        # cleanup whatevers running
         for session_id in list(trader_managers.keys()):
             await cleanup_session(session_id, reason="admin_reset")
             
-        # Clear remaining global state
+        # wipe the rest
         trader_managers.clear()
         trader_to_session_lookup.clear()
         active_users.clear()
@@ -1048,46 +1105,46 @@ async def reset_state(current_user: dict = Depends(get_current_admin_user)):
             detail=f"Error resetting state: {str(e)}"
         )
 
-# Add this new helper function
+# see ya later alligator
 async def remove_trader_from_session(trader_id: str, session_id: str):
-    """Remove a trader from a session and update counts"""
+    """kick em out"""
     try:
         if session_id in trader_managers:
             trader_manager = trader_managers[session_id]
             
-            # Remove trader from manager
+            # boot from manager
             if hasattr(trader_manager, 'remove_trader'):
                 await trader_manager.remove_trader(trader_id)
             
-            # Remove from ready traders if present
+            # unready them
             gmail_username = trader_id.split("HUMAN_")[-1] if trader_id.startswith("HUMAN_") else None
             if gmail_username and session_id in session_ready_traders:
                 session_ready_traders[session_id].discard(gmail_username)
             
-            # Remove from active users
+            # remove from active list
             if gmail_username and session_id in active_users:
                 active_users[session_id].discard(gmail_username)
             
-            # Clean up trader lookup
+            # cleanup lookup
             if trader_id in trader_to_session_lookup:
                 del trader_to_session_lookup[trader_id]
             
-            # Immediately broadcast updated trader count
+            # tell everyone whos left
             await broadcast_trader_count(session_id)
             
-            # Then broadcast session status
+            # update the status
             await broadcast_session_status(session_id)
             
-            # If no traders left, clean up session
+            # if nobodys home, shut it down
             if len(active_users.get(session_id, set())) == 0:
                 await cleanup_session(session_id, reason="no_active_traders")
                 
     except Exception as e:
         logger.error(f"Error removing trader from session: {str(e)}")
 
-# Add this function near the top with other helper functions
+# headcount!
 async def broadcast_trader_count(session_id: str):
-    """Broadcast current trader count to all traders in the session"""
+    """whos still here?"""
     if session_id not in trader_managers:
         return
         
@@ -1100,14 +1157,13 @@ async def broadcast_trader_count(session_id: str):
         "data": {
             "current_human_traders": current_traders,
             "expected_human_traders": expected_traders,
-            "session_id": session_id  # Add session ID for verification
+            "session_id": session_id
         }
     }
     
-    # Log the counts being broadcast
     print(f"Broadcasting trader count for session {session_id}: {current_traders}/{expected_traders}")
     
-    # Broadcast to all connected traders
+    # spread the word
     for trader in trader_manager.human_traders:
         if hasattr(trader, 'websocket') and trader.websocket:
             try:
@@ -1115,6 +1171,34 @@ async def broadcast_trader_count(session_id: str):
             except Exception as e:
                 logger.error(f"Error broadcasting trader count: {str(e)}")
 
-
-
-
+# update the things
+async def update_session_state(session_id: str, updates: dict):
+    """change stuff safely"""
+    try:
+        if session_id not in trader_managers:
+            return False
+            
+        # lock it down
+        async with session_locks[session_id]:
+            trader_manager = trader_managers[session_id]
+            
+            # update whos ready
+            if 'ready_traders' in updates:
+                ready_traders = updates['ready_traders']
+                session_ready_traders[session_id] = set(ready_traders)
+            
+            # update whos here
+            if 'active_users' in updates:
+                active_users[session_id] = set(updates['active_users'])
+        
+        # handle the lookups
+        if 'trader_lookups' in updates:
+            for trader_id, lookup_session_id in updates['trader_lookups'].items():
+                async with trader_locks[trader_id]:
+                    trader_to_session_lookup[trader_id] = lookup_session_id
+        
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error updating session state: {str(e)}")
+        return False
