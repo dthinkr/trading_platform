@@ -18,7 +18,7 @@ from fastapi.encoders import jsonable_encoder
 
 # our stuff
 from core.trader_manager import TraderManager
-from core.data_models import TraderType, TradingParameters, UserRegistration
+from core.data_models import TraderType, TradingParameters, UserRegistration, TraderRole
 from .auth import get_current_user, get_current_admin_user, get_firebase_auth, extract_gmail_username, is_user_registered, is_user_admin, update_google_form_id, custom_verify_id_token
 from .calculate_metrics import process_log_file, write_to_csv
 from .logfiles_analysis import order_book_contruction, is_jsonable, calculate_trader_specific_metrics
@@ -556,7 +556,7 @@ async def find_or_create_session_and_assign_trader(gmail_username):
             historical_role = user_roles.get(gmail_username)
             print(f"User's historical role: {historical_role}")
 
-            # Look for available session with role constraints
+            # Look for available session
             available_session = None
             available_session_id = None
             
@@ -572,9 +572,9 @@ async def find_or_create_session_and_assign_trader(gmail_username):
                 needs_informed = not has_informed
                 
                 can_join = True
-                if historical_role == ROLE_INFORMED and not needs_informed:
+                if historical_role == TraderRole.INFORMED and not needs_informed:
                     can_join = False  # Informed traders can only join sessions needing informed
-                elif historical_role == ROLE_SPECULATOR and needs_informed and current_traders == expected_traders - 1:
+                elif historical_role == TraderRole.SPECULATOR and needs_informed and current_traders == expected_traders - 1:
                     can_join = False  # Don't let last spot be taken by speculator if we need informed
                 
                 if can_join:
@@ -591,26 +591,8 @@ async def find_or_create_session_and_assign_trader(gmail_username):
                 available_session = new_trader_manager
                 available_session_id = session_id
 
-            # Determine role for this session
-            if historical_role:
-                role = historical_role
-            else:
-                # If session needs informed and (this is last spot or random chance),
-                # make them informed
-                needs_informed = not available_session.informed_trader
-                is_last_spot = len(active_users[available_session_id]) == available_session.params.num_human_traders - 1
-                
-                if needs_informed and (is_last_spot or random.random() < 0.5):
-                    role = ROLE_INFORMED
-                else:
-                    role = ROLE_SPECULATOR
-                user_roles[gmail_username] = role
-
             # Add them to the session with their role
-            trader_id = await available_session.add_human_trader(
-                gmail_username, 
-                role=role
-            )
+            trader_id = await available_session.add_human_trader(gmail_username)
 
             # Update tracking
             trader_to_session_lookup[trader_id] = available_session_id

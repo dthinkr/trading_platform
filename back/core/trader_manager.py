@@ -137,10 +137,11 @@ class TraderManager:
                 # Informed traders get non-zero goals
                 non_zero_goals = [g for g in self.params.predefined_goals if g != 0]
                 if non_zero_goals:
-                    # Get magnitude of the goal
-                    magnitude = abs(random.choice(non_zero_goals))
-                    # Randomly assign positive or negative
-                    goal = magnitude * random.choice([-1, 1])
+                    # Get absolute value of the selected goal
+                    goal = abs(random.choice(non_zero_goals))
+                    # If random goals allowed, randomly flip sign
+                    if self.params.allow_random_goals:
+                        goal *= random.choice([-1, 1])
                 else:
                     goal = 100  # fallback
                 print(f"Assigned informed trader goal: {goal}")
