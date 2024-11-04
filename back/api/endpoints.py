@@ -543,8 +543,6 @@ async def find_or_create_session_and_assign_trader(gmail_username):
                         active_users[session_id].add(gmail_username)
                         trader_to_session_lookup[trader_id] = session_id
                         return session_id, trader_id
-                    else:
-                        print(f"Session {session_id} already started, cleaning up references")
                 
                 # Session invalid or started - clean up references
                 print(f"Cleaning up invalid session reference: {session_id}")
@@ -556,50 +554,62 @@ async def find_or_create_session_and_assign_trader(gmail_username):
             historical_role = user_roles.get(gmail_username)
             print(f"User's historical role: {historical_role}")
 
-            # Look for available session
-            available_session = None
-            available_session_id = None
+            # Try finding an available session multiple times
+            attempts = 5  # Try 5 times with 0.5 second delay each = 2.5 seconds total
             
-            for session_id, manager in trader_managers.items():
-                current_traders = len(active_users[session_id])
-                expected_traders = manager.params.num_human_traders
+            for attempt in range(attempts):
+                print(f"Looking for available session (attempt {attempt + 1}/{attempts})")
                 
-                if current_traders >= expected_traders or manager.trading_session.trading_started:
-                    continue
+                for session_id, manager in trader_managers.items():
+                    current_traders = len(active_users[session_id])
+                    expected_traders = manager.params.num_human_traders
+                    
+                    if current_traders >= expected_traders or manager.trading_session.trading_started:
+                        continue
 
-                # Check if session needs an informed trader
-                has_informed = bool(manager.informed_trader)
-                needs_informed = not has_informed
+                    # Check if session needs an informed trader
+                    has_informed = bool(manager.informed_trader)
+                    needs_informed = not has_informed
+                    
+                    can_join = True
+                    if historical_role == TraderRole.INFORMED and not needs_informed:
+                        can_join = False
+                    elif historical_role == TraderRole.SPECULATOR and needs_informed and current_traders == expected_traders - 1:
+                        can_join = False
+                    
+                    if can_join:
+                        print(f"Found suitable session: {session_id}")
+                        # Add them to the session
+                        trader_id = await manager.add_human_trader(gmail_username)
+                        
+                        # Update tracking
+                        trader_to_session_lookup[trader_id] = session_id
+                        active_users[session_id].add(gmail_username)
+                        user_sessions[gmail_username] = session_id
+                        
+                        return session_id, trader_id
                 
-                can_join = True
-                if historical_role == TraderRole.INFORMED and not needs_informed:
-                    can_join = False  # Informed traders can only join sessions needing informed
-                elif historical_role == TraderRole.SPECULATOR and needs_informed and current_traders == expected_traders - 1:
-                    can_join = False  # Don't let last spot be taken by speculator if we need informed
-                
-                if can_join:
-                    available_session = manager
-                    available_session_id = session_id
-                    break
+                # If no session found and not last attempt, wait before trying again
+                if attempt < attempts - 1:
+                    print(f"No suitable session found, waiting before attempt {attempt + 2}/{attempts}")
+                    await sleep(0.5)  # 500ms delay between attempts
 
-            # If no suitable session found, create new one
-            if not available_session:
-                params = TradingParameters(**persistent_settings)
-                new_trader_manager = TraderManager(params)
-                session_id = new_trader_manager.trading_session.id
-                trader_managers[session_id] = new_trader_manager
-                available_session = new_trader_manager
-                available_session_id = session_id
-
-            # Add them to the session with their role
-            trader_id = await available_session.add_human_trader(gmail_username)
-
+            # If we get here, no suitable session was found after all attempts
+            print("No suitable session found after waiting, creating new session")
+            params = TradingParameters(**persistent_settings)
+            new_trader_manager = TraderManager(params)
+            session_id = new_trader_manager.trading_session.id
+            trader_managers[session_id] = new_trader_manager
+            
+            # Add them to the new session
+            trader_id = await new_trader_manager.add_human_trader(gmail_username)
+            
             # Update tracking
-            trader_to_session_lookup[trader_id] = available_session_id
-            active_users[available_session_id].add(gmail_username)
-            user_sessions[gmail_username] = available_session_id
-
-            return available_session_id, trader_id
+            trader_to_session_lookup[trader_id] = session_id
+            active_users[session_id].add(gmail_username)
+            user_sessions[gmail_username] = session_id
+            
+            return session_id, trader_id
 
         except Exception as e:
             print(f"Error in session assignment: {str(e)}")

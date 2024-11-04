@@ -4,7 +4,7 @@ import { useTraderStore } from "@/store/app";
 import { storeToRefs } from "pinia";
 
 const traderStore = useTraderStore();
-const { executedOrders, recentTransactions, traderUuid, shares } = storeToRefs(traderStore);
+const { executedOrders, recentTransactions, traderUuid } = storeToRefs(traderStore);
 
 const filledOrders = computed(() => {
   // Filter transactions to only include those where the current trader was involved
@@ -109,7 +109,6 @@ const tradingSummary = computed(() => {
     sellCount,
     buyVWAP: buyVolume > 0 ? (buyValue / buyVolume).toFixed(2) : 0,
     sellVWAP: sellVolume > 0 ? (sellValue / sellVolume).toFixed(2) : 0,
-    netPosition: shares.value
   };
 });
 
@@ -121,55 +120,16 @@ const formatTime = (timestamp) => {
 
 <template>
   <v-card height="100%" elevation="3" class="order-history-card">
-    <div class="trading-summary pa-3">
-      <div class="position-wrapper mb-3">
-        <v-chip 
-          :color="tradingSummary.netPosition >= 0 ? 'success' : 'error'"
-          class="position-chip"
-          elevation="2"
-        >
-          <v-icon left size="18">
-            {{ tradingSummary.netPosition >= 0 ? 'mdi-trending-up' : 'mdi-trending-down' }}
-          </v-icon>
-          <span class="font-weight-medium">
-            Position: {{ tradingSummary.netPosition }}
-          </span>
-        </v-chip>
+    <div class="trading-summary pa-2">
+      <div class="vwap-display">
+        <span class="vwap-item buy">{{ tradingSummary.buyVWAP }}</span>
+        <span class="vwap-divider">|</span>
+        <span class="vwap-item sell">{{ tradingSummary.sellVWAP }}</span>
       </div>
-      
-      <div class="summary-cards d-flex justify-space-between">
-        <div class="summary-card buy elevation-1">
-          <div class="card-header blue lighten-5 pa-2">
-            <v-icon color="blue darken-2" size="20" class="mr-1">mdi-arrow-up-bold</v-icon>
-            <span class="text-subtitle-2 blue--text text--darken-2 font-weight-bold">Buy Trades</span>
-          </div>
-          <div class="card-content pa-3">
-            <div class="stat-row">
-              <span class="stat-label">Count:</span>
-              <span class="stat-value">{{ tradingSummary.buyCount }}</span>
-            </div>
-            <div class="stat-row">
-              <span class="stat-label">VWAP:</span>
-              <span class="stat-value">{{ tradingSummary.buyVWAP }}</span>
-            </div>
-          </div>
-        </div>
-        <div class="summary-card sell elevation-1">
-          <div class="card-header red lighten-5 pa-2">
-            <v-icon color="red darken-2" size="20" class="mr-1">mdi-arrow-down-bold</v-icon>
-            <span class="text-subtitle-2 red--text text--darken-2 font-weight-bold">Sell Trades</span>
-          </div>
-          <div class="card-content pa-3">
-            <div class="stat-row">
-              <span class="stat-label">Count:</span>
-              <span class="stat-value">{{ tradingSummary.sellCount }}</span>
-            </div>
-            <div class="stat-row">
-              <span class="stat-label">VWAP:</span>
-              <span class="stat-value">{{ tradingSummary.sellVWAP }}</span>
-            </div>
-          </div>
-        </div>
+      <div class="count-display">
+        <span class="count-item buy">{{ tradingSummary.buyCount }}</span>
+        <span class="count-divider">|</span>
+        <span class="count-item sell">{{ tradingSummary.sellCount }}</span>
       </div>
     </div>
 
@@ -224,52 +184,37 @@ const formatTime = (timestamp) => {
 
 .trading-summary {
   background-color: #fafafa;
-  border-radius: 8px;
-  margin: 0 16px 16px;
+  padding: 6px;
 }
 
-.position-chip {
-  font-size: 0.95rem;
-  height: 32px;
-}
-
-.summary-cards {
-  gap: 16px;
-}
-
-.summary-card {
-  flex: 1;
-  border-radius: 8px;
-  overflow: hidden;
-  background-color: white;
-  border: 1px solid #e0e0e0;
-}
-
-.card-header {
+.vwap-display, .count-display {
   display: flex;
+  justify-content: center;
   align-items: center;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-}
-
-.stat-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 4px;
-}
-
-.stat-row:last-child {
-  margin-bottom: 0;
-}
-
-.stat-label {
-  color: #666;
+  gap: 12px;
   font-size: 0.9rem;
+  white-space: nowrap;
 }
 
-.stat-value {
-  font-weight: 600;
-  font-size: 0.9rem;
+.count-display {
+  margin-top: 4px;
+  font-size: 0.8rem;
+}
+
+.vwap-item, .count-item {
+  font-weight: 500;
+}
+
+.vwap-divider, .count-divider {
+  color: #999;
+}
+
+.vwap-item.buy, .count-item.buy {
+  color: #1976D2;
+}
+
+.vwap-item.sell, .count-item.sell {
+  color: #D32F2F;
 }
 
 .order-history-container {

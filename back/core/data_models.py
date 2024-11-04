@@ -42,7 +42,7 @@ class UserRegistration(BaseModel):
 class TradingParameters(BaseModel):
     # basic setup
     num_human_traders: int = Field(
-        default=3,
+        default=1,
         title="Number of Human Traders",
         description="model_parameter",
         ge=1,  # need at least 1 human
