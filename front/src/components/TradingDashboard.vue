@@ -61,18 +61,6 @@
 
       <v-main class="grey lighten-4">
         <v-container fluid class="pa-4">
-          <!-- Session timeout warning -->
-          <!-- Remove this v-alert block entirely -->
-          <!-- <v-alert
-            v-if="!isTradingStarted && sessionTimeRemaining > 0"
-            type="warning"
-            prominent
-            border="left"
-            class="mb-4"
-          >
-            Session will timeout in {{ Math.ceil(sessionTimeRemaining) }} seconds if not enough traders join
-          </v-alert> -->
-
           <!-- Modified waiting screen -->
           <v-row v-if="!isTradingStarted" justify="center" align="center" style="height: 80vh;">
             <v-col cols="12" md="6" class="text-center">
@@ -116,9 +104,10 @@
                         mdi-check-circle
                       </v-icon>
                     </p>
-                    <span v-if="sessionTimeRemaining > 0" class="text--secondary">
-                      Session will close in {{ Math.ceil(sessionTimeRemaining) }} seconds if not enough traders join.
-                    </span>
+                    <p class="text--secondary mt-4">
+                      <v-icon small color="grey">mdi-refresh</v-icon>
+                      If waiting too long, you can refresh the page to try again
+                    </p>
                   </div>
                 </v-card-text>
               </v-card>
