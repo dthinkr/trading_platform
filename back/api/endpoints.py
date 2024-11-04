@@ -387,12 +387,14 @@ async def get_trader_info(trader_id: str):
             # everyone else's stuff
             general_metrics = {k: v for k, v in order_book_metrics.items() if k != f"'{trader_id}'"}
 
-            # crunch their numbers
-            trader_specific_metrics = calculate_trader_specific_metrics(
-                trader_specific_metrics, 
-                general_metrics, 
-                trader_data.get('goal', 0)
-            )
+            # Calculate trader-specific metrics
+            if trader_specific_metrics:
+                trader_specific_metrics = calculate_trader_specific_metrics(
+                    trader_specific_metrics, 
+                    general_metrics, 
+                    trader_data.get('goal', 0)
+                )
+
 
         except Exception as e:
             general_metrics = {"error": "Unable to process log file"}
