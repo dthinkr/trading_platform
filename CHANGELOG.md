@@ -12,8 +12,14 @@ To propose changes:
 3. Use the format: "- [ ] Your proposed change"
 
 ### Proposed Features
-- [ ] Example 1
-- [ ] Example 2
+- [X] Add better error handling for partially filled sessions
+
+## [2.0.2][2.0.2] - 2024-11-02
+
+### Fixed
+- Added retry mechanism (2.5s) to prevent creation of partially filled sessions
+- Improved session validation before creation
+- Enhanced cleanup of incomplete sessions
 
 ## [2.0.1][2.0.1] - 2024-11-01
 
@@ -287,6 +293,7 @@ To propose changes:
 - Customizable trading scenarios
 - Basic data analysis tools
 
+[2.0.2]: https://github.com/dthinkr/trading_platform/compare/v2.0.1...v2.0.2
 [2.0.1]: https://github.com/dthinkr/trading_platform/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/dthinkr/trading_platform/compare/v1.3.5...v2.0.0
 [1.3.5]: https://github.com/dthinkr/trading_platform/compare/v1.3.4...v1.3.5

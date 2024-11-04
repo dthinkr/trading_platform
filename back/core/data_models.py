@@ -8,13 +8,15 @@ from uuid import UUID, uuid4
 import random
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+# basic enums
 class StrEnum(str, Enum):
     pass
 
 class TradeDirection(str, Enum):
-    BUY = "buy"
+    BUY = "buy" 
     SELL = "sell"
 
+# user stuff
 class User(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     username: str
@@ -22,9 +24,9 @@ class User(BaseModel):
 
 class Trader(BaseModel):
     id: UUID = Field(default_factory=uuid4)
-    gmail_username: str  # Change this from user_id to gmail_username
+    gmail_username: str  # gmail username for auth
     trading_session_id: UUID
-    is_ready: bool = False  # Add this field to track if user pressed start
+    is_ready: bool = False  # tracks if user hit start
 
 class TradingPlatform(BaseModel):
     id: UUID = Field(default_factory=uuid4)
@@ -36,23 +38,25 @@ class UserRegistration(BaseModel):
     password: str
 
 
+# all the trading params - lots of them!
 class TradingParameters(BaseModel):
+    # basic setup
     num_human_traders: int = Field(
         default=3,
         title="Number of Human Traders",
         description="model_parameter",
-        ge=1,  # Changed from ge=0 to ge=1 to ensure at least one human trader
+        ge=1,  # need at least 1 human
     )
     num_noise_traders: int = Field(
         default=1,
-        title="Number of Noise Traders",
+        title="Number of Noise Traders", 
         description="model_parameter",
         ge=0,
     )
     num_informed_traders: int = Field(
         default=1,
         title="Number of Informed Traders",
-        description="model_parameter",
+        description="model_parameter", 
         ge=0,
     )
     num_simple_order_traders: int = Field(
@@ -61,6 +65,8 @@ class TradingParameters(BaseModel):
         description="model_parameter",
         ge=0,
     )
+
+    # book setup
     start_of_book_num_order_per_level: int = Field(
         default=3,
         title="Orders per Level at Book Start",
@@ -78,6 +84,8 @@ class TradingParameters(BaseModel):
         title="Step for New Orders",
         description="model_parameter",
     )
+
+    # noise trader settings
     noise_activity_frequency: float = Field(
         default=1,
         title="Activity Frequency",
@@ -104,16 +112,13 @@ class TradingParameters(BaseModel):
         title="Bid Order Probability",
         description="noise_parameter",
     )
+
+    # informed trader settings
     informed_trade_intensity: float = Field(
         default=0.52,
         title="Trade Intensity",
         description="informed_parameter",
     )
-    # informed_urgency_factor: float = Field(
-    #     default=0,
-    #     title="Urgency Factor",
-    #     description="informed_parameter",
-    # )
     informed_trade_direction: TradeDirection = Field(
         default=TradeDirection.BUY,
         title="Trade Direction",
@@ -134,6 +139,8 @@ class TradingParameters(BaseModel):
         title="Informed Order Book Depth",
         description="informed_parameter",
     )
+
+    # human trader settings
     initial_cash: float = Field(
         default=100000,
         title="Initial Cash",
@@ -149,6 +156,8 @@ class TradingParameters(BaseModel):
         title="Depth Book Shown",
         description="human_parameter",
     )
+
+    # general market settings
     order_book_levels: int = Field(
         default=5,
         title="Order Book Levels",
@@ -168,7 +177,7 @@ class TradingParameters(BaseModel):
     )
     cancel_time: int = Field(
         default=1,
-        title="Seconds Locked Until Cancelation (Placeholder, not used yet)",
+        title="Seconds Locked Until Cancelation (not used yet)",
         description="human_parameter",
         gt=0,
     )
@@ -180,6 +189,7 @@ class TradingParameters(BaseModel):
         ge=1,
     )
 
+    # admin stuff
     google_form_id: str = Field(
         default='1yDf7vd5wLaPhm30IiGKTkPw4s5spb3Xlm86Li81YDXI',
         title="Google Form ID",
@@ -192,40 +202,53 @@ class TradingParameters(BaseModel):
         description="model_parameter",
     )
 
-    # Move predefined_goals to human parameters section and update description
+    # goal settings
     predefined_goals: List[int] = Field(
         default=[100, 0, -100],
         title="Predefined Goals",
         description="human_parameter",
     )
 
-    # Move allow_random_goals to human parameters and update description
     allow_random_goals: bool = Field(
         default=False,
         title="Allow Random Goal Assignment",
         description="human_parameter",
     )
 
+    # Add role-related fields
+    min_informed_traders_per_session: int = Field(
+        default=1,
+        title="Minimum Informed Traders per Session",
+        description="human_parameter",
+        ge=1,
+    )
+    max_informed_traders_per_session: int = Field(
+        default=1,
+        title="Maximum Informed Traders per Session",
+        description="human_parameter",
+        ge=1,
+    )
+
     @field_validator('num_human_traders')
     def ensure_integer(cls, v):
-        return max(int(v), 1)  # Allow minimum of 1 human trader now
+        return max(int(v), 1)  # gotta have at least 1 human!
 
     @field_validator('predefined_goals', mode='before')
     def validate_predefined_goals(cls, v):
         if isinstance(v, str):
             try:
-                # Convert string input to list of integers
+                # string to int list
                 return [int(x.strip()) for x in v.split(',')]
             except ValueError:
-                raise ValueError("Predefined goals must be comma-separated integers")
+                raise ValueError("goals must be comma-separated numbers!")
         elif isinstance(v, list):
-            # If it's already a list, ensure all elements are integers
+            # make sure list items are ints
             return [int(x) for x in v]
         else:
-            raise ValueError("Predefined goals must be either a comma-separated string or a list of integers")
+            raise ValueError("goals must be comma-separated string or number list!")
 
     def dump_params_by_description(self) -> dict:
-        """Dump parameters into a dict of dict indexed by description."""
+        """organize params by their type"""
         result = {}
         for field_name, field_info in self.model_fields.items():
             description = field_info.description
@@ -242,7 +265,7 @@ class TradingParameters(BaseModel):
     @classmethod
     def create_with_persistent_settings(cls, base_params: dict, persistent_settings: dict):
         merged_params = {**base_params, **persistent_settings}
-        # Ensure num_human_traders is at least 2
+        # need 2+ humans
         merged_params['num_human_traders'] = max(merged_params.get('num_human_traders', 2), 2)
         return cls(**merged_params)
 
@@ -267,16 +290,14 @@ class TradingParameters(BaseModel):
                     else:
                         converted_data[field] = value
                 except ValueError as e:
-                    print(f"Error converting {field}: {str(e)}")
+                    print(f"oops, error converting {field}: {str(e)}")
                     converted_data[field] = value
         return cls(**converted_data)
 
 
+# lobster data stuff
 class LobsterEventType(IntEnum):
-    """For the LOBSTER data, the event type is an integer. This class maps the integer to a string.
-    See the documentation at: https://lobsterdata.com/info/DataStructure.php
-    """
-
+    """maps lobster event types to numbers"""
     NEW_LIMIT_ORDER = 1
     CANCELLATION_PARTIAL = 2
     CANCELLATION_TOTAL = 3
@@ -286,6 +307,7 @@ class LobsterEventType(IntEnum):
     TRADING_HALT = 7
 
 
+# action types
 class ActionType(str, Enum):
     POST_NEW_ORDER = "add_order"
     CANCEL_ORDER = "cancel_order"
@@ -293,12 +315,11 @@ class ActionType(str, Enum):
     REGISTER = "register_me"
 
 
+# order stuff
 class OrderType(IntEnum):
-    ASK = -1  # the price a seller is willing to accept for a security
-    BID = 1  # the price a buyer is willing to pay for a security
+    ASK = -1  # selling price
+    BID = 1   # buying price
 
-
-# let's write an inverse correspondence between the order type and the string
 str_to_order_type = {"ask": OrderType.ASK, "bid": OrderType.BID}
 
 class OrderStatus(str, Enum):
@@ -308,6 +329,7 @@ class OrderStatus(str, Enum):
     CANCELLED = "cancelled"
 
 
+# trader types
 class TraderType(str, Enum):
     NOISE = "NOISE"
     MARKET_MAKER = "MARKET_MAKER"
@@ -317,22 +339,24 @@ class TraderType(str, Enum):
     SIMPLE_ORDER = "SIMPLE_ORDER"
 
 
+# order model
 class Order(BaseModel):
-    id: Optional[str] = None  # Make id optional
+    id: Optional[str] = None
     status: OrderStatus
     amount: float = 1
     price: float
     order_type: OrderType
     timestamp: datetime = Field(default_factory=datetime.now)
     session_id: str
-    trader_id: str  # This will now contain the Gmail username
-    informed_trader_progress: Optional[str] = None  # New field
+    trader_id: str  # gmail username
+    informed_trader_progress: Optional[str] = None
 
     class ConfigDict:
         use_enum_values = True
 
 executor = ThreadPoolExecutor()
 
+# transaction stuff
 class TransactionModel:
     def __init__(self, trading_session_id, bid_order_id, ask_order_id, price, informed_trader_progress=None):
         self.id = uuid.uuid4()
@@ -354,6 +378,7 @@ class TransactionModel:
             "informed_trader_progress": self.informed_trader_progress
         }
 
+# message model
 class Message:
     def __init__(self, trading_session_id: str, content: Dict, message_type: str = "BOOK_UPDATED"):
         self.id: UUID = uuid4()
@@ -371,3 +396,7 @@ class Message:
             "type": self.type
         }
 
+# Add this with other enums at the top
+class TraderRole(str, Enum):
+    INFORMED = "informed"
+    SPECULATOR = "speculator"

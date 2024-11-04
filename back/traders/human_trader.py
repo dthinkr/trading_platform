@@ -11,19 +11,15 @@ logger = setup_custom_logger(__name__)
 
 class HumanTrader(BaseTrader):
 
-    def __init__(self, id, cash, shares, goal, params, trading_session, gmail_username, *args, **kwargs):
-        super().__init__(trader_type=TraderType.HUMAN, id=id, cash=cash, shares=shares, *args, **kwargs)
-        self.id = id
-        self.params = params
-        self.goal = goal  # This will now properly set the goal in BaseTrader
+    def __init__(self, id, cash=0, shares=0, goal=0, role=None, trading_session=None, params=None, gmail_username=None):
+        super().__init__(TraderType.HUMAN, id, cash, shares)
+        self.goal = goal
+        self.role = role
         self.trading_session = trading_session
-        self.gmail_username = gmail_username  # Add this line
+        self.params = params
+        self.gmail_username = gmail_username
         self.websocket = None
-        self.socket_status = False
-        self.inventory = {
-            "shares": 0,
-            "cash": 1000,
-        }
+        self.goal_progress = 0
 
     def get_trader_params_as_dict(self):
         return {
