@@ -210,23 +210,9 @@ class TradingParameters(BaseModel):
     )
 
     allow_random_goals: bool = Field(
-        default=False,
+        default=True,
         title="Allow Random Goal Assignment",
         description="human_parameter",
-    )
-
-    # Add role-related fields
-    min_informed_traders_per_session: int = Field(
-        default=1,
-        title="Minimum Informed Traders per Session",
-        description="human_parameter",
-        ge=1,
-    )
-    max_informed_traders_per_session: int = Field(
-        default=1,
-        title="Maximum Informed Traders per Session",
-        description="human_parameter",
-        ge=1,
     )
 
     @field_validator('num_human_traders')
