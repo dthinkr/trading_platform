@@ -197,7 +197,7 @@ const columns = [
 
 const formatDelta = computed(() => {
   if (sum_dinv.value == undefined) return "";
-  const halfChange = Math.round(sum_dinv.value / 2);
+  const halfChange = Math.round(sum_dinv.value);
   return halfChange >= 0 ? "+" + halfChange : halfChange.toString();
 });
 
