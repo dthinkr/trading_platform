@@ -5,8 +5,6 @@ from utils import setup_custom_logger
 from fastapi import HTTPException
 import random
 
-logger = setup_custom_logger(__name__)
-
 class SessionHandler:
     def __init__(self):
         # Maps for tracking sessions and users
@@ -59,7 +57,6 @@ class SessionHandler:
                     self.user_sessions[gmail_username] = session_id
                     return session_id, trader_id
                 except Exception as e:
-                    logger.error(f"Error adding trader to existing session: {str(e)}")
                     continue
 
         # Create new session
@@ -82,7 +79,6 @@ class SessionHandler:
             return session_id, trader_id
             
         except Exception as e:
-            logger.error(f"Error creating new session: {str(e)}")
             raise HTTPException(
                 status_code=500,
                 detail=f"Error creating trading session: {str(e)}"
@@ -115,7 +111,6 @@ class SessionHandler:
             return active_session_count < params.max_sessions_per_human
             
         except Exception as e:
-            logger.error(f"Error checking session limits: {str(e)}")
             raise HTTPException(
                 status_code=500,
                 detail=f"Error checking session limits: {str(e)}"
@@ -199,8 +194,8 @@ class SessionHandler:
                 trader_manager = self.trader_managers[session_id]
                 try:
                     await trader_manager.cleanup()
-                except Exception as e:
-                    logger.error(f"Error cleaning up trader manager for session {session_id}: {str(e)}")
+                except Exception:
+                    pass
 
             self.trader_managers.clear()
             self.active_users.clear()
@@ -211,11 +206,9 @@ class SessionHandler:
             self.session_ready_traders.clear()
             self.user_historical_sessions.clear()  
             
-            logger.info("Successfully reset all session state")
             return True
             
         except Exception as e:
-            logger.error(f"Error during state reset: {str(e)}")
             raise HTTPException(
                 status_code=500,
                 detail=f"Error resetting state: {str(e)}"
@@ -223,21 +216,17 @@ class SessionHandler:
 
     def remove_user_from_session(self, gmail_username: str, session_id: str):
         """Remove user from session"""
-        try:
-            if session_id not in self.active_users:
-                self.active_users[session_id] = set()
+        if session_id not in self.active_users:
+            self.active_users[session_id] = set()
+        
+        self.active_users[session_id].discard(gmail_username)
+        
+        if gmail_username in self.user_sessions:
+            del self.user_sessions[gmail_username]
             
-            self.active_users[session_id].discard(gmail_username)
-            
-            if gmail_username in self.user_sessions:
-                del self.user_sessions[gmail_username]
-                
-            trader_id = f"HUMAN_{gmail_username}"
-            if trader_id in self.trader_to_session_lookup:
-                del self.trader_to_session_lookup[trader_id]
-                
-        except Exception as e:
-            logger.error(f"Error removing user {gmail_username} from session {session_id}: {str(e)}")
+        trader_id = f"HUMAN_{gmail_username}"
+        if trader_id in self.trader_to_session_lookup:
+            del self.trader_to_session_lookup[trader_id]
 
     def add_user_to_session(self, gmail_username: str, session_id: str):
         """Add user to session"""
