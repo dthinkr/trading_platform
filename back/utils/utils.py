@@ -9,7 +9,6 @@ from json import JSONEncoder
 from types import SimpleNamespace
 from uuid import UUID
 
-import duckdb
 import yaml
 from pydantic import BaseModel
 from termcolor import colored

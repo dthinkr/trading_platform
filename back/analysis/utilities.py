@@ -3,7 +3,6 @@ import json
 import uuid
 from types import SimpleNamespace
 
-import duckdb
 import polars as pl
 import yaml
 from pymongo import MongoClient
@@ -78,31 +77,3 @@ def process_df(df: pl.DataFrame) -> pl.DataFrame:
 
     df = df.drop("incoming_message")
     return df
-
-
-def delete_all_tables() -> None:
-    con = duckdb.connect(f"md:{CONFIG.DATASET}?motherduck_token={CONFIG.MD_TOKEN}")
-    mongo_client = MongoClient("localhost", 27017)
-
-    con.execute(f"DROP TABLE IF EXISTS {CONFIG.TABLE_REF}")
-    con.execute(f"DROP TABLE IF EXISTS {CONFIG.TABLE_RES}")
-
-    tables_deleted = con.execute("SHOW TABLES").fetchall()
-    if (CONFIG.TABLE_REF,) not in tables_deleted and (
-        CONFIG.TABLE_RES,
-    ) not in tables_deleted:
-        print("DuckDB tables deleted successfully.")
-    else:
-        print("Error: DuckDB tables not deleted.")
-
-    db = mongo_client["trader"]
-    db.message.drop()
-
-    if "message" not in db.list_collection_names():
-        print("MongoDB collection deleted successfully.")
-    else:
-        print("Error: MongoDB collection not deleted.")
-
-    # Close connections
-    con.close()
-    mongo_client.close()
