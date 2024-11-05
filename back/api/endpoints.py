@@ -521,41 +521,62 @@ ROLE_INFORMED = "informed"
 ROLE_SPECULATOR = "speculator"
 session_informed_roles = {}  # session_id -> username of informed trader
 
+# Add this function near the top with other helper functions
+async def determine_trader_role(gmail_username: str) -> TraderRole:
+    """Determine role for a trader before session assignment"""
+    # Check if they already have a historical role
+    historical_role = user_roles.get(gmail_username)
+    if historical_role:
+        return historical_role
+        
+    # Get their session count
+    historical_sessions = len(user_historical_sessions.get(gmail_username, set()))
+    
+    # First-time traders have equal chance of being informed/speculator
+    if historical_sessions == 0:
+        role = random.choice([TraderRole.INFORMED, TraderRole.SPECULATOR])
+    else:
+        # Subsequent sessions alternate roles
+        last_role = user_roles.get(gmail_username)
+        if last_role == TraderRole.INFORMED:
+            role = TraderRole.SPECULATOR
+        else:
+            role = TraderRole.INFORMED
+            
+    # Remember their role
+    user_roles[gmail_username] = role
+    return role
+
 async def find_or_create_session_and_assign_trader(gmail_username):
-    async with session_assignment_lock:  # lock while assigning
+    async with session_assignment_lock:
         try:
             print(f"\n=== Starting session assignment for {gmail_username} ===")
             print(f"Current trader_managers: {list(trader_managers.keys())}")
             print(f"Current user_sessions: {user_sessions}")
             print(f"Current trader_to_session_lookup: {trader_to_session_lookup}")
             
-            # First check - if already in session, validate it still exists
             if gmail_username in user_sessions:
                 session_id = user_sessions[gmail_username]
                 trader_id = f"HUMAN_{gmail_username}"
                 
                 if session_id in trader_managers:
-                    # Session exists and trading hasn't started - can rejoin
                     trader_manager = trader_managers[session_id]
                     if not trader_manager.trading_session.trading_started:
                         print(f"User rejoining session: {session_id}")
-                        # Re-add to active users if needed
                         active_users[session_id].add(gmail_username)
                         trader_to_session_lookup[trader_id] = session_id
                         return session_id, trader_id
                 
-                # Session invalid or started - clean up references
                 print(f"Cleaning up invalid session reference: {session_id}")
                 del user_sessions[gmail_username]
                 if trader_id in trader_to_session_lookup:
                     del trader_to_session_lookup[trader_id]
 
-            # Get user's historical role if any
-            historical_role = user_roles.get(gmail_username)
-            print(f"User's historical role: {historical_role}")
+            # determine role before assigning a session
+            role = await determine_trader_role(gmail_username)
+            print(f"Determined role for {gmail_username}: {role}")
 
-            # Try finding an available session multiple times
-            attempts = 5  # Try 5 times with 0.5 second delay each = 2.5 seconds total
+            attempts = 5
             
             for attempt in range(attempts):
                 print(f"Looking for available session (attempt {attempt + 1}/{attempts})")
@@ -567,44 +588,34 @@ async def find_or_create_session_and_assign_trader(gmail_username):
                     if current_traders >= expected_traders or manager.trading_session.trading_started:
                         continue
 
-                    # Check if session needs an informed trader
-                    has_informed = bool(manager.informed_trader)
-                    needs_informed = not has_informed
+                    if role == TraderRole.INFORMED:
+                        if manager.informed_trader is not None:
+                            continue
+                    else:
+                        if manager.informed_trader is None and current_traders == expected_traders - 1:
+                            continue
                     
-                    can_join = True
-                    if historical_role == TraderRole.INFORMED and not needs_informed:
-                        can_join = False
-                    elif historical_role == TraderRole.SPECULATOR and needs_informed and current_traders == expected_traders - 1:
-                        can_join = False
+                    print(f"Found suitable session: {session_id}")
+                    trader_id = await manager.add_human_trader(gmail_username, role=role)
                     
-                    if can_join:
-                        print(f"Found suitable session: {session_id}")
-                        # Add them to the session
-                        trader_id = await manager.add_human_trader(gmail_username)
-                        
-                        # Update tracking
-                        trader_to_session_lookup[trader_id] = session_id
-                        active_users[session_id].add(gmail_username)
-                        user_sessions[gmail_username] = session_id
-                        
-                        return session_id, trader_id
+                    trader_to_session_lookup[trader_id] = session_id
+                    active_users[session_id].add(gmail_username)
+                    user_sessions[gmail_username] = session_id
+                    
+                    return session_id, trader_id
                 
-                # If no session found and not last attempt, wait before trying again
                 if attempt < attempts - 1:
                     print(f"No suitable session found, waiting before attempt {attempt + 2}/{attempts}")
-                    await sleep(0.5)  # 500ms delay between attempts
+                    await sleep(0.5)
 
-            # If we get here, no suitable session was found after all attempts
             print("No suitable session found after waiting, creating new session")
             params = TradingParameters(**persistent_settings)
             new_trader_manager = TraderManager(params)
             session_id = new_trader_manager.trading_session.id
             trader_managers[session_id] = new_trader_manager
             
-            # Add them to the new session
-            trader_id = await new_trader_manager.add_human_trader(gmail_username)
+            trader_id = await new_trader_manager.add_human_trader(gmail_username, role=role)
             
-            # Update tracking
             trader_to_session_lookup[trader_id] = session_id
             active_users[session_id].add(gmail_username)
             user_sessions[gmail_username] = session_id
