@@ -114,9 +114,6 @@ class TraderManager:
 
     async def add_human_trader(self, gmail_username, goal=None, role=None):
         """Add human trader with role tracking"""
-        if len(self.human_traders) >= self.params.num_human_traders:
-            raise ValueError("Session is full")
-        
         trader_id = f"HUMAN_{gmail_username}"
         
         # Check if they're already here
@@ -124,12 +121,9 @@ class TraderManager:
         if existing_trader:
             return trader_id
 
-        # Role assignment logic
+        # Role must be provided now
         if role is None:
-            if not self.informed_trader and len(self.human_traders) < self.params.num_human_traders:
-                role = TraderRole.INFORMED
-            else:
-                role = TraderRole.SPECULATOR
+            raise ValueError("Role must be specified when adding human trader")
 
         # Goal assignment based on role
         if goal is None:
@@ -162,6 +156,8 @@ class TraderManager:
         )
         
         if role == TraderRole.INFORMED:
+            if self.informed_trader is not None:
+                raise ValueError("Session already has an informed trader")
             self.informed_trader = new_trader
             print(f"Set {gmail_username} as informed trader with goal {goal}")
 
