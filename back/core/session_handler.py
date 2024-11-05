@@ -22,7 +22,8 @@ class SessionHandler:
         trader_id = f"HUMAN_{gmail_username}"
         
         goal = await self.assign_user_goal(gmail_username, params)
-        
+        num_required_traders = len(params.predefined_goals)
+
         # Check existing session
         if gmail_username in self.user_sessions:
             session_id = self.user_sessions[gmail_username]
@@ -35,7 +36,7 @@ class SessionHandler:
 
         # Look for available session
         for session_id, manager in self.trader_managers.items():
-            if (len(self.active_users[session_id]) < params.num_human_traders 
+            if (len(self.active_users[session_id]) < num_required_traders 
                 and not manager.trading_session.trading_started):
                 
                 if role == TraderRole.INFORMED:
@@ -43,7 +44,7 @@ class SessionHandler:
                         continue
                 else:  # Speculator
                     if (manager.informed_trader is None and 
-                        len(self.active_users[session_id]) == params.num_human_traders - 1):
+                        len(self.active_users[session_id]) == num_required_traders - 1):
                         continue
                         
                 try:
@@ -163,8 +164,8 @@ class SessionHandler:
         
         trader_manager = self.trader_managers.get(session_id)
         if trader_manager:
-            expected_traders = trader_manager.params.num_human_traders
-            return len(self.session_ready_traders[session_id]) >= expected_traders
+            num_required_traders = len(trader_manager.params.predefined_goals)
+            return len(self.session_ready_traders[session_id]) >= num_required_traders
         return False
 
     async def validate_and_assign_role(self, gmail_username: str, params: TradingParameters) -> tuple[str, str, TraderRole, int]:

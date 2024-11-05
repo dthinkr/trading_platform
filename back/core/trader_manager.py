@@ -156,7 +156,9 @@ class TraderManager:
 
         self.trading_session.set_initialization_complete()
 
-        while len(self.human_traders) < self.params.num_human_traders:
+        # Wait for all required traders based on predefined_goals length
+        num_required_traders = len(self.params.predefined_goals)
+        while len(self.human_traders) < num_required_traders:
             await asyncio.sleep(1)
 
         await self.trading_session.start_trading()

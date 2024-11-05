@@ -41,12 +41,6 @@ class UserRegistration(BaseModel):
 # all the trading params - lots of them!
 class TradingParameters(BaseModel):
     # basic setup
-    num_human_traders: int = Field(
-        default=1,
-        title="Number of Human Traders",
-        description="model_parameter",
-        ge=1,  # need at least 1 human
-    )
     num_noise_traders: int = Field(
         default=1,
         title="Number of Noise Traders", 
@@ -204,7 +198,7 @@ class TradingParameters(BaseModel):
 
     # goal settings
     predefined_goals: List[int] = Field(
-        default=[100, 0, -100],
+        default=[100],
         title="Predefined Goals",
         description="human_parameter",
     )
@@ -214,10 +208,6 @@ class TradingParameters(BaseModel):
         title="Allow Random Goal Assignment",
         description="human_parameter",
     )
-
-    @field_validator('num_human_traders')
-    def ensure_integer(cls, v):
-        return max(int(v), 1)  # gotta have at least 1 human!
 
     @field_validator('predefined_goals', mode='before')
     def validate_predefined_goals(cls, v):

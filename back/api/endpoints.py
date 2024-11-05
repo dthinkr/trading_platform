@@ -177,7 +177,7 @@ async def create_trading_session(background_tasks: BackgroundTasks, current_user
     session_id = session_handler.trader_to_session_lookup.get(trader_id)
     trader_manager.params = merged_params
     
-    return {
+    response_data = {
         "status": "success",
         "message": "Trading session info retrieved",
         "data": {
@@ -185,8 +185,11 @@ async def create_trading_session(background_tasks: BackgroundTasks, current_user
             "trader_id": trader_id,
             "traders": list(trader_manager.traders.keys()),
             "human_traders": [t.id for t in trader_manager.human_traders],
+            "num_human_traders": len(merged_params.predefined_goals)
         }
     }
+    
+    return response_data
 
 def get_manager_by_trader(trader_id: str):
     """Get trader manager for trader ID"""
@@ -301,6 +304,10 @@ async def get_trader_session(trader_id: str, current_user: dict = Depends(get_cu
         raise HTTPException(status_code=404, detail="No session found for this trader")
 
     human_traders_data = [t.get_trader_params_as_dict() for t in trader_manager.human_traders]
+    params_dict = trader_manager.params.model_dump()
+    
+    # Add expected traders count based on predefined goals
+    params_dict['num_human_traders'] = len(params_dict['predefined_goals'])
 
     response_data = {
         "status": "success",
@@ -308,7 +315,7 @@ async def get_trader_session(trader_id: str, current_user: dict = Depends(get_cu
             "trading_session_uuid": trader_manager.trading_session.id,
             "traders": list(trader_manager.traders.keys()),
             "human_traders": human_traders_data,
-            "game_params": trader_manager.params.model_dump()
+            "game_params": params_dict
         },
     }
     
@@ -337,7 +344,7 @@ async def send_to_frontend(websocket: WebSocket, trader_manager):
                 if trading_session.trading_started
                 else None,
                 "current_human_traders": len(trader_manager.human_traders),
-                "expected_human_traders": trader_manager.params.num_human_traders,
+                "expected_human_traders": len(trader_manager.params.predefined_goals),
             },
         }
         await websocket.send_json(time_update)
@@ -410,7 +417,7 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
             "type": "trader_count_update",
             "data": {
                 "current_human_traders": len(session_handler.active_users.get(session_id, set())),
-                "expected_human_traders": trader_manager.params.num_human_traders,
+                "expected_human_traders": len(trader_manager.params.predefined_goals),
                 "session_id": session_id
             }
         }
@@ -509,7 +516,7 @@ async def start_trading_session(background_tasks: BackgroundTasks, current_user:
     
     # Get current status
     current_ready = len(session_handler.session_ready_traders.get(session_id, set()))
-    total_needed = trader_manager.params.num_human_traders
+    total_needed = len(trader_manager.params.predefined_goals)
     
     status = {
         "ready_count": current_ready,
@@ -619,7 +626,7 @@ async def broadcast_trader_count(session_id: str):
         return
         
     current_traders = len(session_handler.active_users[session_id])
-    expected_traders = trader_manager.params.num_human_traders
+    expected_traders = len(trader_manager.params.predefined_goals)
     
     count_message = {
         "type": "trader_count_update",
