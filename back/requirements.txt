@@ -14,4 +14,4 @@ sortedcontainers
 starlette
 termcolor
 uvicorn
-duckdb
+

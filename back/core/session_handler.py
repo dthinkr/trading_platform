@@ -1,8 +1,7 @@
-from typing import Dict, Set, Optional, List
+from typing import Dict, Set, Optional
 from .data_models import TraderRole, TradingParameters
 from .trader_manager import TraderManager
 from utils import setup_custom_logger
-import asyncio
 from fastapi import HTTPException
 import random
 
@@ -185,43 +184,6 @@ class SessionHandler:
             return len(self.session_ready_traders[session_id]) >= expected_traders
         return False
 
-    def is_informed_trader(self, trader_id: str) -> bool:
-        """Check if a trader is an informed trader"""
-        trader_manager = self.get_trader_manager(trader_id)
-        if not trader_manager:
-            return False
-        trader = trader_manager.traders.get(trader_id)
-        return trader and trader.role == TraderRole.INFORMED
-
-    def get_informed_trader_for_session(self, session_id: str) -> Optional[str]:
-        """Get the informed trader ID for a session"""
-        trader_manager = self.trader_managers.get(session_id)
-        if not trader_manager or not trader_manager.informed_trader:
-            return None
-        return trader_manager.informed_trader.id
-
-    async def validate_session_roles(self, session_id: str) -> List[str]:
-        """Validate that session roles are properly assigned"""
-        violations = []
-        trader_manager = self.trader_managers.get(session_id)
-        if not trader_manager:
-            return ["Session not found"]
-
-        # Check for informed trader
-        if not trader_manager.informed_trader:
-            violations.append("Session has no informed trader")
-
-        # Check for role consistency
-        informed_count = 0
-        for trader in trader_manager.human_traders:
-            if trader.role == TraderRole.INFORMED:
-                informed_count += 1
-                if informed_count > 1:
-                    violations.append(f"Multiple informed traders found in session")
-                    break
-
-        return violations
-
     async def validate_and_assign_role(self, gmail_username: str, params: TradingParameters) -> tuple[str, str, TraderRole, int]:
         """Validate user can join and assign role and goal"""
         # Check if they can join
@@ -245,33 +207,67 @@ class SessionHandler:
         
         return session_id, trader_id, role, goal
 
-    async def cleanup_session(self, session_id: str):
-        """Clean up a session and all its resources"""
-        if session_id not in self.trader_managers:
-            return
+    async def reset_state(self):
+        """Reset all session state and clean up resources"""
+        try:
+            # Store all session IDs first since we'll be modifying the dict
+            session_ids = list(self.trader_managers.keys())
             
-        trader_manager = self.trader_managers[session_id]
-        
-        # Clean up trader manager
-        await trader_manager.cleanup()
-        
-        # Remove from all tracking dictionaries
-        del self.trader_managers[session_id]
-        
-        if session_id in self.active_users:
-            # Clean up user sessions
-            for username in self.active_users[session_id]:
-                if username in self.user_sessions:
-                    del self.user_sessions[username]
-            del self.active_users[session_id]
+            # Clean up each session
+            for session_id in session_ids:
+                trader_manager = self.trader_managers[session_id]
+                try:
+                    # Clean up trader manager resources
+                    await trader_manager.cleanup()
+                except Exception as e:
+                    logger.error(f"Error cleaning up trader manager for session {session_id}: {str(e)}")
+
+            # Reset all internal state
+            self.trader_managers.clear()
+            self.active_users.clear()
+            self.user_sessions.clear()
+            self.trader_to_session_lookup.clear()
+            self.user_roles.clear()
+            self.session_locks.clear()
+            self.session_ready_traders.clear()
             
-        if session_id in self.session_ready_traders:
-            del self.session_ready_traders[session_id]
+            # Don't clear historical sessions as we might need that data
+            # self.user_historical_sessions.clear()  
             
-        # Clean up trader lookups
-        traders_to_remove = [
-            tid for tid, sid in self.trader_to_session_lookup.items() 
-            if sid == session_id
-        ]
-        for trader_id in traders_to_remove:
-            del self.trader_to_session_lookup[trader_id]
+            logger.info("Successfully reset all session state")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error during state reset: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error resetting state: {str(e)}"
+            )
+
+    def remove_user_from_session(self, gmail_username: str, session_id: str):
+        """Safely remove a user from a session"""
+        try:
+            # Initialize set if it doesn't exist
+            if session_id not in self.active_users:
+                self.active_users[session_id] = set()
+            
+            # Remove user from active users
+            self.active_users[session_id].discard(gmail_username)
+            
+            # Clean up user session mapping
+            if gmail_username in self.user_sessions:
+                del self.user_sessions[gmail_username]
+                
+            # Clean up trader lookup
+            trader_id = f"HUMAN_{gmail_username}"
+            if trader_id in self.trader_to_session_lookup:
+                del self.trader_to_session_lookup[trader_id]
+                
+        except Exception as e:
+            logger.error(f"Error removing user {gmail_username} from session {session_id}: {str(e)}")
+
+    def add_user_to_session(self, gmail_username: str, session_id: str):
+        """Safely add a user to a session"""
+        if session_id not in self.active_users:
+            self.active_users[session_id] = set()
+        self.active_users[session_id].add(gmail_username)

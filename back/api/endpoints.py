@@ -1,20 +1,16 @@
 import asyncio
 import io
 from datetime import timedelta, datetime
-from uuid import UUID, uuid4
 
 # main imports
 from fastapi import (
     FastAPI, WebSocket, HTTPException, WebSocketDisconnect, 
-    BackgroundTasks, Depends, status, Request
+    BackgroundTasks, Depends, Request
 )
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from starlette.status import HTTP_401_UNAUTHORIZED, HTTP_400_BAD_REQUEST
+
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse, Response
-import polars as pl
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
-from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.security import HTTPBasic
 
 # our stuff
 from core.trader_manager import TraderManager
@@ -26,7 +22,6 @@ from .logfiles_analysis import order_book_contruction, is_jsonable, calculate_tr
 from firebase_admin import auth
 
 # python stuff we need
-import secrets
 import traceback
 import json
 from pydantic import BaseModel, ValidationError
@@ -34,14 +29,10 @@ import os
 from fastapi import HTTPException, Query, BackgroundTasks
 from fastapi.responses import FileResponse
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import Dict, Any
 from .google_sheet_auth import update_form_id, get_registered_users
 import zipfile
-import shutil
 from collections import defaultdict
-import time
-import jwt
-import numpy as np
 import random
 from utils import setup_custom_logger
 import ssl
@@ -427,73 +418,6 @@ async def root():
         "comment": "this is only for accessing trading platform mostly via websockets",
     }
 
-async def check_session_timeout(session_id: str):
-    """check if we need to kill an old session"""
-    if session_id not in session_creation_times:
-        return False
-    
-    elapsed_time = time.time() - session_creation_times[session_id]
-    if elapsed_time > SESSION_TIMEOUT and not trader_managers[session_id].trading_session.trading_started:
-        print(f"Session {session_id} timed out after {elapsed_time:.1f} seconds")
-        await cleanup_session(session_id, reason="timeout")
-        return True
-    return False
-
-async def cleanup_session(session_id: str, reason: str = "normal"):
-    """clean up everything about a session"""
-    async with cleanup_lock:
-        try:
-            if session_id not in trader_managers:
-                return False
-                
-            trader_manager = trader_managers[session_id]
-            
-            # remember who was here
-            affected_users = active_users.get(session_id, set()).copy()
-            
-            # clean up the manager
-            await trader_manager.cleanup()
-            
-            # clean up all the tracking
-            if session_id in trader_managers:
-                del trader_managers[session_id]
-            
-            if session_id in goal_assignments:
-                del goal_assignments[session_id]
-                
-            if session_id in session_ready_traders:
-                del session_ready_traders[session_id]
-                
-            if session_id in session_creation_times:
-                del session_creation_times[session_id]
-                
-            # clean up user stuff
-            for username in affected_users:
-                if username in user_sessions:
-                    del user_sessions[username]
-                    
-            if session_id in active_users:
-                del active_users[session_id]
-            
-            # clean up trader lookups
-            traders_to_remove = [
-                tid for tid, sid in session_handler.trader_to_session_lookup.items() 
-                if sid == session_id
-            ]
-            for trader_id in traders_to_remove:
-                del session_handler.trader_to_session_lookup[trader_id]
-                
-            return True
-            
-        except Exception as e:
-            logger.error(f"Error during session cleanup: {str(e)}")
-            return False
-
-# Add these to the global state variables at the top
-ROLE_INFORMED = "informed"
-ROLE_SPECULATOR = "speculator"
-session_informed_roles = {}  # session_id -> username of informed trader
-
 # Add this function near the top with other helper functions
 async def determine_trader_role(gmail_username: str) -> TraderRole:
     """Determine role for a trader before session assignment"""
@@ -675,6 +599,8 @@ async def get_session_metrics(trader_id: str, session_id: str, current_user: dic
 async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
     await websocket.accept()
     session_id = None
+    gmail_username = None
+    
     try:
         token = await websocket.receive_text()
         decoded_token = custom_verify_id_token(token)
@@ -694,15 +620,14 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
             await websocket.close()
             return
         
-        # track them
-        session_handler.active_users[session_id].add(gmail_username)
-        session_handler.user_sessions[gmail_username] = session_id
+        # Safely add user to session
+        session_handler.add_user_to_session(gmail_username, session_id)
         
         # tell everyone the counts
         initial_count = {
             "type": "trader_count_update",
             "data": {
-                "current_human_traders": len(session_handler.active_users[session_id]),
+                "current_human_traders": len(session_handler.active_users.get(session_id, set())),
                 "expected_human_traders": trader_manager.params.num_human_traders,
                 "session_id": session_id
             }
@@ -726,13 +651,15 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
         except WebSocketDisconnect:
             pass
         finally:
-            if session_id:
-                session_handler.active_users[session_id].discard(gmail_username)
+            if session_id and gmail_username:
+                # Safely remove user from session
+                session_handler.remove_user_from_session(gmail_username, session_id)
                 await broadcast_trader_count(session_id)
             
     except Exception as e:
-        if session_id:
-            session_handler.active_users[session_id].discard(gmail_username)
+        logger.error(f"Error in websocket connection: {str(e)}")
+        if session_id and gmail_username:
+            session_handler.remove_user_from_session(gmail_username, session_id)
             await broadcast_trader_count(session_id)
         await websocket.close()
 
@@ -788,29 +715,6 @@ async def get_file(file_path: str):
         return FileResponse(full_path)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
-
-async def broadcast_session_status(session_id: str):
-    """tell everyone what's up with the session"""
-    if session_id not in trader_managers:
-        return
-        
-    trader_manager = trader_managers[session_id]
-    status = session_manager.get_session_status(session_id)
-    if not status:
-        return
-        
-    status_message = {
-        "type": "session_status_update",
-        "data": status
-    }
-    
-    for trader in trader_manager.human_traders:
-        if hasattr(trader, 'websocket') and trader.websocket:
-            try:
-                await trader.websocket.send_json(status_message)
-            except Exception as e:
-                logger.error(f"Error broadcasting to trader: {str(e)}")
-
 # lets start trading!
 @app.post("/trading/start")
 async def start_trading_session(background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)):
@@ -908,79 +812,6 @@ async def download_all_files():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-# peace out ✌️
-@app.post("/user/logout")
-async def user_logout(current_user: dict = Depends(get_current_user)):
-    gmail_username = current_user['gmail_username']
-    trader_id = f"HUMAN_{gmail_username}"
-    
-    if gmail_username in user_sessions:
-        session_id = user_sessions[gmail_username]
-        await remove_trader_from_session(trader_id, session_id)
-        return {"status": "success", "message": "User logged out successfully"}
-    else:
-        raise HTTPException(status_code=404, detail="User not found in any active session")
-
-# cleanup crew
-async def cleanup(session_id: str):
-    if session_id in active_users:
-        for username in active_users[session_id]:
-            if username in user_sessions:
-                del user_sessions[username]
-        del active_users[session_id]
-    # ... (rest of the cleanup logic)
-
-# what role you playin?
-@app.get("/user/role")
-async def get_user_role(current_user: dict = Depends(get_current_user)):
-    gmail_username = current_user['gmail_username']
-    goal = user_goals.get(gmail_username, None)
-    
-    role = "unknown"
-    if goal is not None:
-        if goal > 0:
-            role = "buyer"
-        elif goal < 0:
-            role = "seller"
-        else:
-            role = "speculator"
-            
-    return {
-        "status": "success",
-        "data": {
-            "username": gmail_username,
-            "role": role,
-            "goal": goal
-        }
-    }
-
-# Update validate_session
-@app.get("/session/validate/{session_id}")
-async def validate_session(session_id: str, current_user: dict = Depends(get_current_admin_user)):
-    """check if session is set up right"""
-    session = session_manager.sessions.get(session_id)
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
-    
-    violations = []
-    
-    # Check for informed trader
-    if not session.informed_trader:
-        violations.append("Session has no informed trader")
-    
-    # Check for role consistency
-    for username in session.active_users:
-        user = session_manager.get_user_state(username)
-        if user.current_role == TraderRole.INFORMED and username != session.informed_trader:
-            violations.append(f"Multiple informed traders found: {username} and {session.informed_trader}")
-    
-    return {
-        "status": "success",
-        "session_id": session_id,
-        "violations": violations,
-        "is_valid": len(violations) == 0
-    }
-
 # quick session check
 def is_session_valid(session_id: str) -> bool:
     """is this session still kickin?"""
@@ -990,75 +821,32 @@ def is_session_valid(session_id: str) -> bool:
     trader_manager = trader_managers[session_id]
     return trader_manager.trading_session.active
 
-# whats the status?
-@app.get("/session/{session_id}/status")
-async def get_session_status(session_id: str, current_user: dict = Depends(get_current_user)):
-    if session_id not in trader_managers:
-        raise HTTPException(status_code=404, detail="Session not found")
-        
-    trader_manager = trader_managers[session_id]
-    ready_traders = session_ready_traders[session_id]
-    expected_traders = trader_manager.params.num_human_traders
-    
-    return {
-        "status": "success",
-        "data": {
-            "ready_count": len(ready_traders),
-            "total_needed": expected_traders,
-            "ready_traders": list(ready_traders),
-            "all_ready": len(ready_traders) == expected_traders
-        }
-    }
-
 # nuke everything from orbit
 @app.post("/admin/reset_state")
 async def reset_state(current_user: dict = Depends(get_current_admin_user)):
+    """Reset all application state"""
     try:
-        # Reset session manager
-        await session_manager.reset_state()
+        # Reset session handler state
+        await session_handler.reset_state()
         
-        # Clean up trader managers
-        for session_id in list(trader_managers.keys()):
-            trader_manager = trader_managers[session_id]
-            await trader_manager.cleanup()
-            
-        trader_managers.clear()
+        # Reset any global state in endpoints.py
+        global persistent_settings
+        persistent_settings = {}
         
-        return {"status": "success", "message": "Internal state reset successfully"}
+        # Reset endpoint tracker
+        endpoint_tracker.endpoint_stats.clear()
+        
+        return {
+            "status": "success", 
+            "message": "Application state reset successfully"
+        }
+        
     except Exception as e:
         logger.error(f"Reset error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error resetting state: {str(e)}")
-
-# see ya later alligator
-async def remove_trader_from_session(trader_id: str, session_id: str):
-    """kick em out"""
-    try:
-        gmail_username = trader_id.split("HUMAN_")[-1] if trader_id.startswith("HUMAN_") else None
-        if not gmail_username:
-            return
-            
-        # Remove from session manager
-        await session_manager.remove_user_from_session(gmail_username, session_id)
-        
-        # Remove from trader manager
-        if session_id in trader_managers:
-            trader_manager = trader_managers[session_id]
-            if hasattr(trader_manager, 'remove_trader'):
-                await trader_manager.remove_trader(trader_id)
-        
-        # Update everyone
-        await broadcast_session_status(session_id)
-        
-        # Check if session should be cleaned up
-        session = session_manager.sessions.get(session_id)
-        if session and not session.active_users:
-            await session_manager.cleanup_session(session_id)
-            if session_id in trader_managers:
-                await trader_managers[session_id].cleanup()
-                del trader_managers[session_id]
-                
-    except Exception as e:
-        logger.error(f"Error removing trader from session: {str(e)}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Error resetting application state: {str(e)}"
+        )
         
 # headcount!
 async def broadcast_trader_count(session_id: str):
@@ -1132,3 +920,40 @@ async def add_security_headers(request: Request, call_next):
     response.headers["Access-Control-Allow-Credentials"] = "true"
     
     return response
+
+class EndpointTracker:
+    def __init__(self):
+        self.endpoint_stats = defaultdict(lambda: {
+            "calls": 0,
+            "last_called": None,
+            "last_30_days": 0
+        })
+
+    def track(self, endpoint: str):
+        now = datetime.now()
+        self.endpoint_stats[endpoint]["calls"] += 1
+        self.endpoint_stats[endpoint]["last_called"] = now
+        self.endpoint_stats[endpoint]["last_30_days"] += 1
+
+    def get_unused_endpoints(self, days: int = 30) -> list:
+        cutoff = datetime.now() - timedelta(days=days)
+        return [
+            endpoint for endpoint, stats in self.endpoint_stats.items()
+            if not stats["last_called"] or stats["last_called"] < cutoff
+        ]
+
+endpoint_tracker = EndpointTracker()
+
+@app.middleware("http")
+async def track_endpoints(request: Request, call_next):
+    endpoint_tracker.track(f"{request.method} {request.url.path}")
+    response = await call_next(request)
+    return response
+
+# Add an admin endpoint to check usage
+@app.get("/admin/endpoint-usage")
+async def get_endpoint_usage(current_user: dict = Depends(get_current_admin_user)):
+    return {
+        "all_endpoints": dict(endpoint_tracker.endpoint_stats),
+        "unused_endpoints": endpoint_tracker.get_unused_endpoints()
+    }
