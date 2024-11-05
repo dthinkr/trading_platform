@@ -42,6 +42,8 @@ from asyncio import sleep
 # init fastapi
 app = FastAPI()
 security = HTTPBasic()
+
+# CORS middleware for cross-origin requests
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -51,6 +53,15 @@ app.add_middleware(
     expose_headers=["Content-Disposition"],
     max_age=3600,
 )
+
+# Separate middleware for security headers
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
+    response.headers["Cross-Origin-Embedder-Policy"] = "require-corp"
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    return response
 
 session_handler = SessionHandler()
 trader_managers = {}
@@ -85,65 +96,42 @@ async def websocket_endpoint(websocket: WebSocket):
 
 @app.post("/user/login")
 async def user_login(request: Request):
-    try:
-        auth_header = request.headers.get('Authorization')
-        
-        if not auth_header or not auth_header.startswith('Bearer '):
-            raise HTTPException(
-                status_code=401, 
-                detail="Invalid authentication method"
-            )
-        
-        token = auth_header.split('Bearer ')[1]
-        
-        try:
-            decoded_token = auth.verify_id_token(token, check_revoked=True)
-        except Exception as auth_error:
-            raise HTTPException(
-                status_code=401,
-                detail=f"Authentication failed: {str(auth_error)}"
-            )
-            
-        email = decoded_token['email']
-        gmail_username = extract_gmail_username(email)
-        
-        # Check registration
-        form_id = TradingParameters().google_form_id
-        if not is_user_registered(email, form_id):
-            raise HTTPException(
-                status_code=403, 
-                detail="User not registered in the study"
-            )
-        
-        # Create parameters
-        params = TradingParameters(**(persistent_settings or {}))
-        
-        # Single call to handle all session/role/goal logic
-        session_id, trader_id, role, goal = await session_handler.validate_and_assign_role(
-            gmail_username, 
-            params
-        )
-        
-        return {
-            "status": "success",
-            "message": "Login successful and trader assigned",
-            "data": {
-                "username": email,
-                "is_admin": is_user_admin(email),
-                "session_id": session_id,
-                "trader_id": trader_id,
-                "role": role,
-                "goal": goal
-            }
+    auth_header = request.headers.get('Authorization')
+    
+    if not auth_header or not auth_header.startswith('Bearer '):
+        raise HTTPException(status_code=401, detail="Invalid authentication method")
+    
+    token = auth_header.split('Bearer ')[1]
+    decoded_token = auth.verify_id_token(token, check_revoked=True)
+    email = decoded_token['email']
+    gmail_username = extract_gmail_username(email)
+    
+    # Check registration
+    form_id = TradingParameters().google_form_id
+    if not is_user_registered(email, form_id):
+        raise HTTPException(status_code=403, detail="User not registered in the study")
+    
+    # Create parameters
+    params = TradingParameters(**(persistent_settings or {}))
+    
+    # Single call to handle all session/role/goal logic
+    session_id, trader_id, role, goal = await session_handler.validate_and_assign_role(
+        gmail_username, 
+        params
+    )
+    
+    return {
+        "status": "success",
+        "message": "Login successful and trader assigned",
+        "data": {
+            "username": email,
+            "is_admin": is_user_admin(email),
+            "session_id": session_id,
+            "trader_id": trader_id,
+            "role": role,
+            "goal": goal
         }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Login failed: {str(e)}"
-        )
+    }
 
 @app.post("/admin/login")
 async def admin_login(request: Request):
@@ -152,29 +140,21 @@ async def admin_login(request: Request):
     if not auth_header or not auth_header.startswith('Bearer '):
         raise HTTPException(status_code=401, detail="Invalid authentication method")
     
-    try:
-        token = auth_header.split('Bearer ')[1]
-        
-        decoded_token = auth.verify_id_token(token, check_revoked=True, clock_skew_seconds=60)
-        email = decoded_token['email']
-        
-        if not is_user_admin(email):
-            raise HTTPException(status_code=403, detail="User does not have admin privileges")
-        
-        return {
-            "status": "success",
-            "message": "Admin login successful",
-            "data": {
-                "username": email,
-                "is_admin": True
-            }
+    token = auth_header.split('Bearer ')[1]
+    decoded_token = auth.verify_id_token(token, check_revoked=True)
+    email = decoded_token['email']
+    
+    if not is_user_admin(email):
+        raise HTTPException(status_code=403, detail="User does not have admin privileges")
+    
+    return {
+        "status": "success",
+        "message": "Admin login successful",
+        "data": {
+            "username": email,
+            "is_admin": True
         }
-    except auth.InvalidIdTokenError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
-    except auth.RevokedIdTokenError:
-        raise HTTPException(status_code=401, detail="Token has been revoked")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Admin login failed: {str(e)}")
+    }
 
 @app.get("/traders/defaults")
 async def get_trader_defaults():
@@ -192,36 +172,27 @@ async def get_trader_defaults():
 
 @app.post("/trading/initiate")
 async def create_trading_session(background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)):
-    try:
-        merged_params = TradingParameters(**(persistent_settings or {}))
-        gmail_username = current_user['gmail_username']
-        trader_id = f"HUMAN_{gmail_username}"
-        
-        trader_manager = session_handler.get_trader_manager(trader_id)
-        if not trader_manager:
-            raise HTTPException(status_code=404, detail="No active session found for this user")
-        
-        session_id = session_handler.trader_to_session_lookup.get(trader_id)
-        trader_manager.params = merged_params
-        
-        response_data = {
-            "status": "success",
-            "message": "Trading session info retrieved",
-            "data": {
-                "trading_session_uuid": session_id,
-                "trader_id": trader_id,
-                "traders": list(trader_manager.traders.keys()),
-                "human_traders": [t.id for t in trader_manager.human_traders],
-            }
+    merged_params = TradingParameters(**(persistent_settings or {}))
+    gmail_username = current_user['gmail_username']
+    trader_id = f"HUMAN_{gmail_username}"
+    
+    trader_manager = session_handler.get_trader_manager(trader_id)
+    if not trader_manager:
+        raise HTTPException(status_code=404, detail="No active session found for this user")
+    
+    session_id = session_handler.trader_to_session_lookup.get(trader_id)
+    trader_manager.params = merged_params
+    
+    return {
+        "status": "success",
+        "message": "Trading session info retrieved",
+        "data": {
+            "trading_session_uuid": session_id,
+            "trader_id": trader_id,
+            "traders": list(trader_manager.traders.keys()),
+            "human_traders": [t.id for t in trader_manager.human_traders],
         }
-        
-        return response_data
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error retrieving trading session info: {str(e)}"
-        )
+    }
 
 def get_manager_by_trader(trader_id: str):
     """Get trader manager for trader ID"""
@@ -246,45 +217,38 @@ async def get_trader(trader_id: str, current_user: dict = Depends(get_current_us
 
 def get_trader_info_with_session_data(trader_manager: TraderManager, trader_id: str) -> Dict[str, Any]:
     """Get trader info and session data"""
-    try:
-        trader = trader_manager.get_trader(trader_id)
-        if not trader:
-            raise HTTPException(status_code=404, detail="Trader not found")
+    trader = trader_manager.get_trader(trader_id)
+    if not trader:
+        raise HTTPException(status_code=404, detail="Trader not found")
+    
+    trader_data = trader.get_trader_params_as_dict()
+    
+    if 'all_attributes' not in trader_data:
+        trader_data['all_attributes'] = {}
         
-        trader_data = trader.get_trader_params_as_dict()
+    gmail_username = trader_id.split("HUMAN_")[-1] if trader_id.startswith("HUMAN_") else None
+    
+    historical_sessions_count = len(session_handler.user_historical_sessions.get(gmail_username, set()))
+    
+    params = trader_manager.params.model_dump() if trader_manager.params else {}
+    
+    admin_users = params.get('admin_users', [])
+    is_admin = gmail_username in admin_users if gmail_username else False
+    
+    trader_data['all_attributes'].update({
+        'historical_sessions_count': historical_sessions_count,
+        'is_admin': is_admin,
+        'params': params
+    })
+    
+    if 'cash' not in trader_data:
+        trader_data['cash'] = getattr(trader, 'cash', 0)
+    if 'shares' not in trader_data:
+        trader_data['shares'] = getattr(trader, 'shares', 0)
+    if 'goal' not in trader_data:
+        trader_data['goal'] = getattr(trader, 'goal', 0)
         
-        if 'all_attributes' not in trader_data:
-            trader_data['all_attributes'] = {}
-            
-        gmail_username = trader_id.split("HUMAN_")[-1] if trader_id.startswith("HUMAN_") else None
-        
-        historical_sessions_count = len(session_handler.user_historical_sessions.get(gmail_username, set()))
-        
-        params = trader_manager.params.model_dump() if trader_manager.params else {}
-        
-        admin_users = params.get('admin_users', [])
-        is_admin = gmail_username in admin_users if gmail_username else False
-        
-        trader_data['all_attributes'].update({
-            'historical_sessions_count': historical_sessions_count,
-            'is_admin': is_admin,
-            'params': params
-        })
-        
-        if 'cash' not in trader_data:
-            trader_data['cash'] = getattr(trader, 'cash', 0)
-        if 'shares' not in trader_data:
-            trader_data['shares'] = getattr(trader, 'shares', 0)
-        if 'goal' not in trader_data:
-            trader_data['goal'] = getattr(trader, 'goal', 0)
-            
-        return trader_data
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Error getting trader info: {str(e)}"
-        )
+    return trader_data
 
 @app.get("/trader_info/{trader_id}")
 async def get_trader_info(trader_id: str):
@@ -292,39 +256,34 @@ async def get_trader_info(trader_id: str):
     if not trader_manager:
         raise HTTPException(status_code=404, detail="Trader not found")
 
+    trader_data = get_trader_info_with_session_data(trader_manager, trader_id)
+    session_id = session_handler.trader_to_session_lookup.get(trader_id)
+    log_file_path = os.path.join("logs", f"{session_id}_trading.log")
+    
     try:
-        trader_data = get_trader_info_with_session_data(trader_manager, trader_id)
-        session_id = session_handler.trader_to_session_lookup.get(trader_id)
-        log_file_path = os.path.join("logs", f"{session_id}_trading.log")
-        
-        try:
-            order_book_metrics = order_book_contruction(log_file_path)
-            trader_specific_metrics = order_book_metrics.get(f"'{trader_id}'", {})
-            general_metrics = {k: v for k, v in order_book_metrics.items() if k != f"'{trader_id}'"}
+        order_book_metrics = order_book_contruction(log_file_path)
+        trader_specific_metrics = order_book_metrics.get(f"'{trader_id}'", {})
+        general_metrics = {k: v for k, v in order_book_metrics.items() if k != f"'{trader_id}'"}
 
-            if trader_specific_metrics:
-                trader_specific_metrics = calculate_trader_specific_metrics(
-                    trader_specific_metrics, 
-                    general_metrics, 
-                    trader_data.get('goal', 0)
-                )
+        if trader_specific_metrics:
+            trader_specific_metrics = calculate_trader_specific_metrics(
+                trader_specific_metrics, 
+                general_metrics, 
+                trader_data.get('goal', 0)
+            )
 
-        except Exception as e:
-            general_metrics = {"error": "Unable to process log file"}
-            trader_specific_metrics = {}
+    except Exception:
+        general_metrics = {"error": "Unable to process log file"}
+        trader_specific_metrics = {}
 
-        return {
-            "status": "success",
-            "message": "Trader found",
-            "data": {
-                **trader_data,
-                "order_book_metrics": general_metrics,
-                "trader_specific_metrics": trader_specific_metrics
-            }
+    return {
+        "status": "success",
+        "message": "Trader found",
+        "data": {
+            **trader_data,
+            "order_book_metrics": general_metrics,
         }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting trader info: {str(e)}")
+    }
 
 @app.get("/trader/{trader_id}/session")
 async def get_trader_session(trader_id: str, current_user: dict = Depends(get_current_user)):
@@ -346,108 +305,12 @@ async def get_trader_session(trader_id: str, current_user: dict = Depends(get_cu
     
     return response_data
 
-@app.get("/traders/list")
-async def list_traders(current_user: dict = Depends(get_current_admin_user)):
-    return {
-        "status": "success",
-        "message": "List of traders",
-        "data": {"traders": list(trader_manager.traders.keys())},
-    }
-
-
 @app.get("/")
 async def root():
     return {
         "status": "trading is active",
         "comment": "this is only for accessing trading platform mostly via websockets",
     }
-
-async def determine_trader_role(gmail_username: str) -> TraderRole:
-    """Determine trader role"""
-    historical_role = user_roles.get(gmail_username)
-    if historical_role:
-        return historical_role
-        
-    historical_sessions = len(session_handler.user_historical_sessions.get(gmail_username, set()))
-    
-    if historical_sessions == 0:
-        role = random.choice([TraderRole.INFORMED, TraderRole.SPECULATOR])
-    else:
-        last_role = user_roles.get(gmail_username)
-        if last_role == TraderRole.INFORMED:
-            role = TraderRole.SPECULATOR
-        else:
-            role = TraderRole.INFORMED
-            
-    user_roles[gmail_username] = role
-    return role
-
-async def find_or_create_session_and_assign_trader(gmail_username):
-    async with session_assignment_lock:
-        try:
-            if gmail_username in session_handler.user_sessions:
-                session_id = session_handler.user_sessions[gmail_username]
-                trader_id = f"HUMAN_{gmail_username}"
-                
-                if session_id in session_handler.trader_managers:
-                    trader_manager = session_handler.trader_managers[session_id]
-                    if not trader_manager.trading_session.trading_started:
-                        session_handler.active_users[session_id].add(gmail_username)
-                        session_handler.trader_to_session_lookup[trader_id] = session_id
-                        return session_id, trader_id
-                
-                del session_handler.user_sessions[gmail_username]
-                if trader_id in session_handler.trader_to_session_lookup:
-                    del session_handler.trader_to_session_lookup[trader_id]
-
-            role = await session_handler.determine_user_role(gmail_username)
-
-            attempts = 5
-            
-            for attempt in range(attempts):
-                for session_id, manager in session_handler.trader_managers.items():
-                    current_traders = len(session_handler.active_users[session_id])
-                    expected_traders = manager.params.num_human_traders
-                    
-                    if current_traders >= expected_traders or manager.trading_session.trading_started:
-                        continue
-
-                    if role == TraderRole.INFORMED:
-                        if manager.informed_trader is not None:
-                            continue
-                    else:
-                        if manager.informed_trader is None and current_traders == expected_traders - 1:
-                            continue
-                    
-                    trader_id = await manager.add_human_trader(gmail_username, role=role)
-                    
-                    session_handler.trader_to_session_lookup[trader_id] = session_id
-                    session_handler.active_users[session_id].add(gmail_username)
-                    session_handler.user_sessions[gmail_username] = session_id
-                    
-                    return session_id, trader_id
-                
-                if attempt < attempts - 1:
-                    await sleep(0.5)
-
-            params = TradingParameters(**persistent_settings)
-            new_trader_manager = TraderManager(params)
-            session_id = new_trader_manager.trading_session.id
-            session_handler.trader_managers[session_id] = new_trader_manager
-            
-            trader_id = await new_trader_manager.add_human_trader(gmail_username, role=role)
-            
-            session_handler.trader_to_session_lookup[trader_id] = session_id
-            session_handler.active_users[session_id] = set([gmail_username])
-            session_handler.user_sessions[gmail_username] = session_id
-            
-            return session_id, trader_id
-
-        except Exception as e:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Error assigning trader to session: {str(e)}"
-            )
 
 async def send_to_frontend(websocket: WebSocket, trader_manager):
     while True:
@@ -483,13 +346,9 @@ async def receive_from_frontend(websocket: WebSocket, trader):
             else:
                 await trader.on_message_from_client(message)
                 
-        except asyncio.TimeoutError:
-            pass
-        except WebSocketDisconnect:
-            return
-        except json.JSONDecodeError:
-            pass
-        except Exception as e:
+        except (asyncio.TimeoutError, WebSocketDisconnect, json.JSONDecodeError):
+            continue
+        except Exception:
             return
 
 @app.get("/session_metrics")
@@ -501,10 +360,8 @@ async def get_session_metrics(trader_id: str, session_id: str, current_user: dic
     
     try:
         processed_data = process_log_file(log_file_path)
-        
         output = io.StringIO()
         write_to_csv(processed_data, output)
-        
         output.seek(0)
         
         return StreamingResponse(
@@ -512,9 +369,8 @@ async def get_session_metrics(trader_id: str, session_id: str, current_user: dic
             media_type="text/csv",
             headers={"Content-Disposition": f"attachment; filename=session_{session_id}_trader_{trader_id}_metrics.csv"}
         )
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error processing session metrics")
-
 
 @app.websocket("/trader/{trader_id}")
 async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
@@ -553,26 +409,20 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
         
         await trader.connect_to_socket(websocket)
         
-        try:
-            send_task = asyncio.create_task(send_to_frontend(websocket, trader_manager))
-            receive_task = asyncio.create_task(receive_from_frontend(websocket, trader))
+        send_task = asyncio.create_task(send_to_frontend(websocket, trader_manager))
+        receive_task = asyncio.create_task(receive_from_frontend(websocket, trader))
+        
+        done, pending = await asyncio.wait(
+            [send_task, receive_task],
+            return_when=asyncio.FIRST_COMPLETED
+        )
+        
+        for task in pending:
+            task.cancel()
             
-            done, pending = await asyncio.wait(
-                [send_task, receive_task],
-                return_when=asyncio.FIRST_COMPLETED
-            )
-            
-            for task in pending:
-                task.cancel()
-            
-        except WebSocketDisconnect:
-            pass
-        finally:
-            if session_id and gmail_username:
-                session_handler.remove_user_from_session(gmail_username, session_id)
-                await broadcast_trader_count(session_id)
-            
-    except Exception as e:
+    except Exception:
+        pass
+    finally:
         if session_id and gmail_username:
             session_handler.remove_user_from_session(gmail_username, session_id)
             await broadcast_trader_count(session_id)
@@ -589,10 +439,10 @@ async def list_files(
         full_path = (ROOT_DIR / path).resolve()
         
         if not full_path.is_relative_to(ROOT_DIR):
-            raise HTTPException(status_code=403, detail=f"Access denied: {full_path} is not relative to {ROOT_DIR}")
+            raise HTTPException(status_code=403, detail="Access denied")
         
         if not full_path.exists():
-            raise HTTPException(status_code=404, detail=f"Path not found: {full_path}")
+            raise HTTPException(status_code=404, detail="Path not found")
         
         if full_path.is_file():
             return {"type": "file", "name": full_path.name}
@@ -612,8 +462,8 @@ async def list_files(
             "directories": directories,
             "files": files
         }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+    except Exception:
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @app.get("/files/{file_path:path}")
 async def get_file(file_path: str):
@@ -621,14 +471,14 @@ async def get_file(file_path: str):
         full_path = (ROOT_DIR / file_path).resolve()
         
         if not full_path.is_relative_to(ROOT_DIR):
-            raise HTTPException(status_code=403, detail=f"Access denied: {full_path} is not relative to {ROOT_DIR}")
+            raise HTTPException(status_code=403, detail="Access denied")
         
         if not full_path.is_file():
-            raise HTTPException(status_code=404, detail=f"File not found: {full_path}")
+            raise HTTPException(status_code=404, detail="File not found")
         
         return FileResponse(full_path)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+    except Exception:
+        raise HTTPException(status_code=500, detail="Internal server error")
 # lets start trading!
 @app.post("/trading/start")
 async def start_trading_session(background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)):
@@ -687,9 +537,7 @@ async def periodic_update_registered_users():
         try:
             form_id = TradingParameters().google_form_id
             get_registered_users(force_update=True, form_id=form_id)
-        except ssl.SSLEOFError as e:
-            pass
-        except Exception as e:
+        except Exception:
             pass
         finally:
             await asyncio.sleep(300)  # 5 min sleep
@@ -721,8 +569,8 @@ async def download_all_files():
             media_type="application/zip",
             headers={"Content-Disposition": f"attachment; filename=all_log_files.zip"}
         )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+    except Exception:
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 # quick session check
 def is_session_valid(session_id: str) -> bool:
@@ -748,10 +596,10 @@ async def reset_state(current_user: dict = Depends(get_current_admin_user)):
             "message": "Application state reset successfully"
         }
         
-    except Exception as e:
+    except Exception:
         raise HTTPException(
             status_code=500, 
-            detail=f"Error resetting application state: {str(e)}"
+            detail="Error resetting application state"
         )
         
 # headcount!
@@ -778,17 +626,5 @@ async def broadcast_trader_count(session_id: str):
         if hasattr(trader, 'websocket') and trader.websocket:
             try:
                 await trader.websocket.send_json(count_message)
-            except Exception as e:
+            except Exception:
                 pass
-
-# Add these headers to every response
-@app.middleware("http")
-async def add_security_headers(request: Request, call_next):
-    response = await call_next(request)
-    
-    # Add security headers
-    response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
-    response.headers["Cross-Origin-Embedder-Policy"] = "require-corp"
-    response.headers["Access-Control-Allow-Credentials"] = "true"
-    
-    return response
