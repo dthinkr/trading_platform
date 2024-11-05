@@ -42,7 +42,7 @@ class UserRegistration(BaseModel):
 class TradingParameters(BaseModel):
     # basic setup
     num_human_traders: int = Field(
-        default=1,
+        default=2,
         title="Number of Human Traders",
         description="model_parameter",
         ge=1,  # need at least 1 human
@@ -382,7 +382,6 @@ class Message:
             "type": self.type
         }
 
-# Add this with other enums at the top
 class TraderRole(str, Enum):
     INFORMED = "informed"
     SPECULATOR = "speculator"
