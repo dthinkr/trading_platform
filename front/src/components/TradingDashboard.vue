@@ -37,7 +37,7 @@
                 {{ roleDisplay.text }}
               </v-chip>
               <v-chip v-for="(item, index) in [
-                { label: 'VWAP', value: formatNumber(vwap), icon: 'mdi-chart-line' },
+                // { label: 'VWAP', value: formatNumber(vwap), icon: 'mdi-chart-line' },
                 { label: 'PnL', value: pnl, icon: 'mdi-currency-usd' },
                 { label: 'Shares', value: `${initial_shares} ${formatDelta}`, icon: 'mdi-file-document-outline' },
                 { label: 'Cash', value: cash, icon: 'mdi-cash' },
@@ -443,7 +443,8 @@ watch([currentHumanTraders, expectedHumanTraders], ([newCurrent, newExpected], [
 });
 
 // Add to your existing imports
-import { ref } from 'vue';
+//import { ref } from 'vue';
+
 
 // Add these refs
 const showErrorAlert = ref(false);
