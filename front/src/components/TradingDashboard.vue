@@ -1,6 +1,25 @@
 <template>
   <div class="trading-dashboard">
     <v-app>
+      <!-- Add error alert at the top -->
+      <v-alert
+        v-if="showErrorAlert"
+        type="error"
+        closable
+        class="ma-4"
+        style="position: fixed; top: 0; left: 50%; transform: translateX(-50%); z-index: 1000;"
+      >
+        Connection error. Please refresh the page.
+        <v-btn
+          color="white"
+          variant="text"
+          class="ml-4"
+          @click="refreshPage"
+        >
+          Refresh Now
+        </v-btn>
+      </v-alert>
+
       <v-app-bar app elevation="2" color="white">
         <v-container fluid class="py-0 fill-height">
           <v-row align="center" no-gutters>
@@ -422,6 +441,39 @@ const traderCountDisplay = computed(() => {
 watch([currentHumanTraders, expectedHumanTraders], ([newCurrent, newExpected], [oldCurrent, oldExpected]) => {
   console.log(`Trader count updated: ${oldCurrent}/${oldExpected} -> ${newCurrent}/${newExpected}`);
 });
+
+// Add to your existing imports
+import { ref } from 'vue';
+
+// Add these refs
+const showErrorAlert = ref(false);
+
+// Add this method
+const refreshPage = () => {
+  window.location.reload();
+};
+
+// Modify your store watch or WebSocket handler to include error handling
+watch(() => store.ws, (newWs) => {
+  if (newWs) {
+    newWs.addEventListener('message', (event) => {
+      try {
+        if (typeof event.data === 'string' && 
+            (event.data.startsWith('<!DOCTYPE') || event.data.startsWith('<html'))) {
+          showErrorAlert.value = true;
+          return;
+        }
+        const data = JSON.parse(event.data);
+        // Your normal message handling...
+      } catch (error) {
+        if (error.message.includes("Unexpected token '<'")) {
+          showErrorAlert.value = true;
+        }
+        console.error("WebSocket message error:", error);
+      }
+    });
+  }
+}, { immediate: true });
 </script>
 
 <style scoped>
@@ -558,6 +610,11 @@ watch([currentHumanTraders, expectedHumanTraders], ([newCurrent, newExpected], [
 
 .speculator {
   background-color: #00897b !important; /* Teal */
+}
+
+.v-alert {
+  max-width: 500px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 </style>
 
