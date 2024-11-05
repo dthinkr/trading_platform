@@ -147,7 +147,7 @@ class TradingPlatform:
     @property
     def is_full(self):
         """Check if the trading session is full."""
-        return len(self.connected_traders) >= self.params['num_human_traders']
+        return len(self.connected_traders) >= len(self.params['predefined_goals'])
 
     @property
     def transaction_price(self) -> Optional[float]:

@@ -235,10 +235,10 @@ export const useTraderStore = defineStore("trader", {
               ...sessionData
             };
             
-            // Set initial counts from session data
+            // Set initial counts based on predefined_goals length
             this.$patch({
               currentHumanTraders: sessionData.human_traders.length,
-              expectedHumanTraders: sessionData.game_params.num_human_traders
+              expectedHumanTraders: sessionData.game_params.predefined_goals.length
             });
           }
         } catch (error) {
