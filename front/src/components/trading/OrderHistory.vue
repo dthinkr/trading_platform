@@ -122,11 +122,13 @@ const formatTime = (timestamp) => {
   <v-card height="100%" elevation="3" class="order-history-card">
     <div class="trading-summary pa-2">
       <div class="vwap-display">
+        <div class="label">VWAP</div>
         <span class="vwap-item buy">{{ tradingSummary.buyVWAP }}</span>
         <span class="vwap-divider">|</span>
         <span class="vwap-item sell">{{ tradingSummary.sellVWAP }}</span>
       </div>
       <div class="count-display">
+        <div class="label">Trades</div>
         <span class="count-item buy">{{ tradingSummary.buyCount }}</span>
         <span class="count-divider">|</span>
         <span class="count-item sell">{{ tradingSummary.sellCount }}</span>
@@ -194,6 +196,16 @@ const formatTime = (timestamp) => {
   gap: 12px;
   font-size: 0.9rem;
   white-space: nowrap;
+  position: relative;
+}
+
+.label {
+  position: absolute;
+  left: 0;
+  font-size: 0.7rem;
+  color: #666;
+  font-weight: 500;
+  text-transform: uppercase;
 }
 
 .count-display {
