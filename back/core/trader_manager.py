@@ -31,31 +31,21 @@ class TraderManager:
     informed_traders = List[InformedTrader]
     informed_trader = None  # Track the informed trader in this session
 
-    def __init__(self, params: TradingParameters, user_roles: dict = None):
+    def __init__(self, params: TradingParameters):
         self.params = params
         self.tasks = []
+        self.informed_trader = None  # Keep only for tracking
+        self.human_traders = []
+        
+        params_dict = params.model_dump()  # Convert to dict for easier access
+        
+        # Create basic traders
+        self.book_initializer = self._create_book_initializer(params)
+        self.simple_order_traders = self._create_simple_order_traders(params_dict)  # Pass dict
+        self.noise_traders = self._create_noise_traders(params.num_noise_traders, params_dict)  # Pass dict
+        self.informed_traders = self._create_informed_traders(params.num_informed_traders, params_dict)  # Pass dict
 
-        # grab current time for session id
-        current_timestamp = int(time.time())
-        session_id = f"SESSION_{current_timestamp}"
-
-        # make params easier to use
-        params_dict = params.model_dump()
-
-        n_noise_traders = params_dict["num_noise_traders"]
-        n_informed_traders = params_dict["num_informed_traders"]
-        n_human_traders = params_dict["num_human_traders"]
-
-        cash = params_dict["initial_cash"]
-        shares = params_dict["initial_stocks"]
-
-        # create all the traders we need
-        self.book_initializer = self._create_book_initializer(params_dict)
-        self.simple_order_traders = self._create_simple_order_traders(params_dict)
-        self.noise_traders = self._create_noise_traders(n_noise_traders, params_dict)
-        self.informed_traders = self._create_informed_traders(n_informed_traders, params_dict)
-        self.human_traders = []  # start with no humans
-
+        # Combine all traders into one dict
         self.traders = {
             t.id: t
             for t in self.noise_traders
@@ -63,14 +53,18 @@ class TraderManager:
             + [self.book_initializer]
             + self.simple_order_traders
         }
+        
+        # Create trading session
+        current_timestamp = int(time.time())
+        session_id = f"SESSION_{current_timestamp}"
         self.trading_session = TradingPlatform(
             session_id=session_id,
-            duration=params_dict["trading_day_duration"],
-            default_price=params_dict["default_price"],
-            params=params_dict
+            duration=params.trading_day_duration,
+            default_price=params.default_price,
+            params=params_dict  # Pass dict
         )
 
-    def _create_simple_order_traders(self, params):
+    def _create_simple_order_traders(self, params: dict):
         traders = []
         num_traders = params["num_simple_order_traders"]
         for i in range(num_traders):
@@ -91,10 +85,10 @@ class TraderManager:
             )
         return traders
 
-    def _create_book_initializer(self, params):
-        return BookInitializer(id="BOOK_INITIALIZER", trader_creation_data=params)
+    def _create_book_initializer(self, params: TradingParameters):
+        return BookInitializer(id="BOOK_INITIALIZER", trader_creation_data=params.model_dump())
 
-    def _create_noise_traders(self, n_noise_traders, params):
+    def _create_noise_traders(self, n_noise_traders: int, params: dict):
         return [
             NoiseTrader(
                 id=f"NOISE_{i+1}",
@@ -103,7 +97,7 @@ class TraderManager:
             for i in range(n_noise_traders)
         ]
 
-    def _create_informed_traders(self, n_informed_traders, params):
+    def _create_informed_traders(self, n_informed_traders: int, params: dict):
         return [
             InformedTrader(
                 id=f"INFORMED_{i+1}",

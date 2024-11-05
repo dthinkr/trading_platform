@@ -221,3 +221,57 @@ class SessionHandler:
                     break
 
         return violations
+
+    async def validate_and_assign_role(self, gmail_username: str, params: TradingParameters) -> tuple[str, str, TraderRole, int]:
+        """Validate user can join and assign role and goal"""
+        # Check if they can join
+        can_join = await self.can_join_session(gmail_username, params)
+        if not can_join:
+            raise HTTPException(
+                status_code=403,
+                detail="Maximum number of allowed sessions reached"
+            )
+            
+        # Determine role
+        role = await self.determine_user_role(gmail_username)
+        
+        # Find or create session and assign goal
+        session_id, trader_id = await self.find_or_create_session(gmail_username, role, params)
+        
+        # Get assigned goal
+        trader_manager = self.get_trader_manager(trader_id)
+        trader = trader_manager.traders[trader_id]
+        goal = trader.goal
+        
+        return session_id, trader_id, role, goal
+
+    async def cleanup_session(self, session_id: str):
+        """Clean up a session and all its resources"""
+        if session_id not in self.trader_managers:
+            return
+            
+        trader_manager = self.trader_managers[session_id]
+        
+        # Clean up trader manager
+        await trader_manager.cleanup()
+        
+        # Remove from all tracking dictionaries
+        del self.trader_managers[session_id]
+        
+        if session_id in self.active_users:
+            # Clean up user sessions
+            for username in self.active_users[session_id]:
+                if username in self.user_sessions:
+                    del self.user_sessions[username]
+            del self.active_users[session_id]
+            
+        if session_id in self.session_ready_traders:
+            del self.session_ready_traders[session_id]
+            
+        # Clean up trader lookups
+        traders_to_remove = [
+            tid for tid, sid in self.trader_to_session_lookup.items() 
+            if sid == session_id
+        ]
+        for trader_id in traders_to_remove:
+            del self.trader_to_session_lookup[trader_id]

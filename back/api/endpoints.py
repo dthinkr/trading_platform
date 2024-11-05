@@ -128,52 +128,27 @@ async def user_login(request: Request):
                 detail="User not registered in the study"
             )
         
-        # Create trading parameters from persistent settings or defaults
-        try:
-            params = TradingParameters(**(persistent_settings or {}))
-        except Exception as param_error:
-            logger.error(f"Error creating trading parameters: {str(param_error)}")
-            raise HTTPException(
-                status_code=500,
-                detail=f"Error creating trading parameters: {str(param_error)}"
-            )
+        # Create parameters
+        params = TradingParameters(**(persistent_settings or {}))
         
-        # Determine role first
-        role = await session_handler.determine_user_role(gmail_username)
-        print(f"Determined role for {gmail_username}: {role}")
+        # Single call to handle all session/role/goal logic
+        session_id, trader_id, role, goal = await session_handler.validate_and_assign_role(
+            gmail_username, 
+            params
+        )
         
-        # Find or create session (now handles goal assignment internally)
-        try:
-            session_id, trader_id = await session_handler.find_or_create_session(
-                gmail_username, 
-                role=role,
-                params=params
-            )
-            
-            # Get the assigned goal from the trader
-            trader_manager = session_handler.get_trader_manager(trader_id)
-            trader = trader_manager.traders[trader_id]
-            goal = trader.goal
-            
-            return {
-                "status": "success",
-                "message": "Login successful and trader assigned",
-                "data": {
-                    "username": email,
-                    "is_admin": is_user_admin(email),
-                    "session_id": session_id,
-                    "trader_id": trader_id,
-                    "role": role,
-                    "goal": goal
-                }
+        return {
+            "status": "success",
+            "message": "Login successful and trader assigned",
+            "data": {
+                "username": email,
+                "is_admin": is_user_admin(email),
+                "session_id": session_id,
+                "trader_id": trader_id,
+                "role": role,
+                "goal": goal
             }
-            
-        except Exception as setup_error:
-            logger.error(f"Session setup error: {str(setup_error)}")
-            raise HTTPException(
-                status_code=500,
-                detail=f"Error setting up trading session: {str(setup_error)}"
-            )
+        }
         
     except HTTPException:
         raise
@@ -1084,6 +1059,7 @@ async def remove_trader_from_session(trader_id: str, session_id: str):
                 
     except Exception as e:
         logger.error(f"Error removing trader from session: {str(e)}")
+        
 # headcount!
 async def broadcast_trader_count(session_id: str):
     """whos still here?"""
