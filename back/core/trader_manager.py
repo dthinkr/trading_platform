@@ -6,7 +6,7 @@ helps find existing traders and returns their ids
 """
 
 from .data_models import TradingParameters, OrderType, ActionType, TraderType, TraderRole
-from typing import List
+from typing import List, Optional
 from traders import (
     HumanTrader,
     NoiseTrader,
@@ -112,37 +112,12 @@ class TraderManager:
             for i in range(n_informed_traders)
         ]
 
-    async def add_human_trader(self, gmail_username, goal=None, role=None):
-        """Add human trader with role tracking"""
+    async def add_human_trader(self, gmail_username: str, role: TraderRole, goal: Optional[int] = None) -> str:
+        """Add human trader with specified role and goal"""
         trader_id = f"HUMAN_{gmail_username}"
         
-        # Check if they're already here
-        existing_trader = self.traders.get(trader_id)
-        if existing_trader:
+        if trader_id in self.traders:
             return trader_id
-
-        # Role must be provided now
-        if role is None:
-            raise ValueError("Role must be specified when adding human trader")
-
-        # Goal assignment based on role
-        if goal is None:
-            if role == TraderRole.INFORMED:
-                # Informed traders get non-zero goals
-                non_zero_goals = [g for g in self.params.predefined_goals if g != 0]
-                if non_zero_goals:
-                    # Get absolute value of the selected goal
-                    goal = abs(random.choice(non_zero_goals))
-                    # If random goals allowed, randomly flip sign
-                    if self.params.allow_random_goals:
-                        goal *= random.choice([-1, 1])
-                else:
-                    goal = 100  # fallback
-                print(f"Assigned informed trader goal: {goal}")
-            else:
-                # Speculators get 0
-                goal = 0
-                print(f"Assigned speculator goal: {goal}")
 
         new_trader = HumanTrader(
             id=trader_id,
@@ -159,7 +134,6 @@ class TraderManager:
             if self.informed_trader is not None:
                 raise ValueError("Session already has an informed trader")
             self.informed_trader = new_trader
-            print(f"Set {gmail_username} as informed trader with goal {goal}")
 
         self.traders[trader_id] = new_trader
         self.human_traders.append(new_trader)

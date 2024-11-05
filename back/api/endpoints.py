@@ -138,30 +138,22 @@ async def user_login(request: Request):
                 detail=f"Error creating trading parameters: {str(param_error)}"
             )
         
-        # Check session limits
-        try:
-            can_join = await session_handler.can_join_session(gmail_username, params)
-            if not can_join:
-                raise HTTPException(
-                    status_code=403,
-                    detail="Maximum number of allowed sessions reached"
-                )
-        except Exception as session_error:
-            logger.error(f"Session check error: {str(session_error)}")
-            raise HTTPException(
-                status_code=500,
-                detail=f"Error checking session limits: {str(session_error)}"
-            )
-        
         # Determine role first
         role = await session_handler.determine_user_role(gmail_username)
+        print(f"Determined role for {gmail_username}: {role}")
         
-        # Find or create session
+        # Find or create session (now handles goal assignment internally)
         try:
-            session_id, trader_id = await session_handler.find_or_create_session(gmail_username, role, params)
+            session_id, trader_id = await session_handler.find_or_create_session(
+                gmail_username, 
+                role=role,
+                params=params
+            )
             
-            # Get goal based on role
-            goal = await session_handler.assign_user_goal(gmail_username, params)
+            # Get the assigned goal from the trader
+            trader_manager = session_handler.get_trader_manager(trader_id)
+            trader = trader_manager.traders[trader_id]
+            goal = trader.goal
             
             return {
                 "status": "success",
