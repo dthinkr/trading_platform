@@ -1,4 +1,4 @@
-from typing import Dict, Set, Optional
+from typing import Dict, Set, Optional, List
 from .data_models import TraderRole, TradingParameters
 from .trader_manager import TraderManager
 from utils import setup_custom_logger
@@ -22,6 +22,9 @@ class SessionHandler:
     async def find_or_create_session(self, gmail_username: str, role: TraderRole, params: TradingParameters) -> tuple[str, str]:
         """Find an available session or create a new one"""
         trader_id = f"HUMAN_{gmail_username}"
+        
+        # Get goal based on role
+        goal = await self.assign_user_goal(gmail_username, params)
         
         # Check existing session
         if gmail_username in self.user_sessions:
@@ -47,7 +50,11 @@ class SessionHandler:
                         continue
                         
                 try:
-                    trader_id = await manager.add_human_trader(gmail_username, role=role)
+                    trader_id = await manager.add_human_trader(
+                        gmail_username, 
+                        role=role,
+                        goal=goal  # Pass the goal to trader manager
+                    )
                     self.trader_to_session_lookup[trader_id] = session_id
                     self.active_users[session_id].add(gmail_username)
                     self.user_sessions[gmail_username] = session_id
@@ -63,7 +70,11 @@ class SessionHandler:
             self.trader_managers[session_id] = new_trader_manager
             self.active_users[session_id] = set()
             
-            trader_id = await new_trader_manager.add_human_trader(gmail_username, role=role)
+            trader_id = await new_trader_manager.add_human_trader(
+                gmail_username, 
+                role=role,
+                goal=goal  # Pass the goal to trader manager
+            )
             
             self.trader_to_session_lookup[trader_id] = session_id
             self.active_users[session_id].add(gmail_username)
@@ -173,3 +184,40 @@ class SessionHandler:
             expected_traders = trader_manager.params.num_human_traders
             return len(self.session_ready_traders[session_id]) >= expected_traders
         return False
+
+    def is_informed_trader(self, trader_id: str) -> bool:
+        """Check if a trader is an informed trader"""
+        trader_manager = self.get_trader_manager(trader_id)
+        if not trader_manager:
+            return False
+        trader = trader_manager.traders.get(trader_id)
+        return trader and trader.role == TraderRole.INFORMED
+
+    def get_informed_trader_for_session(self, session_id: str) -> Optional[str]:
+        """Get the informed trader ID for a session"""
+        trader_manager = self.trader_managers.get(session_id)
+        if not trader_manager or not trader_manager.informed_trader:
+            return None
+        return trader_manager.informed_trader.id
+
+    async def validate_session_roles(self, session_id: str) -> List[str]:
+        """Validate that session roles are properly assigned"""
+        violations = []
+        trader_manager = self.trader_managers.get(session_id)
+        if not trader_manager:
+            return ["Session not found"]
+
+        # Check for informed trader
+        if not trader_manager.informed_trader:
+            violations.append("Session has no informed trader")
+
+        # Check for role consistency
+        informed_count = 0
+        for trader in trader_manager.human_traders:
+            if trader.role == TraderRole.INFORMED:
+                informed_count += 1
+                if informed_count > 1:
+                    violations.append(f"Multiple informed traders found in session")
+                    break
+
+        return violations
