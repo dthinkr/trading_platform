@@ -153,6 +153,8 @@ def process_logfile(logfile_name):
     total_trades = 0
     total_cancellations = 0
     all_midprices = []
+    all_best_bid_prices = []
+    all_best_ask_prices = []
     
     for index, row in message_df.iterrows():
         timestamp = row['Timestamp']
@@ -228,6 +230,8 @@ def process_logfile(logfile_name):
 
         if (best_bid_price is not None) and (best_ask_price is not None):
             midprice = (best_bid_price + best_ask_price) / 2
+            all_best_bid_prices.append(best_bid_price)
+            all_best_ask_prices.append(best_ask_price)
             all_midprices.append(midprice)
       
         
@@ -263,11 +267,17 @@ def process_logfile(logfile_name):
         if num_buy == num_sell:
             pnl = sum(prices_sell) - sum(prices_buy)
         elif num_buy > num_sell:
-            pnl = sum(prices_sell) - sum(prices_buy) + (num_buy - num_sell) * all_midprices[-1]
+            pnl = sum(prices_sell) - sum(prices_buy) + (num_buy - num_sell) * all_best_bid_prices[-1]
         else:
-            pnl = sum(prices_sell) - sum(prices_buy) - (num_sell - num_buy) * all_midprices[-1]
+            pnl = sum(prices_sell) - sum(prices_buy) - (num_sell - num_buy) * all_best_ask_prices[-1]
         
-        all_metrics[trader] = {'Trades': total_trades_trader_i, 'VWAP': trader_i_vwap, 'PnL': pnl, 'Num_Sell': num_sell, 'Num_Buy': num_buy}
+        all_metrics[trader] = {'Trades': total_trades_trader_i,
+                               'VWAP': trader_i_vwap,
+                               'PnL': pnl,
+                               'Num_Sell': num_sell,
+                               'Num_Buy': num_buy,
+                               'Prices_Sell': prices_sell,
+                               'Prices_Buy': prices_buy}
     
     return message_df, all_metrics
 
@@ -282,37 +292,79 @@ def calculate_trader_specific_metrics(trader_specific_metrics, general_metrics, 
     """Calculate trader-specific metrics based on trading activity and goals."""
     if trader_goal != 0:
         if trader_goal > 0:
-            remaining_trades = abs(abs(trader_goal) - abs(trader_specific_metrics['Trades']))
-            expenditure = trader_specific_metrics['VWAP'] * trader_specific_metrics['Trades']
-            total_expenditure = expenditure + remaining_trades * general_metrics['Last_Midprice'] * 1.5
-            penalized_vwap = total_expenditure/abs(trader_goal)
-            slippage = -abs(general_metrics['Initial_Midprice'] - penalized_vwap) / np.sqrt(abs(trader_goal))
+            if trader_specific_metrics['Trades'] <= trader_goal:
+                remaining_trades = abs(abs(trader_goal) - abs(trader_specific_metrics['Trades']))
+                expenditure = trader_specific_metrics['VWAP'] * trader_specific_metrics['Trades']
+                total_expenditure = expenditure + remaining_trades * general_metrics['Last_Midprice'] * 1.5
+                penalized_vwap = total_expenditure/abs(trader_goal)
+                slippage = general_metrics['Initial_Midprice'] - penalized_vwap
+                slippage_scaled = (general_metrics['Initial_Midprice'] - penalized_vwap) / np.sqrt(abs(trader_goal))
             
-            trader_specific_metrics.update({
-                'Remaining_Trades': remaining_trades,
-                'Penalized_VWAP': penalized_vwap,
-                'Slippage': slippage,
-                'PnL': '-'
-            })
+                trader_specific_metrics.update({
+                    'Remaining_Trades': remaining_trades,
+                    'Penalized_VWAP': penalized_vwap,
+                    'Slippage': slippage,
+                    'Slippage_Scaled': slippage_scaled,
+                    'PnL': '-'
+                })
+            else:
+                remaining_trades = abs(trader_goal) - abs(trader_specific_metrics['Trades'])
+                prices_buy = trader_specific_metrics['Prices_Buy'] 
+                expenditure = sum(prices_buy[0:abs(trader_goal)])
+                VWAP = expenditure / abs(trader_goal)
+                trader_specific_metrics['VWAP'] = VWAP
+                penalized_vwap = expenditure / abs(trader_goal)
+                slippage = general_metrics['Initial_Midprice'] - penalized_vwap
+                slippage_scaled = (general_metrics['Initial_Midprice'] - penalized_vwap) / np.sqrt(abs(trader_goal))
+
+                trader_specific_metrics.update({
+                    'Remaining_Trades': remaining_trades,
+                    'Penalized_VWAP': penalized_vwap,
+                    'Slippage': slippage,
+                    'Slippage_Scaled': slippage_scaled,
+                    'PnL': '-'
+                })
         else:
-            remaining_trades = abs(abs(trader_goal) - abs(trader_specific_metrics['Trades']))
-            expenditure = trader_specific_metrics['VWAP'] * trader_specific_metrics['Trades']
-            total_expenditure = expenditure + remaining_trades * general_metrics['Last_Midprice'] * 0.5
-            penalized_vwap = total_expenditure/abs(trader_goal)
-            slippage = -abs(general_metrics['Initial_Midprice'] - penalized_vwap) / np.sqrt(abs(trader_goal))
+            if trader_specific_metrics['Trades'] <= abs(trader_goal):
+                remaining_trades = abs(abs(trader_goal) - abs(trader_specific_metrics['Trades']))
+                expenditure = trader_specific_metrics['VWAP'] * trader_specific_metrics['Trades']
+                total_expenditure = expenditure + remaining_trades * general_metrics['Last_Midprice'] * 0.5
+                penalized_vwap = total_expenditure/abs(trader_goal)
+                slippage = penalized_vwap - general_metrics['Initial_Midprice']
+                slippage_scaled = (penalized_vwap - general_metrics['Initial_Midprice']) / np.sqrt(abs(trader_goal))
             
-            trader_specific_metrics.update({
-                'Remaining_Trades': remaining_trades,
-                'Penalized_VWAP': penalized_vwap,
-                'Slippage': slippage,
-                'PnL': '-'
-            })
+                trader_specific_metrics.update({
+                    'Remaining_Trades': remaining_trades,
+                    'Penalized_VWAP': penalized_vwap,
+                    'Slippage': slippage,
+                    'Slippage_Scaled': slippage_scaled,
+                    'PnL': '-'
+                })
+            else:
+                remaining_trades = abs(trader_specific_metrics['Trades']) - abs(trader_goal) 
+                prices_sell = trader_specific_metrics['Prices_Sell'] 
+                expenditure = sum(prices_sell[0:abs(trader_goal)])
+                VWAP = expenditure / abs(trader_goal)
+                trader_specific_metrics['VWAP'] = VWAP
+                penalized_vwap = expenditure / abs(trader_goal)
+                slippage = penalized_vwap - general_metrics['Initial_Midprice']
+                slippage_scaled = (penalized_vwap - general_metrics['Initial_Midprice']) / np.sqrt(abs(trader_goal))
+
+                trader_specific_metrics.update({
+                    'Remaining_Trades': remaining_trades,
+                    'Penalized_VWAP': penalized_vwap,
+                    'Slippage': slippage,
+                    'Slippage_Scaled': slippage_scaled,
+                    'PnL': '-'
+                })
+
     else:
         trader_specific_metrics.update({
             'Remaining_Trades': abs(trader_specific_metrics['Num_Sell'] - trader_specific_metrics['Num_Buy']),
             'VWAP': '-',
             'Penalized_VWAP': '-',
-            'Slippage': '-'
+            'Slippage': '-',
+            'Slippage_Scaled': '-'
         })
     
     return trader_specific_metrics
