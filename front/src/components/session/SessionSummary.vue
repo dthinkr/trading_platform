@@ -91,7 +91,11 @@
                     </div>
                     <div class="d-flex justify-space-between align-center mb-2">
                       <span class="text-subtitle-1">Slippage:</span>
-                      <span class="text-h6 font-weight-bold">{{ formatValue(traderSpecificMetrics.Slippage, 'number') }}</span>
+                      <span class="text-h6 font-weight-bold">{{ formatValue(traderSpecificMetrics.Slippage, 'currency') }}</span>
+                    </div>
+                    <div class="d-flex justify-space-between align-center mb-2">
+                      <span class="text-subtitle-1">Slippage Scaled:</span>
+                      <span class="text-h6 font-weight-bold">{{ formatValue(traderSpecificMetrics.Slippage_Scaled, 'number') }}</span>
                     </div>
                     <div class="d-flex justify-space-between align-center mb-2">
                       <span class="text-subtitle-1">PnL:</span>
