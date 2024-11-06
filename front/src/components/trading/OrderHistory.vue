@@ -128,7 +128,7 @@ const formatTime = (timestamp) => {
         <span class="vwap-item sell">{{ tradingSummary.sellVWAP }}</span>
       </div>
       <div class="count-display">
-        <div class="label">Trades</div>
+        <div class="label">Count</div>
         <span class="count-item buy">{{ tradingSummary.buyCount }}</span>
         <span class="count-divider">|</span>
         <span class="count-item sell">{{ tradingSummary.sellCount }}</span>
@@ -248,8 +248,8 @@ const formatTime = (timestamp) => {
 .order-item {
   background-color: white;
   border-radius: 6px;
-  padding: 10px;
-  margin-bottom: 8px;
+  padding: 2px 10px;
+  margin-bottom: 4px;
   font-size: 12px;
   display: flex;
   flex-direction: column;
@@ -274,22 +274,22 @@ const formatTime = (timestamp) => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 6px;
+  margin-bottom: 2px;
 }
 
 .price {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
 }
 
 .amount {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   color: #666;
 }
 
 .time {
-  font-size: 11px;
+  font-size: 10px;
   color: #888;
   display: flex;
   align-items: center;

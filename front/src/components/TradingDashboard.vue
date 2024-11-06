@@ -38,10 +38,10 @@
               </v-chip>
               <v-chip v-for="(item, index) in [
                 // { label: 'VWAP', value: formatNumber(vwap), icon: 'mdi-chart-line' },
-                { label: 'PnL', value: pnl, icon: 'mdi-currency-usd' },
-                { label: 'Shares', value: `${initial_shares} ${formatDelta}`, icon: 'mdi-file-document-outline' },
-                { label: 'Cash', value: cash, icon: 'mdi-cash' },
-                { label: 'Traders', value: `${currentHumanTraders} / ${expectedHumanTraders}`, icon: 'mdi-account-group' }
+                { label: 'PnL', value: pnl, icon: 'mdi-cash-plus' },
+                { label: 'Shares', value: `${initial_shares} ${formatDelta}`, icon: 'mdi-package-variant' },
+                { label: 'Cash', value: cash, icon: 'mdi-cash-multiple' },
+                { label: 'Traders', value: `${currentHumanTraders} / ${expectedHumanTraders}`, icon: 'mdi-account-multiple' }
               ]" :key="index" class="mr-2" color="grey lighten-4">
                 <v-icon left small color="deep-blue">{{ item.icon }}</v-icon>
                 <span class="black--text">{{ item.label }}: {{ item.value }}</span>
@@ -224,28 +224,14 @@ watch(remainingTime, (newValue) => {
   }
 });
 
-const zoomLevel = ref(1);
-
-const calculateZoom = () => {
-  const targetWidth = 1600; // Target width for the design
-  const targetHeight = 1000; // Target height for the design
-  const windowWidth = window.innerWidth;
-  const windowHeight = window.innerHeight;
-
-  const widthRatio = windowWidth / targetWidth;
-  const heightRatio = windowHeight / targetHeight;
-
-  // Use the smaller ratio to ensure the dashboard fits within the screen
-  zoomLevel.value = Math.min(widthRatio, heightRatio, 1);
-};
-
-const handleResize = () => {
-  calculateZoom();
-};
+// Remove the calculateZoom function and replace with a fixed value
+const zoomLevel = ref(0.95);  // Fixed 90% zoom
 
 onMounted(async () => {
-  calculateZoom();
-  window.addEventListener('resize', handleResize);
+  // Apply fixed zoom
+  document.body.style.zoom = zoomLevel.value;
+  document.body.style.transform = `scale(${zoomLevel.value})`;
+  document.body.style.transformOrigin = 'top left';
   
   // Fetch user role
   try {
@@ -273,7 +259,7 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
-  window.removeEventListener('resize', handleResize);
+  // Remove other cleanup code if needed
 });
 
 // First, define the basic computed properties
@@ -341,10 +327,10 @@ watch(isGoalAchieved, (newValue) => {
 // Add this function to get icons for each tool
 const getToolIcon = (toolTitle) => {
   switch (toolTitle) {
-    case 'Order History': return 'mdi-history';
-    case 'Market Messages': return 'mdi-message-text';
-    case 'Buy-Sell Distribution': return 'mdi-chart-bar';
-    case 'Active Orders': return 'mdi-clipboard-text';
+    case 'Trades History': return 'mdi-history';
+    case 'Market Info': return 'mdi-information';
+    case 'Buy-Sell Chart': return 'mdi-chart-bar';
+    case 'Active Orders': return 'mdi-format-list-bulleted';
     case 'Price History': return 'mdi-chart-line';
     case 'Trading Panel': return 'mdi-cash-register';
     default: return 'mdi-help-circle';
@@ -475,6 +461,14 @@ watch(() => store.ws, (newWs) => {
     });
   }
 }, { immediate: true });
+
+// Add this watch to apply the zoom level
+watch(zoomLevel, (newZoom) => {
+  document.body.style.zoom = newZoom;
+  // For Firefox compatibility
+  document.body.style.transform = `scale(${newZoom})`;
+  document.body.style.transformOrigin = 'top left';
+});
 </script>
 
 <style scoped>
