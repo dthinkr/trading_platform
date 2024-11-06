@@ -78,49 +78,26 @@ class SessionHandler:
                     continue
                     
                 session_users = self.active_users[session_id]
-                if len(session_users) >= len(params.predefined_goals):
+                
+                # Get required traders count from goals
+                total_required = len(params.predefined_goals)
+                
+                if len(session_users) >= total_required:
                     continue
                     
-                # count roles
-                informed_count = sum(1 for u in session_users if self.user_roles.get(u) == TraderRole.INFORMED)
-                speculator_count = len(session_users) - informed_count
-                
-                # get needed numbers
-                total_required = len(params.predefined_goals)
-                required_informed = sum(1 for g in params.predefined_goals if g != 0)
-                required_speculators = total_required - required_informed
-                
-                # pick role
-                if existing_role:
-                    role = existing_role
-                    can_join = (
-                        (role == TraderRole.INFORMED and informed_count < required_informed) or
-                        (role == TraderRole.SPECULATOR and speculator_count < required_speculators)
-                    )
-                else:
-                    # assign based on needs
-                    if informed_count < required_informed:
-                        role = TraderRole.INFORMED
-                        can_join = True
-                    elif speculator_count < required_speculators:
-                        role = TraderRole.SPECULATOR
-                        can_join = True
-                    else:
-                        can_join = False
-                
-                if can_join:
-                    # pick goal
-                    if role == TraderRole.INFORMED:
-                        goal_candidates = [g for g in params.predefined_goals if g != 0]
-                        goal = abs(random.choice(goal_candidates))
-                        if params.allow_random_goals:
-                            goal *= random.choice([-1, 1])
-                    else:
-                        goal = 0
+                # Pick role and goal based on position
+                position = len(session_users)
+                if position < len(params.predefined_goals):
+                    goal = params.predefined_goals[position]
+                    role = TraderRole.INFORMED if goal != 0 else TraderRole.SPECULATOR
                     
-                    # save role
+                    # Save role
                     self.user_roles[gmail_username] = role
                     
+                    # Random flip if allowed
+                    if role == TraderRole.INFORMED and params.allow_random_goals:
+                        goal *= random.choice([-1, 1])
+                        
                     try:
                         trader_id = await manager.add_human_trader(gmail_username, role=role, goal=goal)
                         self.trader_to_session_lookup[trader_id] = session_id
@@ -132,65 +109,32 @@ class SessionHandler:
             
             # Only create new session if not in cooldown period
             if not recently_created:
-                # make new session if needed
-                # pick first role
-                if not existing_role:
-                    first_goal = params.predefined_goals[0]
-                    role = TraderRole.INFORMED if first_goal != 0 else TraderRole.SPECULATOR
-                    self.user_roles[gmail_username] = role
-                    if role == TraderRole.INFORMED and params.allow_random_goals:
-                        first_goal *= random.choice([-1, 1])
-                else:
-                    role = existing_role
-                    if role == TraderRole.INFORMED:
-                        goal_candidates = [g for g in params.predefined_goals if g != 0]
-                        first_goal = abs(random.choice(goal_candidates))
-                        if params.allow_random_goals:
-                            first_goal *= random.choice([-1, 1])
-                    else:
-                        first_goal = 0
+                # Create new session with first role/goal
+                role = TraderRole.INFORMED if params.predefined_goals[0] != 0 else TraderRole.SPECULATOR
+                goal = params.predefined_goals[0]
+                
+                if role == TraderRole.INFORMED and params.allow_random_goals:
+                    goal *= random.choice([-1, 1])
                     
-                session_id, trader_id = await self._create_new_session(gmail_username, role, first_goal, params)
+                self.user_roles[gmail_username] = role
+                
+                session_id, trader_id = await self._create_new_session(gmail_username, role, goal, params)
                 self.last_session_creation = datetime.now()
-                return session_id, trader_id, role, first_goal
+                return session_id, trader_id, role, goal
                 
             await asyncio.sleep(0.5)
             retry_count += 1
         
-        # If we get here and recently_created is True, try one final time to join newest session
-        if recently_created:
-            newest_sessions = sorted(self.trader_managers.keys(), reverse=True)
-            if newest_sessions:
-                session_id = newest_sessions[0]
-                manager = self.trader_managers[session_id]
-                if not manager.trading_session.trading_started:
-                    # pick first role
-                    if not existing_role:
-                        first_goal = params.predefined_goals[0]
-                        role = TraderRole.INFORMED if first_goal != 0 else TraderRole.SPECULATOR
-                        self.user_roles[gmail_username] = role
-                        if role == TraderRole.INFORMED and params.allow_random_goals:
-                            first_goal *= random.choice([-1, 1])
-                    else:
-                        role = existing_role
-                        if role == TraderRole.INFORMED:
-                            goal_candidates = [g for g in params.predefined_goals if g != 0]
-                            first_goal = abs(random.choice(goal_candidates))
-                            if params.allow_random_goals:
-                                first_goal *= random.choice([-1, 1])
-                        else:
-                            first_goal = 0
-                        
-                    trader_id = await manager.add_human_trader(gmail_username, role=role, goal=goal)
-                    self.trader_to_session_lookup[trader_id] = session_id
-                    self.active_users[session_id].add(gmail_username)
-                    self.user_sessions[gmail_username] = session_id
-                    return session_id, trader_id, role, first_goal
-        
         # If all else fails, create new session
-        session_id, trader_id = await self._create_new_session(gmail_username, role, first_goal, params)
+        role = TraderRole.INFORMED if params.predefined_goals[0] != 0 else TraderRole.SPECULATOR
+        goal = params.predefined_goals[0]
+        
+        if role == TraderRole.INFORMED and params.allow_random_goals:
+            goal *= random.choice([-1, 1])
+            
+        session_id, trader_id = await self._create_new_session(gmail_username, role, goal, params)
         self.last_session_creation = datetime.now()
-        return session_id, trader_id, role, first_goal
+        return session_id, trader_id, role, goal
 
     def get_trader_manager(self, trader_id: str) -> Optional[TraderManager]:
         """get manager for trader"""
