@@ -518,20 +518,21 @@ async def start_trading_session(background_tasks: BackgroundTasks, current_user:
     current_ready = len(session_handler.session_ready_traders.get(session_id, set()))
     total_needed = len(trader_manager.params.predefined_goals)
     
-    status = {
+    # Start trading if all required traders are ready
+    if current_ready >= total_needed:
+        all_ready = True
+        background_tasks.add_task(trader_manager.launch)
+        status_message = "Trading session started"
+    else:
+        status_message = f"Waiting for other traders ({current_ready}/{total_needed} ready)"
+    
+    return {
         "ready_count": current_ready,
         "total_needed": total_needed,
         "ready_traders": list(session_handler.session_ready_traders.get(session_id, set())),
-        "all_ready": all_ready
+        "all_ready": all_ready,
+        "message": status_message
     }
-    
-    if all_ready:
-        background_tasks.add_task(trader_manager.launch)
-        status["message"] = "Trading session started"
-    else:
-        status["message"] = f"Waiting for other traders ({current_ready}/{total_needed} ready)"
-    
-    return status
 
 # admin stuff - update the google form id
 @app.post("/admin/update_google_form_id")

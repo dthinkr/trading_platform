@@ -27,14 +27,6 @@ const priceGraph = ref(null);
 const step = computed(() => gameParams.value.step || 1);
 const initialMidPrice = computed(() => gameParams.value.initial_mid_price || 100);
 
-const priceLevels = computed(() => {
-  const levels = [];
-  for (let i = -5; i <= 5; i++) {
-    levels.push(initialMidPrice.value + i * step.value);
-  }
-  return levels;
-});
-
 const chartOptions = reactive({
   chart: {
     height: 250,
@@ -107,21 +99,7 @@ const chartOptions = reactive({
     },
     allowDecimals: false,
     startOnTick: true,
-    endOnTick: true,
-    plotLines: priceLevels.value.map(level => ({
-      value: level,
-      color: '#E0E0E0',
-      width: 1,
-      zIndex: 1,
-      label: {
-        text: level.toString(),
-        align: 'right',
-        style: {
-          color: '#888',
-          fontSize: '10px'
-        }
-      }
-    }))
+    endOnTick: true
   },
   title: { 
     text: null
@@ -136,11 +114,14 @@ const chartOptions = reactive({
       color: '#2196F3',
       lineWidth: 3,
       marker: {
-        enabled: false,
+        enabled: true,
+        radius: 4,
+        symbol: 'circle',
+        fillColor: '#2196F3',
         states: {
           hover: {
             enabled: true,
-            radius: 3
+            radiusPlus: 2
           }
         }
       },
