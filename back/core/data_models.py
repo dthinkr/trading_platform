@@ -198,7 +198,7 @@ class TradingParameters(BaseModel):
 
     # goal settings
     predefined_goals: List[int] = Field(
-        default=[100,0],
+        default=[100],
         title="Predefined Goals",
         description="human_parameter",
     )
@@ -213,15 +213,22 @@ class TradingParameters(BaseModel):
     def validate_predefined_goals(cls, v):
         if isinstance(v, str):
             try:
-                # string to int list
-                return [int(x.strip()) for x in v.split(',')]
+                # Convert string to list of integers
+                goals = [int(x.strip()) for x in v.split(',')]
+                # Ensure at least one goal exists
+                if not goals:
+                    return [100]  # Default to [100] if empty
+                return goals
             except ValueError:
-                raise ValueError("goals must be comma-separated numbers!")
+                raise ValueError("Predefined goals must be comma-separated numbers!")
         elif isinstance(v, list):
-            # make sure list items are ints
-            return [int(x) for x in v]
+            # Convert list items to integers and ensure at least one goal
+            goals = [int(x) for x in v]
+            if not goals:
+                return [100]  # Default to [100] if empty
+            return goals
         else:
-            raise ValueError("goals must be comma-separated string or number list!")
+            raise ValueError("Predefined goals must be comma-separated string or number list!")
 
     def dump_params_by_description(self) -> dict:
         """organize params by their type"""
