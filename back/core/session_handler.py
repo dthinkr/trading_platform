@@ -5,6 +5,7 @@ from utils import setup_custom_logger
 from fastapi import HTTPException
 import random
 import asyncio
+from datetime import datetime, timedelta
 
 class SessionHandler:
     def __init__(self):
@@ -17,6 +18,8 @@ class SessionHandler:
         self.session_locks = {}
         self.session_ready_traders: Dict[str, Set[str]] = {}  # session -> ready traders
         self.user_historical_sessions: Dict[str, Set[str]] = {}  # username -> past sessions
+        self.last_session_creation: Optional[datetime] = None
+        self.session_creation_cooldown = timedelta(seconds=2)  # 2 second cooldown
         
     async def assign_role_and_goal(self, gmail_username: str, params: TradingParameters) -> tuple[TraderRole, int]:
         """assign role and goal based on total users"""
@@ -57,8 +60,20 @@ class SessionHandler:
         existing_role = self.user_roles.get(gmail_username)
         
         while retry_count < max_retries:
-            # look at current sessions
-            for session_id, manager in self.trader_managers.items():
+            # Check recently created sessions first
+            current_time = datetime.now()
+            recently_created = False
+            if self.last_session_creation and (current_time - self.last_session_creation) < self.session_creation_cooldown:
+                recently_created = True
+                
+            # Sort sessions to prioritize recently created ones
+            sorted_sessions = sorted(
+                self.trader_managers.items(),
+                key=lambda x: x[1].trading_session.id,
+                reverse=True
+            )
+            
+            for session_id, manager in sorted_sessions:
                 if manager.trading_session.trading_started:
                     continue
                     
@@ -114,29 +129,67 @@ class SessionHandler:
                         return session_id, trader_id, role, goal
                     except Exception:
                         continue
+            
+            # Only create new session if not in cooldown period
+            if not recently_created:
+                # make new session if needed
+                # pick first role
+                if not existing_role:
+                    first_goal = params.predefined_goals[0]
+                    role = TraderRole.INFORMED if first_goal != 0 else TraderRole.SPECULATOR
+                    self.user_roles[gmail_username] = role
+                    if role == TraderRole.INFORMED and params.allow_random_goals:
+                        first_goal *= random.choice([-1, 1])
+                else:
+                    role = existing_role
+                    if role == TraderRole.INFORMED:
+                        goal_candidates = [g for g in params.predefined_goals if g != 0]
+                        first_goal = abs(random.choice(goal_candidates))
+                        if params.allow_random_goals:
+                            first_goal *= random.choice([-1, 1])
+                    else:
+                        first_goal = 0
+                    
+                session_id, trader_id = await self._create_new_session(gmail_username, role, first_goal, params)
+                self.last_session_creation = datetime.now()
+                return session_id, trader_id, role, first_goal
                 
             await asyncio.sleep(0.5)
             retry_count += 1
         
-        # make new session if needed
-        # pick first role
-        if not existing_role:
-            first_goal = params.predefined_goals[0]
-            role = TraderRole.INFORMED if first_goal != 0 else TraderRole.SPECULATOR
-            self.user_roles[gmail_username] = role
-            if role == TraderRole.INFORMED and params.allow_random_goals:
-                first_goal *= random.choice([-1, 1])
-        else:
-            role = existing_role
-            if role == TraderRole.INFORMED:
-                goal_candidates = [g for g in params.predefined_goals if g != 0]
-                first_goal = abs(random.choice(goal_candidates))
-                if params.allow_random_goals:
-                    first_goal *= random.choice([-1, 1])
-            else:
-                first_goal = 0
-                
+        # If we get here and recently_created is True, try one final time to join newest session
+        if recently_created:
+            newest_sessions = sorted(self.trader_managers.keys(), reverse=True)
+            if newest_sessions:
+                session_id = newest_sessions[0]
+                manager = self.trader_managers[session_id]
+                if not manager.trading_session.trading_started:
+                    # pick first role
+                    if not existing_role:
+                        first_goal = params.predefined_goals[0]
+                        role = TraderRole.INFORMED if first_goal != 0 else TraderRole.SPECULATOR
+                        self.user_roles[gmail_username] = role
+                        if role == TraderRole.INFORMED and params.allow_random_goals:
+                            first_goal *= random.choice([-1, 1])
+                    else:
+                        role = existing_role
+                        if role == TraderRole.INFORMED:
+                            goal_candidates = [g for g in params.predefined_goals if g != 0]
+                            first_goal = abs(random.choice(goal_candidates))
+                            if params.allow_random_goals:
+                                first_goal *= random.choice([-1, 1])
+                        else:
+                            first_goal = 0
+                        
+                    trader_id = await manager.add_human_trader(gmail_username, role=role, goal=goal)
+                    self.trader_to_session_lookup[trader_id] = session_id
+                    self.active_users[session_id].add(gmail_username)
+                    self.user_sessions[gmail_username] = session_id
+                    return session_id, trader_id, role, first_goal
+        
+        # If all else fails, create new session
         session_id, trader_id = await self._create_new_session(gmail_username, role, first_goal, params)
+        self.last_session_creation = datetime.now()
         return session_id, trader_id, role, first_goal
 
     def get_trader_manager(self, trader_id: str) -> Optional[TraderManager]:
