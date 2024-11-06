@@ -37,6 +37,9 @@ from utils import setup_custom_logger
 app = FastAPI()
 security = HTTPBasic()
 
+# Global variables
+persistent_settings = {}  # Just declare it once here, no need for global keyword
+
 # CORS middleware for cross-origin requests
 app.add_middleware(
     CORSMiddleware,
@@ -59,7 +62,6 @@ async def add_security_headers(request: Request, call_next):
 
 session_handler = SessionHandler()
 trader_managers = {}
-persistent_settings = {}
 
 # helper funcs
 def get_historical_sessions_count(username):
@@ -71,9 +73,10 @@ def record_session_for_user(username, session_id):
 class PersistentSettings(BaseModel):
     settings: dict
 
+# Update the persistent settings endpoint
 @app.post("/admin/update_persistent_settings")
 async def update_persistent_settings(settings: PersistentSettings):
-    global persistent_settings
+    global persistent_settings  # Only use global when modifying
     persistent_settings = settings.settings
     return {"status": "success", "message": "Persistent settings updated"}
 
@@ -166,7 +169,13 @@ async def get_trader_defaults():
 
 @app.post("/trading/initiate")
 async def create_trading_session(background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)):
-    merged_params = TradingParameters(**(persistent_settings or {}))
+    # No need for global here since we're only reading
+    try:
+        merged_params = TradingParameters(**(persistent_settings or {}))
+    except Exception as e:
+        merged_params = TradingParameters()
+        print(f"Error applying persistent settings: {str(e)}")
+    
     gmail_username = current_user['gmail_username']
     trader_id = f"HUMAN_{gmail_username}"
     
@@ -175,6 +184,8 @@ async def create_trading_session(background_tasks: BackgroundTasks, current_user
         raise HTTPException(status_code=404, detail="No active session found for this user")
     
     session_id = session_handler.trader_to_session_lookup.get(trader_id)
+    
+    # Update the manager's parameters with our merged params
     trader_manager.params = merged_params
     
     response_data = {
@@ -601,12 +612,12 @@ def is_session_valid(session_id: str) -> bool:
 # nuke everything from orbit
 @app.post("/admin/reset_state")
 async def reset_state(current_user: dict = Depends(get_current_admin_user)):
-    """Reset all application state"""
+    """Reset all application state except settings"""
     try:
+        global persistent_settings  # Need global here because we modify it
+        current_settings = persistent_settings.copy()
         await session_handler.reset_state()
-        
-        global persistent_settings
-        persistent_settings = {}
+        persistent_settings = current_settings
         
         return {
             "status": "success", 
@@ -645,3 +656,11 @@ async def broadcast_trader_count(session_id: str):
                 await trader.websocket.send_json(count_message)
             except Exception:
                 pass
+
+@app.get("/admin/persistent_settings")
+async def get_persistent_settings(current_user: dict = Depends(get_current_admin_user)):
+    """Get current persistent settings"""
+    return {
+        "status": "success",
+        "data": persistent_settings
+    }

@@ -215,17 +215,13 @@ class TradingParameters(BaseModel):
             try:
                 # Convert string to list of integers
                 goals = [int(x.strip()) for x in v.split(',')]
-                # Ensure at least one goal exists
-                if not goals:
-                    return [100]  # Default to [100] if empty
+                # Don't override with default if empty
                 return goals
             except ValueError:
                 raise ValueError("Predefined goals must be comma-separated numbers!")
         elif isinstance(v, list):
-            # Convert list items to integers and ensure at least one goal
+            # Convert list items to integers but don't set default
             goals = [int(x) for x in v]
-            if not goals:
-                return [100]  # Default to [100] if empty
             return goals
         else:
             raise ValueError("Predefined goals must be comma-separated string or number list!")
