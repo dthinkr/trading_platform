@@ -47,18 +47,18 @@ class NoiseTrader(BaseTrader):
         return int(self.elapsed_time * self.activity_frequency)
 
     def calculate_cooling_interval(self) -> float:
-        """Dynamically calculate the cooling interval to match expected actions."""
-        action_difference = self.expected_actions - self.action_counter
+        # """Dynamically calculate the cooling interval to match expected actions."""
+        # action_difference = self.expected_actions - self.action_counter
 
-        if action_difference > 0:
-            # We're behind, need to catch up
-            return 0.1  # Minimum interval to catch up quickly
-        elif action_difference < 0:
-            # We're ahead, need to slow down
-            return 2 / self.activity_frequency  # Wait for 2 expected intervals
-        else:
-            # We're on track
-            return 1 / self.activity_frequency  # Normal interval
+        # if action_difference > 0:
+        #     # We're behind, need to catch up
+        #     return 0.1  # Minimum interval to catch up quickly
+        # elif action_difference < 0:
+        #     # We're ahead, need to slow down
+        #     return 2 / self.activity_frequency  # Wait for 2 expected intervals
+        # else:
+        #     # We're on track
+        return 1 / self.activity_frequency  # Normal interval
 
     async def cancel_orders(self, amt: int) -> None:
         if not self.orders:
