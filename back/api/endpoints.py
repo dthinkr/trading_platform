@@ -447,13 +447,23 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
         for task in pending:
             task.cancel()
             
+    except WebSocketDisconnect:
+        # Record session if it was active when disconnected
+        if session_id and gmail_username and trader_manager and trader_manager.trading_session.trading_started:
+            if gmail_username not in session_handler.user_historical_sessions:
+                session_handler.user_historical_sessions[gmail_username] = set()
+            session_handler.user_historical_sessions[gmail_username].add(session_id)
     except Exception:
         pass
     finally:
         if session_id and gmail_username:
             session_handler.remove_user_from_session(gmail_username, session_id)
             await broadcast_trader_count(session_id)
-        await websocket.close()
+        try:
+            await websocket.close()
+        except RuntimeError:
+            # Ignore "websocket.close" after response completed error
+            pass
 
 current_dir = Path(__file__).resolve().parent
 ROOT_DIR = current_dir.parent / "logs"
@@ -534,6 +544,11 @@ async def start_trading_session(background_tasks: BackgroundTasks, current_user:
         all_ready = True
         background_tasks.add_task(trader_manager.launch)
         status_message = "Trading session started"
+        
+        # Record session in historical sessions when it starts
+        if gmail_username not in session_handler.user_historical_sessions:
+            session_handler.user_historical_sessions[gmail_username] = set()
+        session_handler.user_historical_sessions[gmail_username].add(session_id)
     else:
         status_message = f"Waiting for other traders ({current_ready}/{total_needed} ready)"
     

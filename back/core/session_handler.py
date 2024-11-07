@@ -146,21 +146,18 @@ class SessionHandler:
     async def can_join_session(self, gmail_username: str, params: TradingParameters) -> bool:
         """check if user can join"""
         try:
-            # check current session
+            # Check current session - allow if already in an unstarted session
             if gmail_username in self.user_sessions:
                 session_id = self.user_sessions[gmail_username]
                 if session_id in self.trader_managers:
                     trader_manager = self.trader_managers[session_id]
                     if not trader_manager.trading_session.trading_started:
                         return True
-                        
-            # check count
-            active_session_count = sum(
-                1 for session_users in self.active_users.values()
-                if gmail_username in session_users
-            )
-            
-            return active_session_count < params.max_sessions_per_human
+                    
+            # Only check historical session count
+            historical_sessions_count = len(self.user_historical_sessions.get(gmail_username, set()))
+            print(f"historical_sessions_count: {historical_sessions_count}")
+            return historical_sessions_count < params.max_sessions_per_human
             
         except Exception as e:
             raise HTTPException(
@@ -264,7 +261,18 @@ class SessionHandler:
             )
 
     def remove_user_from_session(self, gmail_username: str, session_id: str):
-        """remove from session"""
+        """remove from session and record if session was started"""
+        # Get trader manager to check if session was started
+        trader_id = f"HUMAN_{gmail_username}"
+        trader_manager = self.trader_managers.get(session_id)
+        
+        # Record session if it was started
+        if trader_manager and trader_manager.trading_session.trading_started:
+            if gmail_username not in self.user_historical_sessions:
+                self.user_historical_sessions[gmail_username] = set()
+            self.user_historical_sessions[gmail_username].add(session_id)
+        
+        # Existing removal logic
         if session_id not in self.active_users:
             self.active_users[session_id] = set()
         
@@ -273,7 +281,6 @@ class SessionHandler:
         if gmail_username in self.user_sessions:
             del self.user_sessions[gmail_username]
             
-        trader_id = f"HUMAN_{gmail_username}"
         if trader_id in self.trader_to_session_lookup:
             del self.trader_to_session_lookup[trader_id]
 
@@ -296,6 +303,11 @@ class SessionHandler:
                 role=role,
                 goal=goal
             )
+            
+            # Record session in historical sessions immediately upon creation
+            if gmail_username not in self.user_historical_sessions:
+                self.user_historical_sessions[gmail_username] = set()
+            self.user_historical_sessions[gmail_username].add(session_id)
             
             self.trader_to_session_lookup[trader_id] = session_id
             self.active_users[session_id].add(gmail_username)
