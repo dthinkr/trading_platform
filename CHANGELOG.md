@@ -6,17 +6,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
 To propose changes:
+
 1. Edit this section directly in CHANGELOG.md
 2. Add your proposed change under the appropriate category below
 3. Use the format: "- [ ] Your proposed change"
 
 ### Proposed Features
+
 - [X] Add better error handling for partially filled sessions
+
+conversion rate
+payoff at the end
+randomizing informed side
+session management
+refreshing part
+end of session
 
 ## [2.0.2][2.0.2] - 2024-11-02
 
 ### Fixed
+
 - Added retry mechanism (2.5s) to prevent creation of partially filled sessions
 - Improved session validation before creation
 - Enhanced cleanup of incomplete sessions

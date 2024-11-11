@@ -32,6 +32,7 @@ from typing import Dict, Any
 from .google_sheet_auth import update_form_id, get_registered_users
 import zipfile
 from utils import setup_custom_logger
+from datetime import datetime
 
 # init fastapi
 app = FastAPI()
@@ -488,10 +489,29 @@ async def list_files(
         directories = []
         
         for item in full_path.iterdir():
+            # Get last modified time
+            mod_time = datetime.fromtimestamp(item.stat().st_mtime)
+            
             if item.is_file():
-                files.append({"type": "file", "name": item.name})
+                files.append({
+                    "type": "file", 
+                    "name": item.name,
+                    "modified": mod_time
+                })
             elif item.is_dir():
-                directories.append({"type": "directory", "name": item.name})
+                directories.append({
+                    "type": "directory", 
+                    "name": item.name,
+                    "modified": mod_time
+                })
+        
+        # Sort files and directories by modification time (newest first)
+        files.sort(key=lambda x: x["modified"], reverse=True)
+        directories.sort(key=lambda x: x["modified"], reverse=True)
+        
+        # Remove the modification time from the response
+        files = [{"type": f["type"], "name": f["name"]} for f in files]
+        directories = [{"type": d["type"], "name": d["name"]} for d in directories]
         
         return {
             "current_path": str(full_path.relative_to(ROOT_DIR)),

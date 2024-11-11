@@ -57,10 +57,17 @@ const chartOptions = reactive({
     shadow: false,
     useHTML: true,
     style: {
-      fontSize: '12px'
+      fontSize: '24px'
     },
-    pointFormat: '<span style="color:{point.color}">\u25CF</span> {series.name}: <b>${point.y:.2f}</b><br/>',
-    xDateFormat: '%Y-%m-%d %H:%M:%S'
+    formatter: function() {
+      return `<div style="padding: 8px;">
+        <div>Price: <b>$${Math.round(this.y)}</b></div>
+      </div>`;
+    },
+    followPointer: true,
+    hideDelay: 200,
+    outside: true,
+    useUTC: false
   },
   xAxis: {
     type: "datetime",
@@ -68,8 +75,10 @@ const chartOptions = reactive({
     labels: {
       style: {
         color: '#666',
-        fontSize: '10px'
-      }
+        fontSize: '12px'
+      },
+      format: '{value:%H:%M:%S}',
+      useUTC: false
     },
     lineWidth: 0,
     tickWidth: 0,
@@ -80,7 +89,7 @@ const chartOptions = reactive({
     labels: {
       style: {
         color: '#666',
-        fontSize: '10px'
+        fontSize: '12px'
       },
       formatter: function() {
         return '$' + Math.round(this.value);
@@ -93,7 +102,7 @@ const chartOptions = reactive({
     tickWidth: 1,
     tickLength: 6,
     tickPosition: 'outside',
-    opposite: true,
+    opposite: false,
     title: {
       text: null
     },
@@ -106,6 +115,7 @@ const chartOptions = reactive({
   },
   time: {
     useUTC: false,
+    timezone: 'local'
   },
   series: [
     {
@@ -125,15 +135,43 @@ const chartOptions = reactive({
           }
         }
       },
+      dataLabels: {
+        enabled: true,
+        allowOverlap: true,
+        crop: false,
+        overflow: 'allow',
+        formatter: function() {
+          return `$${Math.round(this.y)}`;
+        },
+        style: {
+          fontSize: '20px',
+          textOutline: 'none',
+          color: '#666'
+        },
+        backgroundColor: 'rgba(255,255,255,0.8)',
+        padding: 2,
+        borderRadius: 3,
+        y: -25,
+        x: -30,
+        align: 'left'
+      },
       animation: false
     },
   ],
   noData: {
+    position: {
+      align: 'center',
+      verticalAlign: 'middle'
+    },
     style: {
       fontWeight: "bold",
       fontSize: "14px",
       color: "#888",
     },
+    attr: {
+      'stroke-width': 1,
+      stroke: '#cccccc'
+    }
   },
   plotOptions: {
     series: {
@@ -153,10 +191,29 @@ watch(
   history,
   (newHistory) => {
     if (newHistory && newHistory.length) {
-      const data = newHistory.map((item) => ({
-        x: new Date(item.timestamp).getTime(),
-        y: item.price,
-      }));
+      const data = newHistory.map((item, index) => {
+        const timestamp = new Date(item.timestamp).getTime();
+        const price = Math.round(item.price);
+        const isLastPoint = index === newHistory.length - 1;
+        
+        const yOffset = -25 - (price > 150 ? 20 : 0);
+        
+        return {
+          x: timestamp,
+          y: price,
+          dataLabels: {
+            enabled: isLastPoint,
+            format: `$${price}`,
+            style: {
+              fontSize: '20px',
+              color: '#666'
+            },
+            y: yOffset,
+            x: -30,
+            align: 'left'
+          }
+        };
+      });
       
       if (priceGraph.value && priceGraph.value.chart) {
         priceGraph.value.chart.series[0].setData(data, true, false, false);
