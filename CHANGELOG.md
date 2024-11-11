@@ -16,13 +16,11 @@ To propose changes:
 ### Proposed Features
 
 - [X] Add better error handling for partially filled sessions
-
-conversion rate
-payoff at the end
-randomizing informed side-
-session management
-refreshing part
-end of session
+- [ ] Conversion rate implementation and payoff display (due to missing max profit, both upper and lower bounds, definition)
+- [X] Informed side randomization option
+- [X] End of session page (screenshot attached)
+- ​[X] Adjusted price display so prices are more visible (implemented while the proposed questions re x axis were not clarified)
+- ​[X] Informed option to enable passive orders
 
 ## [2.0.2][2.0.2] - 2024-11-02
 
