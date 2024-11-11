@@ -19,7 +19,7 @@ To propose changes:
 
 conversion rate
 payoff at the end
-randomizing informed side
+randomizing informed side-
 session management
 refreshing part
 end of session

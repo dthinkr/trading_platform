@@ -133,6 +133,16 @@ class TradingParameters(BaseModel):
         title="Informed Order Book Depth",
         description="informed_parameter",
     )
+    informed_use_passive_orders: bool = Field(
+        default=True,
+        title="Use Passive Orders",
+        description="informed_parameter",
+    )
+    informed_random_direction: bool = Field(
+        default=False,
+        title="Randomly Flip Trade Direction",
+        description="informed_parameter",
+    )
 
     # human trader settings
     initial_cash: float = Field(

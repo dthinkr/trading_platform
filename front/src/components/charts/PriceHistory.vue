@@ -136,24 +136,7 @@ const chartOptions = reactive({
         }
       },
       dataLabels: {
-        enabled: true,
-        allowOverlap: true,
-        crop: false,
-        overflow: 'allow',
-        formatter: function() {
-          return `$${Math.round(this.y)}`;
-        },
-        style: {
-          fontSize: '20px',
-          textOutline: 'none',
-          color: '#666'
-        },
-        backgroundColor: 'rgba(255,255,255,0.8)',
-        padding: 2,
-        borderRadius: 3,
-        y: -25,
-        x: -30,
-        align: 'left'
+        enabled: false
       },
       animation: false
     },
@@ -191,27 +174,12 @@ watch(
   history,
   (newHistory) => {
     if (newHistory && newHistory.length) {
-      const data = newHistory.map((item, index) => {
+      const data = newHistory.map((item) => {
         const timestamp = new Date(item.timestamp).getTime();
         const price = Math.round(item.price);
-        const isLastPoint = index === newHistory.length - 1;
-        
-        const yOffset = -25 - (price > 150 ? 20 : 0);
-        
         return {
           x: timestamp,
-          y: price,
-          dataLabels: {
-            enabled: isLastPoint,
-            format: `$${price}`,
-            style: {
-              fontSize: '20px',
-              color: '#666'
-            },
-            y: yOffset,
-            x: -30,
-            align: 'left'
-          }
+          y: price
         };
       });
       

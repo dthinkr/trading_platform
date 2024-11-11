@@ -120,21 +120,37 @@
             </v-row>
           </v-card-text>
           <v-card-actions class="justify-center pa-6">
-            <v-btn
-              color="primary" 
-              x-large 
-              @click="goToRegister" 
-              class="mr-4"
-            >
-              {{ canContinue ? 'Continue to Next Session' : 'End of Sessions' }}
-            </v-btn>
-            <v-btn 
-              color="secondary" 
-              x-large 
-              @click="downloadSessionMetrics"
-            >
-              Download Metrics
-            </v-btn>
+            <template v-if="isLastSession">
+              <div class="text-center">
+                <h2 class="text-h5 mb-4 primary--text">Thank you for your participation!</h2>
+                <p class="text-subtitle-1 mb-4">You have completed all trading sessions.</p>
+                <v-btn 
+                  color="secondary" 
+                  x-large 
+                  @click="downloadSessionMetrics"
+                  class="mt-2"
+                >
+                  Download Metrics
+                </v-btn>
+              </div>
+            </template>
+            <template v-else>
+              <v-btn
+                color="primary" 
+                x-large 
+                @click="goToRegister" 
+                class="mr-4"
+              >
+                Continue to Next Session
+              </v-btn>
+              <v-btn 
+                color="secondary" 
+                x-large 
+                @click="downloadSessionMetrics"
+              >
+                Download Metrics
+              </v-btn>
+            </template>
           </v-card-actions>
         </v-card>
       </v-col>
@@ -235,13 +251,6 @@ const goToRegister = () => {
   });
 };
 
-const canContinue = computed(() => {
-  if (traderInfo.value?.all_attributes?.is_admin) return true;
-  const currentCount = traderInfo.value?.all_attributes?.historical_sessions_count || 1;
-  const maxSessions = traderInfo.value?.all_attributes?.params?.max_sessions_per_human || 4;
-  return currentCount < maxSessions;
-});
-
 const currentSession = computed(() => {
   return traderInfo.value?.all_attributes?.historical_sessions_count || 1;
 });
@@ -251,6 +260,13 @@ const maxSessionsDisplay = computed(() => {
     return '∞';
   }
   return traderInfo.value?.all_attributes?.params?.max_sessions_per_human || 'Loading...';
+});
+
+const isLastSession = computed(() => {
+  if (traderInfo.value?.all_attributes?.is_admin) return false;
+  const currentCount = traderInfo.value?.all_attributes?.historical_sessions_count || 1;
+  const maxSessions = traderInfo.value?.all_attributes?.params?.max_sessions_per_human || 4;
+  return currentCount >= maxSessions;
 });
 
 onMounted(() => {

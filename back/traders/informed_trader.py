@@ -19,8 +19,20 @@ class InformedTrader(BaseTrader):
         self.params = params
         self.informed_order_book_levels = params.get("informed_order_book_levels", 3)
         self.informed_order_book_depth = params.get("informed_order_book_depth", 10)
+        self.use_passive_orders = params.get("informed_use_passive_orders", False)
+        
+        # Add random direction handling
+        if params.get("informed_random_direction", False):
+            # Randomly flip the direction with 50% probability
+            if random.random() < 0.5:
+                self.params["informed_trade_direction"] = (
+                    TradeDirection.SELL 
+                    if params["informed_trade_direction"] == TradeDirection.BUY 
+                    else TradeDirection.BUY
+                )
+            print(f'\033[91mInformed trader direction was randomly set to {self.params["informed_trade_direction"]}\033[0m')
+            
         self.goal = self.initialize_inventory(params)
-        #self.urgency_factor = params.get("informed_urgency_factor", 1.0)
         self.next_sleep_time = params.get("trading_day_duration",5) * 60 / self.goal
         self.shares_traded = 0
         print(f'\033[91mInformed trader params are {self.params}\033[0m')
@@ -216,29 +228,31 @@ class InformedTrader(BaseTrader):
         if remaining_time < 5 or (abs(self.goal - self.number_trades) == 0):
             return
 
-
         trade_direction = self.params["informed_trade_direction"]
         order_side = OrderType.BID if trade_direction == TradeDirection.BUY else OrderType.ASK
 
         top_bid_price = self.get_best_price(OrderType.BID)
         top_ask_price = self.get_best_price(OrderType.ASK)
         
-        spread = self.calculate_spread(top_bid_price,top_ask_price)
-        
+        spread = self.calculate_spread(top_bid_price, top_ask_price)
 
-        if order_side == OrderType.BID:
-            if spread <= self.informed_edge:
-                price_to_send = top_ask_price
-                amount = 1
-                await self.post_new_order(amount, price_to_send, order_side)
+        if self.use_passive_orders:
+            # Manage passive orders if enabled
+            await self.manage_passive_orders()
         else:
-            if spread <= self.informed_edge:
-                price_to_send = top_bid_price
-                amount = 1
-                await self.post_new_order(amount, price_to_send, order_side)
+            # Original aggressive-only behavior
+            if order_side == OrderType.BID:
+                if spread <= self.informed_edge:
+                    price_to_send = top_ask_price
+                    amount = 1
+                    await self.post_new_order(amount, price_to_send, order_side)
+            else:
+                if spread <= self.informed_edge:
+                    price_to_send = top_bid_price
+                    amount = 1
+                    await self.post_new_order(amount, price_to_send, order_side)
         
         self.number_trades = sum(order['amount'] for order in self.filled_orders)
-
         self.next_sleep_time = self.calculate_sleep_time(remaining_time, self.number_trades, self.goal)
 
         #print(f'\033[91m total number of trades is {self.number_trades}\033[0m')
