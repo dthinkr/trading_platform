@@ -153,8 +153,13 @@ class SessionHandler:
                     trader_manager = self.trader_managers[session_id]
                     if not trader_manager.trading_session.trading_started:
                         return True
+        
+            # Get admin status from params
+            admin_users = params.admin_users or []
+            if gmail_username in admin_users:
+                return True  # Always allow admin users
                     
-            # Only check historical session count
+            # Only check historical session count for non-admin users
             historical_sessions_count = len(self.user_historical_sessions.get(gmail_username, set()))
             print(f"historical_sessions_count: {historical_sessions_count}")
             return historical_sessions_count < params.max_sessions_per_human

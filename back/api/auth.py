@@ -97,14 +97,18 @@ async def get_current_user(request: Request):
             email = decoded_token['email']
             gmail_username = extract_gmail_username(email)
             
-            form_id = TradingParameters().google_form_id
-            if not is_user_registered(email, form_id):
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="User not registered in the study",
-                )
-            
+            # First check if user is admin
             is_admin = is_user_admin(email)
+            
+            # Only check registration if not admin
+            if not is_admin:
+                form_id = TradingParameters().google_form_id
+                if not is_user_registered(email, form_id):
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="User not registered in the study",
+                    )
+            
             user = {**decoded_token, "is_admin": is_admin, "gmail_username": gmail_username, "timezone": user_timezone}
             authenticated_users[gmail_username] = user
             return user
