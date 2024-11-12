@@ -290,6 +290,20 @@ def is_jsonable(x):
 
 def calculate_trader_specific_metrics(trader_specific_metrics, general_metrics, trader_goal):
     """Calculate trader-specific metrics based on trading activity and goals."""
+    # Store the original PnL
+    original_pnl = trader_specific_metrics['PnL']
+    
+    # Calculate reward with scaling between 3 and 10 based on PnL
+    if isinstance(original_pnl, (int, float)):
+        # Clip PnL to [-100, 100] range
+        capped_pnl = max(min(original_pnl, 100), -100)
+        # Scale PnL from [-100, 100] to [0, 1]
+        normalized_pnl = (capped_pnl + 100) / 200
+        # Scale to [3, 10] range
+        reward = 3 + (normalized_pnl * 7)
+    else:
+        reward = '-'
+    
     if trader_goal != 0:
         if trader_goal > 0:
             if trader_specific_metrics['Trades'] <= trader_goal:
@@ -305,7 +319,8 @@ def calculate_trader_specific_metrics(trader_specific_metrics, general_metrics, 
                     'Penalized_VWAP': penalized_vwap,
                     'Slippage': slippage,
                     'Slippage_Scaled': slippage_scaled,
-                    'PnL': '-'
+                    'PnL': original_pnl,  # Keep original PnL
+                    'Reward': reward
                 })
             else:
                 remaining_trades = abs(trader_goal) - abs(trader_specific_metrics['Trades'])
@@ -322,7 +337,8 @@ def calculate_trader_specific_metrics(trader_specific_metrics, general_metrics, 
                     'Penalized_VWAP': penalized_vwap,
                     'Slippage': slippage,
                     'Slippage_Scaled': slippage_scaled,
-                    'PnL': '-'
+                    'PnL': original_pnl,
+                    'Reward': reward
                 })
         else:
             if trader_specific_metrics['Trades'] <= abs(trader_goal):
@@ -338,7 +354,8 @@ def calculate_trader_specific_metrics(trader_specific_metrics, general_metrics, 
                     'Penalized_VWAP': penalized_vwap,
                     'Slippage': slippage,
                     'Slippage_Scaled': slippage_scaled,
-                    'PnL': '-'
+                    'PnL': original_pnl,
+                    'Reward': reward
                 })
             else:
                 remaining_trades = abs(trader_specific_metrics['Trades']) - abs(trader_goal) 
@@ -355,7 +372,8 @@ def calculate_trader_specific_metrics(trader_specific_metrics, general_metrics, 
                     'Penalized_VWAP': penalized_vwap,
                     'Slippage': slippage,
                     'Slippage_Scaled': slippage_scaled,
-                    'PnL': '-'
+                    'PnL': original_pnl,
+                    'Reward': reward
                 })
 
     else:
@@ -364,7 +382,9 @@ def calculate_trader_specific_metrics(trader_specific_metrics, general_metrics, 
             'VWAP': '-',
             'Penalized_VWAP': '-',
             'Slippage': '-',
-            'Slippage_Scaled': '-'
+            'Slippage_Scaled': '-',
+            'PnL': original_pnl,
+            'Reward': reward
         })
     
     return trader_specific_metrics
