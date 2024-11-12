@@ -101,6 +101,14 @@
                       <span class="text-subtitle-1">PnL:</span>
                       <span class="text-h6 font-weight-bold">{{ formatValue(traderSpecificMetrics.PnL, 'currency') }}</span>
                     </div>
+                    <div class="d-flex justify-space-between align-center mb-2">
+                      <span class="text-subtitle-1">Reward:</span>
+                      <span class="text-h6 font-weight-bold">{{ formatValue(traderSpecificMetrics.Reward, 'gbp') }}</span>
+                    </div>
+                    <div class="d-flex justify-space-between align-center mb-2">
+                      <span class="text-subtitle-1">You will be paid:</span>
+                      <span class="text-h6 font-weight-bold">{{ formatValue(traderSpecificMetrics.Accumulated_Reward, 'gbp') }}</span>
+                    </div>
                   </div>
                 </div>
               </v-col>
@@ -239,6 +247,8 @@ async function fetchTraderInfo() {
 const formatValue = (value, format) => {
   if (format === 'currency' && typeof value === 'number') {
     return value.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+  } else if (format === 'gbp' && typeof value === 'number') {
+    return value.toLocaleString('en-GB', { style: 'currency', currency: 'GBP' });
   } else if (format === 'number' && typeof value === 'number') {
     return value.toLocaleString('en-US');
   }

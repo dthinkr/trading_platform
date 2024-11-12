@@ -40,6 +40,7 @@ security = HTTPBasic()
 
 # Global variables
 persistent_settings = {}  # Just declare it once here, no need for global keyword
+accumulated_rewards = {}  # Store accumulated rewards per user
 
 # CORS middleware for cross-origin requests
 app.add_middleware(
@@ -273,16 +274,12 @@ async def get_trader_info(trader_id: str):
 
     try:
         trader_data = get_trader_info_with_session_data(trader_manager, trader_id)
-        
         session_id = session_handler.trader_to_session_lookup.get(trader_id)
-        
         log_file_path = os.path.join("logs", f"{session_id}_trading.log")
         
         try:
             order_book_metrics = order_book_contruction(log_file_path)
-            
             trader_specific_metrics = order_book_metrics.get(f"'{trader_id}'", {})
-            
             general_metrics = {k: v for k, v in order_book_metrics.items() if k != f"'{trader_id}'"}
 
             if trader_specific_metrics:
@@ -291,6 +288,15 @@ async def get_trader_info(trader_id: str):
                     general_metrics, 
                     trader_data.get('goal', 0)
                 )
+                
+                # Update accumulated rewards if there's a valid reward
+                if isinstance(trader_specific_metrics.get('Reward'), (int, float)):
+                    if trader_id not in accumulated_rewards:
+                        accumulated_rewards[trader_id] = 0
+                    accumulated_rewards[trader_id] += trader_specific_metrics['Reward']
+                
+                # Add accumulated reward to metrics
+                trader_specific_metrics['Accumulated_Reward'] = accumulated_rewards.get(trader_id, 0)
 
         except Exception as e:
             general_metrics = {"error": "Unable to process log file"}
@@ -649,10 +655,11 @@ def is_session_valid(session_id: str) -> bool:
 async def reset_state(current_user: dict = Depends(get_current_admin_user)):
     """Reset all application state except settings"""
     try:
-        global persistent_settings  # Need global here because we modify it
+        global persistent_settings, accumulated_rewards  # Need global here because we modify both
         current_settings = persistent_settings.copy()
         await session_handler.reset_state()
         persistent_settings = current_settings
+        accumulated_rewards = {}  # Reset accumulated rewards
         
         return {
             "status": "success", 
