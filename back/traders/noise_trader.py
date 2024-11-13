@@ -25,10 +25,10 @@ class NoiseTrader(BaseTrader):
 
         # Internal clock
         self.start_time = datetime.now()
-        self.session_duration = timedelta(minutes=self.params["trading_day_duration"])
+        self.market_duration = timedelta(minutes=self.params["trading_day_duration"])
         self.activity_frequency = self.params["noise_activity_frequency"]
         self.target_actions = int(
-            self.session_duration.total_seconds() * self.activity_frequency
+            self.market_duration.total_seconds() * self.activity_frequency
         )
 
     @property
@@ -38,8 +38,8 @@ class NoiseTrader(BaseTrader):
 
     @property
     def remaining_time(self) -> float:
-        """Returns the remaining time in seconds until the end of the session."""
-        return max(0, self.session_duration.total_seconds() - self.elapsed_time)
+        """Returns the remaining time in seconds until the end of the market."""
+        return max(0, self.market_duration.total_seconds() - self.elapsed_time)
 
     @property
     def expected_actions(self) -> int:

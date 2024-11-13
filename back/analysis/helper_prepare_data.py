@@ -43,19 +43,19 @@ def lobster_message_time(df_res: pl.DataFrame) -> pl.DataFrame:
         )
     min_timestamps = (
         df_res.filter(pl.col("Time").is_not_null())
-        .group_by("trading_session_id")
-        .agg(pl.min("Time").alias("session_start"))
+        .group_by("trading_market_id")
+        .agg(pl.min("Time").alias("market_start"))
     )
-    if "session_start" not in df_res.columns:
-        df_res = df_res.join(min_timestamps, on="trading_session_id", how="left")
+    if "market_start" not in df_res.columns:
+        df_res = df_res.join(min_timestamps, on="trading_market_id", how="left")
     if "Time" not in df_res.columns or df_res["Time"].dtype != pl.Float64:
         df_res = df_res.with_columns(
             (
                 pl.when(
-                    pl.col("Time").is_not_null() & pl.col("session_start").is_not_null()
+                    pl.col("Time").is_not_null() & pl.col("market_start").is_not_null()
                 )
                 .then(
-                    (pl.col("Time") - pl.col("session_start"))
+                    (pl.col("Time") - pl.col("market_start"))
                     .dt.total_nanoseconds()
                     .cast(pl.Float64)
                     / 1e6

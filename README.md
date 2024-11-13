@@ -22,9 +22,9 @@
 - 🎭 Advanced Role-Based Trading System
   - Informed Traders (Buy/Sell specialists)
   - Speculators (Free trading)
-  - Persistent roles across sessions
-- 👥 Multi-Trader Sessions
-  - Coordinated session starts
+  - Persistent roles across markets
+- 👥 Multi-Trader Markets
+  - Coordinated market starts
   - Real-time trader status updates
   - Enhanced waiting room interface
 - 📊 Real-Time Market Data
@@ -34,9 +34,9 @@
 - 🔒 Secure Authentication
   - Google-based login
   - Role persistence
-  - Session management
+  - Market management
 - 📈 Advanced Analytics
-  - Session metrics download
+  - Market metrics download
   - Performance tracking
   - Goal achievement monitoring
 

@@ -57,7 +57,7 @@ const { traderAttributes } = storeToRefs(traderStore);
 const { initializeTrader } = traderStore;
 
 const traderUuid = ref(route.params.traderUuid);
-const sessionId = ref(route.params.sessionId);
+const marketId = ref(route.params.marketId);
 
 const pages = [
   { name: 'welcome', title: 'Welcome', icon: 'mdi-handshake' },
@@ -89,7 +89,7 @@ const nextPage = () => {
     const nextPageName = pages[currentPageIndex.value + 1].name;
     router.push({ 
       name: nextPageName,
-      params: { sessionId: sessionId.value, traderUuid: traderUuid.value }
+      params: { marketId: marketId.value, traderUuid: traderUuid.value }
     });
   }
 };
@@ -99,7 +99,7 @@ const prevPage = () => {
     const prevPageName = pages[currentPageIndex.value - 1].name;
     router.push({ 
       name: prevPageName,
-      params: { sessionId: sessionId.value, traderUuid: traderUuid.value }
+      params: { marketId: marketId.value, traderUuid: traderUuid.value }
     });
   }
 };
@@ -113,7 +113,7 @@ const shouldDisableNext = computed(() => {
 });
 
 onMounted(async () => {
-  if (traderUuid.value && sessionId.value) {
+  if (traderUuid.value && marketId.value) {
     try {
       await initializeTrader(traderUuid.value);
       await traderStore.initializeTradingSystemWithPersistentSettings();
@@ -124,14 +124,14 @@ onMounted(async () => {
         const targetRoute = authStore.isPersisted ? 'practice' : 'welcome';
         router.push({ 
           name: targetRoute,
-          params: { sessionId: sessionId.value, traderUuid: traderUuid.value }
+          params: { marketId: marketId.value, traderUuid: traderUuid.value }
         });
       }
     } catch (error) {
       console.error("Error initializing trader:", error);
     }
   } else {
-    console.error("Trader UUID or Session ID not provided");
+    console.error("Trader UUID or Market ID not provided");
   }
 });
 

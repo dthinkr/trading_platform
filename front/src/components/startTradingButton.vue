@@ -42,14 +42,14 @@ const startTrading = async () => {
 
   isLoading.value = true;
   try {
-    await traderStore.startTradingSession();
+    await traderStore.startTradingMarket();
     
     // Navigate to the trading page
     router.push({ 
       name: 'trading', 
       params: { 
         traderUuid: traderStore.traderUuid,
-        sessionId: traderStore.tradingSessionData.trading_session_uuid 
+        marketId: traderStore.tradingMarketData.trading_market_uuid 
       } 
     });
   } catch (error) {

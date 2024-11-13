@@ -5,13 +5,13 @@ from core.data_models import OrderType
 
 
 class TradingEnvironment(gym.Env):
-    def __init__(self, trading_session):
+    def __init__(self, trading_market):
         super().__init__()
-        self.trading_session = trading_session
+        self.trading_market = trading_market
 
         self.previous_portfolio_value = (
-            self.trading_session.cash
-            + self.trading_session.shares * self.trading_session.mid_price
+            self.trading_market.cash
+            + self.trading_market.shares * self.trading_market.mid_price
         )
 
         # Define observation space
@@ -65,8 +65,8 @@ class TradingEnvironment(gym.Env):
         self.action_space = spaces.Discrete(3)
 
     def _get_observation(self):
-        order_book = self.trading_session.get_order_book_snapshot()
-        transactions = self.trading_session.get_transaction_history()
+        order_book = self.trading_market.get_order_book_snapshot()
+        transactions = self.trading_market.get_transaction_history()
 
         obs = {
             "order_book": {
@@ -84,25 +84,25 @@ class TradingEnvironment(gym.Env):
                 ),
             },
             "transactions": {
-                "last_price": np.array([self.trading_session.transaction_price or 0]),
+                "last_price": np.array([self.trading_market.transaction_price or 0]),
                 "vwap": np.array([self._calculate_vwap(transactions)]),
             },
             "market_stats": {
-                "mid_price": np.array([self.trading_session.mid_price]),
-                "spread": np.array([self.trading_session.order_book.get_spread()[0]]),
+                "mid_price": np.array([self.trading_market.mid_price]),
+                "spread": np.array([self.trading_market.order_book.get_spread()[0]]),
                 "imbalance": np.array([self._calculate_imbalance(order_book)]),
             },
             "trader_state": {
-                "cash": np.array([self.trading_session.cash]),
-                "shares": np.array([self.trading_session.shares]),
+                "cash": np.array([self.trading_market.cash]),
+                "shares": np.array([self.trading_market.shares]),
                 "unrealized_pnl": np.array([self._calculate_unrealized_pnl()]),
             },
             "time": {
-                "elapsed": np.array([self.trading_session.get_elapsed_time()]),
+                "elapsed": np.array([self.trading_market.get_elapsed_time()]),
                 "remaining": np.array(
                     [
-                        self.trading_session.duration * 60
-                        - self.trading_session.get_elapsed_time()
+                        self.trading_market.duration * 60
+                        - self.trading_market.get_elapsed_time()
                     ]
                 ),
             },
@@ -137,56 +137,56 @@ class TradingEnvironment(gym.Env):
         return (bid_volume - ask_volume) / total_volume if total_volume > 0 else 0
 
     def _calculate_unrealized_pnl(self):
-        current_price = self.trading_session.mid_price
-        return self.trading_session.shares * (
-            current_price - self.trading_session.average_entry_price
+        current_price = self.trading_market.mid_price
+        return self.trading_market.shares * (
+            current_price - self.trading_market.average_entry_price
         )
 
     def _calculate_portfolio_value_change(self):
         current_value = (
-            self.trading_session.cash
-            + self.trading_session.shares * self.trading_session.mid_price
+            self.trading_market.cash
+            + self.trading_market.shares * self.trading_market.mid_price
         )
         previous_value = self.previous_portfolio_value
         self.previous_portfolio_value = current_value
         return current_value - previous_value
 
     def _calculate_transaction_cost(self):
-        return 0.001 * abs(self.last_action_shares * self.trading_session.mid_price)
+        return 0.001 * abs(self.last_action_shares * self.trading_market.mid_price)
 
     def _calculate_holding_penalty(self):
         return 0.0001 * abs(
-            self.trading_session.shares * self.trading_session.mid_price
+            self.trading_market.shares * self.trading_market.mid_price
         )
 
     def _calculate_inventory_penalty(self):
         time_remaining = (
-            self.trading_session.duration * 60 - self.trading_session.get_elapsed_time()
+            self.trading_market.duration * 60 - self.trading_market.get_elapsed_time()
         )
         if time_remaining < 60:  # Last minute of trading
-            return 0.001 * (self.trading_session.shares**2)
+            return 0.001 * (self.trading_market.shares**2)
         return 0
 
     def step(self, action):
         # Execute the action
         if action == 1:  # Buy
             self.last_action_shares = 1
-            self.trading_session.place_order(
+            self.trading_market.place_order(
                 {
                     "trader_id": "rl_agent",
                     "order_type": OrderType.BID,
                     "amount": 1,
-                    "price": self.trading_session.mid_price,
+                    "price": self.trading_market.mid_price,
                 }
             )
         elif action == 2:  # Sell
             self.last_action_shares = -1
-            self.trading_session.place_order(
+            self.trading_market.place_order(
                 {
                     "trader_id": "rl_agent",
                     "order_type": OrderType.ASK,
                     "amount": 1,
-                    "price": self.trading_session.mid_price,
+                    "price": self.trading_market.mid_price,
                 }
             )
         else:
@@ -200,18 +200,18 @@ class TradingEnvironment(gym.Env):
 
         # Check if the episode is done
         done = (
-            self.trading_session.get_elapsed_time()
-            >= self.trading_session.duration * 60
+            self.trading_market.get_elapsed_time()
+            >= self.trading_market.duration * 60
         )
 
         return obs, reward, done, {}
 
     def reset(self):
-        # Reset the trading session
-        self.trading_session.reset()
+        # Reset the trading market
+        self.trading_market.reset()
         self.previous_portfolio_value = (
-            self.trading_session.cash
-            + self.trading_session.shares * self.trading_session.mid_price
+            self.trading_market.cash
+            + self.trading_market.shares * self.trading_market.mid_price
         )
         self.last_action_shares = 0
         return self._get_observation()

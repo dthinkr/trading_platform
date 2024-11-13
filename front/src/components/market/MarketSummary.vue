@@ -2,9 +2,9 @@
   <v-container fluid class="fill-height">
     <v-row align="center" justify="center" class="fill-height">
       <v-col cols="12" sm="10" md="8" lg="6">
-        <v-card elevation="24" class="session-summary-card">
+        <v-card elevation="24" class="market-summary-card">
           <v-card-title class="text-h4 font-weight-bold text-center py-6 primary white--text">
-            Trading Session Summary
+            Trading Market Summary
           </v-card-title>
           <v-card-text class="pa-6">
             <v-row>
@@ -114,28 +114,28 @@
               </v-col>
               <v-col cols="12">
                 <div class="metric-card pa-4 mb-4">
-                  <h3 class="text-h6 font-weight-medium mb-2">Session Progress</h3>
+                  <h3 class="text-h6 font-weight-medium mb-2">Market Progress</h3>
                   <div class="d-flex justify-space-between align-center mb-2">
-                    <span class="text-subtitle-1">Current Session:</span>
-                    <span class="text-h6 font-weight-bold">{{ currentSession }}</span>
+                    <span class="text-subtitle-1">Current Market:</span>
+                    <span class="text-h6 font-weight-bold">{{ currentMarket }}</span>
                   </div>
                   <div class="d-flex justify-space-between align-center">
-                    <span class="text-subtitle-1">Maximum Sessions:</span>
-                    <span class="text-h6 font-weight-bold">{{ maxSessionsDisplay }}</span>
+                    <span class="text-subtitle-1">Maximum Markets:</span>
+                    <span class="text-h6 font-weight-bold">{{ maxMarketsDisplay }}</span>
                   </div>
                 </div>
               </v-col>
             </v-row>
           </v-card-text>
           <v-card-actions class="justify-center pa-6">
-            <template v-if="isLastSession">
+            <template v-if="isLastMarket">
               <div class="text-center">
                 <h2 class="text-h5 mb-4 primary--text">Thank you for your participation!</h2>
-                <p class="text-subtitle-1 mb-4">You have completed all trading sessions.</p>
+                <p class="text-subtitle-1 mb-4">You have completed all trading markets.</p>
                 <v-btn 
                   color="secondary" 
                   x-large 
-                  @click="downloadSessionMetrics"
+                  @click="downloadMarketMetrics"
                   class="mt-2"
                 >
                   Download Metrics
@@ -149,12 +149,12 @@
                 @click="goToRegister" 
                 class="mr-4"
               >
-                Continue to Next Session
+                Continue to Next Market
               </v-btn>
               <v-btn 
                 color="secondary" 
                 x-large 
-                @click="downloadSessionMetrics"
+                @click="downloadMarketMetrics"
               >
                 Download Metrics
               </v-btn>
@@ -261,35 +261,35 @@ const goToRegister = () => {
   });
 };
 
-const currentSession = computed(() => {
-  return traderInfo.value?.all_attributes?.historical_sessions_count || 1;
+const currentMarket = computed(() => {
+  return traderInfo.value?.all_attributes?.historical_markets_count || 1;
 });
 
-const maxSessionsDisplay = computed(() => {
+const maxMarketsDisplay = computed(() => {
   if (traderInfo.value?.all_attributes?.is_admin) {
     return '∞';
   }
-  return traderInfo.value?.all_attributes?.params?.max_sessions_per_human || 'Loading...';
+  return traderInfo.value?.all_attributes?.params?.max_markets_per_human || 'Loading...';
 });
 
-const isLastSession = computed(() => {
+const isLastMarket = computed(() => {
   if (traderInfo.value?.all_attributes?.is_admin) return false;
-  const currentCount = traderInfo.value?.all_attributes?.historical_sessions_count || 1;
-  const maxSessions = traderInfo.value?.all_attributes?.params?.max_sessions_per_human || 4;
-  return currentCount >= maxSessions;
+  const currentCount = traderInfo.value?.all_attributes?.historical_markets_count || 1;
+  const maxMarkets = traderInfo.value?.all_attributes?.params?.max_markets_per_human || 4;
+  return currentCount >= maxMarkets;
 });
 
 onMounted(() => {
   fetchTraderInfo();
-  // Ensure the trading session data is set in the store
-  if (traderInfo.value && traderInfo.value.trading_session_id) {
-    traderStore.tradingSessionData = { trading_session_uuid: traderInfo.value.trading_session_id };
+  // Ensure the trading market data is set in the store
+  if (traderInfo.value && traderInfo.value.trading_market_id) {
+    traderStore.tradingMarketData = { trading_market_uuid: traderInfo.value.trading_market_id };
   }
 });
 </script>
 
 <style scoped>
-.session-summary-card {
+.market-summary-card {
   background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(10px);
   border-radius: 16px;
@@ -299,7 +299,7 @@ onMounted(() => {
   width: 100%;
 }
 
-.session-summary-card:hover {
+.market-summary-card:hover {
   transform: translateY(-5px);
   box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
 }

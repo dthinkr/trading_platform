@@ -14,7 +14,7 @@ from fastapi.security import HTTPBasic
 
 # our stuff
 from core.trader_manager import TraderManager
-from core.session_handler import SessionHandler
+from core.market_handler import MarketHandler
 from core.data_models import TraderType, TradingParameters, UserRegistration, TraderRole
 from .auth import get_current_user, get_current_admin_user, get_firebase_auth, extract_gmail_username, is_user_registered, is_user_admin, update_google_form_id, custom_verify_id_token
 from .calculate_metrics import process_log_file, write_to_csv
@@ -62,15 +62,15 @@ async def add_security_headers(request: Request, call_next):
     response.headers["Access-Control-Allow-Credentials"] = "true"
     return response
 
-session_handler = SessionHandler()
+market_handler = MarketHandler()
 trader_managers = {}
 
 # helper funcs
-def get_historical_sessions_count(username):
-    return len(session_handler.user_historical_sessions[username])
+def get_historical_markets_count(username):
+    return len(market_handler.user_historical_markets[username])
 
-def record_session_for_user(username, session_id):
-    session_handler.user_historical_sessions[username].add(session_id)
+def record_market_for_user(username, market_id):
+    market_handler.user_historical_markets[username].add(market_id)
 
 class PersistentSettings(BaseModel):
     settings: dict
@@ -113,8 +113,8 @@ async def user_login(request: Request):
     # Create parameters
     params = TradingParameters(**(persistent_settings or {}))
     
-    # Single call to handle all session/role/goal logic
-    session_id, trader_id, role, goal = await session_handler.validate_and_assign_role(
+    # Single call to handle all market/role/goal logic
+    market_id, trader_id, role, goal = await market_handler.validate_and_assign_role(
         gmail_username, 
         params
     )
@@ -125,7 +125,7 @@ async def user_login(request: Request):
         "data": {
             "username": email,
             "is_admin": is_user_admin(email),
-            "session_id": session_id,
+            "market_id": market_id,
             "trader_id": trader_id,
             "role": role,
             "goal": goal
@@ -170,7 +170,7 @@ async def get_trader_defaults():
     return JSONResponse(content={"status": "success", "data": defaults})
 
 @app.post("/trading/initiate")
-async def create_trading_session(background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)):
+async def create_trading_market(background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)):
     # No need for global here since we're only reading
     try:
         merged_params = TradingParameters(**(persistent_settings or {}))
@@ -181,20 +181,20 @@ async def create_trading_session(background_tasks: BackgroundTasks, current_user
     gmail_username = current_user['gmail_username']
     trader_id = f"HUMAN_{gmail_username}"
     
-    trader_manager = session_handler.get_trader_manager(trader_id)
+    trader_manager = market_handler.get_trader_manager(trader_id)
     if not trader_manager:
-        raise HTTPException(status_code=404, detail="No active session found for this user")
+        raise HTTPException(status_code=404, detail="No active market found for this user")
     
-    session_id = session_handler.trader_to_session_lookup.get(trader_id)
+    market_id = market_handler.trader_to_market_lookup.get(trader_id)
     
     # Update the manager's parameters with our merged params
     trader_manager.params = merged_params
     
     response_data = {
         "status": "success",
-        "message": "Trading session info retrieved",
+        "message": "Trading market info retrieved",
         "data": {
-            "trading_session_uuid": session_id,
+            "trading_market_uuid": market_id,
             "trader_id": trader_id,
             "traders": list(trader_manager.traders.keys()),
             "human_traders": [t.id for t in trader_manager.human_traders],
@@ -206,10 +206,10 @@ async def create_trading_session(background_tasks: BackgroundTasks, current_user
 
 def get_manager_by_trader(trader_id: str):
     """Get trader manager for trader ID"""
-    if trader_id not in session_handler.trader_to_session_lookup:
+    if trader_id not in market_handler.trader_to_market_lookup:
         return None
-    trading_session_id = session_handler.trader_to_session_lookup[trader_id]
-    manager = session_handler.trader_managers.get(trading_session_id)
+    trading_market_id = market_handler.trader_to_market_lookup[trader_id]
+    manager = market_handler.trader_managers.get(trading_market_id)
     return manager
 
 @app.get("/trader/{trader_id}")
@@ -225,7 +225,7 @@ async def get_trader(trader_id: str, current_user: dict = Depends(get_current_us
     data["goal"] = trader_data["goal"]
     return {"status": "success", "message": "Trader found", "data": data}
 
-def get_trader_info_with_session_data(trader_manager: TraderManager, trader_id: str) -> Dict[str, Any]:
+def get_trader_info_with_market_data(trader_manager: TraderManager, trader_id: str) -> Dict[str, Any]:
     try:
         trader = trader_manager.get_trader(trader_id)
         if not trader:
@@ -238,7 +238,7 @@ def get_trader_info_with_session_data(trader_manager: TraderManager, trader_id: 
             
         gmail_username = trader_id.split("HUMAN_")[-1] if trader_id.startswith("HUMAN_") else None
         
-        historical_sessions_count = len(session_handler.user_historical_sessions.get(gmail_username, set()))
+        historical_markets_count = len(market_handler.user_historical_markets.get(gmail_username, set()))
         
         params = trader_manager.params.model_dump() if trader_manager.params else {}
         
@@ -246,7 +246,7 @@ def get_trader_info_with_session_data(trader_manager: TraderManager, trader_id: 
         is_admin = gmail_username in admin_users if gmail_username else False
         
         trader_data['all_attributes'].update({
-            'historical_sessions_count': historical_sessions_count,
+            'historical_markets_count': historical_markets_count,
             'is_admin': is_admin,
             'params': params
         })
@@ -273,9 +273,9 @@ async def get_trader_info(trader_id: str):
         raise HTTPException(status_code=404, detail="Trader not found")
 
     try:
-        trader_data = get_trader_info_with_session_data(trader_manager, trader_id)
-        session_id = session_handler.trader_to_session_lookup.get(trader_id)
-        log_file_path = os.path.join("logs", f"{session_id}_trading.log")
+        trader_data = get_trader_info_with_market_data(trader_manager, trader_id)
+        market_id = market_handler.trader_to_market_lookup.get(trader_id)
+        log_file_path = os.path.join("logs", f"{market_id}_trading.log")
         
         try:
             order_book_metrics = order_book_contruction(log_file_path)
@@ -315,11 +315,11 @@ async def get_trader_info(trader_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting trader info: {str(e)}")
 
-@app.get("/trader/{trader_id}/session")
-async def get_trader_session(trader_id: str, current_user: dict = Depends(get_current_user)):
-    trader_manager = session_handler.get_trader_manager(trader_id)
+@app.get("/trader/{trader_id}/market")
+async def get_trader_market(trader_id: str, current_user: dict = Depends(get_current_user)):
+    trader_manager = market_handler.get_trader_manager(trader_id)
     if not trader_manager:
-        raise HTTPException(status_code=404, detail="No session found for this trader")
+        raise HTTPException(status_code=404, detail="No market found for this trader")
 
     human_traders_data = [t.get_trader_params_as_dict() for t in trader_manager.human_traders]
     params_dict = trader_manager.params.model_dump()
@@ -330,7 +330,7 @@ async def get_trader_session(trader_id: str, current_user: dict = Depends(get_cu
     response_data = {
         "status": "success",
         "data": {
-            "trading_session_uuid": trader_manager.trading_session.id,
+            "trading_market_uuid": trader_manager.trading_market.id,
             "traders": list(trader_manager.traders.keys()),
             "human_traders": human_traders_data,
             "game_params": params_dict
@@ -348,18 +348,18 @@ async def root():
 
 async def send_to_frontend(websocket: WebSocket, trader_manager):
     while True:
-        trading_session = trader_manager.trading_session
+        trading_market = trader_manager.trading_market
         time_update = {
             "type": "time_update",
             "data": {
-                "current_time": trading_session.current_time.isoformat(),
-                "is_trading_started": trading_session.trading_started,
+                "current_time": trading_market.current_time.isoformat(),
+                "is_trading_started": trading_market.trading_started,
                 "remaining_time": (
-                    trading_session.start_time
-                    + timedelta(minutes=trading_session.duration)
-                    - trading_session.current_time
+                    trading_market.start_time
+                    + timedelta(minutes=trading_market.duration)
+                    - trading_market.current_time
                 ).total_seconds()
-                if trading_session.trading_started
+                if trading_market.trading_started
                 else None,
                 "current_human_traders": len(trader_manager.human_traders),
                 "expected_human_traders": len(trader_manager.params.predefined_goals),
@@ -385,12 +385,12 @@ async def receive_from_frontend(websocket: WebSocket, trader):
         except Exception:
             return
 
-@app.get("/session_metrics")
-async def get_session_metrics(trader_id: str, session_id: str, current_user: dict = Depends(get_current_user)):
+@app.get("/market_metrics")
+async def get_market_metrics(trader_id: str, market_id: str, current_user: dict = Depends(get_current_user)):
     if trader_id != f"HUMAN_{current_user['gmail_username']}":
         raise HTTPException(status_code=403, detail="Unauthorized access to trader data")
     
-    log_file_path = f"logs/{session_id}_trading.log"
+    log_file_path = f"logs/{market_id}_trading.log"
     
     try:
         processed_data = process_log_file(log_file_path)
@@ -401,15 +401,15 @@ async def get_session_metrics(trader_id: str, session_id: str, current_user: dic
         return StreamingResponse(
             iter([output.getvalue()]),
             media_type="text/csv",
-            headers={"Content-Disposition": f"attachment; filename=session_{session_id}_trader_{trader_id}_metrics.csv"}
+            headers={"Content-Disposition": f"attachment; filename=market_{market_id}_trader_{trader_id}_metrics.csv"}
         )
     except Exception:
-        raise HTTPException(status_code=500, detail="Error processing session metrics")
+        raise HTTPException(status_code=500, detail="Error processing market metrics")
 
 @app.websocket("/trader/{trader_id}")
 async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
     await websocket.accept()
-    session_id = None
+    market_id = None
     gmail_username = None
     
     try:
@@ -418,25 +418,25 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
         email = decoded_token['email']
         gmail_username = extract_gmail_username(email)
         
-        trader_manager = session_handler.get_trader_manager(trader_id)
+        trader_manager = market_handler.get_trader_manager(trader_id)
         if not trader_manager:
             await websocket.close()
             return
             
-        session_id = session_handler.trader_to_session_lookup.get(trader_id)
+        market_id = market_handler.trader_to_market_lookup.get(trader_id)
         trader = trader_manager.get_trader(trader_id)
         if not trader:
             await websocket.close()
             return
         
-        session_handler.add_user_to_session(gmail_username, session_id)
+        market_handler.add_user_to_market(gmail_username, market_id)
         
         initial_count = {
             "type": "trader_count_update",
             "data": {
-                "current_human_traders": len(session_handler.active_users.get(session_id, set())),
+                "current_human_traders": len(market_handler.active_users.get(market_id, set())),
                 "expected_human_traders": len(trader_manager.params.predefined_goals),
-                "session_id": session_id
+                "market_id": market_id
             }
         }
         await websocket.send_json(initial_count)
@@ -455,17 +455,17 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
             task.cancel()
             
     except WebSocketDisconnect:
-        # Record session if it was active when disconnected
-        if session_id and gmail_username and trader_manager and trader_manager.trading_session.trading_started:
-            if gmail_username not in session_handler.user_historical_sessions:
-                session_handler.user_historical_sessions[gmail_username] = set()
-            session_handler.user_historical_sessions[gmail_username].add(session_id)
+        # Record market if it was active when disconnected
+        if market_id and gmail_username and trader_manager and trader_manager.trading_market.trading_started:
+            if gmail_username not in market_handler.user_historical_markets:
+                market_handler.user_historical_markets[gmail_username] = set()
+            market_handler.user_historical_markets[gmail_username].add(market_id)
     except Exception:
         pass
     finally:
-        if session_id and gmail_username:
-            session_handler.remove_user_from_session(gmail_username, session_id)
-            await broadcast_trader_count(session_id)
+        if market_id and gmail_username:
+            market_handler.remove_user_from_market(gmail_username, market_id)
+            await broadcast_trader_count(market_id)
         try:
             await websocket.close()
         except RuntimeError:
@@ -544,44 +544,44 @@ async def get_file(file_path: str):
         raise HTTPException(status_code=500, detail="Internal server error")
 # lets start trading!
 @app.post("/trading/start")
-async def start_trading_session(background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)):
+async def start_trading_market(background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)):
     gmail_username = current_user['gmail_username']
     trader_id = f"HUMAN_{gmail_username}"
     
-    # Get session from session_handler
-    session_id = session_handler.trader_to_session_lookup.get(trader_id)
-    if not session_id:
-        raise HTTPException(status_code=404, detail="No active session found")
+    # Get market from market_handler
+    market_id = market_handler.trader_to_market_lookup.get(trader_id)
+    if not market_id:
+        raise HTTPException(status_code=404, detail="No active market found")
     
     # Mark trader ready
-    all_ready = await session_handler.mark_trader_ready(trader_id, session_id)
+    all_ready = await market_handler.mark_trader_ready(trader_id, market_id)
     
     # Get trader manager
-    trader_manager = session_handler.trader_managers.get(session_id)
+    trader_manager = market_handler.trader_managers.get(market_id)
     if not trader_manager:
-        raise HTTPException(status_code=404, detail="Session not found")
+        raise HTTPException(status_code=404, detail="Market not found")
     
     # Get current status
-    current_ready = len(session_handler.session_ready_traders.get(session_id, set()))
+    current_ready = len(market_handler.market_ready_traders.get(market_id, set()))
     total_needed = len(trader_manager.params.predefined_goals)
     
     # Start trading if all required traders are ready
     if current_ready >= total_needed:
         all_ready = True
         background_tasks.add_task(trader_manager.launch)
-        status_message = "Trading session started"
+        status_message = "Trading market started"
         
-        # Record session in historical sessions when it starts
-        if gmail_username not in session_handler.user_historical_sessions:
-            session_handler.user_historical_sessions[gmail_username] = set()
-        session_handler.user_historical_sessions[gmail_username].add(session_id)
+        # Record market in historical markets when it starts
+        if gmail_username not in market_handler.user_historical_markets:
+            market_handler.user_historical_markets[gmail_username] = set()
+        market_handler.user_historical_markets[gmail_username].add(market_id)
     else:
         status_message = f"Waiting for other traders ({current_ready}/{total_needed} ready)"
     
     return {
         "ready_count": current_ready,
         "total_needed": total_needed,
-        "ready_traders": list(session_handler.session_ready_traders.get(session_id, set())),
+        "ready_traders": list(market_handler.market_ready_traders.get(market_id, set())),
         "all_ready": all_ready,
         "message": status_message
     }
@@ -641,14 +641,14 @@ async def download_all_files():
     except Exception:
         raise HTTPException(status_code=500, detail="Internal server error")
 
-# quick session check
-def is_session_valid(session_id: str) -> bool:
-    """Check if session is active"""
-    if session_id not in trader_managers:
+# quick market check
+def is_market_valid(market_id: str) -> bool:
+    """Check if market is active"""
+    if market_id not in trader_managers:
         return False
     
-    trader_manager = trader_managers[session_id]
-    return trader_manager.trading_session.active
+    trader_manager = trader_managers[market_id]
+    return trader_manager.trading_market.active
 
 # nuke everything from orbit
 @app.post("/admin/reset_state")
@@ -657,7 +657,7 @@ async def reset_state(current_user: dict = Depends(get_current_admin_user)):
     try:
         global persistent_settings, accumulated_rewards  # Need global here because we modify both
         current_settings = persistent_settings.copy()
-        await session_handler.reset_state()
+        await market_handler.reset_state()
         persistent_settings = current_settings
         accumulated_rewards = {}  # Reset accumulated rewards
         
@@ -673,13 +673,13 @@ async def reset_state(current_user: dict = Depends(get_current_admin_user)):
         )
         
 # headcount!
-async def broadcast_trader_count(session_id: str):
+async def broadcast_trader_count(market_id: str):
     """Broadcast current trader count to all traders"""
-    trader_manager = session_handler.trader_managers.get(session_id)
+    trader_manager = market_handler.trader_managers.get(market_id)
     if not trader_manager:
         return
         
-    current_traders = len(session_handler.active_users[session_id])
+    current_traders = len(market_handler.active_users[market_id])
     expected_traders = len(trader_manager.params.predefined_goals)
     
     count_message = {
@@ -687,7 +687,7 @@ async def broadcast_trader_count(session_id: str):
         "data": {
             "current_human_traders": current_traders,
             "expected_human_traders": expected_traders,
-            "session_id": session_id
+            "market_id": market_id
         }
     }
     

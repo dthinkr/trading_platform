@@ -31,7 +31,7 @@ export const useTraderStore = defineStore("trader", {
     currentTime: null,
     isTradingStarted: false,
     remainingTime: null,
-    tradingSessionData: {},
+    tradingMarketData: {},
     formState: null, 
     extraParams: [
       {
@@ -165,7 +165,7 @@ export const useTraderStore = defineStore("trader", {
     async initializeTradingSystem(persistentSettings) {
       try {
         const response = await axios.post("trading/initiate");
-        this.tradingSessionData = response.data.data;
+        this.tradingMarketData = response.data.data;
         this.gameParams = persistentSettings;
         this.formState = this.gameParams;
         console.log("Game parameters:", this.gameParams); // Debug logging
@@ -222,27 +222,27 @@ export const useTraderStore = defineStore("trader", {
         console.log("Initializing trader:", traderUuid);
         await this.getTraderAttributes(traderUuid);
         
-        // Get the session info to initialize counts properly
+        // Get the market info to initialize counts properly
         try {
-          const response = await axios.get(`trader/${traderUuid}/session`);
+          const response = await axios.get(`trader/${traderUuid}/market`);
           if (response.data.status === "success") {
-            const sessionData = response.data.data;
-            console.log("Session data received:", sessionData);
+            const marketData = response.data.data;
+            console.log("Market data received:", marketData);
             
-            // Update session data and counts
-            this.tradingSessionData = {
-              trading_session_uuid: sessionData.trading_session_uuid,
-              ...sessionData
+            // Update market data and counts
+            this.tradingMarketData = {
+              trading_market_uuid: marketData.trading_market_uuid,
+              ...marketData
             };
             
             // Set initial counts based on predefined_goals length
             this.$patch({
-              currentHumanTraders: sessionData.human_traders.length,
-              expectedHumanTraders: sessionData.game_params.predefined_goals.length
+              currentHumanTraders: marketData.human_traders.length,
+              expectedHumanTraders: marketData.game_params.predefined_goals.length
             });
           }
         } catch (error) {
-          console.error("Error fetching session data:", error);
+          console.error("Error fetching market data:", error);
         }
         
         // Initialize WebSocket after setting initial values
@@ -258,7 +258,7 @@ export const useTraderStore = defineStore("trader", {
 
       if (data.type === "trader_count_update") {
         console.log("Received trader count update:", data.data);
-        // Remove session verification to ensure updates are processed
+        // Remove market verification to ensure updates are processed
         this.$patch({
           currentHumanTraders: data.data.current_human_traders,
           expectedHumanTraders: data.data.expected_human_traders
@@ -358,7 +358,7 @@ export const useTraderStore = defineStore("trader", {
         this.vwap = vwap;
       }
 
-      if (data.type === "session_status_update") {
+      if (data.type === "market_status_update") {
         this.allTradersReady = data.data.all_ready;
         this.readyCount = data.data.ready_count;
         // ... handle other status updates
@@ -583,17 +583,17 @@ export const useTraderStore = defineStore("trader", {
       this.$reset();
     },
 
-    async fetchSessionMetrics() {
-      if (!this.traderUuid || !this.tradingSessionData.trading_session_uuid) {
-        console.error('Trader ID or Session ID is missing');
+    async fetchMarketMetrics() {
+      if (!this.traderUuid || !this.tradingMarketData.trading_market_uuid) {
+        console.error('Trader ID or Market ID is missing');
         return;
       }
 
       try {
-        const response = await axios.get('/session_metrics', {
+        const response = await axios.get('/market_metrics', {
           params: {
             trader_id: this.traderUuid,
-            session_id: this.tradingSessionData.trading_session_uuid
+            market_id: this.tradingMarketData.trading_market_uuid
           },
           responseType: 'blob',
         });
@@ -606,7 +606,7 @@ export const useTraderStore = defineStore("trader", {
         const a = document.createElement('a');
         a.style.display = 'none';
         a.href = url;
-        a.download = `session_${this.tradingSessionData.trading_session_uuid}_trader_${this.traderUuid}_metrics.csv`;
+        a.download = `market_${this.tradingMarketData.trading_market_uuid}_trader_${this.traderUuid}_metrics.csv`;
         
         document.body.appendChild(a);
         a.click();
@@ -616,7 +616,7 @@ export const useTraderStore = defineStore("trader", {
         document.body.removeChild(a);
 
       } catch (error) {
-        console.error('Error fetching session metrics:', error);
+        console.error('Error fetching market metrics:', error);
         if (error.response) {
           console.error('Response data:', error.response.data);
           console.error('Response status:', error.response.status);
@@ -657,7 +657,7 @@ export const useTraderStore = defineStore("trader", {
       }
     },
 
-    async startTradingSession() {
+    async startTradingMarket() {
       try {
         const response = await axios.post(`${import.meta.env.VITE_HTTP_URL}trading/start`);
         if (response.data.status === "success") {
@@ -665,7 +665,7 @@ export const useTraderStore = defineStore("trader", {
           // this.isTradingStarted = true;
         }
       } catch (error) {
-        console.error('Error starting trading session:', error);
+        console.error('Error starting trading market:', error);
         if (error.response) {
           console.error('Response data:', error.response.data);
           console.error('Response status:', error.response.status);

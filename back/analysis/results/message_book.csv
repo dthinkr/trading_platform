@@ -1,4 +1,4 @@
-seconds_into_session,source,message_type,incoming_message,price,size,direction,Event_Type,Ask_Price_1,Bid_Price_1,Midprice,Ask_Prices,Ask_Sizes,Bid_Prices,Bid_Sizes,matched_bid_id,matched_ask_id,informed_trader_progress
+seconds_into_market,source,message_type,incoming_message,price,size,direction,Event_Type,Ask_Price_1,Bid_Price_1,Midprice,Ask_Prices,Ask_Sizes,Bid_Prices,Bid_Sizes,matched_bid_id,matched_ask_id,informed_trader_progress
 0.0,BOOK_INITIALIZER,ADDED_ORDER,"1999,1,1",1999,1,1,1,,1999,,[],[],[1999],[1],,,
 0.053,BOOK_INITIALIZER,ADDED_ORDER,"1999,1,1",1999,1,1,1,,1999,,[],[],[1999],[2],,,
 0.106,BOOK_INITIALIZER,ADDED_ORDER,"1999,1,1",1999,1,1,1,,1999,,[],[],[1999],[3],,,

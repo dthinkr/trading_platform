@@ -41,19 +41,19 @@
               <v-card-text>
                 <div class="d-flex align-center mb-4">
                   <v-icon size="28" :color="iconColor" class="mr-2">mdi-progress-check</v-icon>
-                  <span class="text-h6">Session Progress</span>
+                  <span class="text-h6">Market Progress</span>
                 </div>
                 <div class="d-flex justify-space-between align-center mb-2">
-                  <span>Current Session:</span>
-                  <span class="highlight-text">{{ currentSession }}</span>
+                  <span>Current Market:</span>
+                  <span class="highlight-text">{{ currentMarket }}</span>
                 </div>
                 <div class="d-flex justify-space-between align-center mb-3">
-                  <span>Maximum Sessions:</span>
-                  <span class="highlight-text">{{ maxSessionsDisplay }}</span>
+                  <span>Maximum Markets:</span>
+                  <span class="highlight-text">{{ maxMarketsDisplay }}</span>
                 </div>
                 <v-progress-linear
                   v-if="!isAdmin"
-                  :value="sessionProgress"
+                  :value="marketProgress"
                   height="8"
                   rounded
                   striped
@@ -190,12 +190,12 @@ const startTrading = async () => {
   try {
     await traderStore.initializeTradingSystemWithPersistentSettings();
     await traderStore.getTraderAttributes(traderStore.traderUuid);
-    await traderStore.startTradingSession();
+    await traderStore.startTradingMarket();
     router.push({ 
       name: 'trading', 
       params: { 
         traderUuid: traderStore.traderUuid,
-        sessionId: route.params.sessionId  // Now route is defined
+        marketId: route.params.marketId  // Now route is defined
       } 
     });
   } catch (error) {
@@ -222,28 +222,28 @@ const handleLogout = async () => {
   }
 };
 
-const currentSession = computed(() => {
-  return props.traderAttributes?.all_attributes?.historical_sessions_count || 1;
+const currentMarket = computed(() => {
+  return props.traderAttributes?.all_attributes?.historical_markets_count || 1;
 });
 
-const maxSessionsPerHuman = computed(() => {
-  return props.traderAttributes?.all_attributes?.params?.max_sessions_per_human || 4;
+const maxMarketsPerHuman = computed(() => {
+  return props.traderAttributes?.all_attributes?.params?.max_markets_per_human || 4;
 });
 
 const isAdmin = computed(() => {
   return props.traderAttributes?.all_attributes?.is_admin || false;
 });
 
-const maxSessionsDisplay = computed(() => {
+const maxMarketsDisplay = computed(() => {
   if (isAdmin.value) {
     return '∞';
   }
-  return maxSessionsPerHuman.value;
+  return maxMarketsPerHuman.value;
 });
 
-const sessionProgress = computed(() => {
+const marketProgress = computed(() => {
   if (isAdmin.value) return 100;
-  return (currentSession.value / maxSessionsPerHuman.value) * 100;
+  return (currentMarket.value / maxMarketsPerHuman.value) * 100;
 });
 </script>
 

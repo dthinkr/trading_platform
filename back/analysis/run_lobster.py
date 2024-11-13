@@ -59,22 +59,22 @@ def run_lobster(max_depth: int = 10) -> pd.DataFrame:
     return result_df
 
 
-def pick_one(trading_session_id: str = None, max_depth: int = 10) -> pd.DataFrame:
+def pick_one(trading_market_id: str = None, max_depth: int = 10) -> pd.DataFrame:
     df = run_lobster(max_depth)
-    if trading_session_id:
-        filtered_df = df[df["trading_session_id"] == trading_session_id]
+    if trading_market_id:
+        filtered_df = df[df["trading_market_id"] == trading_market_id]
     else:
-        unique_ids = df["trading_session_id"].drop_duplicates().tolist()
+        unique_ids = df["trading_market_id"].drop_duplicates().tolist()
         if unique_ids:
             # selected_id = random.choice(unique_ids)
             selected_id = unique_ids[-1]
-            filtered_df = df[df["trading_session_id"] == selected_id]
+            filtered_df = df[df["trading_market_id"] == selected_id]
         else:
             return pd.DataFrame()  # Return empty if no IDs found
 
     if not filtered_df.empty:
         filtered_df.to_csv(
-            f"{CONFIG.DATA_DIR}/LOBSTER_{filtered_df['trading_session_id'].iloc[0]}.csv",
+            f"{CONFIG.DATA_DIR}/LOBSTER_{filtered_df['trading_market_id'].iloc[0]}.csv",
             index=False,
         )
     return filtered_df

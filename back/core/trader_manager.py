@@ -1,7 +1,7 @@
 """
 trader manager: connects and manages human traders
 
-launches new trading sessions when clients ask for them
+launches new trading markets when clients ask for them
 helps find existing traders and returns their ids
 """
 
@@ -29,7 +29,7 @@ class TraderManager:
     human_traders = List[HumanTrader]
     noise_traders = List[NoiseTrader]
     informed_traders = List[InformedTrader]
-    informed_trader = None  # Track the informed trader in this session
+    informed_trader = None  # Track the informed trader in this market
 
     def __init__(self, params: TradingParameters):
         self.params = params
@@ -54,11 +54,11 @@ class TraderManager:
             + self.simple_order_traders
         }
         
-        # Create trading session
+        # Create trading market
         current_timestamp = int(time.time())
-        session_id = f"SESSION_{current_timestamp}"
-        self.trading_session = TradingPlatform(
-            session_id=session_id,
+        market_id = f"SESSION_{current_timestamp}"
+        self.trading_market = TradingPlatform(
+            market_id=market_id,
             duration=params.trading_day_duration,
             default_price=params.default_price,
             params=params_dict  # Pass dict
@@ -119,14 +119,14 @@ class TraderManager:
             shares=self.params.initial_stocks,
             goal=goal,
             role=role,
-            trading_session=self.trading_session,
+            trading_market=self.trading_market,
             params=self.params.model_dump(),
             gmail_username=gmail_username
         )
         
         if role == TraderRole.INFORMED:
             if self.informed_trader is not None:
-                raise ValueError("Session already has an informed trader")
+                raise ValueError("Market already has an informed trader")
             self.informed_trader = new_trader
 
         self.traders[trader_id] = new_trader
@@ -142,37 +142,37 @@ class TraderManager:
         return False
 
     async def launch(self):
-        await self.trading_session.initialize()
+        await self.trading_market.initialize()
 
         for trader_id, trader in self.traders.items():
             await trader.initialize()
 
             if not isinstance(trader, HumanTrader):
-                await trader.connect_to_session(
-                    trading_session_uuid=self.trading_session.id
+                await trader.connect_to_market(
+                    trading_market_uuid=self.trading_market.id
                 )
 
         await self.book_initializer.initialize_order_book()
 
-        self.trading_session.set_initialization_complete()
+        self.trading_market.set_initialization_complete()
 
         # Wait for all required traders based on predefined_goals length
         num_required_traders = len(self.params.predefined_goals)
         while len(self.human_traders) < num_required_traders:
             await asyncio.sleep(1)
 
-        await self.trading_session.start_trading()
+        await self.trading_market.start_trading()
 
-        trading_session_task = asyncio.create_task(self.trading_session.run())
+        trading_market_task = asyncio.create_task(self.trading_market.run())
         trader_tasks = [asyncio.create_task(i.run()) for i in self.traders.values()]
 
-        self.tasks.append(trading_session_task)
+        self.tasks.append(trading_market_task)
         self.tasks.extend(trader_tasks)
 
-        await trading_session_task
+        await trading_market_task
 
     async def cleanup(self):
-        await self.trading_session.clean_up()
+        await self.trading_market.clean_up()
         for trader in self.traders.values():
             await trader.clean_up()
         for task in self.tasks:
@@ -193,6 +193,6 @@ class TraderManager:
 
     def get_params(self):
         params = self.params.model_dump()
-        trading_session_params = self.trading_session.get_params()
-        params.update(trading_session_params)
+        trading_market_params = self.trading_market.get_params()
+        params.update(trading_market_params)
         return params

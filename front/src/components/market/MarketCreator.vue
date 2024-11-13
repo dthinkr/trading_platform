@@ -1,12 +1,12 @@
 <template>
-  <div class="session-creator">
+  <div class="market-creator">
     <v-container fluid class="pa-4">
       <v-row class="mb-4">
         <v-col cols="12">
           <v-card elevation="2">
             <v-card-title class="headline">
               <v-icon left color="deep-blue">mdi-cog-outline</v-icon>
-              Trading Session Configuration
+              Trading Market Configuration
             </v-card-title>
             
             <v-card-subtitle class="py-2">
@@ -332,7 +332,7 @@ onMounted(fetchData);
 </script>
 
 <style scoped>
-.session-creator {
+.market-creator {
   zoom: 90%;
   -moz-transform: scale(0.9);
   -moz-transform-origin: 0 0;

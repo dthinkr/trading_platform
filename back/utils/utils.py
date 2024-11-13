@@ -31,13 +31,13 @@ class CustomFormatter(logging.Formatter):
         log_message = super(CustomFormatter, self).format(record)
         return colored(log_message, self.COLORS.get(record.levelname))
 
-def setup_trading_logger(session_id: str) -> logging.Logger:
-    logger = logging.getLogger(f"trading_session_{session_id}")
+def setup_trading_logger(market_id: str) -> logging.Logger:
+    logger = logging.getLogger(f"trading_market_{market_id}")
     logger.setLevel(logging.INFO)
 
     log_dir = "logs"
     os.makedirs(log_dir, exist_ok=True)
-    log_file = os.path.join(log_dir, f"{session_id}_trading.log")
+    log_file = os.path.join(log_dir, f"{market_id}_trading.log")
 
     file_handler = logging.FileHandler(log_file)
     file_handler.setLevel(logging.INFO)
@@ -85,7 +85,7 @@ def if_active(func):
     def sync_wrapper(self, *args, **kwargs):
         if not self.active:
             logger.critical(
-                f"{func.__name__} is skipped because the trading session is not active."
+                f"{func.__name__} is skipped because the trading market is not active."
             )
             return None
         return func(self, *args, **kwargs)
@@ -93,7 +93,7 @@ def if_active(func):
     async def async_wrapper(self, *args, **kwargs):
         if not self.active:
             logger.critical(
-                f"{func.__name__} is skipped because the trading session is not active."
+                f"{func.__name__} is skipped because the trading market is not active."
             )
             return None
         return await func(self, *args, **kwargs)

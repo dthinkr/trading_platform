@@ -28,7 +28,7 @@ logger = setup_custom_logger(__name__)
 class TradingPlatform:
     def __init__(
         self,
-        session_id: str,
+        market_id: str,
         duration: int,
         default_price: int,
         default_spread: int = 10,
@@ -36,7 +36,7 @@ class TradingPlatform:
         params: Dict = None,
     ):
         # Initialize attributes
-        self.id = session_id
+        self.id = market_id
         self.duration = duration
         self.default_price = default_price
         self.default_spread = default_spread
@@ -45,7 +45,7 @@ class TradingPlatform:
         
         # Set up trading components
         self.order_book_manager = OrderBookManager()
-        self.transaction_manager = TransactionManager(session_id)
+        self.transaction_manager = TransactionManager(market_id)
         self.rabbitmq_manager = RabbitMQManager(rabbitmq_url)
         self.connected_traders: Dict[str, Dict] = {}
         self.trader_responses: Dict[str, bool] = {}
@@ -131,7 +131,7 @@ class TradingPlatform:
         )
 
     def get_params(self) -> Dict:
-        """Get the trading session parameters."""
+        """Get the trading market parameters."""
         return {
             "id": self.id,
             "duration": self.duration,
@@ -146,7 +146,7 @@ class TradingPlatform:
 
     @property
     def is_full(self):
-        """Check if the trading session is full."""
+        """Check if the trading market is full."""
         return len(self.connected_traders) >= len(self.params['predefined_goals'])
 
     @property
@@ -237,7 +237,7 @@ class TradingPlatform:
         if order_id:
             data["id"] = order_id
 
-        order = Order(status=OrderStatus.BUFFERED.value, session_id=self.id, **data)
+        order = Order(status=OrderStatus.BUFFERED.value, market_id=self.id, **data)
         order_dict = order.model_dump()
 
         if informed_trader_progress is not None:
@@ -361,7 +361,7 @@ class TradingPlatform:
                 amount=order["amount"],
                 price=closure_price,
                 status=OrderStatus.BUFFERED.value,
-                session_id=self.id,
+                market_id=self.id,
             )
 
             self.place_order(platform_order.model_dump())
@@ -403,7 +403,7 @@ class TradingPlatform:
                 amount=shares,
                 price=closure_price,
                 status=OrderStatus.BUFFERED.value,
-                session_id=self.id,
+                market_id=self.id,
             )
             trader_order = Order(
                 trader_id=gmail_username, order_type=trader_order_type, **proto_order
@@ -435,7 +435,7 @@ class TradingPlatform:
         self.initialization_complete = True
 
     async def start_trading(self):
-        """Start the trading session."""
+        """Start the trading market."""
         self.start_time = datetime.now(timezone.utc)
         self.active = True
         self.trading_started = True
@@ -444,12 +444,12 @@ class TradingPlatform:
         )
 
     async def run(self) -> None:
-        """Run the trading session."""
+        """Run the trading market."""
         start_time = datetime.now(timezone.utc)
         while not self._stop_requested.is_set():
             current_time = datetime.now(timezone.utc)
             if self._should_stop_trading(current_time):
-                await self._end_trading_session()
+                await self._end_trading_market()
                 break
             await asyncio.sleep(1)
         
@@ -458,14 +458,14 @@ class TradingPlatform:
         await self.clean_up()
 
     def _should_stop_trading(self, current_time: datetime) -> bool:
-        """Check if the trading session should stop."""
+        """Check if the trading market should stop."""
         return (
             self.start_time
             and current_time - self.start_time > timedelta(minutes=self.duration)
         )
 
-    async def _end_trading_session(self) -> None:
-        """End the trading session and perform cleanup."""
+    async def _end_trading_market(self) -> None:
+        """End the trading market and perform cleanup."""
         self.active = False
         await self.close_existing_book()
         await self.send_broadcast({"type": "stop_trading"})

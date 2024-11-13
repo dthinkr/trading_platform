@@ -392,14 +392,14 @@ def calculate_trader_specific_metrics(trader_specific_metrics, general_metrics, 
 if __name__ == '__main__':
     location = '/Users/marioljonuzaj/Documents/Python Projects/Trading Platform/trading_platform/back/logs/'
     logfile_name = location + 'SESSION_1730472204_trading.log'  # Replace with your log file path
-    session_id = logfile_name.split('/')[-1].split('_trading')[0]
+    market_id = logfile_name.split('/')[-1].split('_trading')[0]
     
     order_book_metrics = order_book_contruction(logfile_name)
         
-    output_message_file = location  + session_id + '_' + 'message_book.csv'
+    output_message_file = location  + market_id + '_' + 'message_book.csv'
     #message_df.to_csv(output_message_file, index=False)
     
-    output_metrics_file = location  + session_id + '_' + ' metrics.json'
+    output_metrics_file = location  + market_id + '_' + ' metrics.json'
 
     # Save the dictionary to a JSON file
     # with open(output_metrics_file, 'w') as json_file:

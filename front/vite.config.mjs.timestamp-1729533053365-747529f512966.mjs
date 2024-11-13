@@ -28,7 +28,7 @@ var vite_config_default = defineConfig({
       "@components": fileURLToPath(new URL("./src/components", __vite_injected_original_import_meta_url)),
       "@charts": fileURLToPath(new URL("./src/components/charts", __vite_injected_original_import_meta_url)),
       "@trading": fileURLToPath(new URL("./src/components/trading", __vite_injected_original_import_meta_url)),
-      "@session": fileURLToPath(new URL("./src/components/session", __vite_injected_original_import_meta_url)),
+      "@market": fileURLToPath(new URL("./src/components/market", __vite_injected_original_import_meta_url)),
       "@assets": fileURLToPath(new URL("./src/assets", __vite_injected_original_import_meta_url))
       // New line added
     },

@@ -3,8 +3,8 @@ from typing import Dict, List, Tuple, Optional
 from core.data_models import TransactionModel, OrderType
 
 class TransactionManager:
-    def __init__(self, session_id: str):
-        self.session_id = session_id
+    def __init__(self, market_id: str):
+        self.market_id = market_id
         self.transaction_list: List[TransactionModel] = []
         self.transaction_queue: asyncio.Queue = asyncio.Queue()
         self._last_transaction_price: Optional[float] = None
@@ -14,7 +14,7 @@ class TransactionManager:
         bid_id, ask_id = bid["id"], ask["id"]
 
         transaction = TransactionModel(
-            trading_session_id=self.session_id,
+            trading_market_id=self.market_id,
             bid_order_id=bid_id,
             ask_order_id=ask_id,
             price=transaction_price,

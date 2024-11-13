@@ -6,7 +6,7 @@
           <v-card-text class="text-center">
             <img :src="logo" alt="Trading Logo" class="trading-logo mb-4">
             <h1 class="text-h4 font-weight-bold mb-2">Trade</h1>
-            <p class="text-subtitle-1 mb-6">Sign in to access a trading session</p>
+            <p class="text-subtitle-1 mb-6">Sign in to access a trading market</p>
             
             <!-- Hidden buttons that will be auto-clicked -->
             <v-btn
@@ -69,13 +69,13 @@ onMounted(async () => {
   // Wait for auth initialization
   await authStore.initializeAuth();
   
-  // If user is already authenticated and has trader/session IDs, auto-navigate
-  if (authStore.isAuthenticated && authStore.traderId && authStore.sessionId) {
+  // If user is already authenticated and has trader/market IDs, auto-navigate
+  if (authStore.isAuthenticated && authStore.traderId && authStore.marketId) {
     router.push({ 
       name: 'practice',
       params: { 
         traderUuid: authStore.traderId,
-        sessionId: authStore.sessionId
+        marketId: authStore.marketId
       } 
     });
   }
@@ -89,14 +89,14 @@ const signInWithGoogle = async () => {
     
     await authStore.login(user);
     
-    if (authStore.traderId && authStore.sessionId) {
+    if (authStore.traderId && authStore.marketId) {
       // Check if this is a persisted login
       if (authStore.isPersisted) {
         router.push({ 
           name: 'practice',  // Go directly to practice page
           params: { 
             traderUuid: authStore.traderId,
-            sessionId: authStore.sessionId
+            marketId: authStore.marketId
           } 
         });
       } else {
@@ -104,7 +104,7 @@ const signInWithGoogle = async () => {
           name: 'welcome',  // New users start from welcome page
           params: { 
             traderUuid: authStore.traderId,
-            sessionId: authStore.sessionId
+            marketId: authStore.marketId
           } 
         });
       }
@@ -124,7 +124,7 @@ const adminSignInWithGoogle = async () => {
     await authStore.adminLogin(user);
     
     if (authStore.isAdmin) {
-      router.push('/SessionCreator');
+      router.push('/MarketCreator');
     } else {
       errorMessage.value = "You do not have admin privileges.";
     }
