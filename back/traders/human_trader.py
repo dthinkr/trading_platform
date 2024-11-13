@@ -11,11 +11,11 @@ logger = setup_custom_logger(__name__)
 
 class HumanTrader(BaseTrader):
 
-    def __init__(self, id, cash=0, shares=0, goal=0, role=None, trading_session=None, params=None, gmail_username=None):
+    def __init__(self, id, cash=0, shares=0, goal=0, role=None, trading_market=None, params=None, gmail_username=None):
         super().__init__(TraderType.HUMAN, id, cash, shares)
         self.goal = goal
         self.role = role
-        self.trading_session = trading_session
+        self.trading_market = trading_market
         self.params = params
         self.gmail_username = gmail_username
         self.websocket = None
@@ -46,7 +46,7 @@ class HumanTrader(BaseTrader):
                 await self.initialize()
             
             if not self.trading_system_exchange:
-                await self.connect_to_session(self.trading_session.id)
+                await self.connect_to_market(self.trading_market.id)
             
             await self.register()
         except Exception as e:

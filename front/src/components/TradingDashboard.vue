@@ -248,11 +248,11 @@ onMounted(async () => {
     console.error('Error fetching user role:', error);
   }
 
-  // Start session timeout countdown if not started
+  // Start market timeout countdown if not started
   if (!isTradingStarted.value) {
-    sessionTimeoutInterval.value = setInterval(() => {
-      if (sessionTimeRemaining.value > 0) {
-        sessionTimeRemaining.value--;
+    marketTimeoutInterval.value = setInterval(() => {
+      if (marketTimeRemaining.value > 0) {
+        marketTimeRemaining.value--;
       }
     }, 1000);
   }
@@ -339,8 +339,8 @@ const getToolIcon = (toolTitle) => {
 
 // Add these to your existing refs/computed
 const userRole = ref('');
-const sessionTimeRemaining = ref(60); // Change from 30 to 60 seconds
-const sessionTimeoutInterval = ref(null);
+const marketTimeRemaining = ref(60); // Change from 30 to 60 seconds
+const marketTimeoutInterval = ref(null);
 
 // Add these computed properties
 const roleDisplay = computed(() => {
@@ -372,16 +372,16 @@ const roleIcon = computed(() => roleDisplay.value.icon);
 
 // Add watcher for trading started
 watch(isTradingStarted, (newValue) => {
-  if (newValue && sessionTimeoutInterval.value) {
-    clearInterval(sessionTimeoutInterval.value);
-    sessionTimeRemaining.value = 0;
+  if (newValue && marketTimeoutInterval.value) {
+    clearInterval(marketTimeoutInterval.value);
+    marketTimeRemaining.value = 0;
   }
 });
 
-// Add handler for session timeout
-watch(sessionTimeRemaining, (newValue) => {
+// Add handler for market timeout
+watch(marketTimeRemaining, (newValue) => {
   if (newValue === 0 && !isTradingStarted.value) {
-    router.push({ name: 'Register', query: { error: 'Session timed out - not enough traders joined' } });
+    router.push({ name: 'Register', query: { error: 'Market timed out - not enough traders joined' } });
   }
 });
 
@@ -541,7 +541,7 @@ watch(zoomLevel, (newZoom) => {
   font-weight: 500;
 }
 
-.session-timeout {
+.market-timeout {
   color: #ff5252;
   font-weight: 500;
 }

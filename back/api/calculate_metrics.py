@@ -54,7 +54,7 @@ def process_message(message: Dict, order_book: Dict[str, Dict[int, int]], timest
     ask_prices = sorted(order_book['asks'].keys())
 
     return {
-        'seconds_into_session': timestamp,
+        'seconds_into_market': timestamp,
         'source': message.get('trader_id', ''),
         'message_type': 'ADDED_ORDER',
         'incoming_message': f"{price},{size},{direction}",

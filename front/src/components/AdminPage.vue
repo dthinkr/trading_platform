@@ -12,7 +12,7 @@
           <v-spacer></v-spacer>
           <v-col cols="auto">
             <v-btn color="white" text :to="{ name: 'CreateTradingPlatform' }">
-              Return to Create Session
+              Return to Create Market
             </v-btn>
           </v-col>
         </v-row>
@@ -24,23 +24,23 @@
         <v-card class="mx-auto mt-5" elevation="2">
           <v-card-title class="headline">
             <v-icon left color="deep-blue">mdi-account-group</v-icon>
-            Trading Session: {{ tradingSessionData.trading_session_uuid }}
+            Trading Market: {{ tradingMarketData.trading_market_uuid }}
           </v-card-title>
           <v-card-text>
             <v-expansion-panels>
               <v-expansion-panel>
                 <v-expansion-panel-title>
                   <v-icon left color="deep-blue">mdi-file-document-outline</v-icon>
-                  Trading Session Creation Data
+                  Trading Market Creation Data
                 </v-expansion-panel-title>
                 <v-expansion-panel-text>
-                  <pre class="trader-data">{{ JSON.stringify(tradingSessionCreationData, null, 2) }}</pre>
+                  <pre class="trader-data">{{ JSON.stringify(tradingMarketCreationData, null, 2) }}</pre>
                 </v-expansion-panel-text>
               </v-expansion-panel>
               <v-expansion-panel>
                 <v-expansion-panel-title>
                   <v-icon left color="deep-blue">mdi-cog-outline</v-icon>
-                  Trading Session Parameters
+                  Trading Market Parameters
                 </v-expansion-panel-title>
                 <v-expansion-panel-text>
                   <v-simple-table>
@@ -52,7 +52,7 @@
                         </tr>
                       </thead>
                       <tbody>
-                        <tr v-for="(value, key) in tradingSessionParameters" :key="key">
+                        <tr v-for="(value, key) in tradingMarketParameters" :key="key">
                           <td>{{ key }}</td>
                           <td>{{ value }}</td>
                         </tr>
@@ -64,7 +64,7 @@
             </v-expansion-panels>
 
             <v-row class="mt-4">
-              <v-col v-for="(ht, ind) in tradingSessionData.human_traders" :key="ind" cols="12" sm="6" md="4">
+              <v-col v-for="(ht, ind) in tradingMarketData.human_traders" :key="ind" cols="12" sm="6" md="4">
                 <v-card class="mb-4" elevation="2">
                   <v-card-title class="headline">
                     <v-icon left color="deep-blue">mdi-account</v-icon>
@@ -72,13 +72,13 @@
                   </v-card-title>
                   <v-card-text>
                     <v-card 
-                      @click="startTraderSession(ht.id)"
+                      @click="startTraderMarket(ht.id)"
                       hover
                       class="trader-card mb-4"
                     >
                       <v-card-title class="title">
                         <v-icon left color="deep-blue">mdi-play-circle</v-icon>
-                        Start Trader Session
+                        Start Trader Market
                       </v-card-title>
                       <v-card-text>
                         <div class="font-weight-medium">Goal:</div>
@@ -133,27 +133,27 @@ import { useRouter } from 'vue-router';
 import axios from '@/api/axios';
 
 const props = defineProps({
-  tradingSessionUUID: String,
+  tradingMarketUUID: String,
 });
 
 const router = useRouter();
 const traderStore = useTraderStore();
-const { tradingSessionData, formState } = storeToRefs(traderStore);
+const { tradingMarketData, formState } = storeToRefs(traderStore);
 
-const tradingSessionCreationData = computed(() => {
-  const { human_traders, ...rest } = tradingSessionData.value;
+const tradingMarketCreationData = computed(() => {
+  const { human_traders, ...rest } = tradingMarketData.value;
   return rest;
 });
 
-const tradingSessionParameters = computed(() => {
+const tradingMarketParameters = computed(() => {
   return formState.value || {};
 });
 
-const startTraderSession = (traderId) => {
+const startTraderMarket = (traderId) => {
   const params = {
     traderUuid: traderId,
-    duration: tradingSessionParameters.value.trading_day_duration,
-    numRounds: tradingSessionParameters.value.max_sessions_per_human
+    duration: tradingMarketParameters.value.trading_day_duration,
+    numRounds: tradingMarketParameters.value.max_markets_per_human
   };
   router.push({ 
     name: 'onboarding',  // Change this from 'TraderLanding' to 'onboarding'
@@ -168,7 +168,7 @@ const startTraderSession = (traderId) => {
 const editablePersistentSettings = ref({});
 
 onMounted(async () => {
-  await traderStore.getTraderAttributes(props.tradingSessionUUID);
+  await traderStore.getTraderAttributes(props.tradingMarketUUID);
   await fetchPersistentSettings();
 });
 

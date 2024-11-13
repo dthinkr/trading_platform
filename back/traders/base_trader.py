@@ -32,7 +32,7 @@ class BaseTrader:
         self.id = id
         self.connection = None
         self.channel = None
-        self.trading_session_uuid = None
+        self.trading_market_uuid = None
         self.trader_queue_name = f"trader_{self.id}"
         self.queue_name = None
         self.broadcast_exchange_name = None
@@ -119,15 +119,15 @@ class BaseTrader:
         except Exception:
             pass
 
-    async def connect_to_session(self, trading_session_uuid):
+    async def connect_to_market(self, trading_market_uuid):
         if not self.channel:
             await self.initialize()
 
-        self.trading_session_uuid = trading_session_uuid
-        self.queue_name = f"trading_system_queue_{self.trading_session_uuid}"
+        self.trading_market_uuid = trading_market_uuid
+        self.queue_name = f"trading_system_queue_{self.trading_market_uuid}"
         self.trader_queue_name = f"trader_{self.id}"
 
-        self.broadcast_exchange_name = f"broadcast_{self.trading_session_uuid}"
+        self.broadcast_exchange_name = f"broadcast_{self.trading_market_uuid}"
 
         broadcast_exchange = await self.channel.declare_exchange(
             self.broadcast_exchange_name, aio_pika.ExchangeType.FANOUT, auto_delete=True
@@ -149,7 +149,7 @@ class BaseTrader:
 
     async def register(self):
         if not self.trading_system_exchange:
-            await self.connect_to_session(self.trading_session_uuid)
+            await self.connect_to_market(self.trading_market_uuid)
 
         message = {
             "type": ActionType.REGISTER.value,

@@ -15,10 +15,10 @@ To propose changes:
 
 ### Proposed Features
 
-- [X] Add better error handling for partially filled sessions
+- [X] Add better error handling for partially filled markets
 - [ ] Conversion rate implementation and payoff display (due to missing max profit, both upper and lower bounds, definition)
 - [X] Informed side randomization option
-- [X] End of session page (screenshot attached)
+- [X] End of market page (screenshot attached)
 - ​[X] Adjusted price display so prices are more visible (implemented while the proposed questions re x axis were not clarified)
 - ​[X] Informed option to enable passive orders
 
@@ -26,16 +26,16 @@ To propose changes:
 
 ### Fixed
 
-- Added retry mechanism (2.5s) to prevent creation of partially filled sessions
-- Improved session validation before creation
-- Enhanced cleanup of incomplete sessions
+- Added retry mechanism (2.5s) to prevent creation of partially filled markets
+- Improved market validation before creation
+- Enhanced cleanup of incomplete markets
 
 ## [2.0.1][2.0.1] - 2024-11-01
 
 ### Fixed
 
 - Fixed double counting of passive orders in trade history display
-- Improved goal assignment system to maintain consistent roles across sessions
+- Improved goal assignment system to maintain consistent roles across markets
 - Renamed "Order History" to "Trades History" for clarity
 - Enhanced trade history display with better position tracking and VWAP calculations
 
@@ -49,38 +49,38 @@ To propose changes:
 
 ### Added
 
-- New role assignment system with persistent user roles across sessions
-- Real-time session status updates showing ready traders count
-- Enhanced waiting room interface with clear session status indicators
+- New role assignment system with persistent user roles across markets
+- Real-time market status updates showing ready traders count
+- Enhanced waiting room interface with clear market status indicators
 - Improved trader role display with distinct visual indicators for:
   - Informed (Buy) traders
   - Informed (Sell) traders
   - Speculator traders
-- Session coordination system requiring all traders to be ready before start
+- Market coordination system requiring all traders to be ready before start
 
 ### Changed
 
-- Fundamentally changed session management:
-  - Sessions now require all traders to actively press "Start Trading"
+- Fundamentally changed market management:
+  - Markets now require all traders to actively press "Start Trading"
   - Trading only begins when all expected traders are present and ready
-  - Each session now maintains exactly one informed trader
-- Improved role persistence: user roles now persist across session refreshes
+  - Each market now maintains exactly one informed trader
+- Improved role persistence: user roles now persist across market refreshes
 - Enhanced user experience:
   - Clearer role indicators with color-coded chips and icons
-  - Better visual feedback for session status
+  - Better visual feedback for market status
   - More intuitive waiting room interface
 
 ### Fixed
 
-- Session state preservation when refreshing the page
-- Role assignment consistency across multiple sessions
-- User authentication and session management
+- Market state preservation when refreshing the page
+- Role assignment consistency across multiple markets
+- User authentication and market management
 - Gmail address now correctly associated with one human trader at any time
 
 ### Removed
 
-- Session timeout functionality for more stable session management
-- Automatic session termination for incomplete trader groups
+- Market timeout functionality for more stable market management
+- Automatic market termination for incomplete trader groups
 
 ## [1.3.5][1.3.5] - 2024-10-16
 
@@ -88,12 +88,12 @@ To propose changes:
 
 - Google Form integration for participant information collection
 - Automatic task randomization for multiple markets
-- Log file generation for each market session
+- Log file generation for each market market
 
 ### Changed
 
 - Implemented participant verification system for platform login
-- Updated backend to support multiple market sessions per participant
+- Updated backend to support multiple market markets per participant
 
 ### Fixed
 
@@ -133,7 +133,7 @@ To propose changes:
 
 ### Fixed
 
-- Resolved issue with trading session not starting properly
+- Resolved issue with trading market not starting properly
 - Fixed issue where passive orders show on both buy and sell sides of order history
 - Adjusted chart sizes, now they should be properly displayed
 - The deployment now monitors changes in the "deploy" branch and automatically updates the production version
@@ -142,10 +142,10 @@ To propose changes:
 
 ### Added
 
-- Implemented download of session metrics from log files
+- Implemented download of market metrics from log files
 - Enhanced frontend to display CSV data preview after downloading metrics
 - Enabled user authentication system
-- Implemented multi-trader, multi-session trading, platforms starts only after participants are ready
+- Implemented multi-trader, multi-market trading, platforms starts only after participants are ready
 - Added support for manual setting of goals for each human trader
 - Add options to set trader as Informed or Speculator
 - Improved display of bought/sold shares at top right of platform
@@ -212,7 +212,7 @@ To propose changes:
 
 ### Added
 
-- Background processing for multiple trading sessions
+- Background processing for multiple trading markets
 - Visual summary of time-series results directly on the platform
 
 ### Changed

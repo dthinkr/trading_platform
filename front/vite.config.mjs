@@ -29,7 +29,7 @@ export default defineConfig({
       '@components': fileURLToPath(new URL('./src/components', import.meta.url)),
       '@charts': fileURLToPath(new URL('./src/components/charts', import.meta.url)),
       '@trading': fileURLToPath(new URL('./src/components/trading', import.meta.url)),
-      '@session': fileURLToPath(new URL('./src/components/session', import.meta.url)),
+      '@market': fileURLToPath(new URL('./src/components/market', import.meta.url)),
       '@assets': fileURLToPath(new URL('./src/assets', import.meta.url)), // New line added
 
     },

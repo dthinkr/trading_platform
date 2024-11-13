@@ -1,6 +1,6 @@
 MD_TOKEN: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzZXNzaW9uIjoidmVudm9vb28uZ21haWwuY29tIiwiZW1haWwiOiJ2ZW52b29vb0BnbWFpbC5jb20iLCJ1c2VySWQiOiI4NjIyNzk3YS05ZDkzLTQ0MTYtYjhlNy0wNTdiMDFkNjc1NjEiLCJpYXQiOjE3MDYwNTk3MjgsImV4cCI6MTczNzYxNzMyOH0.QhvzD9nk5C3L-28u5gfZXqJosOvIpV-S6ElKwp5HeU4"
 
-TABLE_REF: "session_parameter"
+TABLE_REF: "market_parameter"
 TABLE_RES: "trading_data"
 DATASET: "trader"
 DATA_FILE: "analysis/results/new_run_data.parquet"
@@ -24,7 +24,7 @@ TYPE_MAPPING:
   CROSS_TRADE: 6
   TRADING_HALT: 7
 
-MESSAGE_COLUMNS: ['trading_session_id', 'Time', 'Event Type', 'Order ID', 'Trader ID', 'Size', 'Price', 'Direction']
+MESSAGE_COLUMNS: ['trading_market_id', 'Time', 'Event Type', 'Order ID', 'Trader ID', 'Size', 'Price', 'Direction']
 LOBSTER_BOOK_COLUMN: 'LOBSTER_BOOK'
 
 

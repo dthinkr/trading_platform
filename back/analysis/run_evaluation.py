@@ -3,13 +3,13 @@ import json
 import numpy as np
 import matplotlib.pyplot as plt
 from SALib.analyze import sobol
-from .record_pm import get_time_series_metrics_for_sessions
+from .record_pm import get_time_series_metrics_for_markets
 from .utilities import load_config
 
 CONFIG = load_config()
 
 
-def load_problem_and_sessions():
+def load_problem_and_markets():
     latest_file = max(
         [
             f
@@ -22,33 +22,33 @@ def load_problem_and_sessions():
         data = json.load(f)
 
     problem = data["sobol_problem"]
-    sorted_sessions = sorted(data["sessions"].items(), key=lambda x: x[1]["order"])
-    sorted_session_ids = [session[0] for session in sorted_sessions]
+    sorted_markets = sorted(data["markets"].items(), key=lambda x: x[1]["order"])
+    sorted_market_ids = [market[0] for market in sorted_markets]
 
     # Extract date and time from the filename
     parts = latest_file.split("_")
     date_str = f"{parts[2]}_{parts[3].split('.')[0]}"
 
-    return problem, sorted_session_ids, date_str
+    return problem, sorted_market_ids, date_str
 
 
-def process_results(sorted_session_ids):
-    time_series_metrics = get_time_series_metrics_for_sessions(sorted_session_ids)
-    return process_session_data(time_series_metrics, sorted_session_ids)
+def process_results(sorted_market_ids):
+    time_series_metrics = get_time_series_metrics_for_markets(sorted_market_ids)
+    return process_market_data(time_series_metrics, sorted_market_ids)
 
 
-def process_session_data(time_series_metrics, sorted_session_ids):
+def process_market_data(time_series_metrics, sorted_market_ids):
     processed_data = {}
     min_time = float("inf")
     max_time = 0
 
-    for session_id in sorted_session_ids:
-        key = (session_id,)
+    for market_id in sorted_market_ids:
+        key = (market_id,)
         if key not in time_series_metrics:
-            print(f"Warning: No time series data for session {session_id}")
+            print(f"Warning: No time series data for market {market_id}")
             continue
         df = time_series_metrics[key]
-        seconds = df["seconds_into_session"].to_numpy()
+        seconds = df["seconds_into_market"].to_numpy()
         min_time = min(min_time, np.floor(seconds.min()))
         max_time = max(max_time, np.ceil(seconds.max()))
 
@@ -58,12 +58,12 @@ def process_session_data(time_series_metrics, sorted_session_ids):
 
     time_range = np.arange(int(min_time), int(max_time) + 1)
 
-    for session_id in sorted_session_ids:
-        key = (session_id,)
+    for market_id in sorted_market_ids:
+        key = (market_id,)
         if key not in time_series_metrics:
             continue
         df = time_series_metrics[key]
-        seconds = df["seconds_into_session"].to_numpy()
+        seconds = df["seconds_into_market"].to_numpy()
         imbalances = df["order_book_imbalance"].to_numpy()
 
         processed_imbalances = np.zeros_like(time_range, dtype=float)
@@ -74,7 +74,7 @@ def process_session_data(time_series_metrics, sorted_session_ids):
             elif i > 0:
                 processed_imbalances[i] = processed_imbalances[i - 1]
 
-        processed_data[session_id] = processed_imbalances
+        processed_data[market_id] = processed_imbalances
 
     return time_range, processed_data
 
@@ -123,13 +123,13 @@ def export_sobol_indices(Si, problem, date_str):
 
 
 if __name__ == "__main__":
-    problem, sorted_session_ids, date_str = load_problem_and_sessions()
-    time_range, processed_data = process_results(sorted_session_ids)
+    problem, sorted_market_ids, date_str = load_problem_and_markets()
+    time_range, processed_data = process_results(sorted_market_ids)
 
     if processed_data is None:
         print("Error: Could not process results")
     else:
-        Y = np.array([processed_data[sid] for sid in sorted_session_ids])
+        Y = np.array([processed_data[sid] for sid in sorted_market_ids])
         Si = run_sobol_analysis(problem, Y)
         plot_sobol_indices(time_range, Si, problem, date_str)
         export_sobol_indices(Si, problem, date_str)

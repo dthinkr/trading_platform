@@ -8,7 +8,7 @@ export const useAuthStore = defineStore('auth', {
     user: null,
     isAdmin: false,
     traderId: null,
-    sessionId: null,
+    marketId: null,
     isInitialized: false,
     isPersisted: false,  // Add this new state property
   }),
@@ -41,7 +41,7 @@ export const useAuthStore = defineStore('auth', {
         this.user = user;
         this.isAdmin = response.data.data.is_admin;
         this.traderId = response.data.data.trader_id;
-        this.sessionId = response.data.data.session_id;
+        this.marketId = response.data.data.market_id;
         if (!isAutoLogin) {
           this.isPersisted = false;  // Reset the flag for new logins
         }
@@ -67,7 +67,7 @@ export const useAuthStore = defineStore('auth', {
       this.user = null;
       this.isAdmin = false;
       this.traderId = null;
-      this.sessionId = null;
+      this.marketId = null;
       this.isPersisted = false;
       this.isInitialized = false;  // Reset initialization state
       
@@ -83,7 +83,7 @@ export const useAuthStore = defineStore('auth', {
     strategies: [
       {
         storage: localStorage,
-        paths: ['isAdmin', 'traderId', 'sessionId', 'isPersisted']  // Add isPersisted to persisted paths
+        paths: ['isAdmin', 'traderId', 'marketId', 'isPersisted']  // Add isPersisted to persisted paths
       }
     ]
   }

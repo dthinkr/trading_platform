@@ -25,7 +25,7 @@ class User(BaseModel):
 class Trader(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     gmail_username: str  # gmail username for auth
-    trading_session_id: UUID
+    trading_market_id: UUID
     is_ready: bool = False  # tracks if user hit start
 
 class TradingPlatform(BaseModel):
@@ -186,9 +186,9 @@ class TradingParameters(BaseModel):
         gt=0,
     )
 
-    max_sessions_per_human: int = Field(
+    max_markets_per_human: int = Field(
         default=4,
-        title="Max Sessions per Human",
+        title="Max Markets per Human",
         description="human_parameter",
         ge=1,
     )
@@ -336,7 +336,7 @@ class Order(BaseModel):
     price: float
     order_type: OrderType
     timestamp: datetime = Field(default_factory=datetime.now)
-    session_id: str
+    market_id: str
     trader_id: str  # gmail username
     informed_trader_progress: Optional[str] = None
 
@@ -347,9 +347,9 @@ executor = ThreadPoolExecutor()
 
 # transaction stuff
 class TransactionModel:
-    def __init__(self, trading_session_id, bid_order_id, ask_order_id, price, informed_trader_progress=None):
+    def __init__(self, trading_market_id, bid_order_id, ask_order_id, price, informed_trader_progress=None):
         self.id = uuid.uuid4()
-        self.trading_session_id = trading_session_id
+        self.trading_market_id = trading_market_id
         self.bid_order_id = bid_order_id
         self.ask_order_id = ask_order_id
         self.timestamp = datetime.now(timezone.utc)
@@ -359,7 +359,7 @@ class TransactionModel:
     def to_dict(self):
         return {
             "id": str(self.id),
-            "trading_session_id": self.trading_session_id,
+            "trading_market_id": self.trading_market_id,
             "bid_order_id": self.bid_order_id,
             "ask_order_id": self.ask_order_id,
             "timestamp": self.timestamp.isoformat(),
@@ -369,9 +369,9 @@ class TransactionModel:
 
 # message model
 class Message:
-    def __init__(self, trading_session_id: str, content: Dict, message_type: str = "BOOK_UPDATED"):
+    def __init__(self, trading_market_id: str, content: Dict, message_type: str = "BOOK_UPDATED"):
         self.id: UUID = uuid4()
-        self.trading_session_id: str = trading_session_id
+        self.trading_market_id: str = trading_market_id
         self.content: Dict = content
         self.timestamp: datetime = datetime.now(timezone.utc)
         self.type: str = message_type
@@ -379,7 +379,7 @@ class Message:
     def to_dict(self) -> Dict:
         return {
             "id": str(self.id),
-            "trading_session_id": self.trading_session_id,
+            "trading_market_id": self.trading_market_id,
             "content": self.content,
             "timestamp": self.timestamp.isoformat(),
             "type": self.type

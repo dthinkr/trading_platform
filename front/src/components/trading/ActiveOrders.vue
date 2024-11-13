@@ -100,8 +100,8 @@ const { activeOrders, traderUuid } = storeToRefs(traderStore);
 // Initialize active orders from backend on component mount
 onMounted(async () => {
   try {
-    // Get trader session info which includes active orders
-    const response = await fetch(`/api/trader/${traderUuid.value}/session`, {
+    // Get trader market info which includes active orders
+    const response = await fetch(`/api/trader/${traderUuid.value}/market`, {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('token')}`
       }

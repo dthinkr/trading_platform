@@ -56,8 +56,8 @@ instance.interceptors.response.use(
           return Promise.reject(error);
         }
       }
-      if (error.response.status === 403 && error.response.data.detail.includes("Maximum number of sessions reached")) {
-        error.message = "You have reached the maximum number of allowed sessions.";
+      if (error.response.status === 403 && error.response.data.detail.includes("Maximum number of markets reached")) {
+        error.message = "You have reached the maximum number of allowed markets.";
       } else {
         error.message = error.response.data.detail || 'An error occurred';
       }

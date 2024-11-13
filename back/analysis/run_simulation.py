@@ -19,7 +19,7 @@ file_path = os.path.join(CONFIG.DATA_DIR, file_name)
 
 @task
 def write_to_json_file(
-    session_id: str,
+    market_id: str,
     trader_data: Dict,
     unscaled_data: Dict = None,
     sobol_problem: Dict = None,
@@ -28,7 +28,7 @@ def write_to_json_file(
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
     if not os.path.exists(file_path):
-        initial_data = {"sobol_problem": sobol_problem, "sessions": {}}
+        initial_data = {"sobol_problem": sobol_problem, "markets": {}}
         with open(file_path, "w") as f:
             json.dump(initial_data, f, indent=2)
 
@@ -36,8 +36,8 @@ def write_to_json_file(
         fcntl.flock(f, fcntl.LOCK_EX)
         try:
             data = json.load(f)
-            if session_id != "initial":
-                data["sessions"][session_id] = {
+            if market_id != "initial":
+                data["markets"][market_id] = {
                     "order": order,
                     "scaled": trader_data,
                     "unscaled": unscaled_data,
@@ -49,8 +49,8 @@ def write_to_json_file(
             fcntl.flock(f, fcntl.LOCK_UN)
 
 
-def create_trading_session(trader_data: Dict, port: int) -> Dict:
-    """Initiate a trading session with the given trader data on a specific port."""
+def create_trading_market(trader_data: Dict, port: int) -> Dict:
+    """Initiate a trading market with the given trader data on a specific port."""
     url = f"http://localhost:{port}/trading/initiate"
     headers = {"Content-Type": "application/json"}
     response = requests.post(url, json=trader_data, headers=headers)
@@ -58,25 +58,25 @@ def create_trading_session(trader_data: Dict, port: int) -> Dict:
 
 
 @task
-async def create_and_wait_session(
+async def create_and_wait_market(
     trader_data: Dict, unscaled_data: Dict, port: int, order: int
 ) -> None:
-    session_info = create_trading_session(trader_data, port)
-    session_id = session_info.get("data", {}).get("trading_session_uuid")
+    market_info = create_trading_market(trader_data, port)
+    market_id = market_info.get("data", {}).get("trading_market_uuid")
     simulation_length = trader_data.get("trading_day_duration", 1)
     buffer_time = 0.05
     total_wait_time = (simulation_length + buffer_time) * 60
     await asyncio.sleep(total_wait_time)
-    write_to_json_file.fn(session_id, trader_data, unscaled_data, order=order)
+    write_to_json_file.fn(market_id, trader_data, unscaled_data, order=order)
 
 
-async def handle_server_sessions(
+async def handle_server_markets(
     batch: List[Dict], unscaled_batch: List[Dict], port: int, start_order: int
 ):
     tasks = []
     for i, (trader_data, unscaled_data) in enumerate(zip(batch, unscaled_batch)):
         task = asyncio.create_task(
-            create_and_wait_session(trader_data, unscaled_data, port, start_order + i)
+            create_and_wait_market(trader_data, unscaled_data, port, start_order + i)
         )
         tasks.append(task)
     await asyncio.gather(*tasks)
@@ -87,19 +87,19 @@ def generate_sobol_samples(problem, N):
 
 
 @flow
-async def run_trading_sessions(params: List[Dict], unscaled_params: List[Dict]) -> None:
+async def run_trading_markets(params: List[Dict], unscaled_params: List[Dict]) -> None:
     num_servers = CONFIG.NUM_SERVERS
-    total_sessions = len(params)
+    total_markets = len(params)
 
-    # ordering for all sessions beforehand
-    all_orders = list(range(total_sessions))
+    # ordering for all markets beforehand
+    all_orders = list(range(total_markets))
 
     batches = [params[i::num_servers] for i in range(num_servers)]
     unscaled_batches = [unscaled_params[i::num_servers] for i in range(num_servers)]
     order_batches = [all_orders[i::num_servers] for i in range(num_servers)]
 
     get_run_logger().critical(
-        f"Running {total_sessions} trading sessions on {num_servers} servers"
+        f"Running {total_markets} trading markets on {num_servers} servers"
     )
     tasks = []
     for i, (batch, unscaled_batch, order_batch) in enumerate(
@@ -107,19 +107,19 @@ async def run_trading_sessions(params: List[Dict], unscaled_params: List[Dict]) 
     ):
         port = CONFIG.UVICORN_STARTING_PORT + i
         task = asyncio.create_task(
-            handle_server_sessions(batch, unscaled_batch, port, order_batch)
+            handle_server_markets(batch, unscaled_batch, port, order_batch)
         )
         tasks.append(task)
     await asyncio.gather(*tasks)
 
 
-async def handle_server_sessions(
+async def handle_server_markets(
     batch: List[Dict], unscaled_batch: List[Dict], port: int, orders: List[int]
 ):
     tasks = []
     for trader_data, unscaled_data, order in zip(batch, unscaled_batch, orders):
         task = asyncio.create_task(
-            create_and_wait_session(trader_data, unscaled_data, port, order)
+            create_and_wait_market(trader_data, unscaled_data, port, order)
         )
         tasks.append(task)
     await asyncio.gather(*tasks)
@@ -168,7 +168,7 @@ def run_evaluation():
     ]
 
     write_to_json_file.fn("initial", {}, None, problem)
-    asyncio.run(run_trading_sessions(params, unscaled_params))
+    asyncio.run(run_trading_markets(params, unscaled_params))
 
 
 if __name__ == "__main__":

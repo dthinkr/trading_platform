@@ -13,7 +13,7 @@ const routes = [
     component: () => import("@/components/Auth.vue"),
   },
   {
-    path: "/onboarding/:sessionId/:traderUuid",
+    path: "/onboarding/:marketId/:traderUuid",
     component: () => import("@/components/UserLanding.vue"),
     props: true,
     meta: { requiresAuth: true },
@@ -60,21 +60,21 @@ const routes = [
     ]
   },
   {
-    path: "/SessionCreator",
-    name: "SessionCreator",
-    component: () => import("@/components/session/SessionCreator.vue"),
+    path: "/MarketCreator",
+    name: "MarketCreator",
+    component: () => import("@/components/market/MarketCreator.vue"),
     props: true,
     meta: { requiresAuth: true, requiresAdmin: true }
   },
   {
-    path: "/admin/:tradingSessionUUID",
+    path: "/admin/:tradingMarketUUID",
     name: "admin",
     component: () => import("@/components/AdminPage.vue"),
     props: true,
     meta: { requiresAuth: true, requiresAdmin: true }
   },
   {
-    path: "/trading/:traderUuid/:sessionId",
+    path: "/trading/:traderUuid/:marketId",
     name: "trading",
     component: () => import("@/components/TradingDashboard.vue"),
     props: true,
@@ -83,7 +83,7 @@ const routes = [
   {
     path: "/summary/:traderUuid",
     name: "summary",
-    component: () => import("@/components/session/SessionSummary.vue"),
+    component: () => import("@/components/market/MarketSummary.vue"),
     props: true,
     meta: { requiresAuth: true }
   },
