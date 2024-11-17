@@ -309,10 +309,8 @@ class MarketHandler:
                 goal=goal
             )
             
-            # Record market in historical markets immediately upon creation
-            if gmail_username not in self.user_historical_markets:
-                self.user_historical_markets[gmail_username] = set()
-            self.user_historical_markets[gmail_username].add(market_id)
+            # Remove immediate recording of market
+            # Only record when trading actually starts
             
             self.trader_to_market_lookup[trader_id] = market_id
             self.active_users[market_id].add(gmail_username)

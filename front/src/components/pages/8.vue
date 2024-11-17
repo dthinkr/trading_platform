@@ -23,7 +23,7 @@
                   <span class="text-h6">Duration</span>
                 </div>
                 <p class="text-body-1">
-                  Practice trading for <span class="highlight-text">5 minutes</span>
+                  Practice trading for <span class="highlight-text">{{ marketDuration }} minutes</span>
                 </p>
               </v-card-text>
             </v-card>
@@ -44,12 +44,12 @@
                   <span class="text-h6">Market Progress</span>
                 </div>
                 <div class="d-flex justify-space-between align-center mb-2">
-                  <span>Current Market:</span>
+                  <span>Markets You Have Played:</span>
                   <span class="highlight-text">{{ currentMarket }}</span>
                 </div>
                 <div class="d-flex justify-space-between align-center mb-3">
-                  <span>Maximum Markets:</span>
-                  <span class="highlight-text">{{ maxMarketsDisplay }}</span>
+                  <span>Markets You Can Still Play:</span>
+                  <span class="highlight-text">{{ remainingMarkets }}</span>
                 </div>
                 <v-progress-linear
                   v-if="!isAdmin"
@@ -223,7 +223,7 @@ const handleLogout = async () => {
 };
 
 const currentMarket = computed(() => {
-  return props.traderAttributes?.all_attributes?.historical_markets_count || 1;
+  return props.traderAttributes?.all_attributes?.historical_markets_count || 0;
 });
 
 const maxMarketsPerHuman = computed(() => {
@@ -234,11 +234,9 @@ const isAdmin = computed(() => {
   return props.traderAttributes?.all_attributes?.is_admin || false;
 });
 
-const maxMarketsDisplay = computed(() => {
-  if (isAdmin.value) {
-    return '∞';
-  }
-  return maxMarketsPerHuman.value;
+const remainingMarkets = computed(() => {
+  if (isAdmin.value) return '∞';
+  return maxMarketsPerHuman.value - currentMarket.value;
 });
 
 const marketProgress = computed(() => {
