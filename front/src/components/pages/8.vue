@@ -140,7 +140,9 @@ const props = defineProps({
 
 const isLoading = ref(false);
 
-const cancelTime = computed(() => props.traderAttributes?.all_attributes?.params?.cancel_time || 'Loading...');
+const marketDuration = computed(() => {
+  return traderStore.traderAttributes?.all_attributes?.params?.trading_day_duration || 'Loading...';
+});
 const goalDescription = computed(() => {
   if (!goalMessage.value) return 'You can freely trade in this market. Your goal is to make a profit.';
   return goalMessage.value.text;
