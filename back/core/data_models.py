@@ -208,7 +208,7 @@ class TradingParameters(BaseModel):
 
     # goal settings
     predefined_goals: List[int] = Field(
-        default=[100],
+        default=[100,0,0],
         title="Predefined Goals",
         description="human_parameter",
     )
