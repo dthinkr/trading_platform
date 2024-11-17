@@ -125,8 +125,6 @@ class TraderManager:
         )
         
         if role == TraderRole.INFORMED:
-            if self.informed_trader is not None:
-                raise ValueError("Market already has an informed trader")
             self.informed_trader = new_trader
 
         self.traders[trader_id] = new_trader
