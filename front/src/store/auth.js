@@ -3,6 +3,8 @@ import axios from '@/api/axios';
 import { auth } from '@/firebaseConfig';
 import { onAuthStateChanged } from 'firebase/auth';
 
+const LOGIN_COOLDOWN_MS = 1000;  // 1 second in milliseconds
+
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     user: null,
@@ -10,16 +12,24 @@ export const useAuthStore = defineStore('auth', {
     traderId: null,
     marketId: null,
     isInitialized: false,
-    isPersisted: false,  // Add this new state property
+    isPersisted: false,
+    lastLoginTime: null,
+    loginInProgress: false,
   }),
   actions: {
     async initializeAuth() {
+      let unsubscribe;
       return new Promise((resolve) => {
-        onAuthStateChanged(auth, async (user) => {
+        unsubscribe = onAuthStateChanged(auth, async (user) => {
           if (user) {
             try {
-              this.isPersisted = true;  // Set this flag for persisted logins
-              await this.login(user, true);
+              const now = Date.now();
+              if (!this.loginInProgress && 
+                  (!this.lastLoginTime || (now - this.lastLoginTime > LOGIN_COOLDOWN_MS)) &&
+                  (!this.traderId || !this.user)) {
+                this.isPersisted = true;
+                await this.login(user, true);
+              }
             } catch (error) {
               console.error('Auto-login failed:', error);
               this.user = null;
@@ -31,23 +41,42 @@ export const useAuthStore = defineStore('auth', {
           }
           this.isInitialized = true;
           resolve();
+          if (unsubscribe) unsubscribe();
         });
       });
     },
     
     async login(user, isAutoLogin = false) {
+      if (this.loginInProgress) {
+        console.log('Login already in progress');
+        return;
+      }
+      
+      if (this.user?.uid === user.uid && this.traderId) {
+        console.log('User already logged in');
+        return;
+      }
+
       try {
+        this.loginInProgress = true;
         const response = await axios.post('/user/login');
-        this.user = user;
-        this.isAdmin = response.data.data.is_admin;
-        this.traderId = response.data.data.trader_id;
-        this.marketId = response.data.data.market_id;
-        if (!isAutoLogin) {
-          this.isPersisted = false;  // Reset the flag for new logins
+        
+        if (user.uid === auth.currentUser?.uid) {
+          this.user = user;
+          this.isAdmin = response.data.data.is_admin;
+          this.traderId = response.data.data.trader_id;
+          this.marketId = response.data.data.market_id;
+          this.lastLoginTime = Date.now();
+          
+          if (!isAutoLogin) {
+            this.isPersisted = false;
+          }
         }
       } catch (error) {
         console.error('Login error:', error);
         throw new Error(error.message || 'Failed to login');
+      } finally {
+        this.loginInProgress = false;
       }
     },
 
@@ -63,16 +92,16 @@ export const useAuthStore = defineStore('auth', {
     },
 
     logout() {
-      // Clear all state
+      this.loginInProgress = false;
       this.user = null;
       this.isAdmin = false;
       this.traderId = null;
       this.marketId = null;
       this.isPersisted = false;
-      this.isInitialized = false;  // Reset initialization state
+      this.isInitialized = false;
+      this.lastLoginTime = null;
       
-      // Clear localStorage
-      localStorage.removeItem('auth');  // Remove persisted auth state
+      localStorage.removeItem('auth');
     },
   },
   getters: {
@@ -83,7 +112,7 @@ export const useAuthStore = defineStore('auth', {
     strategies: [
       {
         storage: localStorage,
-        paths: ['isAdmin', 'traderId', 'marketId', 'isPersisted']  // Add isPersisted to persisted paths
+        paths: ['isAdmin', 'traderId', 'marketId', 'isPersisted', 'lastLoginTime', 'loginInProgress']
       }
     ]
   }
