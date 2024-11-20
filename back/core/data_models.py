@@ -68,7 +68,7 @@ class TradingParameters(BaseModel):
         ge=0,
     )
     trading_day_duration: float = Field(
-        default=0.1,
+        default=1,
         title="Trading Day Duration",
         description="model_parameter",
         gt=0,

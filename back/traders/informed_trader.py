@@ -75,6 +75,11 @@ class InformedTrader(BaseTrader):
 
         top_bid = self.get_best_price(OrderType.BID)
         top_ask = self.get_best_price(OrderType.ASK)
+        
+        # Return empty list if either price is None
+        if top_bid is None or top_ask is None:
+            return []
+
         mid_price = int((top_bid + top_ask) / 2)
 
         levels = []

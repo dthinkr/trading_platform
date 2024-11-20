@@ -127,12 +127,12 @@ const formatTime = (timestamp) => {
         <span class="vwap-divider">|</span>
         <span class="vwap-item sell">{{ tradingSummary.sellVWAP }}</span>
       </div>
-      <div class="count-display">
+      <!-- <div class="count-display">
         <div class="label">Count</div>
         <span class="count-item buy">{{ tradingSummary.buyCount }}</span>
         <span class="count-divider">|</span>
         <span class="count-item sell">{{ tradingSummary.sellCount }}</span>
-      </div>
+      </div> -->
     </div>
 
     <v-divider></v-divider>
@@ -208,18 +208,18 @@ const formatTime = (timestamp) => {
   text-transform: uppercase;
 }
 
-.count-display {
+/* .count-display {
   margin-top: 4px;
   font-size: 0.8rem;
-}
+} */
 
 .vwap-item, .count-item {
   font-weight: 500;
 }
 
-.vwap-divider, .count-divider {
+/* .count-divider {
   color: #999;
-}
+} */
 
 .vwap-item.buy, .count-item.buy {
   color: #1976D2;
