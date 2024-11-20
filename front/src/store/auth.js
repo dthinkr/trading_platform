@@ -61,6 +61,18 @@ export const useAuthStore = defineStore('auth', {
         this.loginInProgress = true;
         const response = await axios.post('/user/login');
         
+        if (!response.data.data.trader_id) {
+          console.error('No trader ID received');
+          if (!isAutoLogin) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            const retryResponse = await axios.post('/user/login');
+            if (!retryResponse.data.data.trader_id) {
+              throw new Error('Failed to get trader ID');
+            }
+            response = retryResponse;
+          }
+        }
+
         if (user.uid === auth.currentUser?.uid) {
           this.user = user;
           this.isAdmin = response.data.data.is_admin;
