@@ -59,7 +59,7 @@ export const useAuthStore = defineStore('auth', {
 
       try {
         this.loginInProgress = true;
-        const response = await axios.post('/user/login');
+        let response = await axios.post('/user/login');
         
         if (!response.data.data.trader_id) {
           console.error('No trader ID received');
