@@ -295,12 +295,20 @@ def calculate_trader_specific_metrics(trader_specific_metrics, general_metrics, 
     
     # Calculate reward with scaling between 3 and 10 based on PnL
     if isinstance(original_pnl, (int, float)):
-        # Clip PnL to [-100, 100] range
-        capped_pnl = max(min(original_pnl, 100), -100)
-        # Scale PnL from [-100, 100] to [0, 1]
-        normalized_pnl = (capped_pnl + 100) / 200
-        # Scale to [3, 10] range
-        reward = 3 + (normalized_pnl * 7)
+        max_pnl_possible = 100
+        max_gbp_to_give = 10
+        if original_pnl<0:
+            reward = 0
+        else:
+            ratio = original_pnl/max_pnl_possible
+            real_ratio = min(ratio,1)
+            reward = real_ratio * max_gbp_to_give
+        # # Clip PnL to [-100, 100] range
+        # capped_pnl = max(min(original_pnl, 100), -100)
+        # # Scale PnL from [-100, 100] to [0, 1]
+        # normalized_pnl = (capped_pnl + 100) / 200
+        # # Scale to [3, 10] range
+        # reward = 3 + (normalized_pnl * 7)
     else:
         reward = '-'
     
