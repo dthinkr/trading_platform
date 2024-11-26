@@ -45,9 +45,9 @@
                   <span class="text-h6">Your Task</span>
                 </div>
                 <p class="text-body-1 font-weight-medium">
-                  The task is to sell all your shares OR buy a given number. 
-                  At the beginning of each market we will tell you to sell OR buy a given number of shares. 
-                  You can only buy OR sell shares not both.
+                  The task is to sell all your shares, buy a given number of shares OR both buy and sell shares to achieve financial profit. 
+                  <br><br>
+                  At the beginning of each market you will be given a specific role.
                 </p>
               </v-card-text>
             </v-card>
