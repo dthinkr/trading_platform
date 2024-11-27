@@ -111,8 +111,13 @@ const createChart = (data) => {
               family: "'Inter', sans-serif"
             },
             color: '#666',
-            callback: (value) => `$${Math.round(value)}`
-          }
+            callback: (value) => `$${Math.round(value)}`,
+            maxTicksLimit: 8,
+            precision: 0,
+            stepSize: Math.ceil((Math.max(...data.map(d => d.y)) - Math.min(...data.map(d => d.y))) / 8)
+          },
+          beginAtZero: false,
+          grace: '5%'
         }
       },
       elements: {

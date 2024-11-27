@@ -1,5 +1,5 @@
 <template>
-  <div class="trading-dashboard">
+  <div class="trading-dashboard" v-show="isInitialized">
     <v-app>
       <!-- Add error alert at the top -->
       <v-alert
@@ -169,6 +169,7 @@ import { storeToRefs } from "pinia";
 import { useTraderStore } from "@/store/app";
 
 import { onMounted, onUnmounted, ref, onBeforeUnmount } from 'vue';
+import { debounce } from 'lodash';
 
 const { formatNumber } = useFormatNumber();
 const router = useRouter();
@@ -228,10 +229,11 @@ watch(remainingTime, (newValue) => {
 const zoomLevel = ref(0.95);  // Fixed 90% zoom
 
 onMounted(async () => {
-  // Apply fixed zoom
-  document.body.style.zoom = zoomLevel.value;
-  document.body.style.transform = `scale(${zoomLevel.value})`;
+  // Apply zoom only once, using CSS transform instead of zoom
+  document.body.style.transform = 'scale(0.95)';
   document.body.style.transformOrigin = 'top left';
+  // Remove the zoom property as it can cause flickering in some browsers
+  // document.body.style.zoom = zoomLevel.value;
   
   // Fetch user role
   try {
@@ -443,7 +445,7 @@ const refreshPage = () => {
 // Modify your store watch or WebSocket handler to include error handling
 watch(() => store.ws, (newWs) => {
   if (newWs) {
-    newWs.addEventListener('message', (event) => {
+    const debouncedHandler = debounce((event) => {
       try {
         if (typeof event.data === 'string' && 
             (event.data.startsWith('<!DOCTYPE') || event.data.startsWith('<html'))) {
@@ -458,16 +460,15 @@ watch(() => store.ws, (newWs) => {
         }
         console.error("WebSocket message error:", error);
       }
-    });
+    }, 16); // Debounce to roughly one frame (60fps)
+
+    newWs.addEventListener('message', debouncedHandler);
   }
 }, { immediate: true });
 
-// Add this watch to apply the zoom level
-watch(zoomLevel, (newZoom) => {
-  document.body.style.zoom = newZoom;
-  // For Firefox compatibility
-  document.body.style.transform = `scale(${newZoom})`;
-  document.body.style.transformOrigin = 'top left';
+// Add this computed property
+const isInitialized = computed(() => {
+  return Boolean(traderUuid.value && store.traderAttributes);
 });
 </script>
 
