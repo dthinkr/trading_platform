@@ -101,14 +101,6 @@
                       <span class="text-subtitle-1">PnL:</span>
                       <span class="text-h6 font-weight-bold">{{ formatValue(traderSpecificMetrics.PnL, 'currency') }}</span>
                     </div>
-                    <div class="d-flex justify-space-between align-center mb-2">
-                      <span class="text-subtitle-1">Reward:</span>
-                      <span class="text-h6 font-weight-bold">{{ formatValue(traderSpecificMetrics.Reward, 'gbp') }}</span>
-                    </div>
-                    <div class="d-flex justify-space-between align-center mb-2">
-                      <span class="text-subtitle-1">You will be paid:</span>
-                      <span class="text-h6 font-weight-bold">{{ formatValue(traderSpecificMetrics.Accumulated_Reward, 'gbp') }}</span>
-                    </div>
                   </div>
                 </div>
               </v-col>
@@ -131,7 +123,10 @@
             <template v-if="isLastMarket">
               <div class="text-center">
                 <h2 class="text-h5 mb-4 primary--text">Thank you for your participation!</h2>
-                <p class="text-subtitle-1 mb-4">You have completed all trading markets.</p>
+                <p class="text-subtitle-1 mb-4">
+                  You have completed all trading markets.<br>
+                  You will be paid {{ formatValue(traderSpecificMetrics?.Accumulated_Reward, 'gbp') }}.
+                </p>
                 <v-btn 
                   color="secondary" 
                   x-large 
