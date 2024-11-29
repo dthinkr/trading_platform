@@ -33,7 +33,7 @@ from .google_sheet_auth import update_form_id, get_registered_users
 import zipfile
 from utils import setup_custom_logger
 from datetime import datetime
-import random
+from .random_picker import pick_random_element
 
 # init fastapi
 app = FastAPI()
@@ -295,13 +295,14 @@ async def get_trader_info(trader_id: str):
                     if trader_id not in accumulated_rewards:
                         accumulated_rewards[trader_id] = []
                     accumulated_rewards[trader_id].append(trader_specific_metrics['Reward'])
+                    print(f"the current picked random reward is {trader_specific_metrics['Reward']}")
                 
                 # Add accumulated reward to metrics
                 all_accumulated_rewards = accumulated_rewards.get(trader_id, [])
-                if len(all_accumulated_rewards)<= 1:
+                if len(all_accumulated_rewards) < 1:
                     trader_specific_metrics['Accumulated_Reward'] = 0
                 else:
-                    trader_specific_metrics['Accumulated_Reward'] = random.choice(all_accumulated_rewards[1:])
+                    trader_specific_metrics['Accumulated_Reward'] = pick_random_element(all_accumulated_rewards[1:])
 
         except Exception as e:
             general_metrics = {"error": "Unable to process log file"}
