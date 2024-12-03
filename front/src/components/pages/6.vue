@@ -32,6 +32,8 @@
                   class="mt-4"
                 >
                   All artificial traders have no objective in terms of earnings.
+                  <br><br>
+                  However, they may have tasks such as buying or selling a specific number of shares, or both.
                 </v-alert>
               </v-card-text>
             </v-card>
@@ -52,7 +54,7 @@
                   <span class="text-h6">Market Entry</span>
                 </div>
                 <p class="text-body-1">
-                  Artificial traders randomly join the market for a short period
+                  Artificial traders join the market for the entire trading period.
                 </p>
               </v-card-text>
             </v-card>
@@ -72,7 +74,8 @@
                   <span class="text-h6">Trading Activity</span>
                 </div>
                 <p class="text-body-1">
-                  They buy and sell during their time in the market
+                  They buy and sell during their time in the market, 
+                  which can significantly shift the price either upward or downward.
                 </p>
               </v-card-text>
             </v-card>
@@ -92,7 +95,7 @@
                   <span class="text-h6">Market Exit</span>
                 </div>
                 <p class="text-body-1">
-                  They are then replaced by other artificial traders
+                  They exit the market once they completed their task.
                 </p>
               </v-card-text>
             </v-card>
