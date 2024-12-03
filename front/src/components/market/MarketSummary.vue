@@ -101,6 +101,10 @@
                       <span class="text-subtitle-1">PnL:</span>
                       <span class="text-h6 font-weight-bold">{{ formatValue(traderSpecificMetrics.PnL, 'currency') }}</span>
                     </div>
+                    <div class="d-flex justify-space-between align-center mb-2">
+                      <span class="text-subtitle-1">Market Reward:</span>
+                      <span class="text-h6 font-weight-bold">{{ formatValue(traderSpecificMetrics.Reward, 'gbp') }}</span>
+                    </div>
                   </div>
                 </div>
               </v-col>
@@ -125,7 +129,9 @@
                 <h2 class="text-h5 mb-4 primary--text">Thank you for your participation!</h2>
                 <p class="text-subtitle-1 mb-4">
                   You have completed all trading markets.<br>
-                  You will be paid {{ formatValue(traderSpecificMetrics?.Accumulated_Reward, 'gbp') }}.
+                  Your market reward is {{formatValue(traderSpecificMetrics?.Accumulated_Reward, 'gbp') }}. Your participation fee is {{formatValue(5, 'gbp')}}.
+                  <br></br>
+                  Your final payment will be {{formatValue(traderSpecificMetrics?.Accumulated_Reward + 5, 'gbp') }}.
                 </p>
                 <v-btn 
                   color="secondary" 

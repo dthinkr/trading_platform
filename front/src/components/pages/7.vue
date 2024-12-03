@@ -138,6 +138,32 @@ const questions = ref([
     userAnswer: null,
     isCorrect: false,
     showFeedback: false
+  },
+  {
+    text: "What are the other market participants?",
+    options: [
+      "Human Participants",
+      "Artificial (Algorithmic) Agents",
+      "Both"
+    ],
+    correctAnswer: "Artificial (Algorithmic) Agents",
+    explanation: "In this experimental session, you will play only with artificial agents.",
+    userAnswer: null,
+    isCorrect: false,
+    showFeedback: false
+  },
+  {
+    text: "What is the impact on the market price if one of the aritificial agents sells a large number of shares?",
+    options: [
+      "Mid-Price increases",
+      "Mid-Price decreases",
+      "Mid-Price remains constant"
+    ],
+    correctAnswer: "Mid-Price decreases",
+    explanation: "In this scenario, the price of the new best buy offer will decrease, and consequently, the mid-price will also decrease.",
+    userAnswer: null,
+    isCorrect: false,
+    showFeedback: false
   }
 ]);
 
