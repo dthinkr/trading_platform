@@ -73,6 +73,28 @@ class TradingPlatform:
         # Set up logging
         self.trading_logger = setup_trading_logger(self.id)
 
+        # Add throttle
+        self.execution_queue = asyncio.Queue()
+        self.execution_throttle_ms = params.get('execution_throttle_ms', 250)
+        self.process_executions_task = None
+
+    async def _process_execution_queue(self):
+        """Process executions from queue with throttling"""
+        while self.active:
+            try:
+                matched_orders = await self.execution_queue.get()
+                
+                for ask, bid, transaction_price in matched_orders:
+                    await self.create_transaction(bid, ask, transaction_price)
+
+                # Throttle next execution
+                await asyncio.sleep(self.execution_throttle_ms / 1000)
+                
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                self.trading_logger.error(f"Error processing execution: {e}")
+                
     # Initialization and cleanup methods
     async def initialize(self) -> None:
         """Initialize the trading platform."""
@@ -80,19 +102,31 @@ class TradingPlatform:
         self.active = True
         await self.rabbitmq_manager.initialize()
         await self._setup_rabbitmq()
+        self.process_executions_task = asyncio.create_task(self._process_execution_queue())
         self.process_transactions_task = asyncio.create_task(self.transaction_manager.process_transactions())
 
     async def clean_up(self) -> None:
         """Clean up resources when shutting down."""
         self._stop_requested.set()
         self.active = False
-        await self.rabbitmq_manager.clean_up()
+        
+        # Cancel execution queue processor
+        if self.process_executions_task:
+            self.process_executions_task.cancel()
+            try:
+                await self.process_executions_task
+            except asyncio.CancelledError:
+                pass
+        
+        # Cancel transaction processor
         if self.process_transactions_task:
             self.process_transactions_task.cancel()
             try:
                 await self.process_transactions_task
             except asyncio.CancelledError:
                 pass
+                
+        await self.rabbitmq_manager.clean_up()
 
     # RabbitMQ setup and cleanup methods
     async def _setup_rabbitmq(self) -> None:
@@ -252,6 +286,7 @@ class TradingPlatform:
 
         if immediately_matched:
             matched_orders = self.order_book_manager.clear_orders()
+            await self.execution_queue.put(matched_orders)
             transactions = []
             for ask, bid, transaction_price in matched_orders:
                 transaction = await self.create_transaction(bid, ask, transaction_price)

@@ -68,7 +68,7 @@ class TradingParameters(BaseModel):
         ge=0,
     )
     trading_day_duration: float = Field(
-        default=1,
+        default=0.1,
         title="Trading Day Duration",
         description="model_parameter",
         gt=0,
@@ -217,6 +217,13 @@ class TradingParameters(BaseModel):
         default=True,
         title="Allow Random Goal Assignment",
         description="human_parameter",
+    )
+
+    execution_throttle_ms: int = Field(
+        default=250,
+        title="Execution Throttle (ms)",
+        description="model_parameter",
+        gt=0,
     )
 
     @field_validator('predefined_goals', mode='before')

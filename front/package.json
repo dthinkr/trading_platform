@@ -14,7 +14,7 @@
     "@vueuse/core": "^10.7.2",
     "apexcharts": "^3.53.0",
     "axios": "^1.6.5",
-    "chart.js": "^4.4.6",
+    "chart.js": "^4.4.7",
     "chartjs-adapter-date-fns": "^3.0.0",
     "dagre": "^0.8.5",
     "date-fns": "^4.1.0",
