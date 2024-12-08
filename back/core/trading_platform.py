@@ -286,13 +286,11 @@ class TradingPlatform:
 
         if immediately_matched:
             matched_orders = self.order_book_manager.clear_orders()
+            # Only queue the orders for throttled processing
             await self.execution_queue.put(matched_orders)
-            transactions = []
+            
+            # Log the matched order events
             for ask, bid, transaction_price in matched_orders:
-                transaction = await self.create_transaction(bid, ask, transaction_price)
-                transactions.append(transaction)
-
-                # Log the matched order event immediately after the match
                 match_data = {
                     "bid_order_id": str(bid["id"]),
                     "ask_order_id": str(ask["id"]),
@@ -302,11 +300,9 @@ class TradingPlatform:
                 self.trading_logger.info(f"MATCHED_ORDER: {match_data}")
 
             return {
-                "transactions": transactions,
-                "type": "FILLED_ORDER",
-                "content": "F",
+                "type": "ADDED_ORDER",
+                "content": "A",
                 "respond": True,
-                "incoming_message": data,
                 "informed_trader_progress": informed_trader_progress,
             }
         else:
@@ -315,7 +311,7 @@ class TradingPlatform:
                 "content": "A",
                 "respond": True,
                 "informed_trader_progress": informed_trader_progress,
-            }      
+            }     
 
     @if_active
     async def handle_cancel_order(self, data: dict) -> Dict:
