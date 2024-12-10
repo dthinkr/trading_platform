@@ -3,7 +3,7 @@
     <v-scale-transition>
       <div class="header-section">
         <v-icon size="40" :color="iconColor" class="pulse-icon">mdi-target</v-icon>
-        <h2 class="text-h4 gradient-text">Trading Objectives</h2>
+        <h2 class="text-h4 gradient-text">General Trading Objectives</h2>
       </div>
     </v-scale-transition>
 
@@ -24,7 +24,7 @@
                 </div>
                 <p class="text-body-1">
                   We are going to conduct <span class="highlight-text">{{ numMarkets }} markets</span> 
-                  in which you will be a participant. You have a straightforward task:
+                  in which you will have a straightforward task.
                 </p>
               </v-card-text>
             </v-card>
@@ -45,7 +45,7 @@
                   <span class="text-h6">Your Task</span>
                 </div>
                 <p class="text-body-1 font-weight-medium">
-                  The task is to sell all your shares, buy a given number of shares OR both buy and sell shares to achieve financial profit. 
+                  The task is to sell, buy a given number of shares OR both buy and sell shares to achieve financial profit. 
                   <br><br>
                   At the beginning of each market you will be given a specific role.
                 </p>
