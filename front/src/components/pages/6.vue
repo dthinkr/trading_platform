@@ -34,13 +34,15 @@
                   All artificial traders have no objective in terms of earnings.
                   <br><br>
                   However, they may have tasks such as buying or selling a specific number of shares, or both.
+                  <br><br>
+                  For example, their trading activity can significantly shift the price either upward or downward.
                 </v-alert>
               </v-card-text>
             </v-card>
           </v-hover>
         </v-col>
 
-        <!-- Behavior Cards -->
+        <!-- Behavior Cards
         <v-col cols="12" md="4">
           <v-hover v-slot="{ isHovering, props }">
             <v-card
@@ -100,7 +102,7 @@
               </v-card-text>
             </v-card>
           </v-hover>
-        </v-col>
+        </v-col> -->
 
         <!-- Next Steps Card -->
         <v-col cols="12">
