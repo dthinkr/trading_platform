@@ -44,7 +44,7 @@
                   <v-icon size="28" :color="iconColor" class="mr-2">mdi-target</v-icon>
                   <span class="text-h6">Trading Objective</span>
                 </div>
-                <p class="text-body-1">{{ goalDescription }}</p>
+                <p class="text-body-1" style="color: blue;">{{ goalDescription }}</p>
 
                 <v-expand-transition>
                   <div v-if="goalStatus !== 'noGoal' && goalStatus !== 'unknown'" class="mt-4">

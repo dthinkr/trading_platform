@@ -68,7 +68,7 @@
                 </div>
                 <p class="text-body-1">
                   You can place orders to sell or buy that are not immediately executed. 
-                  This means you have to wait for someone who will accept them.
+                  This means you have to wait for someone to accept them.
                 </p>
               </v-card-text>
             </v-card>
