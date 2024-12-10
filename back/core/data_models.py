@@ -143,6 +143,11 @@ class TradingParameters(BaseModel):
         title="Randomly Flip Trade Direction",
         description="informed_parameter",
     )
+    informed_share_passive: float = Field(
+        default=0.1,
+        title="Share passive orders",
+        description="informed_parameter",
+    )
 
     # human trader settings
     initial_cash: float = Field(
