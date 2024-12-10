@@ -33,7 +33,7 @@ class InformedTrader(BaseTrader):
             print(f'\033[91mInformed trader direction was randomly set to {self.params["informed_trade_direction"]}\033[0m')
             
         self.goal = self.initialize_inventory(params)
-        self.num_passive_to_keep = int(0.1 * self.goal)
+        self.num_passive_to_keep = int(self.params["informed_share_passive"] * self.goal)
         self.next_sleep_time = params.get("trading_day_duration",5) * 60 / self.goal
         self.shares_traded = 0
         print(f'\033[91mInformed trader params are {self.params}\033[0m')
