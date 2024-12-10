@@ -42,8 +42,9 @@
                   <span class="text-h6">Earnings</span>
                 </div>
                 <p class="text-body-1">
-                  You can earn considerable money depending on your decisions, 
-                  which we will transfer to your bank account the next working day.
+                  You can earn considerable money depending on your decisions.
+                  Your earnings will be trasfered to your Gmail acount using an Amazon voucher.
+                  The transfer may take a few working days.
                 </p>
               </v-card-text>
             </v-card>
