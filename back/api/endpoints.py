@@ -299,7 +299,7 @@ async def get_trader_info(trader_id: str):
                 
                 # Add accumulated reward to metrics
                 all_accumulated_rewards = accumulated_rewards.get(trader_id, [])
-                if len(all_accumulated_rewards) < 1:
+                if len(all_accumulated_rewards) <= 1:
                     trader_specific_metrics['Accumulated_Reward'] = 0
                 else:
                     trader_specific_metrics['Accumulated_Reward'] = pick_random_element(all_accumulated_rewards[1:])
