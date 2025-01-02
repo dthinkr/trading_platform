@@ -107,8 +107,203 @@
           </v-hover>
         </v-col>
 
-        <!-- Demo Section -->
         <v-col cols="12">
+          <v-hover v-slot="{ isHovering, props }">
+            <v-card
+              v-bind="props"
+              :elevation="isHovering ? 8 : 2"
+              class="info-card"
+            >
+              <v-card-text>
+                <div class="d-flex align-center mb-4">
+                  <v-icon size="28" color="primary" class="mr-2">mdi-play-circle</v-icon>
+                  <span class="text-h6">Tading Platform</span>
+                </div>
+                <v-img
+                  :src="Screenshot_1"
+                  alt="Trading Platform Screenshot 1"
+                  max-width="850"
+                  contain
+                  class="mx-auto rounded-lg"
+                ></v-img>
+                <p class="text-body-2 text-center mt-4 font-italic">
+                  This demonstration shows the trading platform in action.
+                </p>
+              </v-card-text>
+            </v-card>
+          </v-hover>
+        </v-col>
+
+        <v-col cols="12">
+          <v-hover v-slot="{ isHovering, props }">
+            <v-card
+              v-bind="props"
+              :elevation="isHovering ? 8 : 2"
+              class="info-card"
+            >
+              <v-card-text>
+                <div class="d-flex align-center mb-4">
+                  <v-icon size="28" color="primary" class="mr-2">mdi-play-circle</v-icon>
+                  <span class="text-h6">Tading Platform: Panel 1</span>
+                </div>
+                <v-img
+                  :src="Screenshot_2"
+                  alt="Trading Platform Screenshot 2"
+                  max-width="850"
+                  contain
+                  class="mx-auto rounded-lg"
+                ></v-img>
+              </v-card-text>
+            </v-card>
+          </v-hover>
+        </v-col>
+
+        <v-col cols="12">
+          <v-hover v-slot="{ isHovering, props }">
+            <v-card
+              v-bind="props"
+              :elevation="isHovering ? 8 : 2"
+              class="info-card"
+            >
+              <v-card-text>
+                <div class="d-flex align-center mb-4">
+                  <v-icon size="28" color="primary" class="mr-2">mdi-play-circle</v-icon>
+                  <span class="text-h6">Tading Platform: Panel 2</span>
+                </div>
+                <v-img
+                  :src="Screenshot_3"
+                  alt="Trading Platform Screenshot 3"
+                  max-width="850"
+                  contain
+                  class="mx-auto rounded-lg"
+                ></v-img>
+              </v-card-text>
+            </v-card>
+          </v-hover>
+        </v-col>
+
+        <v-col cols="12">
+          <v-hover v-slot="{ isHovering, props }">
+            <v-card
+              v-bind="props"
+              :elevation="isHovering ? 8 : 2"
+              class="info-card"
+            >
+              <v-card-text>
+                <div class="d-flex align-center mb-4">
+                  <v-icon size="28" color="primary" class="mr-2">mdi-play-circle</v-icon>
+                  <span class="text-h6">Tading Platform: Panel 3</span>
+                </div>
+                <v-img
+                  :src="Screenshot_4"
+                  alt="Trading Platform Screenshot 4"
+                  max-width="850"
+                  contain
+                  class="mx-auto rounded-lg"
+                ></v-img>
+              </v-card-text>
+            </v-card>
+          </v-hover>
+        </v-col>
+
+        <v-col cols="12">
+          <v-hover v-slot="{ isHovering, props }">
+            <v-card
+              v-bind="props"
+              :elevation="isHovering ? 8 : 2"
+              class="info-card"
+            >
+              <v-card-text>
+                <div class="d-flex align-center mb-4">
+                  <v-icon size="28" color="primary" class="mr-2">mdi-play-circle</v-icon>
+                  <span class="text-h6">Tading Platform: Panel 4</span>
+                </div>
+                <v-img
+                  :src="Screenshot_5"
+                  alt="Trading Platform Screenshot 5"
+                  max-width="850"
+                  contain
+                  class="mx-auto rounded-lg"
+                ></v-img>
+              </v-card-text>
+            </v-card>
+          </v-hover>
+        </v-col>
+
+        <v-col cols="12">
+          <v-hover v-slot="{ isHovering, props }">
+            <v-card
+              v-bind="props"
+              :elevation="isHovering ? 8 : 2"
+              class="info-card"
+            >
+              <v-card-text>
+                <div class="d-flex align-center mb-4">
+                  <v-icon size="28" color="primary" class="mr-2">mdi-play-circle</v-icon>
+                  <span class="text-h6">Tading Platform: Panel 5</span>
+                </div>
+                <v-img
+                  :src="Screenshot_6"
+                  alt="Trading Platform Screenshot 6"
+                  max-width="850"
+                  contain
+                  class="mx-auto rounded-lg"
+                ></v-img>
+              </v-card-text>
+            </v-card>
+          </v-hover>
+        </v-col>
+
+        <v-col cols="12">
+          <v-hover v-slot="{ isHovering, props }">
+            <v-card
+              v-bind="props"
+              :elevation="isHovering ? 8 : 2"
+              class="info-card"
+            >
+              <v-card-text>
+                <div class="d-flex align-center mb-4">
+                  <v-icon size="28" color="primary" class="mr-2">mdi-play-circle</v-icon>
+                  <span class="text-h6">Tading Platform: Panel 6</span>
+                </div>
+                <v-img
+                  :src="Screenshot_7"
+                  alt="Trading Platform Screenshot 7"
+                  max-width="850"
+                  contain
+                  class="mx-auto rounded-lg"
+                ></v-img>
+              </v-card-text>
+            </v-card>
+          </v-hover>
+        </v-col>
+
+        <v-col cols="12">
+          <v-hover v-slot="{ isHovering, props }">
+            <v-card
+              v-bind="props"
+              :elevation="isHovering ? 8 : 2"
+              class="info-card"
+            >
+              <v-card-text>
+                <div class="d-flex align-center mb-4">
+                  <v-icon size="28" color="primary" class="mr-2">mdi-play-circle</v-icon>
+                  <span class="text-h6">Tading Platform: Panel 7</span>
+                </div>
+                <v-img
+                  :src="Screenshot_8"
+                  alt="Trading Platform Screenshot 8"
+                  max-width="850"
+                  contain
+                  class="mx-auto rounded-lg"
+                ></v-img>
+              </v-card-text>
+            </v-card>
+          </v-hover>
+        </v-col>
+        
+        <!-- Demo Section -->
+        <!-- <v-col cols="12">
           <v-hover v-slot="{ isHovering, props }">
             <v-card
               v-bind="props"
@@ -133,7 +328,7 @@
               </v-card-text>
             </v-card>
           </v-hover>
-        </v-col>
+        </v-col> -->
       </v-row>
     </v-container>
   </div>
@@ -141,6 +336,14 @@
 
 <script setup>
 import demoGif from '@/assets/demo.gif';
+import Screenshot_2 from '@/assets/Screenshot_2.png';
+import Screenshot_1 from '@/assets/Screenshot_1.png';
+import Screenshot_3 from '@/assets/Screenshot_3.png';
+import Screenshot_4 from '@/assets/Screenshot_4.png';
+import Screenshot_5 from '@/assets/Screenshot_5.png';
+import Screenshot_6 from '@/assets/Screenshot_6.png';
+import Screenshot_7 from '@/assets/Screenshot_7.png';
+import Screenshot_8 from '@/assets/Screenshot_8.png';
 
 const props = defineProps({
   iconColor: String
