@@ -8,7 +8,8 @@ Our platform currently uses continuous order matching with immediate execution. 
 
 1. **Order Processing Flow**
 
-```python:trading_platform/back/core/trading_platform.py
+File: `/back/core/trading_platform.py`
+```python
 async def _process_execution_queue(self):
     while self.active:
         matched_orders = await self.execution_queue.get()
@@ -19,7 +20,8 @@ async def _process_execution_queue(self):
 
 2. **Order Book Management**
 
-```python:trading_platform/back/core/orderbook_manager.py
+File: `/back/core/orderbook_manager.py`
+```python
 def place_order(self, order_dict: Dict) -> Tuple[Dict, bool]:
     order_dict["status"] = OrderStatus.ACTIVE.value
     self.all_orders[order_id] = order_dict
@@ -33,7 +35,8 @@ def place_order(self, order_dict: Dict) -> Tuple[Dict, bool]:
 
 Instead of modifying individual traders, we can implement interval-based order control in the BaseTrader class, which all traders inherit from:
 
-```python:trading_platform/back/traders/base_trader.py
+File: `/back/traders/base_trader.py`
+```python
 class BaseTrader:
     def __init__(self, trader_type: TraderType, id, params: dict):
         # ... existing initialization ...
@@ -68,7 +71,8 @@ This modification naturally creates time-based batching without changing the pla
 
 If we need more precise control over matching priorities (like human-first or auction-style matching), we'd need to modify the platform itself like this:
 
-```python:trading_platform/back/core/trading_platform.py
+File: `/back/core/trading_platform.py`
+```python
 class TradingPlatform:
     def _sort_by_human_priority(self, orders):
         return sorted(orders, key=lambda x: (
@@ -93,9 +97,8 @@ The main trade-off is that we won't have explicit auction-style matching, but th
 
 ## Configuration
 
-We'd need to add these parameters:
-
-```python:trading_platform/back/core/data_models.py
+File: `/back/core/data_models.py`
+```python
 class TradingParameters(BaseModel):
     fixed_interval_ms: int = Field(
         default=1000,
