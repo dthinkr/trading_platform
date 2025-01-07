@@ -178,7 +178,14 @@
                 <p class="text-body-1">
                   At the end of the study, you will be awarded earnings from one randomly selected market.
                   Your earnings will be converted at a rate of 
-                  <span class="highlight-text">{{ conversionRate }} Liras = 1 GBP</span>.
+                  <span class="highlight-text">{{ conversionRate }} Liras = 1 GBP</span>. 
+                  <br><br>
+                  The minimum earning is your participation fee, which is <span style="color: #1976D2;font-weight: 600;font-size: 1.1rem;">5 GBP</span>. 
+                  <br><br>
+                  For each market, your earnings will be capped at <span style="color: #1976D2;font-weight: 600;font-size: 1.1rem;">10 GBP</span>.
+                  <br><br>
+                  Thus, from each market you can earn up to <span style="color: #1976D2;font-weight: 600;font-size: 1.1rem;">15 GBP</span>.
+             
                 </p>
               </v-card-text>
             </v-card>
