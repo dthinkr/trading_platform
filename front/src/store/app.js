@@ -43,13 +43,13 @@ export const useTraderStore = defineStore("trader", {
       {
         var_name: 'spread',
         display_name: 'Spread',
-        explanation: 'Difference between the best bid and best ask',
+        explanation: 'Difference between the best bid and best ask prices',
         value: null
       },
       {
         var_name: 'midpoint',
-        display_name: 'Midpoint',
-        explanation: 'Midpoint between the best bid and best ask',
+        display_name: 'Midprice',
+        explanation: 'Midprice between the best bid and best ask prices',
         value: null
       },
 

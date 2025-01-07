@@ -196,7 +196,7 @@ const columns = [
   ],
   [
     { title: "Buy-Sell Chart", component: BidAskDistribution },
-    { title: "Active Orders", component: ActiveOrders },
+    { title: "Passive Orders", component: ActiveOrders },
   ],
   [
     { title: "Price History", component: PriceHistory },
@@ -332,7 +332,7 @@ const getToolIcon = (toolTitle) => {
     case 'Trades History': return 'mdi-history';
     case 'Market Info': return 'mdi-information';
     case 'Buy-Sell Chart': return 'mdi-chart-bar';
-    case 'Active Orders': return 'mdi-format-list-bulleted';
+    case 'Passive Orders': return 'mdi-format-list-bulleted';
     case 'Price History': return 'mdi-chart-line';
     case 'Trading Panel': return 'mdi-cash-register';
     default: return 'mdi-help-circle';
