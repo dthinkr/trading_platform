@@ -24,7 +24,10 @@
                 </div>
                 <p class="text-body-1">
                   We are going to conduct <span class="highlight-text">{{ numMarkets }} markets</span> 
-                  in which you will have a straightforward task.
+                  in which you will have a straightforward task. 
+                  <br><br>
+                  The <span style="font-weight: bold; color: #1976D2; ">first market</span> is a practice market and will therefore not affect 
+                  your final earnings.
                 </p>
               </v-card-text>
             </v-card>
@@ -45,9 +48,14 @@
                   <span class="text-h6">Your Task</span>
                 </div>
                 <p class="text-body-1 font-weight-medium">
-                  The task is to sell, buy a given number of shares OR both buy and sell shares to achieve financial profit. 
-                  <br><br>
                   At the beginning of each market you will be given a specific role.
+                  <br><br>
+                  Potential tasks for your role could include:
+                  <ul style="margin-left: 20px;">
+                    <li style="margin-bottom: 10px; margin-top: 10px;">Buy a certain number of shares at the lowest price.</li>
+                    <li style="margin-bottom: 10px;">Sell a certain number of shares at the highest price.</li>
+                    <li>Buy and Sell shares to generate profit.</li>
+                  </ul>
                 </p>
               </v-card-text>
             </v-card>

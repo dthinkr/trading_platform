@@ -65,11 +65,11 @@
                   </div>
                   <div class="d-flex justify-space-between align-center mb-2">
                     <span class="text-subtitle-1">Initial Midpice:</span>
-                    <span class="text-h6 font-weight-bold">{{ formatValue(orderBookMetrics?.Initial_Midprice, 'currency') }}</span>
+                    <span class="text-h6 font-weight-bold">{{ formatValue(orderBookMetrics?.Initial_Midprice, 'number') }}</span>
                   </div>
                   <div class="d-flex justify-space-between align-center mb-2">
                     <span class="text-subtitle-1">Final Midpice:</span>
-                    <span class="text-h6 font-weight-bold">{{ formatValue(orderBookMetrics?.Last_Midprice, 'currency') }}</span>
+                    <span class="text-h6 font-weight-bold">{{ formatValue(orderBookMetrics?.Last_Midprice, 'number') }}</span>
                   </div>
                   <div v-if="traderSpecificMetrics" class="mt-3">
                     <h4 class="text-subtitle-1 font-weight-medium mb-2">Your Trading Activity</h4>
@@ -79,7 +79,7 @@
                     </div>
                     <div class="d-flex justify-space-between align-center mb-2">
                       <span class="text-subtitle-1">Your VWAP:</span>
-                      <span class="text-h6 font-weight-bold">{{ formatValue(traderSpecificMetrics.VWAP, 'currency') }}</span>
+                      <span class="text-h6 font-weight-bold">{{ formatValue(traderSpecificMetrics.VWAP, 'number') }}</span>
                     </div>
                     <div class="d-flex justify-space-between align-center mb-2">
                       <span class="text-subtitle-1">Remaining Trades:</span>
@@ -87,11 +87,11 @@
                     </div>
                     <div class="d-flex justify-space-between align-center mb-2">
                       <span class="text-subtitle-1">Penalized VWAP:</span>
-                      <span class="text-h6 font-weight-bold">{{ formatValue(traderSpecificMetrics.Penalized_VWAP, 'currency') }}</span>
+                      <span class="text-h6 font-weight-bold">{{ formatValue(traderSpecificMetrics.Penalized_VWAP, 'number') }}</span>
                     </div>
                     <div class="d-flex justify-space-between align-center mb-2">
                       <span class="text-subtitle-1">Slippage:</span>
-                      <span class="text-h6 font-weight-bold">{{ formatValue(traderSpecificMetrics.Slippage, 'currency') }}</span>
+                      <span class="text-h6 font-weight-bold">{{ formatValue(traderSpecificMetrics.Slippage, 'number') }}</span>
                     </div>
                     <div class="d-flex justify-space-between align-center mb-2">
                       <span class="text-subtitle-1">Slippage Scaled:</span>
@@ -99,7 +99,7 @@
                     </div>
                     <div class="d-flex justify-space-between align-center mb-2">
                       <span class="text-subtitle-1">PnL:</span>
-                      <span class="text-h6 font-weight-bold">{{ formatValue(traderSpecificMetrics.PnL, 'currency') }}</span>
+                      <span class="text-h6 font-weight-bold">{{ formatValue(traderSpecificMetrics.PnL, 'number') }}</span>
                     </div>
                     <div class="d-flex justify-space-between align-center mb-2">
                       <span class="text-subtitle-1">Market Reward:</span>
