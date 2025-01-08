@@ -18,6 +18,16 @@ def pick_random_element(input_list: List[T]) -> T:
     
     return max(element_scores)[1]
 
+
+def pick_random_element_new(input_list):
+    if not input_list:
+        raise ValueError("Cannot pick from an empty list")
+    
+    random.seed(2025)
+    picked_value = random.choice(input_list)
+    
+    return picked_value
+
 def main():
     try:
         list1 = [400, 200, 201, 220]
