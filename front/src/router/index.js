@@ -67,13 +67,6 @@ const routes = [
     meta: { requiresAuth: true, requiresAdmin: true }
   },
   {
-    path: "/admin/:tradingMarketUUID",
-    name: "admin",
-    component: () => import("@/components/AdminPage.vue"),
-    props: true,
-    meta: { requiresAuth: true, requiresAdmin: true }
-  },
-  {
     path: "/trading/:traderUuid/:marketId",
     name: "trading",
     component: () => import("@/components/TradingDashboard.vue"),
