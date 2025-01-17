@@ -45,7 +45,7 @@ def custom_verify_id_token(token, clock_skew_seconds=60):
         token_expiry = decoded_token.get('exp', 0)
         
         # Check if the token is within the acceptable time range
-        if current_time < token_issued_at - clock_skew_seconds:
+        if token_issued_at - clock_skew_seconds > current_time:
             raise jwt.InvalidTokenError("Token used too early")
         
         if current_time > token_expiry + clock_skew_seconds:
