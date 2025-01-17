@@ -2,7 +2,7 @@ import asyncio
 import aio_pika
 import json
 import uuid
-from core.data_models import OrderType, ActionType, TraderType
+from core.data_models import OrderType, ActionType, TraderType, ThrottleConfig
 import os
 from abc import abstractmethod
 
@@ -57,6 +57,11 @@ class BaseTrader:
         self.goal = 0
         self.goal_progress = 0
 
+        # Update throttle tracking to use config from params
+        self.last_order_time = 0
+        self.orders_in_window = 0
+        self.throttle_config = None  # Will be set when params are passed
+
     def get_elapsed_time(self) -> float:
         current_time = asyncio.get_event_loop().time()
         return current_time - self.start_time
@@ -108,6 +113,13 @@ class BaseTrader:
     async def initialize(self):
         self.connection = await aio_pika.connect_robust(rabbitmq_url)
         self.channel = await self.connection.channel()
+        if hasattr(self, 'params'):
+            # Get throttle config for this trader type
+            self.throttle_config = self.params.get('throttle_settings', {}).get(self.trader_type, None)
+            if self.throttle_config:
+                self.throttle_config = ThrottleConfig(**self.throttle_config)
+            else:
+                self.throttle_config = ThrottleConfig()  # Default no throttling
 
     async def clean_up(self):
         self._stop_requested.set()
@@ -254,15 +266,30 @@ class BaseTrader:
     async def post_new_order(
         self, amount: int, price: int, order_type: OrderType
     ) -> str:
+        # Only apply throttling if configured
+        if self.throttle_config and self.throttle_config.order_throttle_ms > 0:
+            current_time = asyncio.get_event_loop().time() * 1000  # Convert to milliseconds
+            
+            # Check if we're in a new window
+            if current_time - self.last_order_time > self.throttle_config.order_throttle_ms:
+                self.last_order_time = current_time
+                self.orders_in_window = 0
+                
+            # Check if we've exceeded the order limit in this window
+            if self.orders_in_window >= self.throttle_config.max_orders_per_window:
+                return None  # Discard the order
+                
+            # Increment order count for this window
+            self.orders_in_window += 1
+
+        # Original order posting logic
         if self.trader_type != TraderType.NOISE.value:
             if order_type == OrderType.BID:
                 if self.cash < price * amount:
                     return None
-                #self.cash -= price * amount
             elif order_type == OrderType.ASK:
                 if self.shares < amount:
                     return None
-                #self.shares -= amount
 
         placed_order_ids = []
         for i in range(int(amount)):
