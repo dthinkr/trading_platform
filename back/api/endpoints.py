@@ -16,9 +16,9 @@ from fastapi.security import HTTPBasic
 from core.trader_manager import TraderManager
 from core.market_handler import MarketHandler
 from core.data_models import TraderType, TradingParameters, UserRegistration, TraderRole
-from .auth import get_current_user, get_current_admin_user, get_firebase_auth, extract_gmail_username, is_user_registered, is_user_admin, update_google_form_id, custom_verify_id_token
+from .auth import get_current_user, get_current_admin_user, extract_gmail_username, is_user_registered, is_user_admin, custom_verify_id_token
 from .calculate_metrics import process_log_file, write_to_csv
-from .logfiles_analysis import order_book_contruction, is_jsonable, calculate_trader_specific_metrics
+from .logfiles_analysis import order_book_contruction, calculate_trader_specific_metrics
 from firebase_admin import auth
 
 # python stuff we need
@@ -33,7 +33,7 @@ from .google_sheet_auth import update_form_id, get_registered_users
 import zipfile
 from utils import setup_custom_logger
 from datetime import datetime
-from .random_picker import pick_random_element, pick_random_element_new
+from .random_picker import pick_random_element_new
 
 # init fastapi
 app = FastAPI()
@@ -102,7 +102,7 @@ async def user_login(request: Request):
         raise HTTPException(status_code=401, detail="Invalid authentication method")
     
     token = auth_header.split('Bearer ')[1]
-    decoded_token = auth.verify_id_token(token, check_revoked=True)
+    decoded_token = custom_verify_id_token(token)
     email = decoded_token['email']
     gmail_username = extract_gmail_username(email)
     
@@ -141,7 +141,7 @@ async def admin_login(request: Request):
         raise HTTPException(status_code=401, detail="Invalid authentication method")
     
     token = auth_header.split('Bearer ')[1]
-    decoded_token = auth.verify_id_token(token, check_revoked=True)
+    decoded_token = custom_verify_id_token(token)
     email = decoded_token['email']
     
     if not is_user_admin(email):

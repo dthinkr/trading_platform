@@ -73,36 +73,12 @@ class TradingPlatform:
         # Set up logging
         self.trading_logger = setup_trading_logger(self.id)
 
-        # Add throttle
-        self.execution_queue = asyncio.Queue()
-        self.execution_throttle_ms = params.get('execution_throttle_ms', 250)
-        self.process_executions_task = None
-
-    async def _process_execution_queue(self):
-        """Process executions from queue with throttling"""
-        while self.active:
-            try:
-                matched_orders = await self.execution_queue.get()
-                
-                for ask, bid, transaction_price in matched_orders:
-                    await self.create_transaction(bid, ask, transaction_price)
-
-                # Throttle next execution
-                await asyncio.sleep(self.execution_throttle_ms / 1000)
-                
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                self.trading_logger.error(f"Error processing execution: {e}")
-                
-    # Initialization and cleanup methods
     async def initialize(self) -> None:
         """Initialize the trading platform."""
         self.start_time = datetime.now(timezone.utc)
         self.active = True
         await self.rabbitmq_manager.initialize()
         await self._setup_rabbitmq()
-        self.process_executions_task = asyncio.create_task(self._process_execution_queue())
         self.process_transactions_task = asyncio.create_task(self.transaction_manager.process_transactions())
 
     async def clean_up(self) -> None:
@@ -286,11 +262,11 @@ class TradingPlatform:
 
         if immediately_matched:
             matched_orders = self.order_book_manager.clear_orders()
-            # Only queue the orders for throttled processing
-            await self.execution_queue.put(matched_orders)
             
-            # Log the matched order events
+            # Process matched orders immediately
             for ask, bid, transaction_price in matched_orders:
+                await self.create_transaction(bid, ask, transaction_price)
+                # Log the matched order events
                 match_data = {
                     "bid_order_id": str(bid["id"]),
                     "ask_order_id": str(ask["id"]),
@@ -299,19 +275,12 @@ class TradingPlatform:
                 }
                 self.trading_logger.info(f"MATCHED_ORDER: {match_data}")
 
-            return {
-                "type": "ADDED_ORDER",
-                "content": "A",
-                "respond": True,
-                "informed_trader_progress": informed_trader_progress,
-            }
-        else:
-            return {
-                "type": "ADDED_ORDER",
-                "content": "A",
-                "respond": True,
-                "informed_trader_progress": informed_trader_progress,
-            }     
+        return {
+            "type": "ADDED_ORDER",
+            "content": "A",
+            "respond": True,
+            "informed_trader_progress": informed_trader_progress,
+        }
 
     @if_active
     async def handle_cancel_order(self, data: dict) -> Dict:
