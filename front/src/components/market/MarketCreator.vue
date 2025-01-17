@@ -80,6 +80,56 @@
           </v-card>
         </v-col>
         
+        <!-- Throttle Settings -->
+        <v-col cols="12">
+          <v-card elevation="2">
+            <v-card-title class="headline">
+              <v-icon left color="deep-blue">mdi-timer-settings-outline</v-icon>
+              Order Throttling
+            </v-card-title>
+            <v-card-text>
+              <v-data-table
+                :headers="[
+                  { text: 'Trader Type', value: 'type' },
+                  { text: 'Throttle (ms)', value: 'throttle' },
+                  { text: 'Max Orders', value: 'maxOrders' }
+                ]"
+                :items="['HUMAN', 'NOISE', 'INFORMED', 'MARKET_MAKER', 'INITIAL_ORDER_BOOK', 'SIMPLE_ORDER']"
+                hide-default-footer
+                dense
+              >
+                <template v-slot:item="{ item }">
+                  <tr>
+                    <td>{{ item }}</td>
+                    <td style="width: 200px">
+                      <v-text-field
+                        v-model.number="formState.throttle_settings[item].order_throttle_ms"
+                        type="number"
+                        min="0"
+                        dense
+                        outlined
+                        hide-details
+                        @input="updatePersistentSettings"
+                      ></v-text-field>
+                    </td>
+                    <td style="width: 200px">
+                      <v-text-field
+                        v-model.number="formState.throttle_settings[item].max_orders_per_window"
+                        type="number"
+                        min="1"
+                        dense
+                        outlined
+                        hide-details
+                        @input="updatePersistentSettings"
+                      ></v-text-field>
+                    </td>
+                  </tr>
+                </template>
+              </v-data-table>
+            </v-card-text>
+          </v-card>
+        </v-col>
+
         <v-col cols="12" md="4">
           <v-card class="mb-4" elevation="2">
             <v-card-title class="headline">
@@ -144,9 +194,19 @@ import { useTraderStore } from "@/store/app";
 import axios from '@/api/axios';  // Use our custom axios instance instead of the default one
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
+import { debounce } from 'lodash';
 
 const traderStore = useTraderStore();
-const formState = ref({});
+const formState = ref({
+  throttle_settings: {
+    HUMAN: { order_throttle_ms: 1000, max_orders_per_window: 2 },
+    NOISE: { order_throttle_ms: 0, max_orders_per_window: 1 },
+    INFORMED: { order_throttle_ms: 0, max_orders_per_window: 1 },
+    MARKET_MAKER: { order_throttle_ms: 0, max_orders_per_window: 1 },
+    INITIAL_ORDER_BOOK: { order_throttle_ms: 0, max_orders_per_window: 1 },
+    SIMPLE_ORDER: { order_throttle_ms: 0, max_orders_per_window: 1 }
+  }
+});
 const formFields = ref([]);
 const serverActive = ref(false);
 const logFiles = ref([]);
@@ -205,10 +265,28 @@ const fetchData = async () => {
     const defaultData = defaultsResponse.data.data;
     const persistentSettings = persistentSettingsResponse.data.data;
 
+    // Initialize formState
+    formState.value = {};
+    
+    // Load the form data first
     for (const [key, value] of Object.entries(defaultData)) {
-      formState.value[key] = persistentSettings[key] || value.default;
-      formFields.value.push({ name: key, ...value });
+      if (key !== 'throttle_settings') {
+        formState.value[key] = persistentSettings[key] || value.default;
+        formFields.value.push({ name: key, ...value });
+      }
     }
+    
+    // Handle throttle settings separately
+    const defaultThrottleSettings = {
+      HUMAN: { order_throttle_ms: 100, max_orders_per_window: 1 },
+      NOISE: { order_throttle_ms: 0, max_orders_per_window: 1 },
+      INFORMED: { order_throttle_ms: 0, max_orders_per_window: 1 },
+      MARKET_MAKER: { order_throttle_ms: 0, max_orders_per_window: 1 },
+      INITIAL_ORDER_BOOK: { order_throttle_ms: 0, max_orders_per_window: 1 },
+      SIMPLE_ORDER: { order_throttle_ms: 0, max_orders_per_window: 1 }
+    };
+    
+    formState.value.throttle_settings = persistentSettings.throttle_settings || defaultThrottleSettings;
     
     logFiles.value = logFilesResponse.data.files;
     serverActive.value = true;
@@ -218,33 +296,32 @@ const fetchData = async () => {
   }
 };
 
-const updatePersistentSettings = async () => {
+const debouncedUpdate = debounce(async (settings) => {
   try {
-    // Create a copy of formState with properly formatted values
-    const settings = {};
-    for (const [key, value] of Object.entries(formState.value)) {
-      if (key === 'predefined_goals') {
-        // Ensure predefined_goals is always an array of numbers
-        if (typeof value === 'string') {
-          settings[key] = value.split(',').map(v => parseInt(v.trim())).filter(n => !isNaN(n));
-        } else if (Array.isArray(value)) {
-          settings[key] = value.map(v => parseInt(v));
-        } else {
-          settings[key] = [0]; // Default fallback
-        }
-        console.log(`Formatted ${key}:`, settings[key]); // Debug log
-      } else {
-        settings[key] = value;
-      }
+    // Create a clean copy of the settings
+    const cleanSettings = { ...settings };
+    
+    // Ensure throttle settings are properly formatted
+    if (cleanSettings.throttle_settings) {
+      Object.entries(cleanSettings.throttle_settings).forEach(([trader, config]) => {
+        cleanSettings.throttle_settings[trader] = {
+          order_throttle_ms: parseInt(config.order_throttle_ms) || 0,
+          max_orders_per_window: parseInt(config.max_orders_per_window) || 1
+        };
+      });
     }
     
     await axios.post(`${import.meta.env.VITE_HTTP_URL}admin/update_persistent_settings`, {
-      settings: settings
+      settings: cleanSettings
     });
   } catch (error) {
     console.error("Failed to update persistent settings:", error);
     throw error;
   }
+}, 500);
+
+const updatePersistentSettings = () => {
+  debouncedUpdate(formState.value);
 };
 
 const saveSettings = async () => {

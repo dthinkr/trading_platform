@@ -37,6 +37,20 @@ class UserRegistration(BaseModel):
     username: str
     password: str
 
+# trader types
+class TraderType(str, Enum):
+    NOISE = "NOISE"
+    MARKET_MAKER = "MARKET_MAKER"
+    INFORMED = "INFORMED"
+    HUMAN = "HUMAN"
+    INITIAL_ORDER_BOOK = "INITIAL_ORDER_BOOK"
+    SIMPLE_ORDER = "SIMPLE_ORDER"
+
+
+class ThrottleConfig(BaseModel):
+    order_throttle_ms: int = 0  # 0 means no throttling
+    max_orders_per_window: int = 1  # Only used if throttle_ms > 0
+
 
 # all the trading params - lots of them!
 class TradingParameters(BaseModel):
@@ -231,6 +245,19 @@ class TradingParameters(BaseModel):
         gt=0,
     )
 
+    throttle_settings: Dict[TraderType, ThrottleConfig] = Field(
+        default_factory=lambda: {
+            TraderType.HUMAN: ThrottleConfig(order_throttle_ms=100, max_orders_per_window=1),
+            TraderType.NOISE: ThrottleConfig(),
+            TraderType.INFORMED: ThrottleConfig(),
+            TraderType.MARKET_MAKER: ThrottleConfig(),
+            TraderType.INITIAL_ORDER_BOOK: ThrottleConfig(),
+            TraderType.SIMPLE_ORDER: ThrottleConfig(),
+        },
+        title="Throttle Settings Per Trader Type",
+        description="model_parameter"
+    )
+
     @field_validator('predefined_goals', mode='before')
     def validate_predefined_goals(cls, v):
         if isinstance(v, str):
@@ -328,16 +355,6 @@ class OrderStatus(str, Enum):
     ACTIVE = "active"
     EXECUTED = "executed"
     CANCELLED = "cancelled"
-
-
-# trader types
-class TraderType(str, Enum):
-    NOISE = "NOISE"
-    MARKET_MAKER = "MARKET_MAKER"
-    INFORMED = "INFORMED"
-    HUMAN = "HUMAN"
-    INITIAL_ORDER_BOOK = "INITIAL_ORDER_BOOK"
-    SIMPLE_ORDER = "SIMPLE_ORDER"
 
 
 # order model
