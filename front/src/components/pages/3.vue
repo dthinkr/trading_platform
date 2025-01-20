@@ -52,10 +52,66 @@
                   <br><br>
                   Potential tasks for your role could include:
                   <ul style="margin-left: 20px;">
-                    <li style="margin-bottom: 10px; margin-top: 10px;">Buy a certain number of shares at the lowest price.</li>
-                    <li style="margin-bottom: 10px;">Sell a certain number of shares at the highest price.</li>
-                    <li>Buy and Sell shares to generate profit.</li>
+                    <li style="margin-bottom: 10px; margin-top: 10px;">Buy a certain number of shares at the lowest price. (Informed Trader)</li>
+                    <li style="margin-bottom: 10px;">Sell a certain number of shares at the highest price. (Informed Trader)</li>
+                    <li>Buy and Sell shares to generate profit. (Speculator)</li>
                   </ul>
+                </p>
+              </v-card-text>
+            </v-card>
+          </v-hover>
+        </v-col>
+
+        <!-- Task Card -->
+        <v-col cols="12">
+          <v-hover v-slot="{ isHovering, props }">
+            <v-card
+              v-bind="props"
+              :elevation="isHovering ? 8 : 2"
+              class="info-card warning-gradient"
+            >
+              <v-card-text>
+                <div class="d-flex align-center mb-4">
+                  <v-icon size="28" color="warning" class="mr-2">mdi-alert</v-icon>
+                  <span class="text-h6">Task as a Informed Trader</span>
+                </div>
+                <p class="text-body-1 font-weight-medium">
+                  In this role, your task is to buy or sell a specific number of shares.
+                  <br><br>
+                  At the beginning of each market, you will be given a specific number of shares.
+                  <br><br>
+                  By the end of the market, you must ensure that you have achieved your goal.
+                  <br><br>
+                  If, at the end of each market, you haven't completed your task, the platform will automatically buy or sell the remaining shares at a penalized price. 
+                  This will affect your profits.
+                </p>
+              </v-card-text>
+            </v-card>
+          </v-hover>
+        </v-col>
+
+        <!-- Task Card -->
+        <v-col cols="12">
+          <v-hover v-slot="{ isHovering, props }">
+            <v-card
+              v-bind="props"
+              :elevation="isHovering ? 8 : 2"
+              class="info-card warning-gradient"
+            >
+              <v-card-text>
+                <div class="d-flex align-center mb-4">
+                  <v-icon size="28" color="warning" class="mr-2">mdi-alert</v-icon>
+                  <span class="text-h6">Task as a Speculator</span>
+                </div>
+                <p class="text-body-1 font-weight-medium">
+                  In this role, your task is to buy and sell shares in order to make profits.
+                  <br><br>
+                  At the beginning of each market, you will be given a specific number of shares.
+                  <br><br>
+                  By the end of the market, you must ensure that the number of shares matches the initial number you were given.
+                  <br><br>
+                  If, at the end of each market, the number of shares differs from the initial amount, 
+                  the platform will liquidate the surplus or deficit at the Initial Midprice. This could potentially affect your profits.
                 </p>
               </v-card-text>
             </v-card>
