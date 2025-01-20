@@ -191,7 +191,7 @@ class InformedTrader(BaseTrader):
         return spread
 
     def calculate_sleep_time(self,remaining_time,number_trades,goal):
-        sleep_time = max(1,(remaining_time - 5) / (goal - number_trades))
+        sleep_time = max(0.5,(remaining_time - 5) / (goal - number_trades))
         return sleep_time
         
     async def manage_passive_aggresive_orders(self):

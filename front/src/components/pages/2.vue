@@ -23,9 +23,15 @@
                   <span class="text-h6">What is the Trading Platform?</span>
                 </div>
                 <p class="text-body-1">
-                  The trading platform is software that allows you to trade with other participants. 
-                  It shows relevant information about the demand and supply of an asset (e.g. a share). 
-                  What you see on the trading platform is common knowledge i.e. all other participants can see it.
+                  The trading platform is software that allows participants to trade with one another. 
+                  It displays relevant information about the demand and supply of an asset (e.g. a share). 
+                  What you see on the trading platform is common knowledge, meaning all other participants can see it.
+                  <br><br>
+                  This trading platform closely replicates real financial exchange platforms, where participants trade under a double auction setting.
+                  In particular, a double auction trading mechanism allows buyers to submit bids (buy offers) and sellers to submit asks (sell offers) simultaneously. 
+                  The platform matches buyers and sellers based on price and quantity.
+                  <br><br>
+                  Please take some time to carefully read the next slides.
                 </p>
               </v-card-text>
             </v-card>
