@@ -5,7 +5,7 @@
         <v-card elevation="24" class="auth-card">
           <v-card-text class="text-center">
             <img :src="logo" alt="Trading Logo" class="trading-logo mb-4">
-            <h1 class="text-h4 font-weight-bold mb-2">Trade</h1>
+            <h1 class="text-h4 font-weight-bold mb-2">Trade (Auto Update Test)</h1>
             <p class="text-subtitle-1 mb-6">Sign in to access a trading market</p>
             
             <!-- Hidden buttons that will be auto-clicked -->
