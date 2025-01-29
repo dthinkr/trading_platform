@@ -255,7 +255,6 @@ class MarketHandler:
             self.user_roles.clear()
             self.market_locks.clear()
             self.market_ready_traders.clear()
-            self.user_historical_markets.clear()  
             
             return True
             
