@@ -663,12 +663,13 @@ def is_market_valid(market_id: str) -> bool:
 async def reset_state(current_user: dict = Depends(get_current_admin_user)):
     """Reset all application state except settings"""
     try:
-        global persistent_settings, accumulated_rewards  # Need global here because we modify both
+        global persistent_settings, accumulated_rewards
         current_settings = persistent_settings.copy()
         await market_handler.reset_state()
         persistent_settings = current_settings
         accumulated_rewards = {}  # Reset accumulated rewards
         
+        # Preserve historical markets by not clearing market_handler.user_historical_markets
         return {
             "status": "success", 
             "message": "Application state reset successfully"
