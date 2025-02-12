@@ -80,7 +80,20 @@ class PersistentSettings(BaseModel):
 @app.post("/admin/update_persistent_settings")
 async def update_persistent_settings(settings: PersistentSettings):
     global persistent_settings  # Only use global when modifying
+    
+    # Import and set up parameter logger
+    from core.parameter_logger import ParameterLogger
+    logger = ParameterLogger()
+    
+    # Update settings
     persistent_settings = settings.settings
+    
+    # Log the complete current state
+    logger.log_parameter_state(
+        current_state=persistent_settings,
+        source='admin_update'
+    )
+    
     return {"status": "success", "message": "Persistent settings updated"}
 
 @app.get("/admin/get_persistent_settings")
