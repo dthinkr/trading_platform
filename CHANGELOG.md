@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Parameter change tracking system
+  - New JSON-based parameter history with timestamped states
+  - Added `/admin/download_parameter_history` endpoint
+  - Added parameter history download button in market configuration UI
+
 To propose changes:
 
 1. Edit this section directly in CHANGELOG.md
