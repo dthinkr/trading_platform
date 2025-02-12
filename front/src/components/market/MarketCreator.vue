@@ -148,6 +148,18 @@
                 <v-icon left large>mdi-download-multiple</v-icon>
                 Download All Files
               </v-btn>
+
+              <v-btn 
+                color="secondary" 
+                @click="downloadParameterHistory" 
+                block
+                elevation="2"
+                class="mb-2 custom-btn"
+                x-large
+              >
+                <v-icon left large>mdi-history</v-icon>
+                Download Parameter History
+              </v-btn>
               
               <v-data-table
                 :headers="[
@@ -380,6 +392,24 @@ const downloadAllFiles = async () => {
     saveAs(content, "all_log_files.zip");
   } catch (error) {
     console.error("Error downloading all files:", error);
+  }
+};
+
+const downloadParameterHistory = async () => {
+  try {
+    const response = await axios.get(
+      `${import.meta.env.VITE_HTTP_URL}admin/download_parameter_history`, 
+      { responseType: 'blob' }
+    );
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'parameter_history.json');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (error) {
+    console.error("Error downloading parameter history:", error);
   }
 };
 

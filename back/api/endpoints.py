@@ -100,6 +100,22 @@ async def update_persistent_settings(settings: PersistentSettings):
 async def get_persistent_settings():
     return {"status": "success", "data": persistent_settings}
 
+@app.get("/admin/download_parameter_history")
+async def download_parameter_history(current_user: dict = Depends(get_current_admin_user)):
+    """Download the parameter history JSON file"""
+    param_history_path = Path("logs/parameters/parameter_history.json")
+    if not param_history_path.exists():
+        return JSONResponse(
+            status_code=404,
+            content={"status": "error", "message": "Parameter history file not found"}
+        )
+    
+    return FileResponse(
+        path=param_history_path,
+        filename="parameter_history.json",
+        media_type="application/json"
+    )
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
