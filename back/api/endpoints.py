@@ -40,7 +40,53 @@ app = FastAPI()
 security = HTTPBasic()
 
 # Global variables
-persistent_settings = {}  # Just declare it once here, no need for global keyword
+# Default persistent settings from TradingParameters
+from core.data_models import TradingParameters
+
+# Initialize with default values from TradingParameters
+default_params = TradingParameters()
+persistent_settings = {
+    "num_noise_traders": default_params.num_noise_traders,
+    "num_informed_traders": default_params.num_informed_traders,
+    "num_simple_order_traders": default_params.num_simple_order_traders,
+    "start_of_book_num_order_per_level": default_params.start_of_book_num_order_per_level,
+    "trading_day_duration": default_params.trading_day_duration,
+    "step": default_params.step,
+    "noise_activity_frequency": default_params.noise_activity_frequency,
+    "max_order_amount": default_params.max_order_amount,
+    "noise_passive_probability": default_params.noise_passive_probability,
+    "noise_cancel_probability": default_params.noise_cancel_probability,
+    "noise_bid_probability": default_params.noise_bid_probability,
+    "informed_trade_intensity": default_params.informed_trade_intensity,
+    "informed_trade_direction": default_params.informed_trade_direction,
+    "informed_edge": default_params.informed_edge,
+    "informed_order_book_levels": default_params.informed_order_book_levels,
+    "informed_order_book_depth": default_params.informed_order_book_depth,
+    "informed_use_passive_orders": default_params.informed_use_passive_orders,
+    "informed_random_direction": default_params.informed_random_direction,
+    "informed_share_passive": default_params.informed_share_passive,
+    "initial_cash": default_params.initial_cash,
+    "initial_stocks": default_params.initial_stocks,
+    "depth_book_shown": default_params.depth_book_shown,
+    "order_book_levels": default_params.order_book_levels,
+    "default_price": default_params.default_price,
+    "conversion_rate": default_params.conversion_rate,
+    "cancel_time": 1,
+    "max_markets_per_human": 4,
+    "google_form_id": "1yDf7vd5wLaPhm30IiGKTkPw4s5spb3Xlm86Li81YDXI",
+    "admin_users": ["venvoooo", "asancetta", "marjonuzaj", "fra160756", "expecon"],
+    "predefined_goals": [100],
+    "allow_random_goals": True,
+    "execution_throttle_ms": 250,
+    "throttle_settings": {
+        "HUMAN": {"order_throttle_ms": 100, "max_orders_per_window": 1},
+        "NOISE": {"order_throttle_ms": 0, "max_orders_per_window": 1},
+        "INFORMED": {"order_throttle_ms": 0, "max_orders_per_window": 1},
+        "MARKET_MAKER": {"order_throttle_ms": 0, "max_orders_per_window": 1},
+        "INITIAL_ORDER_BOOK": {"order_throttle_ms": 0, "max_orders_per_window": 1},
+        "SIMPLE_ORDER": {"order_throttle_ms": 0, "max_orders_per_window": 1}
+    }
+}
 accumulated_rewards = {}  # Store accumulated rewards per user
 
 # CORS middleware for cross-origin requests
@@ -656,6 +702,15 @@ async def periodic_time_offset_calculation():
 # startup tasks
 @app.on_event("startup")
 async def startup_event():
+    # Log default parameters at startup
+    from core.parameter_logger import ParameterLogger
+    logger = ParameterLogger()
+    logger.log_parameter_state(
+        current_state=persistent_settings,
+        source='system_startup'
+    )
+    
+    # Start background tasks
     asyncio.create_task(periodic_update_registered_users())
     asyncio.create_task(periodic_time_offset_calculation())
 
