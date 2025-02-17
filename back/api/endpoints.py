@@ -706,24 +706,30 @@ async def force_start_session(
     if not market_handler.active_users.get(market_id):
         raise HTTPException(status_code=400, detail="Cannot start empty session")
     
-    # Initialize RabbitMQ and start the market
-    await manager.trading_market.rabbitmq_manager.initialize()
-    await manager.trading_market._setup_rabbitmq()
-    
-    # First activate the market
-    manager.trading_market.active = True
-    
-    # Then register all users in the queue
-    for username in market_handler.active_users.get(market_id, set()):
+    # Register all active users first
+    active_users = market_handler.active_users.get(market_id, set())
+    for username in active_users:
+        trader_id = f"HUMAN_{username}"
         await manager.trading_market.handle_register_me({
-            "trader_id": f"HUMAN_{username}",
+            "trader_id": trader_id,
             "trader_type": "human",
             "gmail_username": username
         })
+        # Mark each human trader as ready
+        await market_handler.mark_trader_ready(trader_id, market_id)
     
-    # Finally start trading which will broadcast to all registered users
-    await manager.trading_market.start_trading()
-    background_tasks.add_task(manager.trading_market.run)
+    # Temporarily store the original predefined_goals
+    original_goals = manager.params.predefined_goals
+    
+    # Modify predefined_goals to match current number of users
+    manager.params.predefined_goals = [100] * len(active_users)
+    
+    try:
+        # Launch using the normal initialization process
+        await manager.launch()
+    finally:
+        # Restore original predefined_goals
+        manager.params.predefined_goals = original_goals
     
     return {"status": "success", "message": "Market session started successfully"}
 
