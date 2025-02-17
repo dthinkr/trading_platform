@@ -130,6 +130,49 @@
           </v-card>
         </v-col>
 
+        <!-- Market Monitor -->
+        <v-col cols="12" md="8">
+          <v-card elevation="2">
+            <v-card-title class="headline">
+              <v-icon left color="deep-blue">mdi-monitor-dashboard</v-icon>
+              Active Markets Monitor
+            </v-card-title>
+            
+            <v-card-text>
+              <v-data-table
+                :headers="[
+                  { text: 'Market ID', value: 'market_id', class: 'custom-header' },
+                  { text: 'Status', value: 'status', class: 'custom-header' },
+                  { text: 'Members', value: 'member_count', class: 'custom-header' },
+                  { text: 'Started At', value: 'started_at', class: 'custom-header' }
+                ]"
+                :items="activeSessions"
+                :items-per-page="5"
+                class="elevation-1"
+                dense
+              >
+                <template v-slot:item.status="{ item }">
+                  <v-chip
+                    :color="getStatusColor(item.status)"
+                    small
+                    label
+                  >
+                    {{ item.status }}
+                  </v-chip>
+                </template>
+                
+                <template v-slot:item.member_count="{ item }">
+                  {{ item.member_ids?.length || 0 }}
+                </template>
+                
+                <template v-slot:item.started_at="{ item }">
+                  {{ item.started_at ? new Date(item.started_at).toLocaleString() : 'Not started' }}
+                </template>
+              </v-data-table>
+            </v-card-text>
+          </v-card>
+        </v-col>
+
         <v-col cols="12" md="4">
           <v-card class="mb-4" elevation="2">
             <v-card-title class="headline">
@@ -201,7 +244,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useTraderStore } from "@/store/app";
 import axios from '@/api/axios';  // Use our custom axios instance instead of the default one
 import { saveAs } from 'file-saver';
@@ -209,6 +252,30 @@ import JSZip from 'jszip';
 import { debounce } from 'lodash';
 
 const traderStore = useTraderStore();
+
+// Market Monitor
+const activeSessions = ref([]);
+
+const fetchActiveSessions = async () => {
+  try {
+    const response = await axios.get(`${import.meta.env.VITE_HTTP_URL}sessions`);
+    activeSessions.value = response.data;
+  } catch (error) {
+    console.error("Failed to fetch sessions:", error);
+  }
+};
+
+const getStatusColor = (status) => {
+  const colors = {
+    'pending': 'warning',
+    'active': 'success',
+    'completed': 'grey'
+  };
+  return colors[status] || 'grey';
+};
+
+// Set up polling for session updates
+let sessionPollingInterval;
 const formState = ref({
   throttle_settings: {
     HUMAN: { order_throttle_ms: 1000, max_orders_per_window: 2 },
@@ -435,7 +502,18 @@ const getFieldStyle = (fieldName) => {
   return isDifferent ? 'treatment-value' : '';
 };
 
-onMounted(fetchData);
+onMounted(() => {
+  fetchData();
+  fetchActiveSessions();
+  // Poll for session updates every 5 seconds
+  sessionPollingInterval = setInterval(fetchActiveSessions, 5000);
+});
+
+onUnmounted(() => {
+  if (sessionPollingInterval) {
+    clearInterval(sessionPollingInterval);
+  }
+});
 </script>
 
 <style scoped>
