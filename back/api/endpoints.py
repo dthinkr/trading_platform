@@ -709,6 +709,19 @@ async def force_start_session(
     # Initialize RabbitMQ and start the market
     await manager.trading_market.rabbitmq_manager.initialize()
     await manager.trading_market._setup_rabbitmq()
+    
+    # First activate the market
+    manager.trading_market.active = True
+    
+    # Then register all users in the queue
+    for username in market_handler.active_users.get(market_id, set()):
+        await manager.trading_market.handle_register_me({
+            "trader_id": f"HUMAN_{username}",
+            "trader_type": "human",
+            "gmail_username": username
+        })
+    
+    # Finally start trading which will broadcast to all registered users
     await manager.trading_market.start_trading()
     background_tasks.add_task(manager.trading_market.run)
     
