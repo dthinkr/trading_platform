@@ -687,6 +687,33 @@ async def list_sessions(current_user: dict = Depends(get_current_user)):
         })
     return sessions
 
+@app.post("/sessions/{market_id}/force-start")
+async def force_start_session(
+    market_id: str,
+    background_tasks: BackgroundTasks,
+    current_user: dict = Depends(get_current_user)
+):
+    """Force start a trading session even if it's not full"""
+    if market_id not in market_handler.trader_managers:
+        raise HTTPException(status_code=404, detail="Market not found")
+        
+    manager = market_handler.trader_managers[market_id]
+    market = manager.trading_market
+    
+    if market.trading_started:
+        raise HTTPException(status_code=400, detail="Market session already started")
+        
+    if not market_handler.active_users.get(market_id):
+        raise HTTPException(status_code=400, detail="Cannot start empty session")
+    
+    # Initialize RabbitMQ and start the market
+    await manager.trading_market.rabbitmq_manager.initialize()
+    await manager.trading_market._setup_rabbitmq()
+    await manager.trading_market.start_trading()
+    background_tasks.add_task(manager.trading_market.run)
+    
+    return {"status": "success", "message": "Market session started successfully"}
+
 # admin stuff - update the google form id
 @app.post("/admin/update_google_form_id")
 async def update_google_form_id_endpoint(new_form_id: str, current_user: dict = Depends(get_current_admin_user)):

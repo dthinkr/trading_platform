@@ -144,7 +144,8 @@
                   { text: 'Market ID', value: 'market_id', class: 'custom-header' },
                   { text: 'Status', value: 'status', class: 'custom-header' },
                   { text: 'Members', value: 'member_ids', class: 'custom-header' },
-                  { text: 'Started At', value: 'started_at', class: 'custom-header' }
+                  { text: 'Started At', value: 'started_at', class: 'custom-header' },
+                  { text: 'Actions', value: 'actions', class: 'custom-header', sortable: false }
                 ]"
                 :items="activeSessions"
                 :items-per-page="5"
@@ -229,6 +230,19 @@
                 
                 <template v-slot:item.started_at="{ item }">
                   {{ item.started_at ? new Date(item.started_at).toLocaleString() : 'Not started' }}
+                </template>
+
+                <template v-slot:item.actions="{ item }">
+                  <v-btn
+                    x-small
+                    color="primary"
+                    :disabled="item.status === 'active' || !item.member_ids?.length"
+                    @click="forceStartSession(item.market_id)"
+                    class="mr-2"
+                  >
+                    <v-icon left x-small>mdi-play</v-icon>
+                    Start
+                  </v-btn>
                 </template>
               </v-data-table>
             </v-card-text>
@@ -324,6 +338,16 @@ const fetchActiveSessions = async () => {
     activeSessions.value = response.data;
   } catch (error) {
     console.error("Failed to fetch sessions:", error);
+  }
+};
+
+const forceStartSession = async (marketId) => {
+  try {
+    await axios.post(`${import.meta.env.VITE_HTTP_URL}sessions/${marketId}/force-start`);
+    showSuccessMessage('Session started successfully');
+    await fetchActiveSessions();
+  } catch (error) {
+    showErrorMessage(error.response?.data?.detail || 'Error starting session');
   }
 };
 
