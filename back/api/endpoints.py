@@ -669,6 +669,24 @@ async def start_trading_market(background_tasks: BackgroundTasks, current_user: 
         "message": status_message
     }
 
+# Market monitoring endpoint
+@app.get("/sessions")
+async def list_sessions(current_user: dict = Depends(get_current_user)):
+    """List only pending and active market sessions for monitoring"""
+    # Clean up any finished markets first
+    await market_handler.cleanup_finished_markets()
+    
+    sessions = []
+    for market_id, manager in market_handler.trader_managers.items():
+        market = manager.trading_market
+        sessions.append({
+            "market_id": market_id,
+            "status": "active" if market.trading_started else "pending",
+            "member_ids": list(market_handler.active_users.get(market_id, set())),
+            "started_at": market.start_time if market.trading_started else None
+        })
+    return sessions
+
 # admin stuff - update the google form id
 @app.post("/admin/update_google_form_id")
 async def update_google_form_id_endpoint(new_form_id: str, current_user: dict = Depends(get_current_admin_user)):

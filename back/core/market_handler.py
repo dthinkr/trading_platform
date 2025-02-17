@@ -322,3 +322,27 @@ class MarketHandler:
                 status_code=500,
                 detail=f"Error creating trading market: {str(e)}"
             )
+
+    async def cleanup_finished_markets(self) -> None:
+        """Remove markets that have finished trading from the active markets list"""
+        finished_markets = []
+        for market_id, manager in self.trader_managers.items():
+            if manager.trading_market.is_finished:
+                finished_markets.append(market_id)
+                # Clean up references to this market
+                if market_id in self.active_users:
+                    del self.active_users[market_id]
+                if market_id in self.market_ready_traders:
+                    del self.market_ready_traders[market_id]
+                # Remove market references from users
+                for username, user_market in list(self.user_markets.items()):
+                    if user_market == market_id:
+                        del self.user_markets[username]
+                # Remove trader references
+                for trader_id, trader_market in list(self.trader_to_market_lookup.items()):
+                    if trader_market == market_id:
+                        del self.trader_to_market_lookup[trader_id]
+        
+        # Remove finished markets from trader_managers
+        for market_id in finished_markets:
+            del self.trader_managers[market_id]
