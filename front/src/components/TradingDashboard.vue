@@ -102,32 +102,10 @@
                     color="primary"
                     indeterminate
                   ></v-progress-circular>
-                  <div class="mt-4">
-                    <p class="mb-2">
-                      <strong>To start trading:</strong>
-                    </p>
-                    <p class="mb-2">
-                      1. All {{ expectedHumanTraders }} traders must join
-                      <v-icon v-if="currentHumanTraders === expectedHumanTraders" 
-                              color="success" small>
-                        mdi-check-circle
-                      </v-icon>
-                    </p>
-                    <p class="mb-2">
-                      2. Each trader must press "Start Trading"
-                      <span class="ml-1">
-                        ({{ readyCount }} of {{ expectedHumanTraders }} ready)
-                      </span>
-                      <v-icon v-if="allTradersReady" 
-                              color="success" small>
-                        mdi-check-circle
-                      </v-icon>
-                    </p>
-                    <p class="text--secondary mt-4">
-                      <v-icon small color="grey">mdi-refresh</v-icon>
-                      If waiting too long, you can refresh the page to try again
-                    </p>
-                  </div>
+                  <p class="text--secondary mt-4">
+                    <v-icon small color="grey">mdi-refresh</v-icon>
+                    If waiting too long, you can refresh the page to try again
+                  </p>
                 </v-card-text>
               </v-card>
             </v-col>
@@ -341,7 +319,7 @@ const getToolIcon = (toolTitle) => {
 
 // Add these to your existing refs/computed
 const userRole = ref('');
-const marketTimeRemaining = ref(60); // Change from 30 to 60 seconds
+const marketTimeRemaining = ref(null); // Infinite timeout
 const marketTimeoutInterval = ref(null);
 
 // Add these computed properties
