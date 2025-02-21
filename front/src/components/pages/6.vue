@@ -130,8 +130,8 @@
                     dot-color="info"
                     icon="mdi-play-circle"
                   >
-                    <div class="text-subtitle-1 font-weight-bold">Practice Market</div>
-                    <div class="text-body-2">You will practice trading to familiarize yourself with the trading platform</div>
+                    <div class="text-subtitle-1 font-weight-bold">Market</div>
+                    <div class="text-body-2">You will start trading to familiarize yourself with the trading platform</div>
                   </v-timeline-item>
                 </v-timeline>
               </v-card-text>

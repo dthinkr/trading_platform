@@ -25,9 +25,6 @@
                 <p class="text-body-1">
                   We are going to conduct <span class="highlight-text">{{ numMarkets }} markets</span> 
                   in which you will have a straightforward task. 
-                  <br><br>
-                  The <span style="font-weight: bold; color: #1976D2; ">first market</span> is a practice market and will therefore not affect 
-                  your final earnings.
                 </p>
               </v-card-text>
             </v-card>
