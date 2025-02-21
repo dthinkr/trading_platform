@@ -23,7 +23,7 @@
                   <span class="text-h6">Duration</span>
                 </div>
                 <p class="text-body-1">
-                  Practice trading for <span class="highlight-text">{{ marketDuration }} minutes</span>
+                  Trade for <span class="highlight-text">{{ marketDuration }} minutes</span>
                 </p>
               </v-card-text>
             </v-card>

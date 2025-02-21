@@ -123,7 +123,7 @@
               <v-card-text>
                 <div class="d-flex align-center mb-4">
                   <v-icon size="28" color="primary" class="mr-2">mdi-play-circle</v-icon>
-                  <span class="text-h6">Tading Platform</span>
+                  <span class="text-h6">Trading Platform</span>
                 </div>
                 <v-img
                   :src="Screenshot_1"
@@ -150,7 +150,7 @@
               <v-card-text>
                 <div class="d-flex align-center mb-4">
                   <v-icon size="28" color="primary" class="mr-2">mdi-play-circle</v-icon>
-                  <span class="text-h6">Tading Platform: Panel 1</span>
+                  <span class="text-h6">Trading Platform: Panel 1</span>
                 </div>
                 <v-img
                   :src="Screenshot_2"
@@ -174,7 +174,7 @@
               <v-card-text>
                 <div class="d-flex align-center mb-4">
                   <v-icon size="28" color="primary" class="mr-2">mdi-play-circle</v-icon>
-                  <span class="text-h6">Tading Platform: Panel 2</span>
+                  <span class="text-h6">Trading Platform: Panel 2</span>
                 </div>
                 <v-img
                   :src="Screenshot_3"
@@ -198,7 +198,7 @@
               <v-card-text>
                 <div class="d-flex align-center mb-4">
                   <v-icon size="28" color="primary" class="mr-2">mdi-play-circle</v-icon>
-                  <span class="text-h6">Tading Platform: Panel 3</span>
+                  <span class="text-h6">Trading Platform: Panel 3</span>
                 </div>
                 <v-img
                   :src="Screenshot_4"
@@ -222,7 +222,7 @@
               <v-card-text>
                 <div class="d-flex align-center mb-4">
                   <v-icon size="28" color="primary" class="mr-2">mdi-play-circle</v-icon>
-                  <span class="text-h6">Tading Platform: Panel 4</span>
+                  <span class="text-h6">Trading Platform: Panel 4</span>
                 </div>
                 <v-img
                   :src="Screenshot_5"
@@ -246,7 +246,7 @@
               <v-card-text>
                 <div class="d-flex align-center mb-4">
                   <v-icon size="28" color="primary" class="mr-2">mdi-play-circle</v-icon>
-                  <span class="text-h6">Tading Platform: Panel 5</span>
+                  <span class="text-h6">Trading Platform: Panel 5</span>
                 </div>
                 <v-img
                   :src="Screenshot_6"
@@ -270,7 +270,7 @@
               <v-card-text>
                 <div class="d-flex align-center mb-4">
                   <v-icon size="28" color="primary" class="mr-2">mdi-play-circle</v-icon>
-                  <span class="text-h6">Tading Platform: Panel 6</span>
+                  <span class="text-h6">Trading Platform: Panel 6</span>
                 </div>
                 <v-img
                   :src="Screenshot_7"
@@ -294,7 +294,7 @@
               <v-card-text>
                 <div class="d-flex align-center mb-4">
                   <v-icon size="28" color="primary" class="mr-2">mdi-play-circle</v-icon>
-                  <span class="text-h6">Tading Platform: Panel 7</span>
+                  <span class="text-h6">Trading Platform: Panel 7</span>
                 </div>
                 <v-img
                   :src="Screenshot_8"

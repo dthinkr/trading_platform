@@ -110,8 +110,7 @@
               </v-card>
             </v-col>
           </v-row>
-          <v-row v-else>
-            <v-col v-for="(columnTools, colIndex) in columns" :key="colIndex" :cols="12" :md="colIndex === 0 ? 2 : 5" class="d-flex flex-column">
+          <v-row v-else>            <v-col v-for="(columnTools, colIndex) in columns" :key="colIndex" :cols="12" :md="colIndex === 0 ? 2 : 5" class="d-flex flex-column">
               <v-card v-for="(tool, toolIndex) in columnTools" :key="toolIndex" 
                       class="mb-4 tool-card" 
                       :class="{'price-history-card': tool.title === 'Price History'}"
@@ -132,7 +131,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup>  
 import BidAskDistribution from "@charts/BidAskDistribution.vue";
 import PriceHistory from "@charts/PriceHistory.vue";
 import PlaceOrder from "@trading/PlaceOrder.vue";
