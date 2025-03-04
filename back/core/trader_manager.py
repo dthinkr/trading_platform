@@ -29,12 +29,12 @@ class TraderManager:
     human_traders = List[HumanTrader]
     noise_traders = List[NoiseTrader]
     informed_traders = List[InformedTrader]
-    informed_trader = None  # Track the informed trader in this market
+    human_informed_trader = None  # Track the human trader with INFORMED role in this market
 
     def __init__(self, params: TradingParameters):
         self.params = params
         self.tasks = []
-        self.informed_trader = None  # Keep only for tracking
+        self.human_informed_trader = None  # Keep only for tracking human trader with INFORMED role
         self.human_traders = []
         
         params_dict = params.model_dump()  # Convert to dict for easier access
@@ -98,19 +98,18 @@ class TraderManager:
         ]
 
     def _create_informed_traders(self, n_informed_traders: int, params: dict):
-        # Only create machine informed traders if no human informed trader is assigned yet
-        # This prevents duplicate informed traders in the first session
-        if self.informed_trader is not None:
-            # If a human informed trader is already assigned, don't create machine informed traders
+        if n_informed_traders <= 0:
             return []
             
-        return [
+        traders = [
             InformedTrader(
                 id=f"INFORMED_{i+1}",
                 params=params,
             )
             for i in range(n_informed_traders)
         ]
+        
+        return traders
 
     async def add_human_trader(self, gmail_username: str, role: TraderRole, goal: Optional[int] = None) -> str:
         """Add human trader with specified role and goal"""
@@ -131,9 +130,8 @@ class TraderManager:
         )
         
         if role == TraderRole.INFORMED:
-            if self.informed_trader is not None:
-                raise ValueError("Market already has an informed trader")
-            self.informed_trader = new_trader
+            # Allow multiple human informed traders
+            self.human_informed_trader = new_trader
 
         self.traders[trader_id] = new_trader
         self.human_traders.append(new_trader)
