@@ -208,7 +208,7 @@ class BaseTrader:
                 self.filled_orders.append(filled_order)
 
                 self.update_inventory([transaction])
-                self.update_goal_progress(transaction)  # Add this line
+                self.update_goal_progress(transaction)  
 
                 self.update_data_for_pnl(
                     transaction["amount"]
@@ -407,3 +407,10 @@ class BaseTrader:
             self.goal_progress += amount
         elif transaction['type'] == 'ask':
             self.goal_progress -= amount
+
+    async def handle_TRADING_STARTED(self, data):
+        """
+        Reset the start_time when trading actually begins.
+        This ensures that get_elapsed_time() returns the correct time since trading started.
+        """
+        self.start_time = asyncio.get_event_loop().time()
