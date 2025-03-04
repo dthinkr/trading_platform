@@ -282,6 +282,32 @@ class BaseTrader:
             # Increment order count for this window
             self.orders_in_window += 1
 
+        # Special handling for zero-amount orders (only for human traders)
+        if amount == 0 and self.trader_type == TraderType.HUMAN.value:
+            # Create a special zero-amount order for record-keeping purposes
+            order_id = f"{self.id}_zero_amount_{len(self.placed_orders)}"
+            new_order = {
+                "action": ActionType.POST_NEW_ORDER.value,
+                "amount": 0,
+                "price": price,
+                "order_type": order_type,
+                "order_id": order_id,
+                "is_record_keeping": True,  # Flag to indicate this is for record-keeping only
+            }
+            
+            await self.send_to_trading_system(new_order)
+            
+            self.placed_orders.append({
+                "order_ids": [order_id],
+                "amount": 0,
+                "price": price,
+                "order_type": order_type,
+                "timestamp": asyncio.get_event_loop().time(),
+                "is_record_keeping": True,
+            })
+            
+            return order_id
+
         # Original order posting logic
         if self.trader_type != TraderType.NOISE.value:
             if order_type == OrderType.BID:
@@ -318,7 +344,7 @@ class BaseTrader:
             }
         )
 
-        return placed_order_ids[-1]
+        return placed_order_ids[-1] if placed_order_ids else None
 
     async def send_cancel_order_request(self, order_id: uuid.UUID) -> bool:
         if not order_id:

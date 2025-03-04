@@ -4,6 +4,7 @@ import os
 from asyncio import Event
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
+import uuid
 
 import aio_pika
 import polars as pl
@@ -246,6 +247,31 @@ class TradingPlatform:
         order_id = data.get("order_id")
         if order_id:
             data["id"] = order_id
+
+        # Special handling for zero-amount orders (for record-keeping only)
+        is_record_keeping = data.get("is_record_keeping", False)
+        if data.get("amount") == 0 and is_record_keeping:
+            # Log the zero-amount order for record-keeping
+            record_order = {
+                "id": data.get("id", str(uuid.uuid4())),
+                "trader_id": data.get("trader_id"),
+                "order_type": data.get("order_type"),
+                "price": data.get("price"),
+                "amount": 0,
+                "timestamp": datetime.now(timezone.utc).timestamp(),
+                "is_record_keeping": True
+            }
+            
+            # Log the record-keeping order
+            self.trading_logger.info(f"RECORD_KEEPING_ORDER: {record_order}")
+            
+            # Return immediately without adding to the order book
+            return {
+                "type": "RECORD_KEEPING_ORDER",
+                "content": "Record keeping order processed",
+                "respond": True,
+                "informed_trader_progress": informed_trader_progress,
+            }
 
         order = Order(status=OrderStatus.BUFFERED.value, market_id=self.id, **data)
         order_dict = order.model_dump()
