@@ -117,3 +117,38 @@ class HumanTrader(BaseTrader):
     async def handle_closure(self, data):
         await self.post_processing_server_message(data)
         await super().handle_closure(data)
+
+    async def handle_TRADING_STARTED(self, data):
+        """
+        Handle the TRADING_STARTED message by placing a zero-amount order.
+        This ensures that human traders who don't trade still generate records.
+        """
+        # Get the current market price
+        top_bid = None
+        top_ask = None
+        
+        if self.order_book:
+            bids = self.order_book.get("bids", [])
+            asks = self.order_book.get("asks", [])
+            
+            if bids:
+                top_bid = max(bid["x"] for bid in bids)
+            if asks:
+                top_ask = min(ask["x"] for ask in asks)
+        
+        # Use default price if order book is empty
+        price = self.params.get("default_price", 100)
+        if top_bid and top_ask:
+            price = (top_bid + top_ask) // 2
+        elif top_bid:
+            price = top_bid
+        elif top_ask:
+            price = top_ask
+            
+        # Place a zero-amount order (this will be recorded but won't affect the market)
+        # Use BID order type by default
+        order_type = OrderType.BID
+        await self.post_new_order(0, price, order_type)
+        
+        # Forward the message to the client
+        await self.post_processing_server_message(data)

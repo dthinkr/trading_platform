@@ -98,6 +98,12 @@ class TraderManager:
         ]
 
     def _create_informed_traders(self, n_informed_traders: int, params: dict):
+        # Only create machine informed traders if no human informed trader is assigned yet
+        # This prevents duplicate informed traders in the first session
+        if self.informed_trader is not None:
+            # If a human informed trader is already assigned, don't create machine informed traders
+            return []
+            
         return [
             InformedTrader(
                 id=f"INFORMED_{i+1}",
