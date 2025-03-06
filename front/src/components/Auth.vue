@@ -23,14 +23,30 @@
 
             <!-- Visible buttons for manual login -->
             <template v-if="!authStore.isAuthenticated">
+              <v-form @submit.prevent="signInWithProlific" class="mb-4">
+                <v-text-field
+                  v-model="prolificId"
+                  label="Prolific ID"
+                  variant="outlined"
+                  placeholder="Enter your Prolific ID"
+                  :rules="[v => !!v || 'Prolific ID is required']"
+                  required
+                ></v-text-field>
+                
+                <v-btn block color="primary" size="x-large" type="submit" class="mb-4">
+                  <v-icon start icon="mdi-login"></v-icon>
+                  Sign in with Prolific ID
+                </v-btn>
+              </v-form>
+              
               <v-btn block color="error" size="x-large" @click="signInWithGoogle" class="mb-4">
                 <v-icon start icon="mdi-google"></v-icon>
                 Sign in with Google
               </v-btn>
               
-              <v-btn block color="primary" size="x-large" @click="adminSignInWithGoogle" class="mb-4">
+              <v-btn block color="secondary" size="x-large" @click="adminSignInWithGoogle" class="mb-4">
                 <v-icon start icon="mdi-google"></v-icon>
-                Admin Sign in with Google
+                Admin Sign in
               </v-btn>
             </template>
 
@@ -62,6 +78,7 @@ const auth = getAuth();
 const authStore = useAuthStore();
 
 const errorMessage = ref('');
+const prolificId = ref('');
 const autoSignInBtn = ref(null);
 const autoAdminSignInBtn = ref(null);
 
@@ -69,8 +86,16 @@ onMounted(async () => {
   // Wait for auth initialization
   await authStore.initializeAuth();
   
-  // If user is already authenticated and has trader/market IDs, auto-navigate
-  if (authStore.isAuthenticated && authStore.traderId && authStore.marketId) {
+  // Check for Prolific ID in URL params (if redirected from Prolific)
+  const urlParams = new URLSearchParams(window.location.search);
+  const prolificIdFromUrl = urlParams.get('PROLIFIC_PID');
+  
+  if (prolificIdFromUrl) {
+    prolificId.value = prolificIdFromUrl;
+    // Auto sign in if ID is found in URL
+    await signInWithProlific();
+  } else if (authStore.isAuthenticated && authStore.traderId && authStore.marketId) {
+    // If user is already authenticated and has trader/market IDs, auto-navigate
     router.push({ 
       name: 'practice',
       params: { 
@@ -81,6 +106,42 @@ onMounted(async () => {
   }
 });
 
+const signInWithProlific = async () => {
+  if (!prolificId.value) {
+    errorMessage.value = 'Please enter your Prolific ID';
+    return;
+  }
+  
+  try {
+    await authStore.loginWithProlific(prolificId.value);
+    
+    if (authStore.traderId && authStore.marketId) {
+      // Check if this is a persisted login
+      if (authStore.isPersisted) {
+        router.push({ 
+          name: 'practice',  // Go directly to practice page
+          params: { 
+            traderUuid: authStore.traderId,
+            marketId: authStore.marketId
+          } 
+        });
+      } else {
+        router.push({ 
+          name: 'welcome',  // New users start from welcome page
+          params: { 
+            traderUuid: authStore.traderId,
+            marketId: authStore.marketId
+          } 
+        });
+      }
+    }
+  } catch (error) {
+    console.error("Prolific sign-in error:", error);
+    errorMessage.value = error.message || "An error occurred during sign-in";
+  }
+};
+
+// Keep original Google sign-in for backwards compatibility
 const signInWithGoogle = async () => {
   try {
     const provider = new GoogleAuthProvider();
@@ -115,6 +176,7 @@ const signInWithGoogle = async () => {
   }
 };
 
+// Keep Google admin login for admins
 const adminSignInWithGoogle = async () => {
   try {
     const provider = new GoogleAuthProvider();

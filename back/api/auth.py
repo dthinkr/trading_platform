@@ -7,6 +7,7 @@ from firebase_admin import credentials, auth
 import secrets
 import time
 from .google_sheet_auth import is_user_registered, is_user_admin, update_form_id
+from .prolific_auth import is_valid_participant, get_participant_details
 from core.data_models import TradingParameters
 from pytz import timezone
 from datetime import datetime, timedelta
@@ -63,17 +64,41 @@ async def get_current_user(request: Request):
     user_timezone_str = request.headers.get('X-User-Timezone', 'UTC')
     user_timezone = get_user_timezone(user_timezone_str)
     
+    # Check for Prolific participant ID in headers
+    prolific_id = request.headers.get('X-Prolific-ID')
+    
     path = request.url.path
     if path.startswith("/trader_info/"):
         trader_id = path.split("/")[-1]
-        gmail_username = trader_id.split('_')[1]
-        if gmail_username in authenticated_users:
-            return authenticated_users[gmail_username]
+        if trader_id in authenticated_users:
+            return authenticated_users[trader_id]
     
+    # If Prolific ID is provided, authenticate using that
+    if prolific_id:
+        if is_valid_participant(prolific_id):
+            try:
+                # Get participant details from Prolific
+                participant = get_participant_details(prolific_id)
+                user = {
+                    "uid": prolific_id,
+                    "participant_id": prolific_id,
+                    "is_admin": False,
+                    "gmail_username": None,
+                    "timezone": user_timezone
+                }
+                authenticated_users[prolific_id] = user
+                return user
+            except Exception as e:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail=f"Invalid Prolific participant ID: {str(e)}",
+                )
+    
+    # Fall back to regular authentication if no Prolific ID
     if not auth_header:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="No Authorization header found",
+            detail="Authentication required. Provide either a Prolific ID or login credentials.",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
@@ -115,7 +140,7 @@ async def get_current_user(request: Request):
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=f"Invalid Firebase token or user not registered: {str(e)}",
+                detail=f"Invalid authentication: {str(e)}",
                 headers={"WWW-Authenticate": "Bearer"},
             )
     

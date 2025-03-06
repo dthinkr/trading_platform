@@ -302,6 +302,84 @@
             </v-card-text>
           </v-card>
         </v-col>
+
+        <v-col cols="12" md="4">
+          <v-card class="mb-4" elevation="2">
+            <v-card-title class="headline">
+              <v-icon left color="deep-blue">mdi-cog-outline</v-icon>
+              External Integrations
+            </v-card-title>
+            <v-card-text>
+              <v-form @submit.prevent>
+                <!-- Google Form ID -->
+                <v-text-field
+                  v-model="googleFormId"
+                  label="Google Form ID"
+                  hint="ID of the Google Form for user registration"
+                  persistent-hint
+                  outlined
+                  dense
+                  class="mb-4"
+                ></v-text-field>
+                <v-btn 
+                  color="primary" 
+                  @click="updateGoogleFormId" 
+                  :disabled="!serverActive"
+                  small
+                  elevation="2"
+                  class="mb-4 custom-btn"
+                >
+                  <v-icon left small>mdi-content-save</v-icon>
+                  Update Google Form ID
+                </v-btn>
+                
+                <!-- Prolific Study ID -->
+                <v-text-field
+                  v-model="prolificStudyId"
+                  label="Prolific Study ID"
+                  hint="ID of the Prolific study for user authentication"
+                  persistent-hint
+                  outlined
+                  dense
+                  class="mb-4 mt-6"
+                ></v-text-field>
+                <v-btn 
+                  color="primary" 
+                  @click="updateProlificStudyId" 
+                  :disabled="!serverActive"
+                  small
+                  elevation="2"
+                  class="mb-6 custom-btn"
+                >
+                  <v-icon left small>mdi-content-save</v-icon>
+                  Update Prolific Study ID
+                </v-btn>
+                
+                <!-- Prolific Completion URL -->
+                <v-text-field
+                  v-model="prolificCompletionUrl"
+                  label="Prolific Completion URL"
+                  hint="URL for redirecting users after study completion"
+                  persistent-hint
+                  outlined
+                  dense
+                  class="mb-4"
+                ></v-text-field>
+                <v-btn 
+                  color="primary" 
+                  @click="updateProlificCompletionUrl" 
+                  :disabled="!serverActive"
+                  small
+                  elevation="2"
+                  class="custom-btn"
+                >
+                  <v-icon left small>mdi-content-save</v-icon>
+                  Update Completion URL
+                </v-btn>
+              </v-form>
+            </v-card-text>
+          </v-card>
+        </v-col>
       </v-row>
 
       <v-dialog v-model="showDeleteDialog" max-width="300px">
@@ -390,6 +468,10 @@ const serverActive = ref(false);
 const logFiles = ref([]);
 const showDeleteDialog = ref(false);
 const fileToDelete = ref(null);
+
+const googleFormId = ref('');
+const prolificStudyId = ref('');
+const prolificCompletionUrl = ref('');
 
 const groupedFields = computed(() => {
   const groups = {};
@@ -601,9 +683,89 @@ const getFieldStyle = (fieldName) => {
   return isDifferent ? 'treatment-value' : '';
 };
 
+const updateGoogleFormId = async () => {
+  try {
+    await axios.post('/admin/update_google_form_id', null, {
+      params: { new_form_id: googleFormId.value }
+    });
+    showSuccessToast('Google Form ID updated successfully');
+  } catch (error) {
+    console.error('Failed to update Google Form ID:', error);
+    showErrorToast('Failed to update Google Form ID');
+  }
+};
+
+const updateProlificStudyId = async () => {
+  try {
+    await axios.post('/admin/update_prolific_study_id', null, {
+      params: { new_study_id: prolificStudyId.value }
+    });
+    showSuccessToast('Prolific Study ID updated successfully');
+  } catch (error) {
+    console.error('Failed to update Prolific Study ID:', error);
+    showErrorToast('Failed to update Prolific Study ID');
+  }
+};
+
+const updateProlificCompletionUrl = async () => {
+  try {
+    await axios.post('/admin/update_prolific_completion_url', null, {
+      params: { new_url: prolificCompletionUrl.value }
+    });
+    showSuccessToast('Prolific Completion URL updated successfully');
+  } catch (error) {
+    console.error('Failed to update Prolific Completion URL:', error);
+    showErrorToast('Failed to update Prolific Completion URL');
+  }
+};
+
+const showSuccessToast = (message) => {
+  // Using Vuetify's snackbar system
+  // You could replace this with your preferred notification system
+  store.showSnackbar({
+    text: message,
+    color: 'success',
+    timeout: 3000
+  });
+};
+
+const showErrorToast = (message) => {
+  store.showSnackbar({
+    text: message,
+    color: 'error',
+    timeout: 5000
+  });
+};
+
+const fetchExternalIntegrations = async () => {
+  try {
+    // Get Google Form ID
+    const googleFormResponse = await axios.get('/admin/get_google_form_id');
+    if (googleFormResponse.data.status === 'success') {
+      googleFormId.value = googleFormResponse.data.data.google_form_id || '';
+    }
+    
+    // Get Prolific Study ID
+    const prolificStudyResponse = await axios.get('/admin/get_prolific_study_id');
+    if (prolificStudyResponse.data.status === 'success') {
+      prolificStudyId.value = prolificStudyResponse.data.data.prolific_study_id || '';
+    }
+    
+    // Get Prolific Completion URL
+    const prolificCompletionResponse = await axios.get('/admin/get_prolific_completion_url');
+    if (prolificCompletionResponse.data.status === 'success') {
+      prolificCompletionUrl.value = prolificCompletionResponse.data.data.prolific_completion_url || '';
+    }
+  } catch (error) {
+    console.error('Failed to fetch external integration settings:', error);
+    showErrorToast('Failed to load integration settings');
+  }
+};
+
 onMounted(() => {
   fetchData();
   fetchActiveSessions();
+  fetchExternalIntegrations();
   // Poll for session updates every 5 seconds
   sessionPollingInterval = setInterval(fetchActiveSessions, 5000);
 });
@@ -875,5 +1037,3 @@ onUnmounted(() => {
   font-weight: 600;
 }
 </style>
-
-

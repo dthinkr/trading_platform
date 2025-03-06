@@ -171,6 +171,42 @@ async def websocket_endpoint(websocket: WebSocket):
 
 @app.post("/user/login")
 async def user_login(request: Request):
+    # Check for Prolific ID first
+    prolific_id = request.headers.get('X-Prolific-ID')
+    
+    if prolific_id:
+        from .prolific_auth import is_valid_participant, get_participant_details
+        
+        # Validate the Prolific ID
+        if not is_valid_participant(prolific_id):
+            raise HTTPException(status_code=403, detail="Invalid Prolific participant ID")
+        
+        # Create parameters
+        params = TradingParameters(**(persistent_settings or {}))
+        
+        # Generate a trader ID based on the Prolific ID
+        trader_id = f"prolific_{prolific_id}"
+        
+        # Single call to handle all market/role/goal logic
+        market_id, trader_id, role, goal = await market_handler.validate_and_assign_role(
+            trader_id, 
+            params
+        )
+        
+        return {
+            "status": "success",
+            "message": "Login successful with Prolific ID",
+            "data": {
+                "participant_id": prolific_id,
+                "is_admin": False,
+                "market_id": market_id,
+                "trader_id": trader_id,
+                "role": role,
+                "goal": goal
+            }
+        }
+    
+    # Fall back to Firebase auth if no Prolific ID
     auth_header = request.headers.get('Authorization')
     
     if not auth_header or not auth_header.startswith('Bearer '):
@@ -625,121 +661,39 @@ async def get_file(file_path: str):
         return FileResponse(full_path)
     except Exception:
         raise HTTPException(status_code=500, detail="Internal server error")
-# lets start trading!
-@app.post("/trading/start")
-async def start_trading_market(background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)):
-    gmail_username = current_user['gmail_username']
-    trader_id = f"HUMAN_{gmail_username}"
-    
-    # Get market from market_handler
-    market_id = market_handler.trader_to_market_lookup.get(trader_id)
-    if not market_id:
-        raise HTTPException(status_code=404, detail="No active market found")
-    
-    # Mark trader ready
-    all_ready = await market_handler.mark_trader_ready(trader_id, market_id)
-    
-    # Get trader manager
-    trader_manager = market_handler.trader_managers.get(market_id)
-    if not trader_manager:
-        raise HTTPException(status_code=404, detail="Market not found")
-    
-    # Get current status
-    current_ready = len(market_handler.market_ready_traders.get(market_id, set()))
-    total_needed = len(trader_manager.params.predefined_goals)
-    
-    # Start trading if all required traders are ready
-    if current_ready >= total_needed:
-        all_ready = True
-        background_tasks.add_task(trader_manager.launch)
-        status_message = "Trading market started"
-        
-        # Record market in historical markets when it starts
-        if gmail_username not in market_handler.user_historical_markets:
-            market_handler.user_historical_markets[gmail_username] = set()
-        market_handler.user_historical_markets[gmail_username].add(market_id)
-    else:
-        status_message = f"Waiting for other traders ({current_ready}/{total_needed} ready)"
-    
-    return {
-        "ready_count": current_ready,
-        "total_needed": total_needed,
-        "ready_traders": list(market_handler.market_ready_traders.get(market_id, set())),
-        "all_ready": all_ready,
-        "message": status_message
-    }
 
-# Market monitoring endpoint
-@app.get("/sessions")
-async def list_sessions(current_user: dict = Depends(get_current_user)):
-    """List only pending and active market sessions for monitoring"""
-    # Clean up any finished markets first
-    await market_handler.cleanup_finished_markets()
+# admin endpoint to get current prolific study ID
+@app.get("/admin/get_prolific_study_id")
+async def get_prolific_study_id_endpoint(current_user: dict = Depends(get_current_admin_user)):
+    from api.prolific_auth import get_default_study_id
     
-    sessions = []
-    for market_id, manager in market_handler.trader_managers.items():
-        market = manager.trading_market
-        sessions.append({
-            "market_id": market_id,
-            "status": "active" if market.trading_started else "pending",
-            "member_ids": list(market_handler.active_users.get(market_id, set())),
-            "started_at": market.start_time if market.trading_started else None
-        })
-    return sessions
+    study_id = get_default_study_id()
+    return {"status": "success", "data": {"prolific_study_id": study_id}}
 
-@app.post("/sessions/{market_id}/force-start")
-async def force_start_session(
-    market_id: str,
-    background_tasks: BackgroundTasks,
-    current_user: dict = Depends(get_current_user)
-):
-    """Force start a trading session even if it's not full"""
-    if market_id not in market_handler.trader_managers:
-        raise HTTPException(status_code=404, detail="Market not found")
-        
-    manager = market_handler.trader_managers[market_id]
-    market = manager.trading_market
-    
-    if market.trading_started:
-        raise HTTPException(status_code=400, detail="Market session already started")
-        
-    if not market_handler.active_users.get(market_id):
-        raise HTTPException(status_code=400, detail="Cannot start empty session")
-    
-    # Register all active users first
-    active_users = market_handler.active_users.get(market_id, set())
-    for username in active_users:
-        trader_id = f"HUMAN_{username}"
-        await manager.trading_market.handle_register_me({
-            "trader_id": trader_id,
-            "trader_type": "human",
-            "gmail_username": username
-        })
-        # Mark each human trader as ready
-        await market_handler.mark_trader_ready(trader_id, market_id)
-    
-    # Temporarily store the original predefined_goals
-    original_goals = manager.params.predefined_goals
-    
-    # Modify predefined_goals to match current number of users
-    manager.params.predefined_goals = [100] * len(active_users)
-    
-    try:
-        # Launch using the normal initialization process
-        await manager.launch()
-    finally:
-        # Restore original predefined_goals
-        manager.params.predefined_goals = original_goals
-    
-    return {"status": "success", "message": "Market session started successfully"}
-
-# admin stuff - update the google form id
-@app.post("/admin/update_google_form_id")
-async def update_google_form_id_endpoint(new_form_id: str, current_user: dict = Depends(get_current_admin_user)):
+# admin endpoint to get current google form ID
+@app.get("/admin/get_google_form_id")
+async def get_google_form_id_endpoint(current_user: dict = Depends(get_current_admin_user)):
     params = TradingParameters()
-    params.google_form_id = new_form_id
-    update_form_id(new_form_id)
-    return {"status": "success", "message": "Google Form ID updated successfully"}
+    return {"status": "success", "data": {"google_form_id": params.google_form_id}}
+
+# admin endpoint to update prolific completion URL
+@app.post("/admin/update_prolific_completion_url")
+async def update_prolific_completion_url_endpoint(new_url: str, current_user: dict = Depends(get_current_admin_user)):
+    from utils.env_manager import update_env_variable
+    
+    # Update the environment variable in .env file
+    success = update_env_variable('PROLIFIC_COMPLETION_URL', new_url)
+    
+    if success:
+        return {"status": "success", "message": "Prolific Completion URL updated successfully"}
+    else:
+        raise HTTPException(status_code=500, detail="Failed to update Prolific Completion URL")
+
+# admin endpoint to get current prolific completion URL
+@app.get("/admin/get_prolific_completion_url")
+async def get_prolific_completion_url_endpoint(current_user: dict = Depends(get_current_admin_user)):
+    completion_url = os.environ.get('PROLIFIC_COMPLETION_URL', 'https://app.prolific.com/submissions/complete?cc=CW0XTEXB')
+    return {"status": "success", "data": {"prolific_completion_url": completion_url}}
 
 # refresh our user list
 @app.get("/admin/refresh_registered_users")
@@ -863,3 +817,110 @@ async def get_persistent_settings(current_user: dict = Depends(get_current_admin
         "status": "success",
         "data": persistent_settings
     }
+
+@app.post("/trading/start")
+async def start_trading_market(background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)):
+    gmail_username = current_user['gmail_username']
+    trader_id = f"HUMAN_{gmail_username}"
+    
+    # Get market from market_handler
+    market_id = market_handler.trader_to_market_lookup.get(trader_id)
+    if not market_id:
+        raise HTTPException(status_code=404, detail="No active market found")
+    
+    # Mark trader ready
+    all_ready = await market_handler.mark_trader_ready(trader_id, market_id)
+    
+    # Get trader manager
+    trader_manager = market_handler.trader_managers.get(market_id)
+    if not trader_manager:
+        raise HTTPException(status_code=404, detail="Market not found")
+    
+    # Get current status
+    current_ready = len(market_handler.market_ready_traders.get(market_id, set()))
+    total_needed = len(trader_manager.params.predefined_goals)
+    
+    # Start trading if all required traders are ready
+    if current_ready >= total_needed:
+        all_ready = True
+        background_tasks.add_task(trader_manager.launch)
+        status_message = "Trading market started"
+        
+        # Record market in historical markets when it starts
+        if gmail_username not in market_handler.user_historical_markets:
+            market_handler.user_historical_markets[gmail_username] = set()
+        market_handler.user_historical_markets[gmail_username].add(market_id)
+    else:
+        status_message = f"Waiting for other traders ({current_ready}/{total_needed} ready)"
+    
+    return {
+        "ready_count": current_ready,
+        "total_needed": total_needed,
+        "ready_traders": list(market_handler.market_ready_traders.get(market_id, set())),
+        "all_ready": all_ready,
+        "message": status_message
+    }
+
+# Market monitoring endpoint
+@app.get("/sessions")
+async def list_sessions(current_user: dict = Depends(get_current_user)):
+    """List only pending and active market sessions for monitoring"""
+    # Clean up any finished markets first
+    await market_handler.cleanup_finished_markets()
+    
+    sessions = []
+    for market_id, manager in market_handler.trader_managers.items():
+        market = manager.trading_market
+        sessions.append({
+            "market_id": market_id,
+            "status": "active" if market.trading_started else "pending",
+            "member_ids": list(market_handler.active_users.get(market_id, set())),
+            "started_at": market.start_time if market.trading_started else None
+        })
+    return sessions
+
+@app.post("/sessions/{market_id}/force-start")
+async def force_start_session(
+    market_id: str,
+    background_tasks: BackgroundTasks,
+    current_user: dict = Depends(get_current_user)
+):
+    """Force start a trading session even if it's not full"""
+    if market_id not in market_handler.trader_managers:
+        raise HTTPException(status_code=404, detail="Market not found")
+        
+    manager = market_handler.trader_managers[market_id]
+    market = manager.trading_market
+    
+    if market.trading_started:
+        raise HTTPException(status_code=400, detail="Market session already started")
+        
+    if not market_handler.active_users.get(market_id):
+        raise HTTPException(status_code=400, detail="Cannot start empty session")
+    
+    # Register all active users first
+    active_users = market_handler.active_users.get(market_id, set())
+    for username in active_users:
+        trader_id = f"HUMAN_{username}"
+        await manager.trading_market.handle_register_me({
+            "trader_id": trader_id,
+            "trader_type": "human",
+            "gmail_username": username
+        })
+        # Mark each human trader as ready
+        await market_handler.mark_trader_ready(trader_id, market_id)
+    
+    # Temporarily store the original predefined_goals
+    original_goals = manager.params.predefined_goals
+    
+    # Modify predefined_goals to match current number of users
+    manager.params.predefined_goals = [100] * len(active_users)
+    
+    try:
+        # Launch using the normal initialization process
+        await manager.launch()
+    finally:
+        # Restore original predefined_goals
+        manager.params.predefined_goals = original_goals
+    
+    return {"status": "success", "message": "Market session started successfully"}

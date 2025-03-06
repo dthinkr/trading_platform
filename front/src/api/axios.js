@@ -8,7 +8,14 @@ const instance = axios.create({
 
 instance.interceptors.request.use(async (config) => {
   try {
-    if (auth.currentUser) {
+    // Check for Prolific ID in localStorage
+    const prolificId = localStorage.getItem('prolificId');
+    
+    if (prolificId) {
+      // Set the Prolific ID header if available
+      config.headers['X-Prolific-ID'] = prolificId;
+    } else if (auth.currentUser) {
+      // Fall back to Firebase auth if no Prolific ID
       // Force token refresh if it's close to expiring
       const user = auth.currentUser;
       const tokenResult = await user.getIdTokenResult();
@@ -23,9 +30,14 @@ instance.interceptors.request.use(async (config) => {
         config.headers.Authorization = `Bearer ${tokenResult.token}`;
       }
     }
+    
+    // Add user's timezone to all requests
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    config.headers['X-User-Timezone'] = timezone;
+    
     return config;
   } catch (error) {
-    console.error('Error refreshing token:', error);
+    console.error('Error setting up request headers:', error);
     return Promise.reject(error);
   }
 }, (error) => {
@@ -37,10 +49,20 @@ instance.interceptors.response.use(
   async (error) => {
     if (error.response) {
       if (error.response.status === 401) {
-        // Check if user is logged in
-        if (auth.currentUser) {
+        // Check if using Prolific auth
+        const prolificId = localStorage.getItem('prolificId');
+        
+        if (prolificId) {
+          // Prolific authentication failed, try to refresh
+          if (error.config.headers['X-Prolific-ID'] === prolificId) {
+            // If already using the current Prolific ID, clear it and redirect to login
+            localStorage.removeItem('prolificId');
+            router.push('/');
+            return Promise.reject(error);
+          }
+        } else if (auth.currentUser) {
+          // Using Firebase auth, try to refresh token
           try {
-            // Try to refresh token
             const token = await auth.currentUser.getIdToken(true);
             error.config.headers.Authorization = `Bearer ${token}`;
             return axios(error.config);
@@ -51,7 +73,7 @@ instance.interceptors.response.use(
             return Promise.reject(error);
           }
         } else {
-          // No user logged in, redirect to login
+          // No auth method available, redirect to login
           router.push('/');
           return Promise.reject(error);
         }

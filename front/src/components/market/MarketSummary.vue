@@ -133,11 +133,65 @@
                   <br></br>
                   Your final payment will be {{formatValue(traderSpecificMetrics?.Accumulated_Reward + 5, 'gbp') }}.
                 </p>
+                
+                <!-- Study Feedback Section -->
+                <v-card outlined class="my-6 pa-4 feedback-card">
+                  <v-card-title class="text-h6 font-weight-medium">
+                    <v-icon left color="primary">mdi-comment-question-outline</v-icon>
+                    Study Feedback
+                  </v-card-title>
+                  <v-card-text>
+                    <v-form ref="feedbackForm" v-model="feedbackValid">
+                      <!-- Experience Rating -->
+                      <p class="text-subtitle-1 mt-3">How would you rate your experience with this trading interface?</p>
+                      <v-rating
+                        v-model="experienceRating"
+                        color="amber"
+                        dense
+                        half-increments
+                        hover
+                        size="36"
+                      ></v-rating>
+                      
+                      <!-- Difficulty Rating -->
+                      <p class="text-subtitle-1 mt-6">How difficult did you find the trading task?</p>
+                      <v-slider
+                        v-model="difficultyRating"
+                        :tick-labels="difficultyLabels"
+                        :max="4"
+                        step="1"
+                        ticks="always"
+                        tick-size="4"
+                      ></v-slider>
+                      
+                      <!-- Open-ended Feedback -->
+                      <p class="text-subtitle-1 mt-4">Do you have any additional comments or suggestions?</p>
+                      <v-textarea
+                        v-model="feedbackComments"
+                        outlined
+                        rows="3"
+                        counter="500"
+                        placeholder="Your feedback helps us improve the platform..."
+                      ></v-textarea>
+                    </v-form>
+                  </v-card-text>
+                </v-card>
+                
+                <v-btn 
+                  color="primary" 
+                  x-large 
+                  @click="completeProlificStudy"
+                  class="mt-4 mr-4"
+                >
+                  <v-icon left>mdi-check-circle</v-icon>
+                  Complete Study
+                </v-btn>
+                
                 <v-btn 
                   color="secondary" 
                   x-large 
                   @click="downloadMarketMetrics"
-                  class="mt-2"
+                  class="mt-4"
                 >
                   Download Metrics
                 </v-btn>
@@ -201,6 +255,14 @@ const dialogMessage = ref('');
 
 const maxRetries = 3;
 const retryDelay = 1000; // 1 second
+
+// Feedback form data
+const feedbackForm = ref(null);
+const feedbackValid = ref(true);
+const experienceRating = ref(3);
+const difficultyRating = ref(2);
+const feedbackComments = ref('');
+const difficultyLabels = ['Very Easy', 'Easy', 'Moderate', 'Difficult', 'Very Difficult'];
 
 async function fetchTraderInfo() {
   try {
@@ -280,6 +342,38 @@ const isLastMarket = computed(() => {
   return currentCount >= maxMarkets;
 });
 
+// Function to handle redirection to Prolific completion
+const completeProlificStudy = async () => {
+  try {
+    // Save feedback data
+    const feedbackData = {
+      trader_id: props.traderUuid,
+      experience_rating: experienceRating.value,
+      difficulty_rating: difficultyRating.value,
+      comments: feedbackComments.value,
+      metrics: traderSpecificMetrics.value
+    };
+    
+    // Log feedback data (you could send this to the server in a real implementation)
+    console.log('Feedback submitted:', feedbackData);
+    
+    // Get the Prolific completion URL from the server
+    const response = await axios.get(`${httpUrl}admin/get_prolific_completion_url`);
+    let completionUrl = 'https://app.prolific.com/submissions/complete?cc=CW0XTEXB'; // Default
+    
+    if (response.data.status === 'success' && response.data.data.prolific_completion_url) {
+      completionUrl = response.data.data.prolific_completion_url;
+    }
+    
+    // Redirect to Prolific completion page
+    window.location.href = completionUrl;
+  } catch (error) {
+    console.error('Error completing study:', error);
+    // Fallback to default Prolific URL if there's an error
+    window.location.href = 'https://app.prolific.com/submissions/complete?cc=CW0XTEXB';
+  }
+};
+
 onMounted(() => {
   fetchTraderInfo();
   // Ensure the trading market data is set in the store
@@ -312,6 +406,18 @@ onMounted(() => {
 }
 
 .metric-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+}
+
+.feedback-card {
+  background-color: rgba(240, 244, 248, 0.8);
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.feedback-card:hover {
+  background-color: rgba(245, 247, 250, 0.9);
   transform: translateY(-3px);
   box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
 }
