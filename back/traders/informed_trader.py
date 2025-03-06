@@ -21,7 +21,7 @@ class InformedTrader(BaseTrader):
         self.informed_order_book_depth = params.get("informed_order_book_depth", 10)
         self.use_passive_orders = params.get("informed_use_passive_orders", False)
         # Order multiplier to increase trading volume
-        self.order_multiplier = 200
+        self.order_multiplier = 1
         
         # Add random direction handling
         if params.get("informed_random_direction", False):
