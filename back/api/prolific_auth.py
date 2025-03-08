@@ -6,6 +6,8 @@ from functools import lru_cache
 
 PROLIFIC_API_KEY = os.environ.get('PROLIFIC_API')
 PROLIFIC_API_BASE_URL = "https://api.prolific.co/api/v1"
+# Development mode flag - set to True to bypass Prolific API validation
+DEV_MODE = os.environ.get('DEV_MODE', 'True').lower() == 'true'
 
 # Cache for participant data to avoid unnecessary API calls
 participant_cache = {}
@@ -85,6 +87,11 @@ def is_valid_participant(participant_id: str, study_id: Optional[str] = None) ->
     Returns:
         bool: True if the participant ID is valid, False otherwise
     """
+    # In development mode, accept any participant ID for testing
+    if DEV_MODE:
+        print(f"DEV MODE: Accepting Prolific ID {participant_id} without validation")
+        return True
+        
     # If no specific study ID is provided, try to get the default one
     if not study_id:
         study_id = get_default_study_id()
