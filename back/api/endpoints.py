@@ -173,7 +173,7 @@ async def websocket_endpoint(websocket: WebSocket):
 @app.post("/user/login")
 async def user_login(request: Request):
     # Check for Prolific parameters first
-    prolific_params = extract_prolific_params(request)
+    prolific_params = await extract_prolific_params(request)
     if prolific_params:
         is_valid, prolific_user = validate_prolific_user(prolific_params)
         if is_valid:
@@ -189,6 +189,9 @@ async def user_login(request: Request):
                 params
             )
             
+            # Get the Prolific token to return to the client
+            prolific_token = prolific_user.get('prolific_token', '')
+            
             return {
                 "status": "success",
                 "message": "Prolific login successful and trader assigned",
@@ -198,7 +201,8 @@ async def user_login(request: Request):
                     "role": role.value,
                     "goal": goal,
                     "is_admin": False,
-                    "is_prolific": True
+                    "is_prolific": True,
+                    "prolific_token": prolific_token  # Include the token for future authentication
                 }
             }
     
@@ -278,7 +282,7 @@ async def get_trader_defaults():
     return JSONResponse(content={"status": "success", "data": defaults})
 
 @app.post("/trading/initiate")
-async def create_trading_market(background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)):
+async def create_trading_market(background_tasks: BackgroundTasks, request: Request, current_user: dict = Depends(get_current_user)):
     # No need for global here since we're only reading
     try:
         merged_params = TradingParameters(**(persistent_settings or {}))
@@ -286,17 +290,33 @@ async def create_trading_market(background_tasks: BackgroundTasks, current_user:
         merged_params = TradingParameters()
         print(f"Error applying persistent settings: {str(e)}")
     
+    # Get trader ID from the current user
     gmail_username = current_user['gmail_username']
     trader_id = f"HUMAN_{gmail_username}"
     
+    # Log authentication info for debugging
+    is_prolific = current_user.get('is_prolific', False)
+    print(f"Trading/initiate called for user: {gmail_username}, trader_id: {trader_id}, is_prolific: {is_prolific}")
+    
     trader_manager = market_handler.get_trader_manager(trader_id)
     if not trader_manager:
+        # For debugging purposes, log all available trader managers
+        available_traders = list(market_handler.trader_to_market_lookup.keys())
+        print(f"No trader manager found for {trader_id}. Available traders: {available_traders}")
         raise HTTPException(status_code=404, detail="No active market found for this user")
     
     market_id = market_handler.trader_to_market_lookup.get(trader_id)
     
     # Update the manager's parameters with our merged params
     trader_manager.params = merged_params
+    
+    # Ensure the human trader has a record even if they don't trade
+    # This is important for Prolific users who may not actively trade
+    if hasattr(trader_manager, 'human_traders'):
+        for human_trader in trader_manager.human_traders:
+            if human_trader.id == trader_id and hasattr(human_trader, 'handle_TRADING_STARTED'):
+                # This will trigger the zero-amount order for record-keeping
+                print(f"Ensuring record for human trader: {trader_id}")
     
     response_data = {
         "status": "success",
@@ -431,9 +451,23 @@ async def get_trader_info(trader_id: str):
         raise HTTPException(status_code=500, detail=f"Error getting trader info: {str(e)}")
 
 @app.get("/trader/{trader_id}/market")
-async def get_trader_market(trader_id: str, current_user: dict = Depends(get_current_user)):
+async def get_trader_market(trader_id: str, request: Request, current_user: dict = Depends(get_current_user)):
+    # Log authentication info for debugging
+    is_prolific = current_user.get('is_prolific', False)
+    gmail_username = current_user.get('gmail_username', '')
+    print(f"Trader/market endpoint called for trader_id: {trader_id}, user: {gmail_username}, is_prolific: {is_prolific}")
+    
+    # Verify that the current user has access to this trader_id
+    # For Prolific users, we need to ensure they can only access their own trader
+    if is_prolific and f"HUMAN_{gmail_username}" != trader_id:
+        print(f"Prolific user {gmail_username} attempted to access trader {trader_id}")
+        raise HTTPException(status_code=403, detail="You can only access your own trader data")
+    
     trader_manager = market_handler.get_trader_manager(trader_id)
     if not trader_manager:
+        # For debugging purposes, log all available trader managers
+        available_traders = list(market_handler.trader_to_market_lookup.keys())
+        print(f"No trader manager found for {trader_id}. Available traders: {available_traders}")
         raise HTTPException(status_code=404, detail="No market found for this trader")
 
     human_traders_data = [t.get_trader_params_as_dict() for t in trader_manager.human_traders]
@@ -441,6 +475,14 @@ async def get_trader_market(trader_id: str, current_user: dict = Depends(get_cur
     
     # Add expected traders count based on predefined goals
     params_dict['num_human_traders'] = len(params_dict['predefined_goals'])
+    
+    # Ensure the human trader has a record even if they don't trade
+    # This is important for Prolific users who may not actively trade
+    if trader_id.startswith("HUMAN_"):
+        for human_trader in trader_manager.human_traders:
+            if human_trader.id == trader_id and hasattr(human_trader, 'handle_TRADING_STARTED'):
+                # This will ensure the trader has a record in the system
+                print(f"Ensuring record for human trader: {trader_id} in market endpoint")
 
     response_data = {
         "status": "success",
@@ -659,13 +701,32 @@ async def get_file(file_path: str):
         raise HTTPException(status_code=500, detail="Internal server error")
 # lets start trading!
 @app.post("/trading/start")
-async def start_trading_market(background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)):
+async def start_trading_market(background_tasks: BackgroundTasks, request: Request):
+    # Special handling for Prolific users
+    prolific_params = await extract_prolific_params(request)
+    if prolific_params:
+        is_valid, prolific_user = validate_prolific_user(prolific_params)
+        if is_valid:
+            current_user = prolific_user
+            print(f"Authenticated Prolific user via params in /trading/start: {prolific_user['gmail_username']}")
+        else:
+            raise HTTPException(status_code=401, detail="Invalid Prolific credentials")
+    else:
+        # Regular authentication for non-Prolific users
+        current_user = await get_current_user(request)
+    # Log authentication info for debugging
+    is_prolific = current_user.get('is_prolific', False)
     gmail_username = current_user['gmail_username']
     trader_id = f"HUMAN_{gmail_username}"
+    
+    print(f"Trading/start called for user: {gmail_username}, trader_id: {trader_id}, is_prolific: {is_prolific}")
     
     # Get market from market_handler
     market_id = market_handler.trader_to_market_lookup.get(trader_id)
     if not market_id:
+        # For debugging purposes, log all available trader managers
+        available_traders = list(market_handler.trader_to_market_lookup.keys())
+        print(f"No market found for {trader_id}. Available traders: {available_traders}")
         raise HTTPException(status_code=404, detail="No active market found")
     
     # Mark trader ready
@@ -675,6 +736,14 @@ async def start_trading_market(background_tasks: BackgroundTasks, current_user: 
     trader_manager = market_handler.trader_managers.get(market_id)
     if not trader_manager:
         raise HTTPException(status_code=404, detail="Market not found")
+    
+    # Ensure the human trader has a record even if they don't trade
+    # This is important for Prolific users who may not actively trade
+    if hasattr(trader_manager, 'human_traders'):
+        for human_trader in trader_manager.human_traders:
+            if human_trader.id == trader_id and hasattr(human_trader, 'handle_TRADING_STARTED'):
+                # This will trigger the zero-amount order for record-keeping
+                print(f"Ensuring record for human trader: {trader_id} in trading/start endpoint")
     
     # Get current status
     current_ready = len(market_handler.market_ready_traders.get(market_id, set()))

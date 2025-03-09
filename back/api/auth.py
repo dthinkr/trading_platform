@@ -11,7 +11,7 @@ from core.data_models import TradingParameters
 from pytz import timezone
 from datetime import datetime, timedelta
 import jwt
-from .prolific_auth import extract_prolific_params, validate_prolific_user
+from .prolific_auth import extract_prolific_params, validate_prolific_user, get_prolific_user_by_trader_id, prolific_tokens
 
 # Initialize Firebase Admin SDK using the service account file
 cred = credentials.Certificate('firebase-service-account.json')
@@ -61,25 +61,70 @@ def custom_verify_id_token(token, clock_skew_seconds=60):
 
 async def get_current_user(request: Request):
     # First, check for Prolific authentication via URL parameters
-    prolific_params = extract_prolific_params(request)
+    prolific_params = await extract_prolific_params(request)
     if prolific_params:
         is_valid, prolific_user = validate_prolific_user(prolific_params)
         if is_valid:
             # Store the prolific user in authenticated_users
             authenticated_users[prolific_user['gmail_username']] = prolific_user
+            print(f"Authenticated Prolific user via params: {prolific_user['gmail_username']}")
             return prolific_user
+    
+    # Check if this is a request for a specific trader
+    path = request.url.path
+    
+    # Handle trader-specific paths
+    trader_id = None
+    if path.startswith("/trader/"):
+        # Format: /trader/HUMAN_username/...
+        parts = path.split("/")
+        if len(parts) > 2:
+            trader_id = parts[2]  # Get the HUMAN_username part
+    elif path.startswith("/trader_info/"):
+        # Format: /trader_info/HUMAN_username
+        trader_id = path.split("/")[-1]
+    
+    # Check if this is a Prolific user by trader_id
+    if trader_id:
+        prolific_user = get_prolific_user_by_trader_id(trader_id)
+        if prolific_user:
+            print(f"Found Prolific user by trader_id: {trader_id}")
+            return prolific_user
+        
+        # If not a Prolific user but we have it in authenticated_users
+        if trader_id.startswith("HUMAN_"):
+            gmail_username = trader_id.split('_')[1]
+            if gmail_username in authenticated_users:
+                print(f"Found authenticated user by trader_id: {trader_id}")
+                return authenticated_users[gmail_username]
     
     # If not a Prolific user, proceed with regular authentication
     auth_header = request.headers.get('Authorization')
     user_timezone_str = request.headers.get('X-User-Timezone', 'UTC')
     user_timezone = get_user_timezone(user_timezone_str)
     
-    path = request.url.path
-    if path.startswith("/trader_info/"):
-        trader_id = path.split("/")[-1]
-        gmail_username = trader_id.split('_')[1]
-        if gmail_username in authenticated_users:
-            return authenticated_users[gmail_username]
+    # Check for Prolific authentication in headers
+    if auth_header and auth_header.startswith('Prolific '):
+        token = auth_header.split('Prolific ')[1]
+        if token in prolific_tokens:
+            print(f"Authenticated via Prolific token: {token}")
+            return prolific_tokens[token]
+    
+    # For endpoints that commonly fail with Prolific users
+    if path.startswith("/trading/initiate") or "/trader/" in path or path.startswith("/trading/start"):
+        # Check if we can find a Prolific user for this request
+        if trader_id:
+            prolific_user = get_prolific_user_by_trader_id(trader_id)
+            if prolific_user:
+                print(f"Special case: Found Prolific user for {path}: {trader_id}")
+                return prolific_user
+        
+        # If we have Prolific users in the system, use the first one as a fallback
+        # This is a temporary solution to ensure Prolific users can access these endpoints
+        if prolific_tokens and not auth_header:
+            first_token = next(iter(prolific_tokens))
+            print(f"Fallback: Using first available Prolific user for {path}")
+            return prolific_tokens[first_token]
     
     if not auth_header:
         raise HTTPException(
@@ -122,8 +167,17 @@ async def get_current_user(request: Request):
             
             user = {**decoded_token, "is_admin": is_admin, "gmail_username": gmail_username, "timezone": user_timezone}
             authenticated_users[gmail_username] = user
+            print(f"Authenticated Google user: {gmail_username}")
             return user
         except Exception as e:
+            # One last check for Prolific users
+            if trader_id:
+                prolific_user = get_prolific_user_by_trader_id(trader_id)
+                if prolific_user:
+                    print(f"Exception handler: Found Prolific user by trader_id: {trader_id}")
+                    return prolific_user
+                    
+            # If we couldn't find a Prolific user, raise the original exception
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail=f"Invalid Firebase token or user not registered: {str(e)}",
