@@ -15,6 +15,7 @@ export const useAuthStore = defineStore('auth', {
     isPersisted: false,
     lastLoginTime: null,
     loginInProgress: false,
+    prolificToken: null,
   }),
   actions: {
     async initializeAuth() {
@@ -54,6 +55,7 @@ export const useAuthStore = defineStore('auth', {
       
       try {
         this.loginInProgress = true;
+        console.log('Starting Prolific login with params:', prolificParams);
         
         // Create a pseudo-user object for Prolific users
         const prolificPID = prolificParams.PROLIFIC_PID;
@@ -70,9 +72,13 @@ export const useAuthStore = defineStore('auth', {
         
         // Make API call to backend with Prolific parameters in URL
         const url = `/user/login?PROLIFIC_PID=${prolificParams.PROLIFIC_PID}&STUDY_ID=${prolificParams.STUDY_ID}&SESSION_ID=${prolificParams.SESSION_ID}`;
-        const response = await axios.post(url);
+        console.log('Making API call to:', url);
         
-        if (!response.data.data.trader_id) {
+        const response = await axios.post(url);
+        console.log('Prolific login response:', response.data);
+        
+        if (!response.data.data || !response.data.data.trader_id) {
+          console.error('Invalid response format:', response.data);
           throw new Error('No trader ID received');
         }
         
@@ -81,6 +87,18 @@ export const useAuthStore = defineStore('auth', {
         this.marketId = response.data.data.market_id;
         this.lastLoginTime = Date.now();
         this.isPersisted = false;
+        
+        // Store the Prolific token if available
+        if (response.data.data.prolific_token) {
+          this.prolificToken = response.data.data.prolific_token;
+          console.log('Stored Prolific token for future authentication');
+        }
+        
+        console.log('Prolific login successful, user data:', {
+          traderId: this.traderId,
+          marketId: this.marketId,
+          isAdmin: this.isAdmin
+        });
       } catch (error) {
         console.error('Prolific login error:', error);
         this.user = null;
