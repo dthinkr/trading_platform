@@ -17,6 +17,7 @@ from core.trader_manager import TraderManager
 from core.market_handler import MarketHandler
 from core.data_models import TraderType, TradingParameters, UserRegistration, TraderRole
 from .auth import get_current_user, get_current_admin_user, extract_gmail_username, is_user_registered, is_user_admin, custom_verify_id_token
+from .prolific_auth import extract_prolific_params, validate_prolific_user
 from .calculate_metrics import process_log_file, write_to_csv
 from .logfiles_analysis import order_book_contruction, calculate_trader_specific_metrics
 from firebase_admin import auth
@@ -171,6 +172,37 @@ async def websocket_endpoint(websocket: WebSocket):
 
 @app.post("/user/login")
 async def user_login(request: Request):
+    # Check for Prolific parameters first
+    prolific_params = extract_prolific_params(request)
+    if prolific_params:
+        is_valid, prolific_user = validate_prolific_user(prolific_params)
+        if is_valid:
+            # Use Prolific ID as username
+            gmail_username = prolific_user['gmail_username']
+            
+            # Create parameters
+            params = TradingParameters(**(persistent_settings or {}))
+            
+            # Single call to handle all market/role/goal logic
+            market_id, trader_id, role, goal = await market_handler.validate_and_assign_role(
+                gmail_username, 
+                params
+            )
+            
+            return {
+                "status": "success",
+                "message": "Prolific login successful and trader assigned",
+                "data": {
+                    "trader_id": trader_id,
+                    "market_id": market_id,
+                    "role": role.value,
+                    "goal": goal,
+                    "is_admin": False,
+                    "is_prolific": True
+                }
+            }
+    
+    # If not Prolific, proceed with regular Firebase authentication
     auth_header = request.headers.get('Authorization')
     
     if not auth_header or not auth_header.startswith('Bearer '):

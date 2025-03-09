@@ -11,6 +11,7 @@ from core.data_models import TradingParameters
 from pytz import timezone
 from datetime import datetime, timedelta
 import jwt
+from .prolific_auth import extract_prolific_params, validate_prolific_user
 
 # Initialize Firebase Admin SDK using the service account file
 cred = credentials.Certificate('firebase-service-account.json')
@@ -59,6 +60,16 @@ def custom_verify_id_token(token, clock_skew_seconds=60):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
 
 async def get_current_user(request: Request):
+    # First, check for Prolific authentication via URL parameters
+    prolific_params = extract_prolific_params(request)
+    if prolific_params:
+        is_valid, prolific_user = validate_prolific_user(prolific_params)
+        if is_valid:
+            # Store the prolific user in authenticated_users
+            authenticated_users[prolific_user['gmail_username']] = prolific_user
+            return prolific_user
+    
+    # If not a Prolific user, proceed with regular authentication
     auth_header = request.headers.get('Authorization')
     user_timezone_str = request.headers.get('X-User-Timezone', 'UTC')
     user_timezone = get_user_timezone(user_timezone_str)
