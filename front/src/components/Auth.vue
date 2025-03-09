@@ -52,32 +52,64 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { getAuth, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { useAuthStore } from '@/store/auth';
 import logo from '@/assets/trading_platform_logo.svg';
 
 const router = useRouter();
+const route = useRoute();
 const auth = getAuth();
 const authStore = useAuthStore();
 
 const errorMessage = ref('');
 const autoSignInBtn = ref(null);
 const autoAdminSignInBtn = ref(null);
+const isProlificUser = ref(false);
 
 onMounted(async () => {
-  // Wait for auth initialization
-  await authStore.initializeAuth();
+  // Check for Prolific parameters in URL
+  const prolificPID = route.query.PROLIFIC_PID;
+  const studyID = route.query.STUDY_ID;
+  const sessionID = route.query.SESSION_ID;
   
-  // If user is already authenticated and has trader/market IDs, auto-navigate
-  if (authStore.isAuthenticated && authStore.traderId && authStore.marketId) {
-    router.push({ 
-      name: 'practice',
-      params: { 
-        traderUuid: authStore.traderId,
-        marketId: authStore.marketId
-      } 
-    });
+  if (prolificPID && studyID && sessionID) {
+    // We have Prolific parameters, handle Prolific login
+    isProlificUser.value = true;
+    try {
+      await authStore.prolificLogin({
+        PROLIFIC_PID: prolificPID,
+        STUDY_ID: studyID,
+        SESSION_ID: sessionID
+      });
+      
+      if (authStore.traderId && authStore.marketId) {
+        router.push({ 
+          name: 'practice',
+          params: { 
+            traderUuid: authStore.traderId,
+            marketId: authStore.marketId
+          } 
+        });
+      }
+    } catch (error) {
+      console.error("Prolific login error:", error);
+      errorMessage.value = error.message || "An error occurred during Prolific sign-in";
+    }
+  } else {
+    // Regular authentication flow
+    await authStore.initializeAuth();
+    
+    // If user is already authenticated and has trader/market IDs, auto-navigate
+    if (authStore.isAuthenticated && authStore.traderId && authStore.marketId) {
+      router.push({ 
+        name: 'practice',
+        params: { 
+          traderUuid: authStore.traderId,
+          marketId: authStore.marketId
+        } 
+      });
+    }
   }
 });
 

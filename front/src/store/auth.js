@@ -46,6 +46,50 @@ export const useAuthStore = defineStore('auth', {
       });
     },
     
+    async prolificLogin(prolificParams) {
+      if (this.loginInProgress) {
+        console.log('Login already in progress');
+        return;
+      }
+      
+      try {
+        this.loginInProgress = true;
+        
+        // Create a pseudo-user object for Prolific users
+        const prolificPID = prolificParams.PROLIFIC_PID;
+        const pseudoUser = {
+          uid: `prolific_${prolificPID}`,
+          email: `${prolificPID}@prolific.co`,
+          displayName: `Prolific User ${prolificPID}`,
+          isProlific: true,
+          prolificData: prolificParams
+        };
+        
+        // Set user in store
+        this.user = pseudoUser;
+        
+        // Make API call to backend with Prolific parameters in URL
+        const url = `/user/login?PROLIFIC_PID=${prolificParams.PROLIFIC_PID}&STUDY_ID=${prolificParams.STUDY_ID}&SESSION_ID=${prolificParams.SESSION_ID}`;
+        const response = await axios.post(url);
+        
+        if (!response.data.data.trader_id) {
+          throw new Error('No trader ID received');
+        }
+        
+        this.isAdmin = response.data.data.is_admin || false;
+        this.traderId = response.data.data.trader_id;
+        this.marketId = response.data.data.market_id;
+        this.lastLoginTime = Date.now();
+        this.isPersisted = false;
+      } catch (error) {
+        console.error('Prolific login error:', error);
+        this.user = null;
+        throw new Error(error.message || 'Failed to login with Prolific');
+      } finally {
+        this.loginInProgress = false;
+      }
+    },
+    
     async login(user, isAutoLogin = false) {
       if (this.loginInProgress) {
         console.log('Login already in progress');
