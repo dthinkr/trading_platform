@@ -249,6 +249,60 @@
           </v-card>
         </v-col>
 
+        <!-- Prolific Settings Section -->
+        <v-col cols="12" md="4">
+          <v-card class="mb-4" elevation="2">
+            <v-card-title class="headline">
+              <v-icon left color="deep-blue">mdi-account-group-outline</v-icon>
+              Prolific Settings
+            </v-card-title>
+            <v-card-text class="pa-4">
+              <v-form>
+                <v-text-field
+                  v-model="prolificSettings.apiKey"
+                  label="Prolific API Key"
+                  outlined
+                  dense
+                  hide-details="auto"
+                  class="mb-3"
+                  :append-icon="showProlificApiKey ? 'mdi-eye-off' : 'mdi-eye'"
+                  :type="showProlificApiKey ? 'text' : 'password'"
+                  @click:append="showProlificApiKey = !showProlificApiKey"
+                ></v-text-field>
+                
+                <v-text-field
+                  v-model="prolificSettings.studyId"
+                  label="Prolific Study ID"
+                  outlined
+                  dense
+                  hide-details="auto"
+                  class="mb-3"
+                ></v-text-field>
+                
+                <v-text-field
+                  v-model="prolificSettings.redirectUrl"
+                  label="Prolific Redirect URL"
+                  outlined
+                  dense
+                  hide-details="auto"
+                  class="mb-3"
+                ></v-text-field>
+                
+                <v-btn
+                  color="primary"
+                  block
+                  @click="saveProlificSettings"
+                  class="mt-3"
+                  :loading="savingProlificSettings"
+                >
+                  <v-icon left>mdi-content-save</v-icon>
+                  Save Prolific Settings
+                </v-btn>
+              </v-form>
+            </v-card-text>
+          </v-card>
+        </v-col>
+        
         <v-col cols="12" md="4">
           <v-card class="mb-4" elevation="2">
             <v-card-title class="headline">
@@ -328,6 +382,15 @@ import JSZip from 'jszip';
 import { debounce } from 'lodash';
 
 const traderStore = useTraderStore();
+
+// Prolific Settings
+const prolificSettings = ref({
+  apiKey: '',
+  studyId: '',
+  redirectUrl: ''
+});
+const showProlificApiKey = ref(false);
+const savingProlificSettings = ref(false);
 
 // Market Monitor
 const activeSessions = ref([]);
@@ -601,9 +664,57 @@ const getFieldStyle = (fieldName) => {
   return isDifferent ? 'treatment-value' : '';
 };
 
+// Fetch Prolific settings from the server
+const fetchProlificSettings = async () => {
+  try {
+    const response = await axios.get(`${import.meta.env.VITE_HTTP_URL}admin/prolific-settings`);
+    if (response.data && response.data.data) {
+      prolificSettings.value = {
+        apiKey: response.data.data.PROLIFIC_API || '',
+        studyId: response.data.data.PROLIFIC_STUDY_ID || '',
+        redirectUrl: response.data.data.PROLIFIC_REDIRECT_URL || ''
+      };
+    }
+  } catch (error) {
+    console.error("Failed to fetch Prolific settings:", error);
+  }
+};
+
+// Save Prolific settings to the server
+const saveProlificSettings = async () => {
+  try {
+    savingProlificSettings.value = true;
+    
+    const settings = {
+      PROLIFIC_API: prolificSettings.value.apiKey,
+      PROLIFIC_STUDY_ID: prolificSettings.value.studyId,
+      PROLIFIC_REDIRECT_URL: prolificSettings.value.redirectUrl
+    };
+    
+    await axios.post(`${import.meta.env.VITE_HTTP_URL}admin/prolific-settings`, { settings });
+    
+    // Show success message
+    traderStore.showSnackbar({
+      text: 'Prolific settings saved successfully',
+      color: 'success'
+    });
+  } catch (error) {
+    console.error("Failed to save Prolific settings:", error);
+    
+    // Show error message
+    traderStore.showSnackbar({
+      text: 'Failed to save Prolific settings',
+      color: 'error'
+    });
+  } finally {
+    savingProlificSettings.value = false;
+  }
+};
+
 onMounted(() => {
   fetchData();
   fetchActiveSessions();
+  fetchProlificSettings();
   // Poll for session updates every 5 seconds
   sessionPollingInterval = setInterval(fetchActiveSessions, 5000);
 });

@@ -132,6 +132,8 @@
                   Your market reward is {{formatValue(traderSpecificMetrics?.Accumulated_Reward, 'gbp') }}. Your participation fee is {{formatValue(5, 'gbp')}}.
                   <br></br>
                   Your final payment will be {{formatValue(traderSpecificMetrics?.Accumulated_Reward + 5, 'gbp') }}.
+                  <br></br>
+                  <span class="font-weight-bold">Please click <a :href="prolificRedirectUrl" target="_blank" class="primary--text">here</a> to complete your submission on Prolific.</span>
                 </p>
                 <v-btn 
                   color="secondary" 
@@ -195,6 +197,7 @@ const traderInfo = ref(null);
 const orderBookMetrics = ref(null);
 const traderSpecificMetrics = ref(null);
 const httpUrl = import.meta.env.VITE_HTTP_URL;
+const prolificRedirectUrl = import.meta.env.VITE_PROLIFIC_REDIRECT_URL || 'https://app.prolific.com/submissions/complete?cc=C11I8OGE';
 const showDialog = ref(false);
 const dialogTitle = ref('');
 const dialogMessage = ref('');
