@@ -996,3 +996,82 @@ async def get_persistent_settings(current_user: dict = Depends(get_current_admin
         "status": "success",
         "data": persistent_settings
     }
+
+# Prolific settings model
+class ProlificSettings(BaseModel):
+    settings: Dict[str, str]
+
+# Get Prolific settings from .env file
+@app.get("/admin/prolific-settings")
+async def get_prolific_settings(current_user: dict = Depends(get_current_admin_user)):
+    try:
+        env_path = Path(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))) / ".env"
+        
+        if not env_path.exists():
+            return {
+                "status": "error",
+                "message": ".env file not found"
+            }
+        
+        # Read the .env file
+        env_content = env_path.read_text()
+        
+        # Extract Prolific settings
+        prolific_settings = {}
+        for line in env_content.splitlines():
+            if line.startswith("PROLIFIC_API="):
+                prolific_settings["PROLIFIC_API"] = line.split("=", 1)[1]
+            elif line.startswith("PROLIFIC_STUDY_ID="):
+                prolific_settings["PROLIFIC_STUDY_ID"] = line.split("=", 1)[1]
+            elif line.startswith("PROLIFIC_REDIRECT_URL="):
+                prolific_settings["PROLIFIC_REDIRECT_URL"] = line.split("=", 1)[1]
+        
+        return {
+            "status": "success",
+            "data": prolific_settings
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
+# Update Prolific settings in .env file
+@app.post("/admin/prolific-settings")
+async def update_prolific_settings(settings: ProlificSettings, current_user: dict = Depends(get_current_admin_user)):
+    try:
+        env_path = Path(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))) / ".env"
+        
+        if not env_path.exists():
+            return {
+                "status": "error",
+                "message": ".env file not found"
+            }
+        
+        # Read the .env file
+        env_content = env_path.read_text()
+        
+        # Update Prolific settings
+        new_env_content = []
+        for line in env_content.splitlines():
+            if line.startswith("PROLIFIC_API=") and "PROLIFIC_API" in settings.settings:
+                new_env_content.append(f"PROLIFIC_API={settings.settings['PROLIFIC_API']}")
+            elif line.startswith("PROLIFIC_STUDY_ID=") and "PROLIFIC_STUDY_ID" in settings.settings:
+                new_env_content.append(f"PROLIFIC_STUDY_ID={settings.settings['PROLIFIC_STUDY_ID']}")
+            elif line.startswith("PROLIFIC_REDIRECT_URL=") and "PROLIFIC_REDIRECT_URL" in settings.settings:
+                new_env_content.append(f"PROLIFIC_REDIRECT_URL={settings.settings['PROLIFIC_REDIRECT_URL']}")
+            else:
+                new_env_content.append(line)
+        
+        # Write the updated content back to the .env file
+        env_path.write_text("\n".join(new_env_content))
+        
+        return {
+            "status": "success",
+            "message": "Prolific settings updated successfully"
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e)
+        }

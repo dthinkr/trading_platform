@@ -189,7 +189,6 @@ class NoiseTrader(BaseTrader):
             try:
                 await self.act()
                 await asyncio.sleep(self.calculate_cooling_interval())
-                print("I am working")
             except asyncio.CancelledError:
                 await self.clean_up()
                 raise
