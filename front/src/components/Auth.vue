@@ -86,10 +86,49 @@ const isProlificUser = ref(false);
 const isLoading = ref(false);
 
 onMounted(async () => {
-  // Check for Prolific parameters from both props and URL
-  const prolificPID = props.prolificPID || route.query.PROLIFIC_PID;
-  const studyID = props.studyID || route.query.STUDY_ID;
-  const sessionID = props.sessionID || route.query.SESSION_ID;
+  console.log('Auth component mounted at path:', route.path);
+  
+  // Check for Prolific parameters from props, URL, or localStorage
+  let prolificPID = props.prolificPID || route.query.PROLIFIC_PID;
+  let studyID = props.studyID || route.query.STUDY_ID;
+  let sessionID = props.sessionID || route.query.SESSION_ID;
+  
+  console.log('Initial Prolific parameters:', { prolificPID, studyID, sessionID });
+  
+  // Check if we have stored Prolific parameters for auto-login
+  const storedProlificData = localStorage.getItem('prolific_auto_login');
+  console.log('Stored Prolific data exists:', !!storedProlificData);
+  
+  if (!prolificPID && !studyID && !sessionID && storedProlificData) {
+    try {
+      const parsedData = JSON.parse(storedProlificData);
+      console.log('Parsed stored Prolific data:', parsedData);
+      
+      const timestamp = parsedData.timestamp || 0;
+      const currentTime = Date.now();
+      const ageInMinutes = Math.floor((currentTime - timestamp) / (60 * 1000));
+      
+      console.log(`Stored data age: ${ageInMinutes} minutes`);
+      
+      // Only use stored data if it's less than 1 hour old
+      if (currentTime - timestamp < 60 * 60 * 1000) {
+        console.log('Using stored Prolific parameters for auto-login');
+        prolificPID = parsedData.PROLIFIC_PID;
+        studyID = parsedData.STUDY_ID;
+        sessionID = parsedData.SESSION_ID;
+        
+        // Don't remove the data immediately, only after successful login
+        console.log('Will use these parameters for login:', { prolificPID, studyID, sessionID });
+      } else {
+        // Data is too old, clear it
+        console.log(`Stored Prolific parameters are too old (${ageInMinutes} minutes), clearing them`);
+        localStorage.removeItem('prolific_auto_login');
+      }
+    } catch (error) {
+      console.error('Error parsing stored Prolific data:', error);
+      localStorage.removeItem('prolific_auto_login');
+    }
+  }
   
   console.log('Auth component mounted, checking for Prolific params:', { 
     prolificPID, 
@@ -122,13 +161,26 @@ onMounted(async () => {
       
       console.log('Prolific login successful:', { 
         traderId: authStore.traderId, 
-        marketId: authStore.marketId 
+        marketId: authStore.marketId,
+        hasCompletedOnboarding: authStore.prolificUserHasCompletedOnboarding
       });
       
+      // Now that login is successful, remove the stored Prolific data
+      localStorage.removeItem('prolific_auto_login');
+      
+      // Check if this is a continuation from the market summary
+      const isNextMarket = localStorage.getItem('prolific_next_market') === 'true';
+      if (isNextMarket) {
+        console.log('Detected next market flag, clearing it');
+        localStorage.removeItem('prolific_next_market');
+      }
+      
       if (authStore.traderId && authStore.marketId) {
-        // Redirect to practice page
-        const redirectPath = `/onboarding/${authStore.marketId}/${authStore.traderId}/practice`;
-        console.log('Redirecting to:', redirectPath);
+        // Determine where to redirect based on whether user has completed onboarding
+        // If this is a continuation from market summary, always go to practice page
+        const targetPage = (authStore.prolificUserHasCompletedOnboarding || isNextMarket) ? 'practice' : 'welcome';
+        const redirectPath = `/onboarding/${authStore.marketId}/${authStore.traderId}/${targetPage}`;
+        console.log(`Redirecting to ${targetPage} page:`, redirectPath);
         
         // Use replace instead of push to avoid navigation issues
         router.replace(redirectPath);

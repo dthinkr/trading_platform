@@ -16,6 +16,7 @@ export const useAuthStore = defineStore('auth', {
     lastLoginTime: null,
     loginInProgress: false,
     prolificToken: null,
+    prolificUserHasCompletedOnboarding: false,
   }),
   actions: {
     async initializeAuth() {
@@ -93,6 +94,12 @@ export const useAuthStore = defineStore('auth', {
           this.prolificToken = response.data.data.prolific_token;
           console.log('Stored Prolific token for future authentication');
         }
+        
+        // Check if this user has previously logged in via Prolific
+        const prolificUserId = `prolific_${prolificParams.PROLIFIC_PID}`;
+        const hasCompletedOnboarding = localStorage.getItem(`prolific_onboarded_${prolificUserId}`) === 'true';
+        this.prolificUserHasCompletedOnboarding = hasCompletedOnboarding;
+        console.log('Prolific user onboarding status:', { hasCompletedOnboarding });
         
         console.log('Prolific login successful, user data:', {
           traderId: this.traderId,

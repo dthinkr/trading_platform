@@ -135,10 +135,20 @@ onMounted(async () => {
   }
 });
 
-// Reset canProgressFromQuestions when leaving questions page
+// Reset canProgressFromQuestions when leaving questions page and mark Prolific users as having completed onboarding
 watch(currentRouteName, (newRoute, oldRoute) => {
   if (oldRoute === 'questions') {
     canProgressFromQuestions.value = false;
+  }
+  
+  // When a user reaches the practice page, mark them as having completed onboarding if they're a Prolific user
+  if (newRoute === 'practice' && authStore.user?.isProlific) {
+    const prolificUserId = authStore.user.uid;
+    localStorage.setItem(`prolific_onboarded_${prolificUserId}`, 'true');
+    console.log('Marked Prolific user as having completed onboarding:', prolificUserId);
+    
+    // Update the store state as well
+    authStore.prolificUserHasCompletedOnboarding = true;
   }
 });
 
