@@ -176,9 +176,23 @@ onMounted(async () => {
       }
       
       if (authStore.traderId && authStore.marketId) {
-        // Determine where to redirect based on whether user has completed onboarding
-        // If this is a continuation from market summary, always go to practice page
-        const targetPage = (authStore.prolificUserHasCompletedOnboarding || isNextMarket) ? 'practice' : 'welcome';
+        let targetPage;
+        
+        // Determine where to redirect based on different conditions
+        if (isNextMarket) {
+          // If coming from market summary, always go to practice page
+          targetPage = 'practice';
+          console.log('Coming from market summary, redirecting to practice page');
+        } else if (authStore.prolificUserHasCompletedOnboarding) {
+          // If returning Prolific user, go to practice page
+          targetPage = 'practice';
+          console.log('Returning Prolific user, redirecting to practice page');
+        } else {
+          // First-time Prolific user, go to welcome/instructions page
+          targetPage = 'welcome';
+          console.log('First-time Prolific user, redirecting to welcome/instructions page');
+        }
+        
         const redirectPath = `/onboarding/${authStore.marketId}/${authStore.traderId}/${targetPage}`;
         console.log(`Redirecting to ${targetPage} page:`, redirectPath);
         
