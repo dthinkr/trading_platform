@@ -162,8 +162,14 @@ class TraderManager:
 
         # Wait for all required traders based on predefined_goals length
         num_required_traders = len(self.params.predefined_goals)
-        while len(self.human_traders) < num_required_traders:
-            await asyncio.sleep(1)
+        
+        # Check if any of the human traders is a Prolific user
+        has_prolific_user = any("prolific" in trader.id.lower() for trader in self.human_traders)
+        
+        # Skip waiting if we have a Prolific user, otherwise wait for all required traders
+        if not has_prolific_user:
+            while len(self.human_traders) < num_required_traders:
+                await asyncio.sleep(1)
 
         await self.trading_market.start_trading()
 
