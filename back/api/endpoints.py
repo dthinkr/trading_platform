@@ -571,19 +571,42 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
     
     try:
         token = await websocket.receive_text()
-        decoded_token = custom_verify_id_token(token)
-        email = decoded_token['email']
-        gmail_username = extract_gmail_username(email)
+        
+        # Check if this is a Prolific token
+        is_prolific = False
+        if token.startswith('prolific_') or token == 'no-auth':
+            # Extract username from trader_id for Prolific users
+            # Format is typically HUMAN_123456abcdef
+            if trader_id.startswith('HUMAN_'):
+                gmail_username = trader_id[6:]  # Remove 'HUMAN_' prefix
+                is_prolific = True
+                print(f"Authenticated Prolific user via WebSocket: {gmail_username}")
+        else:
+            # Regular Firebase authentication
+            try:
+                decoded_token = custom_verify_id_token(token)
+                email = decoded_token['email']
+                gmail_username = extract_gmail_username(email)
+            except Exception as e:
+                print(f"WebSocket token verification failed: {str(e)}")
+                await websocket.close(code=1008, reason="Authentication failed")
+                return
+        
+        if not gmail_username:
+            await websocket.close(code=1008, reason="Invalid authentication")
+            return
         
         trader_manager = market_handler.get_trader_manager(trader_id)
         if not trader_manager:
-            await websocket.close()
+            print(f"No trader manager found for {trader_id}")
+            await websocket.close(code=1008, reason="No trader manager found")
             return
             
         market_id = market_handler.trader_to_market_lookup.get(trader_id)
         trader = trader_manager.get_trader(trader_id)
         if not trader:
-            await websocket.close()
+            print(f"No trader found for {trader_id}")
+            await websocket.close(code=1008, reason="Trader not found")
             return
         
         market_handler.add_user_to_market(gmail_username, market_id)

@@ -1,7 +1,8 @@
 // store.js
 import { defineStore } from "pinia";
 import axios from '@/api/axios';
-import { auth } from '@/firebaseConfig'
+import { auth } from '@/firebaseConfig';
+import { useAuthStore } from './auth';
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
@@ -197,7 +198,9 @@ export const useTraderStore = defineStore("trader", {
           this.traderAttributes = response.data.data;
           this.traderUuid = traderId;
           // Initialize traderProgress based on initial filled orders
-          this.traderProgress = this.calculateProgress(this.traderAttributes.filled_orders);
+          // Ensure filled_orders exists before calculating progress
+          const filledOrders = this.traderAttributes.filled_orders || [];
+          this.traderProgress = this.calculateProgress(filledOrders);
         } else {
           throw new Error("Failed to fetch trader attributes");
         }
@@ -427,8 +430,24 @@ export const useTraderStore = defineStore("trader", {
       this.ws = new WebSocket(wsUrl);
     
       this.ws.onopen = async (event) => {
-        const token = await auth.currentUser.getIdToken();
-        this.ws.send(token);
+        try {
+          // Check if we're using Prolific authentication
+          const authStore = useAuthStore();
+          if (authStore.prolificToken) {
+            // Use Prolific token for authentication
+            this.ws.send(authStore.prolificToken);
+          } else if (auth.currentUser) {
+            // Use Firebase token for authentication
+            const token = await auth.currentUser.getIdToken();
+            this.ws.send(token);
+          } else {
+            // Fallback if no authentication method is available
+            console.warn("No authentication token available for WebSocket");
+            this.ws.send("no-auth");
+          }
+        } catch (error) {
+          console.error("Error sending authentication token:", error);
+        }
       };
     
       this.ws.onmessage = (event) => {
@@ -445,11 +464,11 @@ export const useTraderStore = defineStore("trader", {
       };
     
       this.ws.onerror = (error) => {
-        // Handle error
+        console.error("WebSocket error:", error);
       };
     
       this.ws.onclose = (event) => {
-        // Handle close
+        console.log("WebSocket connection closed:", event.code, event.reason);
       };
     },
     
@@ -572,6 +591,9 @@ export const useTraderStore = defineStore("trader", {
     },
 
     calculateProgress(filledOrders) {
+      if (!filledOrders || !Array.isArray(filledOrders)) {
+        return 0; // Return 0 if filledOrders is undefined or not an array
+      }
       return filledOrders.reduce((sum, order) => {
         const amount = order.amount || 1; // Default to 1 if amount is not specified
         return sum + (order.order_type === 'BID' ? amount : -amount);
