@@ -147,6 +147,7 @@ import { useTraderStore } from "@/store/app";
 
 import { onMounted, onUnmounted, ref, onBeforeUnmount } from 'vue';
 import { debounce } from 'lodash';
+import axios from '@/api/axios';
 
 const { formatNumber } = useFormatNumber();
 const router = useRouter();
@@ -212,20 +213,8 @@ onMounted(async () => {
   // Remove the zoom property as it can cause flickering in some browsers
   // document.body.style.zoom = zoomLevel.value;
   
-  // Fetch user role
-  try {
-    const response = await fetch('/api/user/role', {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      }
-    });
-    const data = await response.json();
-    if (data.status === 'success') {
-      userRole.value = data.data.role;
-    }
-  } catch (error) {
-    console.error('Error fetching user role:', error);
-  }
+  // Set default user role
+  userRole.value = 'trader';
 
   // Start market timeout countdown if not started
   if (!isTradingStarted.value) {
