@@ -749,10 +749,20 @@ async def start_trading_market(background_tasks: BackgroundTasks, request: Reque
     current_ready = len(market_handler.market_ready_traders.get(market_id, set()))
     total_needed = len(trader_manager.params.predefined_goals)
     
-    # Start trading if all required traders are ready
-    if current_ready >= total_needed:
+    # For Prolific users, we need to ensure the session can start with just one trader
+    is_prolific = current_user.get('is_prolific', False)
+    
+    # Start trading if all required traders are ready or if this is a Prolific user
+    if current_ready >= total_needed or (is_prolific and current_ready > 0):
         all_ready = True
-        background_tasks.add_task(trader_manager.launch)
+        # For Prolific users, we need to force start the trading immediately
+        if is_prolific:
+            # This will bypass the waiting loop in trader_manager.launch
+            background_tasks.add_task(trader_manager.trading_market.start_trading)
+            # Also call launch to ensure all traders are properly initialized
+            background_tasks.add_task(trader_manager.launch)
+        else:
+            background_tasks.add_task(trader_manager.launch)
         status_message = "Trading market started"
         
         # Record market in historical markets when it starts
