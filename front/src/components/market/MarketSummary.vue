@@ -184,6 +184,7 @@ import { ref, onMounted, computed } from "vue";
 import axios from "axios";
 import { useRouter } from 'vue-router';
 import { useTraderStore } from "@/store/app";
+import { useAuthStore } from "@/store/auth";
 import { storeToRefs } from "pinia";
 
 const props = defineProps({
@@ -192,6 +193,7 @@ const props = defineProps({
 
 const router = useRouter();
 const traderStore = useTraderStore();
+const authStore = useAuthStore();
 const { pnl, vwap } = storeToRefs(traderStore);
 const traderInfo = ref(null);
 const orderBookMetrics = ref(null);
@@ -260,6 +262,36 @@ const formatValue = (value, format) => {
 };
 
 const goToRegister = () => {
+  // Check if the user is a Prolific user
+  if (authStore.user?.isProlific) {
+    console.log('Prolific user detected, preparing for next market');
+    
+    // Mark this user as having completed onboarding
+    if (authStore.user?.uid) {
+      localStorage.setItem(`prolific_onboarded_${authStore.user.uid}`, 'true');
+      authStore.prolificUserHasCompletedOnboarding = true;
+      
+      // Store a flag indicating this is a continuation to the next market
+      // This will help prevent immediate redirection to the market summary
+      localStorage.setItem('prolific_next_market', 'true');
+      
+      // Store Prolific parameters in localStorage for auto-login
+      if (authStore.user.prolificData) {
+        const prolificData = {
+          PROLIFIC_PID: authStore.user.prolificData.PROLIFIC_PID,
+          STUDY_ID: authStore.user.prolificData.STUDY_ID,
+          SESSION_ID: authStore.user.prolificData.SESSION_ID,
+          timestamp: Date.now()
+        };
+        
+        console.log('Storing Prolific data for auto-login:', prolificData);
+        localStorage.setItem('prolific_auto_login', JSON.stringify(prolificData));
+      }
+    }
+  }
+  
+  // Use the original behavior - redirect to register which will trigger the root page reload
+  console.log('Redirecting to register page (original behavior)');
   router.push({ name: 'Register', replace: true }).then(() => {
     window.location.href = '/register';
   });
