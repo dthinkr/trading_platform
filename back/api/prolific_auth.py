@@ -69,6 +69,34 @@ async def extract_prolific_params(request: Request) -> Optional[Dict[str, str]]:
         
     return None
 
+# Load credentials from .env file
+def load_credentials() -> Dict[str, str]:
+    """
+    Load credentials from .env file.
+    Returns a dictionary mapping usernames to passwords.
+    """
+    credentials = {}
+    try:
+        from pathlib import Path
+        env_path = Path(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))) / ".env"
+        
+        if env_path.exists():
+            env_content = env_path.read_text()
+            for line in env_content.splitlines():
+                if line.startswith("PROLIFIC_CREDENTIALS="):
+                    creds_str = line.split("=", 1)[1]
+                    for cred_line in creds_str.split("\n"):
+                        if not cred_line.strip():
+                            continue
+                        parts = cred_line.strip().split(",")
+                        if len(parts) == 2:
+                            username, password = parts
+                            credentials[username.strip()] = password.strip()
+    except Exception as e:
+        print(f"Error loading credentials: {str(e)}")
+    
+    return credentials
+
 def validate_prolific_user(prolific_params: Dict[str, str], username: str = None, password: str = None) -> Tuple[bool, Dict]:
     """
     Validate a user based on Prolific parameters and credentials.
@@ -87,13 +115,26 @@ def validate_prolific_user(prolific_params: Dict[str, str], username: str = None
     # Extract the Prolific ID to use as the username
     prolific_pid = prolific_params.get('PROLIFIC_PID')
     
-    # If username and password are provided, validate credentials
-    if username is not None and password is not None:
-        # For now, only accept user1/password1 combination
+    # STRICT REQUIREMENT: Username and password must be provided
+    if username is None or password is None:
+        print(f"No credentials provided for Prolific user {prolific_pid}")
+        return False, {}
+    
+    # Load credentials from settings
+    credentials = load_credentials()
+    
+    # If no credentials are configured, fall back to default
+    if not credentials:
         if username != 'user1' or password != 'password1':
+            print(f"Invalid credentials for Prolific user {prolific_pid} (using default)")
+            return False, {}
+    else:
+        # Check if username exists and password matches
+        if username not in credentials or credentials[username] != password:
             print(f"Invalid credentials for Prolific user {prolific_pid}")
             return False, {}
-        print(f"Credentials validated for Prolific user {prolific_pid}")
+    
+    print(f"Credentials validated for Prolific user {prolific_pid}")
     
     # Generate a simple token for this session
     token = f"prolific_{prolific_pid}_{int(time.time())}"
