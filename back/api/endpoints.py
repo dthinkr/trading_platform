@@ -17,7 +17,7 @@ from core.trader_manager import TraderManager
 from core.market_handler import MarketHandler
 from core.data_models import TraderType, TradingParameters, UserRegistration, TraderRole
 from .auth import get_current_user, get_current_admin_user, extract_gmail_username, is_user_registered, is_user_admin, custom_verify_id_token
-from .prolific_auth import extract_prolific_params, validate_prolific_user
+from .prolific_auth import extract_prolific_params, validate_prolific_user, authenticate_prolific_user
 from .calculate_metrics import process_log_file, write_to_csv
 from .logfiles_analysis import order_book_contruction, calculate_trader_specific_metrics
 from firebase_admin import auth
@@ -135,36 +135,48 @@ async def user_login(request: Request):
     # Check for Prolific parameters first
     prolific_params = await extract_prolific_params(request)
     if prolific_params:
-        is_valid, prolific_user = validate_prolific_user(prolific_params)
-        if is_valid:
-            # Use Prolific ID as username
-            gmail_username = prolific_user['gmail_username']
-            
-            # Create parameters
-            params = TradingParameters(**(persistent_settings or {}))
-            
-            # Single call to handle all market/role/goal logic
-            market_id, trader_id, role, goal = await market_handler.validate_and_assign_role(
-                gmail_username, 
-                params
-            )
-            
-            # Get the Prolific token to return to the client
-            prolific_token = prolific_user.get('prolific_token', '')
-            
-            return {
-                "status": "success",
-                "message": "Prolific login successful and trader assigned",
-                "data": {
-                    "trader_id": trader_id,
-                    "market_id": market_id,
-                    "role": role.value,
-                    "goal": goal,
-                    "is_admin": False,
-                    "is_prolific": True,
-                    "prolific_token": prolific_token  # Include the token for future authentication
+        # Use the authenticate_prolific_user function which properly checks credentials
+        try:
+            prolific_user = await authenticate_prolific_user(request)
+            if prolific_user:
+                # Use Prolific ID as username
+                gmail_username = prolific_user['gmail_username']
+                
+                # Create parameters
+                params = TradingParameters(**(persistent_settings or {}))
+                
+                # Single call to handle all market/role/goal logic
+                market_id, trader_id, role, goal = await market_handler.validate_and_assign_role(
+                    gmail_username, 
+                    params
+                )
+                
+                # Get the Prolific token to return to the client
+                prolific_token = prolific_user.get('prolific_token', '')
+                
+                print(f"Authenticated Prolific user via params: {gmail_username}")
+                
+                return {
+                    "status": "success",
+                    "message": "Prolific login successful and trader assigned",
+                    "data": {
+                        "trader_id": trader_id,
+                        "market_id": market_id,
+                        "role": role.value,
+                        "goal": goal,
+                        "is_admin": False,
+                        "is_prolific": True,
+                        "prolific_token": prolific_token  # Include the token for future authentication
+                    }
                 }
-            }
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid Prolific credentials",
+                )
+        except HTTPException as e:
+            # Re-raise the exception from authenticate_prolific_user
+            raise e
     
     # If not Prolific, proceed with regular Firebase authentication
     auth_header = request.headers.get('Authorization')
@@ -979,8 +991,8 @@ async def get_prolific_settings(current_user: dict = Depends(get_current_admin_u
         # Extract Prolific settings
         prolific_settings = {}
         for line in env_content.splitlines():
-            if line.startswith("PROLIFIC_API="):
-                prolific_settings["PROLIFIC_API"] = line.split("=", 1)[1]
+            if line.startswith("PROLIFIC_CREDENTIALS="):
+                prolific_settings["PROLIFIC_CREDENTIALS"] = line.split("=", 1)[1]
             elif line.startswith("PROLIFIC_STUDY_ID="):
                 prolific_settings["PROLIFIC_STUDY_ID"] = line.split("=", 1)[1]
             elif line.startswith("PROLIFIC_REDIRECT_URL="):
@@ -1013,15 +1025,32 @@ async def update_prolific_settings(settings: ProlificSettings, current_user: dic
         
         # Update Prolific settings
         new_env_content = []
+        prolific_credentials_updated = False
+        prolific_study_id_updated = False
+        prolific_redirect_url_updated = False
+        
         for line in env_content.splitlines():
-            if line.startswith("PROLIFIC_API=") and "PROLIFIC_API" in settings.settings:
-                new_env_content.append(f"PROLIFIC_API={settings.settings['PROLIFIC_API']}")
+            if line.startswith("PROLIFIC_CREDENTIALS=") and "PROLIFIC_CREDENTIALS" in settings.settings:
+                new_env_content.append(f"PROLIFIC_CREDENTIALS={settings.settings['PROLIFIC_CREDENTIALS']}")
+                prolific_credentials_updated = True
             elif line.startswith("PROLIFIC_STUDY_ID=") and "PROLIFIC_STUDY_ID" in settings.settings:
                 new_env_content.append(f"PROLIFIC_STUDY_ID={settings.settings['PROLIFIC_STUDY_ID']}")
+                prolific_study_id_updated = True
             elif line.startswith("PROLIFIC_REDIRECT_URL=") and "PROLIFIC_REDIRECT_URL" in settings.settings:
                 new_env_content.append(f"PROLIFIC_REDIRECT_URL={settings.settings['PROLIFIC_REDIRECT_URL']}")
+                prolific_redirect_url_updated = True
             else:
                 new_env_content.append(line)
+        
+        # Add settings that weren't updated (they didn't exist in the file)
+        if not prolific_credentials_updated and "PROLIFIC_CREDENTIALS" in settings.settings:
+            new_env_content.append(f"PROLIFIC_CREDENTIALS={settings.settings['PROLIFIC_CREDENTIALS']}")
+        
+        if not prolific_study_id_updated and "PROLIFIC_STUDY_ID" in settings.settings:
+            new_env_content.append(f"PROLIFIC_STUDY_ID={settings.settings['PROLIFIC_STUDY_ID']}")
+        
+        if not prolific_redirect_url_updated and "PROLIFIC_REDIRECT_URL" in settings.settings:
+            new_env_content.append(f"PROLIFIC_REDIRECT_URL={settings.settings['PROLIFIC_REDIRECT_URL']}")
         
         # Write the updated content back to the .env file
         env_path.write_text("\n".join(new_env_content))
