@@ -13,6 +13,41 @@
               <p class="text-subtitle-1 mt-4">Authenticating with Prolific...</p>
             </div>
             
+            <!-- Prolific user credential form -->
+            <div v-if="isProlificUser && !isLoading && !authStore.isAuthenticated" class="text-center my-6">
+              <h2 class="text-h5 font-weight-bold mb-4">Enter Your Credentials</h2>
+              <p class="text-subtitle-2 mb-4">Please enter your username and password to continue</p>
+              
+              <v-form @submit.prevent="handleProlificCredentialLogin" class="mb-4">
+                <v-text-field
+                  v-model="username"
+                  label="Username"
+                  required
+                  variant="outlined"
+                  class="mb-3"
+                ></v-text-field>
+                
+                <v-text-field
+                  v-model="password"
+                  label="Password"
+                  type="password"
+                  required
+                  variant="outlined"
+                  class="mb-4"
+                ></v-text-field>
+                
+                <v-btn 
+                  type="submit" 
+                  block 
+                  color="primary" 
+                  size="x-large"
+                  :loading="credentialLoading"
+                >
+                  Login
+                </v-btn>
+              </v-form>
+            </div>
+            
             <!-- Regular authentication UI -->
             <template v-else>
               <p class="text-subtitle-1 mb-6">Sign in to access a trading market</p>
@@ -84,6 +119,10 @@ const autoSignInBtn = ref(null);
 const autoAdminSignInBtn = ref(null);
 const isProlificUser = ref(false);
 const isLoading = ref(false);
+const username = ref('');
+const password = ref('');
+const credentialLoading = ref(false);
+const prolificParams = ref(null);
 
 onMounted(async () => {
   console.log('Auth component mounted at path:', route.path);
@@ -139,75 +178,18 @@ onMounted(async () => {
   });
   
   if (prolificPID && studyID && sessionID) {
-    // We have Prolific parameters, handle Prolific login
+    // We have Prolific parameters, store them and show credential form
     isProlificUser.value = true;
-    isLoading.value = true;
+    isLoading.value = false; // Don't show loading, show credential form instead
     
-    try {
-      console.log('Detected Prolific parameters, attempting login...', {
-        PROLIFIC_PID: prolificPID,
-        STUDY_ID: studyID,
-        SESSION_ID: sessionID
-      });
-      
-      // Delay slightly to ensure components are mounted
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      await authStore.prolificLogin({
-        PROLIFIC_PID: prolificPID,
-        STUDY_ID: studyID,
-        SESSION_ID: sessionID
-      });
-      
-      console.log('Prolific login successful:', { 
-        traderId: authStore.traderId, 
-        marketId: authStore.marketId,
-        hasCompletedOnboarding: authStore.prolificUserHasCompletedOnboarding
-      });
-      
-      // Now that login is successful, remove the stored Prolific data
-      localStorage.removeItem('prolific_auto_login');
-      
-      // Check if this is a continuation from the market summary
-      const isNextMarket = localStorage.getItem('prolific_next_market') === 'true';
-      if (isNextMarket) {
-        console.log('Detected next market flag, clearing it');
-        localStorage.removeItem('prolific_next_market');
-      }
-      
-      if (authStore.traderId && authStore.marketId) {
-        let targetPage;
-        
-        // Determine where to redirect based on different conditions
-        if (isNextMarket) {
-          // If coming from market summary, always go to practice page
-          targetPage = 'practice';
-          console.log('Coming from market summary, redirecting to practice page');
-        } else if (authStore.prolificUserHasCompletedOnboarding) {
-          // If returning Prolific user, go to practice page
-          targetPage = 'practice';
-          console.log('Returning Prolific user, redirecting to practice page');
-        } else {
-          // First-time Prolific user, go to welcome/instructions page
-          targetPage = 'welcome';
-          console.log('First-time Prolific user, redirecting to welcome/instructions page');
-        }
-        
-        const redirectPath = `/onboarding/${authStore.marketId}/${authStore.traderId}/${targetPage}`;
-        console.log(`Redirecting to ${targetPage} page:`, redirectPath);
-        
-        // Use replace instead of push to avoid navigation issues
-        router.replace(redirectPath);
-      } else {
-        console.error('Missing trader or market ID after Prolific login');
-        errorMessage.value = "Login successful but missing trader or market assignment";
-      }
-    } catch (error) {
-      console.error("Prolific login error:", error);
-      errorMessage.value = error.message || "An error occurred during Prolific sign-in";
-    } finally {
-      isLoading.value = false;
-    }
+    // Store Prolific parameters for later use
+    prolificParams.value = {
+      PROLIFIC_PID: prolificPID,
+      STUDY_ID: studyID,
+      SESSION_ID: sessionID
+    };
+    
+    console.log('Detected Prolific parameters, showing credential form', prolificParams.value);
   } else {
     // Regular authentication flow
     console.log('No Prolific parameters, using regular authentication');
@@ -276,6 +258,77 @@ const adminSignInWithGoogle = async () => {
   } catch (error) {
     console.error("Admin Google sign-in error:", error);
     errorMessage.value = error.message || "An error occurred during admin sign-in";
+  }
+};
+
+// Handle Prolific credential login
+const handleProlificCredentialLogin = async () => {
+  if (!username.value || !password.value) {
+    errorMessage.value = "Please enter both username and password";
+    return;
+  }
+  
+  credentialLoading.value = true;
+  isLoading.value = true;
+  
+  try {
+    console.log('Proceeding with Prolific login with credentials...');
+    
+    // Pass credentials to the prolificLogin method
+    await authStore.prolificLogin(prolificParams.value, {
+      username: username.value,
+      password: password.value
+    });
+    
+    console.log('Prolific login successful:', { 
+      traderId: authStore.traderId, 
+      marketId: authStore.marketId,
+      hasCompletedOnboarding: authStore.prolificUserHasCompletedOnboarding
+    });
+    
+    // Now that login is successful, remove the stored Prolific data
+    localStorage.removeItem('prolific_auto_login');
+    
+    // Check if this is a continuation from the market summary
+    const isNextMarket = localStorage.getItem('prolific_next_market') === 'true';
+    if (isNextMarket) {
+      console.log('Detected next market flag, clearing it');
+      localStorage.removeItem('prolific_next_market');
+    }
+    
+    if (authStore.traderId && authStore.marketId) {
+      let targetPage;
+      
+      // Determine where to redirect based on different conditions
+      if (isNextMarket) {
+        // If coming from market summary, always go to practice page
+        targetPage = 'practice';
+        console.log('Coming from market summary, redirecting to practice page');
+      } else if (authStore.prolificUserHasCompletedOnboarding) {
+        // If returning Prolific user, go to practice page
+        targetPage = 'practice';
+        console.log('Returning Prolific user, redirecting to practice page');
+      } else {
+        // First-time Prolific user, go to welcome/instructions page
+        targetPage = 'welcome';
+        console.log('First-time Prolific user, redirecting to welcome/instructions page');
+      }
+      
+      const redirectPath = `/onboarding/${authStore.marketId}/${authStore.traderId}/${targetPage}`;
+      console.log(`Redirecting to ${targetPage} page:`, redirectPath);
+      
+      // Use replace instead of push to avoid navigation issues
+      router.replace(redirectPath);
+    } else {
+      console.error('Missing trader or market ID after Prolific login');
+      errorMessage.value = "Login successful but missing trader or market assignment";
+    }
+  } catch (error) {
+    console.error("Prolific login error:", error);
+    errorMessage.value = error.message || "An error occurred during Prolific sign-in";
+  } finally {
+    credentialLoading.value = false;
+    isLoading.value = false;
   }
 };
 </script>

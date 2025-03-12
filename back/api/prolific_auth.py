@@ -69,11 +69,15 @@ async def extract_prolific_params(request: Request) -> Optional[Dict[str, str]]:
         
     return None
 
-def validate_prolific_user(prolific_params: Dict[str, str]) -> Tuple[bool, Dict]:
+def validate_prolific_user(prolific_params: Dict[str, str], username: str = None, password: str = None) -> Tuple[bool, Dict]:
     """
-    Validate a user based on Prolific parameters and generate a token.
-    For now, we're just accepting any user with valid Prolific parameters without validation.
+    Validate a user based on Prolific parameters and credentials.
     
+    Args:
+        prolific_params: Dictionary containing Prolific parameters
+        username: Optional username for credential validation
+        password: Optional password for credential validation
+        
     Returns:
         Tuple[bool, Dict]: (is_valid, user_data)
     """
@@ -82,6 +86,14 @@ def validate_prolific_user(prolific_params: Dict[str, str]) -> Tuple[bool, Dict]
     
     # Extract the Prolific ID to use as the username
     prolific_pid = prolific_params.get('PROLIFIC_PID')
+    
+    # If username and password are provided, validate credentials
+    if username is not None and password is not None:
+        # For now, only accept user1/password1 combination
+        if username != 'user1' or password != 'password1':
+            print(f"Invalid credentials for Prolific user {prolific_pid}")
+            return False, {}
+        print(f"Credentials validated for Prolific user {prolific_pid}")
     
     # Generate a simple token for this session
     token = f"prolific_{prolific_pid}_{int(time.time())}"
@@ -95,7 +107,8 @@ def validate_prolific_user(prolific_params: Dict[str, str]) -> Tuple[bool, Dict]
         'is_admin': False,  # Prolific users are never admins
         'is_prolific': True,  # Mark as Prolific user
         'prolific_data': prolific_params,  # Store original Prolific data
-        'prolific_token': token  # Store the token for future authentication
+        'prolific_token': token,  # Store the token for future authentication
+        'credential_username': username  # Store the credential username if provided
     }
     
     # Store the token for future authentication
@@ -131,13 +144,26 @@ async def authenticate_prolific_user(request: Request) -> Optional[Dict]:
     if not prolific_params:
         return None
     
-    # Validate the Prolific user
-    is_valid, user_data = validate_prolific_user(prolific_params)
+    # Check for username and password in request body
+    username = None
+    password = None
+    
+    try:
+        # Try to parse request body for credentials
+        body = await request.json()
+        username = body.get('username')
+        password = body.get('password')
+    except:
+        # If we can't parse the body, continue without credentials
+        pass
+    
+    # Validate the Prolific user with credentials if provided
+    is_valid, user_data = validate_prolific_user(prolific_params, username, password)
     
     if not is_valid:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid Prolific credentials",
+            detail="Invalid credentials",
         )
     
     # Set the Authorization header for future requests
