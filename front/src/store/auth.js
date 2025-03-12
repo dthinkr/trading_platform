@@ -48,7 +48,7 @@ export const useAuthStore = defineStore('auth', {
       });
     },
     
-    async prolificLogin(prolificParams) {
+    async prolificLogin(prolificParams, credentials = null) {
       if (this.loginInProgress) {
         console.log('Login already in progress');
         return;
@@ -75,7 +75,17 @@ export const useAuthStore = defineStore('auth', {
         const url = `/user/login?PROLIFIC_PID=${prolificParams.PROLIFIC_PID}&STUDY_ID=${prolificParams.STUDY_ID}&SESSION_ID=${prolificParams.SESSION_ID}`;
         console.log('Making API call to:', url);
         
-        const response = await axios.post(url);
+        // Include credentials if provided
+        let requestBody = {};
+        if (credentials && credentials.username && credentials.password) {
+          console.log('Including credentials in Prolific login request');
+          requestBody = {
+            username: credentials.username,
+            password: credentials.password
+          };
+        }
+        
+        const response = await axios.post(url, requestBody);
         console.log('Prolific login response:', response.data);
         
         if (!response.data.data || !response.data.data.trader_id) {
