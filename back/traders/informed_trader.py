@@ -38,6 +38,9 @@ class InformedTrader(BaseTrader):
         # Adjust sleep time to account for increased order volume
         self.next_sleep_time = params.get("trading_day_duration", 5) * 60 / (self.goal * self.order_multiplier)
         self.shares_traded = 0
+        
+        # Initialize outstanding_levels dictionary to track orders at different price levels
+        self.outstanding_levels = {}
 
     @property
     def progress(self) -> float:
@@ -104,8 +107,9 @@ class InformedTrader(BaseTrader):
 
     async def cancel_all_outstanding_orders(self):
         """Cancel all outstanding orders."""
-        for orders in self.outstanding_levels.values():
-            await self.cancel_order(orders["order_ids"])
+        if hasattr(self, 'outstanding_levels') and self.outstanding_levels:
+            for orders in self.outstanding_levels.values():
+                await self.cancel_order(orders["order_ids"])
 
     def get_remaining_time(self) -> float:
         return self.params["trading_day_duration"] * 60 - self.get_elapsed_time()
