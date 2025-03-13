@@ -189,6 +189,21 @@ onMounted(async () => {
       SESSION_ID: sessionID
     };
     
+    // Check if we have stored credentials from previous login
+    const lastUsername = localStorage.getItem('prolific_last_username');
+    const lastPassword = localStorage.getItem('prolific_last_password');
+    
+    // Auto-fill the form with stored credentials if available
+    if (lastUsername) {
+      console.log('Auto-filling username from previous login');
+      username.value = lastUsername;
+    }
+    
+    if (lastPassword) {
+      console.log('Auto-filling password from previous login');
+      password.value = lastPassword;
+    }
+    
     console.log('Detected Prolific parameters, showing credential form', prolificParams.value);
   } else {
     // Regular authentication flow
@@ -288,6 +303,11 @@ const handleProlificCredentialLogin = async () => {
     
     // Now that login is successful, remove the stored Prolific data
     localStorage.removeItem('prolific_auto_login');
+    
+    // Store the username for future auto-fill
+    localStorage.setItem('prolific_last_username', username.value);
+    // Store the password for future auto-fill (only for Prolific users)
+    localStorage.setItem('prolific_last_password', password.value);
     
     // Check if this is a continuation from the market summary
     const isNextMarket = localStorage.getItem('prolific_next_market') === 'true';
