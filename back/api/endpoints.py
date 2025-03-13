@@ -700,12 +700,19 @@ async def start_trading_market(background_tasks: BackgroundTasks, request: Reque
     # Special handling for Prolific users
     prolific_params = await extract_prolific_params(request)
     if prolific_params:
-        is_valid, prolific_user = validate_prolific_user(prolific_params)
-        if is_valid:
-            current_user = prolific_user
-            print(f"Authenticated Prolific user via params in /trading/start: {prolific_user['gmail_username']}")
-        else:
-            raise HTTPException(status_code=401, detail="Invalid Prolific credentials")
+        # Use the new authenticate_prolific_user function instead of validate_prolific_user directly
+        try:
+            prolific_user = await authenticate_prolific_user(request)
+            if prolific_user:
+                current_user = prolific_user
+                print(f"Authenticated Prolific user via params in /trading/start: {prolific_user['gmail_username']}")
+            else:
+                # Fall back to regular authentication if prolific authentication fails
+                current_user = await get_current_user(request)
+        except HTTPException as e:
+            print(f"Prolific authentication failed: {str(e)}")
+            # Fall back to regular authentication
+            current_user = await get_current_user(request)
     else:
         # Regular authentication for non-Prolific users
         current_user = await get_current_user(request)

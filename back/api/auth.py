@@ -11,7 +11,7 @@ from core.data_models import TradingParameters
 from pytz import timezone
 from datetime import datetime, timedelta
 import jwt
-from .prolific_auth import extract_prolific_params, validate_prolific_user, get_prolific_user_by_trader_id, prolific_tokens
+from .prolific_auth import extract_prolific_params, validate_prolific_user, authenticate_prolific_user, get_prolific_user_by_trader_id, prolific_tokens
 
 # Initialize Firebase Admin SDK using the service account file
 cred = credentials.Certificate('firebase-service-account.json')
@@ -63,12 +63,17 @@ async def get_current_user(request: Request):
     # First, check for Prolific authentication via URL parameters
     prolific_params = await extract_prolific_params(request)
     if prolific_params:
-        is_valid, prolific_user = validate_prolific_user(prolific_params)
-        if is_valid:
-            # Store the prolific user in authenticated_users
-            authenticated_users[prolific_user['gmail_username']] = prolific_user
-            print(f"Authenticated Prolific user via params: {prolific_user['gmail_username']}")
-            return prolific_user
+        try:
+            # Use the new authenticate_prolific_user function for consistent authentication
+            prolific_user = await authenticate_prolific_user(request)
+            if prolific_user:
+                # Store the prolific user in authenticated_users
+                authenticated_users[prolific_user['gmail_username']] = prolific_user
+                print(f"Authenticated Prolific user via params: {prolific_user['gmail_username']}")
+                return prolific_user
+        except HTTPException:
+            # If authentication fails, continue with other methods
+            pass
     
     # Check if this is a request for a specific trader
     path = request.url.path
