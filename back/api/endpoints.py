@@ -980,9 +980,11 @@ async def get_persistent_settings(current_user: dict = Depends(get_current_admin
 class ProlificSettings(BaseModel):
     settings: Dict[str, str]
 
-# Get Prolific settings from .env file
+# Get Prolific settings from .env file and in-memory storage
 @app.get("/admin/prolific-settings")
 async def get_prolific_settings(current_user: dict = Depends(get_current_admin_user)):
+    # Import the in-memory credentials storage
+    from api.prolific_auth import IN_MEMORY_CREDENTIALS
     try:
         env_path = Path(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))) / ".env"
         
@@ -997,13 +999,23 @@ async def get_prolific_settings(current_user: dict = Depends(get_current_admin_u
         
         # Extract Prolific settings
         prolific_settings = {}
+        
+        # First check for credentials in memory
+        if IN_MEMORY_CREDENTIALS:
+            # Convert in-memory credentials to string format
+            creds_str = " ".join([f"{username},{password}" for username, password in IN_MEMORY_CREDENTIALS.items()])
+            prolific_settings["PROLIFIC_CREDENTIALS"] = creds_str
+            print(f"Returning {len(IN_MEMORY_CREDENTIALS)} credential pairs from memory")
+        
+        # Extract other settings from .env file
         for line in env_content.splitlines():
-            if line.startswith("PROLIFIC_CREDENTIALS="):
-                prolific_settings["PROLIFIC_CREDENTIALS"] = line.split("=", 1)[1]
-            elif line.startswith("PROLIFIC_STUDY_ID="):
+            if line.startswith("PROLIFIC_STUDY_ID="):
                 prolific_settings["PROLIFIC_STUDY_ID"] = line.split("=", 1)[1]
             elif line.startswith("PROLIFIC_REDIRECT_URL="):
                 prolific_settings["PROLIFIC_REDIRECT_URL"] = line.split("=", 1)[1]
+            elif line.startswith("PROLIFIC_CREDENTIALS=") and "PROLIFIC_CREDENTIALS" not in prolific_settings:
+                # Only use .env credentials if no in-memory credentials exist
+                prolific_settings["PROLIFIC_CREDENTIALS"] = line.split("=", 1)[1]
         
         return {
             "status": "success",
@@ -1018,7 +1030,26 @@ async def get_prolific_settings(current_user: dict = Depends(get_current_admin_u
 # Update Prolific settings in .env file
 @app.post("/admin/prolific-settings")
 async def update_prolific_settings(settings: ProlificSettings, current_user: dict = Depends(get_current_admin_user)):
+    # Import the in-memory credentials storage
+    from api.prolific_auth import IN_MEMORY_CREDENTIALS
     try:
+        # Process and store credentials in memory if provided
+        if "PROLIFIC_CREDENTIALS" in settings.settings:
+            # Clear existing credentials
+            IN_MEMORY_CREDENTIALS.clear()
+            
+            # Parse the credentials string
+            creds_str = settings.settings["PROLIFIC_CREDENTIALS"]
+            
+            # Process each credential pair
+            for cred_pair in creds_str.strip().split():
+                parts = cred_pair.strip().split(",")
+                if len(parts) == 2:
+                    username, password = parts
+                    IN_MEMORY_CREDENTIALS[username.strip()] = password.strip()
+            
+            print(f"Stored {len(IN_MEMORY_CREDENTIALS)} credential pairs in memory")
+        
         env_path = Path(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))) / ".env"
         
         if not env_path.exists():
@@ -1037,8 +1068,10 @@ async def update_prolific_settings(settings: ProlificSettings, current_user: dic
         prolific_redirect_url_updated = False
         
         for line in env_content.splitlines():
-            if line.startswith("PROLIFIC_CREDENTIALS=") and "PROLIFIC_CREDENTIALS" in settings.settings:
-                new_env_content.append(f"PROLIFIC_CREDENTIALS={settings.settings['PROLIFIC_CREDENTIALS']}")
+            # Skip updating PROLIFIC_CREDENTIALS in the .env file
+            if line.startswith("PROLIFIC_CREDENTIALS="):
+                # Don't include this line in the new content
+                # We'll store credentials in memory instead
                 prolific_credentials_updated = True
             elif line.startswith("PROLIFIC_STUDY_ID=") and "PROLIFIC_STUDY_ID" in settings.settings:
                 new_env_content.append(f"PROLIFIC_STUDY_ID={settings.settings['PROLIFIC_STUDY_ID']}")
@@ -1050,8 +1083,8 @@ async def update_prolific_settings(settings: ProlificSettings, current_user: dic
                 new_env_content.append(line)
         
         # Add settings that weren't updated (they didn't exist in the file)
-        if not prolific_credentials_updated and "PROLIFIC_CREDENTIALS" in settings.settings:
-            new_env_content.append(f"PROLIFIC_CREDENTIALS={settings.settings['PROLIFIC_CREDENTIALS']}")
+        # Skip adding PROLIFIC_CREDENTIALS to the .env file
+        # We'll store credentials in memory instead
         
         if not prolific_study_id_updated and "PROLIFIC_STUDY_ID" in settings.settings:
             new_env_content.append(f"PROLIFIC_STUDY_ID={settings.settings['PROLIFIC_STUDY_ID']}")

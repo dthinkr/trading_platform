@@ -7,6 +7,9 @@ from typing import Dict, Optional, Tuple
 prolific_tokens = {}
 # Global mapping of trader_ids to prolific users
 prolific_trader_map = {}
+# In-memory storage for Prolific credentials
+# This will be populated by the admin settings API and used for authentication
+IN_MEMORY_CREDENTIALS: Dict[str, str] = {}
 
 async def extract_prolific_params(request: Request) -> Optional[Dict[str, str]]:
     """
@@ -69,13 +72,21 @@ async def extract_prolific_params(request: Request) -> Optional[Dict[str, str]]:
         
     return None
 
-# Load credentials from .env file
+# Load credentials from in-memory storage and .env file
 def load_credentials() -> Dict[str, str]:
     """
-    Load credentials from .env file.
+    Load credentials from in-memory storage and .env file.
     Returns a dictionary mapping usernames to passwords.
     """
-    credentials = {}
+    # Start with the in-memory credentials
+    credentials = IN_MEMORY_CREDENTIALS.copy()
+    
+    # If we have in-memory credentials, use those exclusively
+    if credentials:
+        print(f"Using {len(credentials)} credential pairs from in-memory storage")
+        return credentials
+    
+    # Otherwise, fall back to loading from .env file (for backward compatibility)
     try:
         from pathlib import Path
         env_path = Path(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))) / ".env"
@@ -85,16 +96,28 @@ def load_credentials() -> Dict[str, str]:
             for line in env_content.splitlines():
                 if line.startswith("PROLIFIC_CREDENTIALS="):
                     creds_str = line.split("=", 1)[1]
-                    for cred_line in creds_str.split("\n"):
-                        if not cred_line.strip():
-                            continue
-                        parts = cred_line.strip().split(",")
+                    
+                    # Process each credential pair
+                    # They can be separated by spaces or newlines
+                    all_creds = []
+                    
+                    # First split by spaces
+                    for cred_item in creds_str.strip().split():
+                        if cred_item.strip():
+                            all_creds.append(cred_item.strip())
+                    
+                    # Process each credential pair
+                    for cred_pair in all_creds:
+                        parts = cred_pair.strip().split(",")
                         if len(parts) == 2:
                             username, password = parts
                             credentials[username.strip()] = password.strip()
+                            print(f"Loaded credential: {username.strip()}")
     except Exception as e:
         print(f"Error loading credentials: {str(e)}")
     
+    # Log the available credentials for debugging
+    print(f"Loaded {len(credentials)} credential pairs for Prolific users")
     return credentials
 
 def validate_prolific_user(prolific_params: Dict[str, str], username: str = None, password: str = None) -> Tuple[bool, Dict]:
