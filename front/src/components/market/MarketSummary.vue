@@ -132,17 +132,85 @@
                   Your market reward is {{formatValue(traderSpecificMetrics?.Accumulated_Reward, 'gbp') }}. Your participation fee is {{formatValue(5, 'gbp')}}.
                   <br></br>
                   Your final payment will be {{formatValue(traderSpecificMetrics?.Accumulated_Reward + 5, 'gbp') }}.
-                  <br></br>
-                  <span class="font-weight-bold">Please click <a :href="prolificRedirectUrl" target="_blank" class="primary--text">here</a> to complete your submission on Prolific.</span>
                 </p>
-                <v-btn 
-                  color="secondary" 
-                  x-large 
-                  @click="downloadMarketMetrics"
-                  class="mt-2"
-                >
-                  Download Metrics
-                </v-btn>
+                
+                <!-- Questionnaire Section -->
+                <div v-if="!questionnaireCompleted" class="questionnaire-section mt-4 mb-4">
+                  <h3 class="text-h6 mb-3">Please complete this short questionnaire before finishing</h3>
+                  
+                  <!-- Question 1 -->
+                  <div class="question-container mb-4">
+                    <p class="text-subtitle-1 mb-2">1. How would you rate your overall experience with the trading platform?</p>
+                    <v-radio-group v-model="questionnaire.q1" row>
+                      <v-radio label="Poor" value="Poor"></v-radio>
+                      <v-radio label="Fair" value="Fair"></v-radio>
+                      <v-radio label="Good" value="Good"></v-radio>
+                      <v-radio label="Very Good" value="Very Good"></v-radio>
+                      <v-radio label="Excellent" value="Excellent"></v-radio>
+                    </v-radio-group>
+                  </div>
+                  
+                  <!-- Question 2 -->
+                  <div class="question-container mb-4">
+                    <p class="text-subtitle-1 mb-2">2. How easy was it to understand the trading interface?</p>
+                    <v-radio-group v-model="questionnaire.q2" row>
+                      <v-radio label="Very Difficult" value="Very Difficult"></v-radio>
+                      <v-radio label="Difficult" value="Difficult"></v-radio>
+                      <v-radio label="Neutral" value="Neutral"></v-radio>
+                      <v-radio label="Easy" value="Easy"></v-radio>
+                      <v-radio label="Very Easy" value="Very Easy"></v-radio>
+                    </v-radio-group>
+                  </div>
+                  
+                  <!-- Question 3 -->
+                  <div class="question-container mb-4">
+                    <p class="text-subtitle-1 mb-2">3. Did you feel that your trading strategy improved over time?</p>
+                    <v-radio-group v-model="questionnaire.q3" row>
+                      <v-radio label="Not at all" value="Not at all"></v-radio>
+                      <v-radio label="Slightly" value="Slightly"></v-radio>
+                      <v-radio label="Moderately" value="Moderately"></v-radio>
+                      <v-radio label="Considerably" value="Considerably"></v-radio>
+                      <v-radio label="Significantly" value="Significantly"></v-radio>
+                    </v-radio-group>
+                  </div>
+                  
+                  <!-- Question 4 -->
+                  <div class="question-container mb-4">
+                    <p class="text-subtitle-1 mb-2">4. Would you participate in similar trading experiments in the future?</p>
+                    <v-radio-group v-model="questionnaire.q4" row>
+                      <v-radio label="Definitely not" value="Definitely not"></v-radio>
+                      <v-radio label="Probably not" value="Probably not"></v-radio>
+                      <v-radio label="Maybe" value="Maybe"></v-radio>
+                      <v-radio label="Probably yes" value="Probably yes"></v-radio>
+                      <v-radio label="Definitely yes" value="Definitely yes"></v-radio>
+                    </v-radio-group>
+                  </div>
+                  
+                  <v-btn 
+                    color="primary" 
+                    x-large 
+                    @click="submitQuestionnaire"
+                    :disabled="!isQuestionnaireComplete"
+                    class="mt-2"
+                  >
+                    Submit Questionnaire
+                  </v-btn>
+                </div>
+                
+                <!-- Show this after questionnaire is completed -->
+                <div v-if="questionnaireCompleted" class="mt-4">
+                  <p class="text-subtitle-1 mb-4">
+                    <span class="font-weight-bold">Please click <a :href="prolificRedirectUrl" target="_blank" class="primary--text">here</a> to complete your submission on Prolific.</span>
+                  </p>
+                  <v-btn 
+                    color="secondary" 
+                    x-large 
+                    @click="downloadMarketMetrics"
+                    class="mt-2"
+                  >
+                    Download Metrics
+                  </v-btn>
+                </div>
               </div>
             </template>
             <template v-else>
@@ -203,6 +271,56 @@ const prolificRedirectUrl = import.meta.env.VITE_PROLIFIC_REDIRECT_URL || 'https
 const showDialog = ref(false);
 const dialogTitle = ref('');
 const dialogMessage = ref('');
+
+// Questionnaire state
+const questionnaireCompleted = ref(false);
+const questionnaire = ref({
+  q1: null,
+  q2: null,
+  q3: null,
+  q4: null
+});
+
+// Check if all questions are answered
+const isQuestionnaireComplete = computed(() => {
+  return questionnaire.value.q1 && 
+         questionnaire.value.q2 && 
+         questionnaire.value.q3 && 
+         questionnaire.value.q4;
+});
+
+// Submit questionnaire responses
+async function submitQuestionnaire() {
+  try {
+    // Prepare responses array
+    const responses = [
+      questionnaire.value.q1,
+      questionnaire.value.q2,
+      questionnaire.value.q3,
+      questionnaire.value.q4
+    ];
+    
+    // Send to backend
+    const response = await axios.post(`${httpUrl}save_questionnaire_response`, {
+      trader_id: props.traderUuid,
+      responses: responses
+    });
+    
+    if (response.data.status === 'success') {
+      questionnaireCompleted.value = true;
+      // Success case - no dialog shown, just proceed to show the redirect URL
+    } else {
+      dialogTitle.value = 'Error';
+      dialogMessage.value = 'There was an error saving your responses. Please try again.';
+      showDialog.value = true;
+    }
+  } catch (error) {
+    console.error('Error submitting questionnaire:', error);
+    dialogTitle.value = 'Error';
+    dialogMessage.value = 'There was an error saving your responses. Please try again.';
+    showDialog.value = true;
+  }
+};
 
 const maxRetries = 3;
 const retryDelay = 1000; // 1 second
@@ -349,5 +467,26 @@ onMounted(() => {
 .metric-card:hover {
   transform: translateY(-3px);
   box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+}
+
+.questionnaire-section {
+  background-color: rgba(245, 247, 250, 0.9);
+  border-radius: 12px;
+  padding: 20px;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+}
+
+.question-container {
+  text-align: left;
+  background-color: rgba(255, 255, 255, 0.7);
+  padding: 15px;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.question-container:hover {
+  background-color: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 </style>
