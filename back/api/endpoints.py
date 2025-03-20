@@ -1,6 +1,6 @@
 import asyncio
 import io
-from datetime import timedelta
+from datetime import timedelta, datetime
 
 # main imports
 from fastapi import (
@@ -29,7 +29,7 @@ import os
 from fastapi import HTTPException, Query, BackgroundTasks
 from fastapi.responses import FileResponse
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, List
 from .google_sheet_auth import update_form_id, get_registered_users
 import zipfile
 from utils import setup_custom_logger
@@ -980,6 +980,11 @@ async def get_persistent_settings(current_user: dict = Depends(get_current_admin
 class ProlificSettings(BaseModel):
     settings: Dict[str, str]
 
+# Questionnaire response model
+class QuestionnaireResponse(BaseModel):
+    trader_id: str
+    responses: List[str]
+
 # Get Prolific settings from .env file and in-memory storage
 @app.get("/admin/prolific-settings")
 async def get_prolific_settings(current_user: dict = Depends(get_current_admin_user)):
@@ -1026,6 +1031,65 @@ async def get_prolific_settings(current_user: dict = Depends(get_current_admin_u
             "status": "error",
             "message": str(e)
         }
+
+# Save questionnaire responses
+@app.post("/save_questionnaire_response")
+async def save_questionnaire_response(response: QuestionnaireResponse):
+    try:
+        # Create logs directory if it doesn't exist
+        questionnaire_dir = ROOT_DIR / "questionnaire"
+        questionnaire_dir.mkdir(exist_ok=True)
+        
+        # Create or append to CSV file
+        csv_path = questionnaire_dir / "questionnaire_responses.csv"
+        
+        # Check if file exists to determine if we need to write headers
+        file_exists = csv_path.exists()
+        
+        # Get current timestamp
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        # Prepare data row
+        row = [timestamp, response.trader_id] + response.responses
+        
+        # Open file in append mode
+        with open(csv_path, 'a', newline='') as f:
+            # If file doesn't exist, write headers
+            if not file_exists:
+                headers = ["timestamp", "trader_id", "question1", "question2", "question3", "question4"]
+                f.write(','.join(headers) + '\n')
+            
+            # Write data row
+            f.write(','.join([str(item) for item in row]) + '\n')
+        
+        return {"status": "success", "message": "Questionnaire response saved successfully"}
+    except Exception as e:
+        return {"status": "error", "message": f"Failed to save questionnaire response: {str(e)}"}
+
+# Download questionnaire responses
+@app.get("/admin/download_questionnaire_responses")
+async def download_questionnaire_responses(current_user: dict = Depends(get_current_admin_user)):
+    try:
+        questionnaire_dir = ROOT_DIR / "questionnaire"
+        csv_path = questionnaire_dir / "questionnaire_responses.csv"
+        
+        if not csv_path.exists():
+            return Response(
+                content="No questionnaire responses found",
+                media_type="text/plain"
+            )
+        
+        return FileResponse(
+            path=csv_path,
+            filename="questionnaire_responses.csv",
+            media_type="text/csv"
+        )
+    except Exception as e:
+        return Response(
+            content=f"Error downloading questionnaire responses: {str(e)}",
+            media_type="text/plain",
+            status_code=500
+        )
 
 # Update Prolific settings in .env file
 @app.post("/admin/prolific-settings")
