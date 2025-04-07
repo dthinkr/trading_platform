@@ -43,7 +43,7 @@
                 </div>
                 <p class="text-body-1">
                   You can earn considerable money depending on your decisions.
-                  Your earnings will be trasfered to your Gmail acount using an Amazon voucher.
+                  Your earnings will be transferred to your Prolific account. 
                   The transfer may take a few working days.
                 </p>
               </v-card-text>
