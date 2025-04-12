@@ -87,13 +87,13 @@ class TradingPlatform:
         self._stop_requested.set()
         self.active = False
         
-        # Cancel execution queue processor
-        if self.process_executions_task:
-            self.process_executions_task.cancel()
-            try:
-                await self.process_executions_task
-            except asyncio.CancelledError:
-                pass
+        # # Cancel execution queue processor
+        # if self.process_executions_task:
+        #     self.process_executions_task.cancel()
+        #     try:
+        #         await self.process_executions_task
+        #     except asyncio.CancelledError:
+        #         pass
         
         # Cancel transaction processor
         if self.process_transactions_task:

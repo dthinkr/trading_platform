@@ -121,8 +121,8 @@ class TradingParameters(BaseModel):
         description="noise_parameter",
     )
     noise_sleep_duration: float = Field(
-        default=10,
-        title="Sleep Duration",
+        default=5,
+        title="Sleep Duration (Noise Trader Sleeps for 5 secs Every 10 secs)",
         description="noise_parameter",
         ge=0,
     )
