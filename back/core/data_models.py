@@ -82,7 +82,7 @@ class TradingParameters(BaseModel):
         ge=0,
     )
     trading_day_duration: float = Field(
-        default=0.1,
+        default=1.0,
         title="Trading Day Duration",
         description="model_parameter",
         gt=0,
@@ -119,6 +119,18 @@ class TradingParameters(BaseModel):
         default=0.5,
         title="Bid Order Probability",
         description="noise_parameter",
+    )
+    noise_sleep_duration: float = Field(
+        default=10,
+        title="Sleep Duration",
+        description="noise_parameter",
+        ge=0,
+    )
+    noise_sleep_interval: float = Field(
+        default=10,
+        title="Sleep Interval",
+        description="noise_parameter",
+        gt=0,
     )
 
     # informed trader settings
