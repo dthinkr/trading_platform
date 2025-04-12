@@ -23,10 +23,24 @@ class NoiseTrader(BaseTrader):
         self.historical_matches_intended = 0
         self.action_counter = 0
 
+        # Sleep parameters
+        self.sleep_duration = self.params.get("noise_sleep_duration", 0)
+        self.sleep_interval = self.params.get("noise_sleep_interval", 60)
+        self.last_sleep_time = 0
+        self.total_sleep_time = 0
+        
         # Internal clock
         self.start_time = datetime.now()
         self.market_duration = timedelta(minutes=self.params["trading_day_duration"])
         self.activity_frequency = self.params["noise_activity_frequency"]
+        
+        # Calculate expected number of sleep periods
+        if self.sleep_duration > 0 and self.sleep_interval > 0:
+            expected_sleep_count = int(self.market_duration.total_seconds() / self.sleep_interval)
+            self.expected_total_sleep_time = expected_sleep_count * self.sleep_duration
+        else:
+            self.expected_total_sleep_time = 0
+            
         self.target_actions = int(
             self.market_duration.total_seconds() * self.activity_frequency
         )
@@ -34,12 +48,21 @@ class NoiseTrader(BaseTrader):
     @property
     def elapsed_time(self) -> float:
         """Returns the elapsed time in seconds since the trader was initialized."""
-        return (datetime.now() - self.start_time).total_seconds()
+        return (datetime.now() - self.start_time).total_seconds() - self.total_sleep_time
 
     @property
     def remaining_time(self) -> float:
         """Returns the remaining time in seconds until the end of the market."""
-        return max(0, self.market_duration.total_seconds() - self.elapsed_time)
+        # Add expected remaining sleep time to the calculation
+        remaining_base_time = max(0, self.market_duration.total_seconds() - self.elapsed_time)
+        
+        # Calculate expected remaining sleep periods
+        if self.sleep_duration > 0 and self.sleep_interval > 0:
+            elapsed_with_sleep = self.elapsed_time + self.total_sleep_time
+            total_expected_time = self.market_duration.total_seconds() + self.expected_total_sleep_time
+            remaining_expected_time = max(0, total_expected_time - elapsed_with_sleep)
+            return remaining_expected_time
+        return remaining_base_time
 
     @property
     def expected_actions(self) -> int:
@@ -187,8 +210,25 @@ class NoiseTrader(BaseTrader):
     async def run(self) -> None:
         while not self._stop_requested.is_set():
             try:
-                await self.act()
-                await asyncio.sleep(self.calculate_cooling_interval())
+                # Check if it's time to sleep
+                current_time = self.elapsed_time + self.total_sleep_time
+                if (self.sleep_duration > 0 and 
+                    self.sleep_interval > 0 and 
+                    current_time - self.last_sleep_time >= self.sleep_interval):
+                    
+                    self.last_sleep_time = current_time
+                    sleep_start_time = datetime.now()
+                    
+                    # Sleep for the specified duration
+                    await asyncio.sleep(self.sleep_duration)
+                    
+                    # Track actual sleep time
+                    actual_sleep_time = (datetime.now() - sleep_start_time).total_seconds()
+                    self.total_sleep_time += actual_sleep_time
+                else:
+                    # Normal operation
+                    await self.act()
+                    await asyncio.sleep(self.calculate_cooling_interval())
             except asyncio.CancelledError:
                 await self.clean_up()
                 raise
