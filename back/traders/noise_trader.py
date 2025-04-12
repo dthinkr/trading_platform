@@ -238,6 +238,18 @@ class NoiseTrader(BaseTrader):
                     
                     print(f"[NOISE TRADER {self.id}] Going to sleep at {sleep_start_time.strftime('%H:%M:%S.%f')[:-3]} for {self.sleep_duration} seconds")
                     
+                    # Send a status update that the trader is sleeping
+                    sleep_status = {
+                        "action": ActionType.POST_NEW_ORDER.value,
+                        "amount": 0,
+                        "price": self.params["default_price"],  # Use default price from params
+                        "order_type": OrderType.BID,  # Doesn't matter for status updates
+                        "order_id": f"{self.id}_sleep_status",
+                        "is_status_update": True,
+                        "trader_status": "sleeping"  # Use trader_status instead of status
+                    }
+                    await self.send_to_trading_system(sleep_status)
+                    
                     # Sleep for the specified duration
                     await asyncio.sleep(self.sleep_duration)
                     
@@ -245,6 +257,18 @@ class NoiseTrader(BaseTrader):
                     actual_sleep_time = (datetime.now() - sleep_start_time).total_seconds()
                     self.total_sleep_time += actual_sleep_time
                     print(f"[NOISE TRADER {self.id}] Waking up at {datetime.now().strftime('%H:%M:%S.%f')[:-3]} after sleeping for {actual_sleep_time:.2f} seconds")
+                    
+                    # Send a status update that the trader is awake
+                    awake_status = {
+                        "action": ActionType.POST_NEW_ORDER.value,
+                        "amount": 0,
+                        "price": self.params["default_price"],  # Use default price from params
+                        "order_type": OrderType.BID,  # Doesn't matter for status updates
+                        "order_id": f"{self.id}_awake_status",
+                        "is_status_update": True,
+                        "trader_status": "active"  # Use trader_status instead of status
+                    }
+                    await self.send_to_trading_system(awake_status)
                 else:
                     # Normal operation
                     await self.act()

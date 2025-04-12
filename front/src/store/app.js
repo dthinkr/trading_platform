@@ -53,7 +53,12 @@ export const useTraderStore = defineStore("trader", {
         explanation: 'Midprice between the best bid and best ask prices',
         value: null
       },
-
+      {
+        var_name: 'noise_trader_status',
+        display_name: 'Noise Trader Status',
+        explanation: 'Current status of the noise trader (active or sleeping)',
+        value: 'active'
+      },
     ],
     step: 1000,
     traderUuid: null,
@@ -277,6 +282,17 @@ export const useTraderStore = defineStore("trader", {
         });
         return;
       }
+      
+      // Handle trader status update messages
+      if (data.type === "trader_status_update") {
+        console.log("Received trader status update:", data);
+        // Find the noise trader status param
+        const noiseTraderStatusParam = this.extraParams.find(param => param.var_name === 'noise_trader_status');
+        if (noiseTraderStatusParam) {
+          noiseTraderStatusParam.value = data.trader_status;
+        }
+        return;
+      }
 
       const {
         order_book,
@@ -308,6 +324,15 @@ export const useTraderStore = defineStore("trader", {
       // Handle matched orders if present
       if (type === "transaction_update" && matched_orders) {
         this.handleFilledOrder(matched_orders, transaction_price);
+      }
+      
+      // Legacy handling for noise trader status updates (can be removed once server-side changes are deployed)
+      if (data.is_status_update && data.trader_status) {
+        // Find the noise trader status param
+        const noiseTraderStatusParam = this.extraParams.find(param => param.var_name === 'noise_trader_status');
+        if (noiseTraderStatusParam) {
+          noiseTraderStatusParam.value = data.trader_status;
+        }
       }
 
       if (transaction_price && midpoint && spread) {

@@ -11,7 +11,7 @@
               </template>
             </v-tooltip>
           </v-list-item-title>
-          <v-list-item-subtitle class="info-value" :class="getValueColor(item.value)">
+          <v-list-item-subtitle class="info-value" :class="[getValueColor(item.value), item.var_name === 'noise_trader_status' ? 'status-' + item.value : '']">
             {{ formatValue(item.value) }}
           </v-list-item-subtitle>
         </v-list-item>
@@ -40,6 +40,12 @@ const formatValue = (value) => {
 const getValueColor = (value) => {
   if (typeof value === 'number') {
     return value > 0 ? 'green--text' : value < 0 ? 'red--text' : '';
+  }
+  if (value === 'sleeping') {
+    return 'orange--text';
+  }
+  if (value === 'active') {
+    return 'green--text';
   }
   return '';
 };
@@ -92,5 +98,19 @@ onMounted(() => {
 
 .market-info-content::-webkit-scrollbar-thumb:hover {
   background: #555;
+}
+
+.status-sleeping {
+  font-weight: bold;
+  background-color: rgba(255, 152, 0, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.status-active {
+  font-weight: bold;
+  background-color: rgba(76, 175, 80, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 </style>

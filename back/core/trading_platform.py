@@ -248,8 +248,47 @@ class TradingPlatform:
         if order_id:
             data["id"] = order_id
 
-        # Special handling for zero-amount orders (for record-keeping only)
+        # Special handling for zero-amount orders (for record-keeping or status updates)
         is_record_keeping = data.get("is_record_keeping", False)
+        is_status_update = data.get("is_status_update", False)
+        
+        # Handle status update messages
+        if data.get("amount") == 0 and is_status_update:
+            # Get the trader status from the message
+            trader_status = data.get("trader_status", "active")
+            trader_id = data.get("trader_id")
+            
+            # Create a status update message
+            status_update = {
+                "id": data.get("id", str(uuid.uuid4())),
+                "trader_id": trader_id,
+                "trader_status": trader_status,
+                "timestamp": datetime.now(timezone.utc).timestamp(),
+                "is_status_update": True
+            }
+            
+            # Log the status update
+            self.trading_logger.info(f"TRADER_STATUS_UPDATE: {status_update}")
+            
+            # Broadcast the status update to all clients
+            await self.send_broadcast(
+                {
+                    "type": "trader_status_update",
+                    "trader_id": trader_id,
+                    "trader_status": trader_status,
+                    "is_status_update": True
+                },
+                message_type="TRADER_STATUS_UPDATE"
+            )
+            
+            # Return immediately without adding to the order book
+            return {
+                "type": "TRADER_STATUS_UPDATE",
+                "content": f"Trader {trader_id} status updated to {trader_status}",
+                "respond": True,
+            }
+        
+        # Handle record keeping orders
         if data.get("amount") == 0 and is_record_keeping:
             # Log the zero-amount order for record-keeping
             record_order = {
