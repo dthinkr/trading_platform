@@ -31,6 +31,7 @@ class NoiseTrader(BaseTrader):
         
         # Internal clock
         self.start_time = datetime.now()
+        print(f"[NOISE TRADER {self.id}] Initialized at {self.start_time.strftime('%H:%M:%S.%f')[:-3]}")
         self.market_duration = timedelta(minutes=self.params["trading_day_duration"])
         self.activity_frequency = self.params["noise_activity_frequency"]
         
@@ -48,6 +49,9 @@ class NoiseTrader(BaseTrader):
     @property
     def elapsed_time(self) -> float:
         """Returns the elapsed time in seconds since the trader was initialized."""
+        if not isinstance(self.start_time, datetime):
+            print(f"[NOISE TRADER {self.id}] Warning: start_time is not a datetime object in elapsed_time property")
+            self.start_time = datetime.now()
         return (datetime.now() - self.start_time).total_seconds() - self.total_sleep_time
 
     @property
@@ -168,11 +172,13 @@ class NoiseTrader(BaseTrader):
             return
 
         amt = random.randint(1, self.params["max_order_amount"])
+        print(f"[NOISE TRADER {self.id}] Acting at time {datetime.now().strftime('%H:%M:%S.%f')[:-3]}")
 
         # Cancel orders
         if random.random() < self.params["noise_cancel_probability"]:
             await self.cancel_orders(amt)
             action = "cancel"
+            print(f"[NOISE TRADER {self.id}] Canceling {amt} orders")
 
         # Handle empty sides
         # if not self.order_book['bids'] or not self.order_book['asks']:
@@ -196,6 +202,7 @@ class NoiseTrader(BaseTrader):
         side = (
             "bids" if random.random() < pr_bid else "asks"
         )
+        print(f"[NOISE TRADER {self.id}] Placing {amt} orders on {side} side")
 
         # Proceed with regular order placement
         if random.random() < pr_passive:
@@ -211,13 +218,25 @@ class NoiseTrader(BaseTrader):
         while not self._stop_requested.is_set():
             try:
                 # Check if it's time to sleep
-                current_time = self.elapsed_time + self.total_sleep_time
+                try:
+                    # Use raw elapsed time without subtracting sleep time
+                    current_time = datetime.now()
+                    raw_elapsed = (current_time - self.start_time).total_seconds()
+                    print(f"[NOISE TRADER {self.id}] Current time: {current_time.strftime('%H:%M:%S.%f')[:-3]}, start_time: {self.start_time.strftime('%H:%M:%S.%f')[:-3]}, elapsed: {raw_elapsed:.2f}s")
+                except TypeError as e:
+                    print(f"[NOISE TRADER {self.id}] Error calculating time: {e}. start_time type: {type(self.start_time)}")
+                    # Reset start_time and recalculate
+                    self.start_time = datetime.now()
+                    raw_elapsed = 0
+                
                 if (self.sleep_duration > 0 and 
                     self.sleep_interval > 0 and 
-                    current_time - self.last_sleep_time >= self.sleep_interval):
+                    raw_elapsed - self.last_sleep_time >= self.sleep_interval):
                     
-                    self.last_sleep_time = current_time
+                    self.last_sleep_time = raw_elapsed
                     sleep_start_time = datetime.now()
+                    
+                    print(f"[NOISE TRADER {self.id}] Going to sleep at {sleep_start_time.strftime('%H:%M:%S.%f')[:-3]} for {self.sleep_duration} seconds")
                     
                     # Sleep for the specified duration
                     await asyncio.sleep(self.sleep_duration)
@@ -225,10 +244,12 @@ class NoiseTrader(BaseTrader):
                     # Track actual sleep time
                     actual_sleep_time = (datetime.now() - sleep_start_time).total_seconds()
                     self.total_sleep_time += actual_sleep_time
+                    print(f"[NOISE TRADER {self.id}] Waking up at {datetime.now().strftime('%H:%M:%S.%f')[:-3]} after sleeping for {actual_sleep_time:.2f} seconds")
                 else:
                     # Normal operation
                     await self.act()
-                    await asyncio.sleep(self.calculate_cooling_interval())
+                    cooling_interval = self.calculate_cooling_interval()
+                    await asyncio.sleep(cooling_interval)
             except asyncio.CancelledError:
                 await self.clean_up()
                 raise
