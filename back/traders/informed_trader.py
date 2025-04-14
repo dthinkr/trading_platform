@@ -22,6 +22,7 @@ class InformedTrader(BaseTrader):
         self.use_passive_orders = params.get("informed_use_passive_orders", False)
         # Order multiplier to increase trading volume
         self.order_multiplier = 1
+        print(self.params)
         
         # Add random direction handling
         if params.get("informed_random_direction", False):
@@ -72,12 +73,12 @@ class InformedTrader(BaseTrader):
         levels = []
         if order_side == OrderType.BID:
             for i in range(self.informed_order_book_levels):
-                level_price = mid_price - (i * self.params["step"])
+                level_price = top_bid - (i * self.params["step"])
                 if level_price > 0:  # Ensure price is positive
                     levels.append(level_price)
         else:  # OrderType.ASK
             for i in range(self.informed_order_book_levels):
-                level_price = mid_price + (i * self.params["step"])
+                level_price = top_ask + (i * self.params["step"])
                 levels.append(level_price)
 
         return levels
@@ -176,37 +177,11 @@ class InformedTrader(BaseTrader):
         order_side = OrderType.BID if trade_direction == TradeDirection.BUY else OrderType.ASK
         
         # Get order placement levels
-        levels = self.order_placement_levels
+        #levels = self.order_placement_levels
+        #print('order placement levels:',levels)
         
-        # Calculate how many orders we should have in total
-        total_passive_orders_needed = self.num_passive_to_keep
-        
-        # Count current passive orders
-        current_passive_orders = sum(1 for order in self.orders)
-        
-        # If we already have enough passive orders, don't place more
-        if current_passive_orders >= total_passive_orders_needed:
-            return
-            
-        # Determine how many more passive orders to place
-        orders_to_place = total_passive_orders_needed - current_passive_orders
-        
-        # Place orders at each level
-        for level_price in levels:
-            # If we've placed all needed orders, stop
-            if orders_to_place <= 0:
-                break
-                
-            # send passive orders
-            amount = self.order_multiplier  
-            price_to_send = level_price
-            
-            await self.post_new_order(amount, price_to_send, order_side)
-            
-            # Update count of orders to place
-            orders_to_place -= 1
-
-        # step one cancel orders that they are in level>3
+       
+        # step one cancel orders that they are in level>self.informed_order_book_levels
         if order_side == OrderType.BID:
             top_bid_price = self.get_best_price(OrderType.BID)
             for order in self.orders:
@@ -222,13 +197,27 @@ class InformedTrader(BaseTrader):
         
         # calculate how many passive orders i need to send
         self.total_number_passive_orders = sum(order['amount'] for order in self.orders)
-
+        self.number_trades = len(self.filled_orders)
+        print('total goal', self.goal)
+        print('number of trades', self.number_trades)
+        
         if self.total_number_passive_orders < self.num_passive_to_keep:
             num_passive_order_to_send = self.num_passive_to_keep - self.total_number_passive_orders
         else:
             num_passive_order_to_send = 0
+        
+        # calculate how many passive orders i need to send
+        # if i fulfilled the goal
+        # if goal fulfilled cancel all active orders
+        if self.number_trades == (self.goal * self.order_multiplier):
+            num_passive_order_to_send = 0
+            for order in self.orders:
+                order_id = order['id']
+                await self.send_cancel_order_request(order_id)
 
+        print('num_passive_order_to_send',num_passive_order_to_send)
         # send passive orders at the top self.informed_order_book_levels levels
+        flag_send_aggresive = True
         if int(num_passive_order_to_send) > 0:
             for jj in range(int(num_passive_order_to_send)):
                 if order_side == OrderType.BID:
@@ -242,6 +231,7 @@ class InformedTrader(BaseTrader):
                     # Increase order amount by multiplier
                     amount = self.order_multiplier
                     await self.post_new_order(amount, price_to_send, order_side)
+                    flag_send_aggresive = False
                 else:
                     level_to_send = random.randint(1,self.informed_order_book_levels)
                     top_bid_price = self.get_best_price(OrderType.BID)
@@ -254,6 +244,7 @@ class InformedTrader(BaseTrader):
                     # Increase order amount by multiplier
                     amount = self.order_multiplier
                     await self.post_new_order(amount, price_to_send, order_side)
+                    flag_send_aggresive = False
 
         # last send aggresive order if needed
         top_bid_price = self.get_best_price(OrderType.BID)
@@ -261,21 +252,22 @@ class InformedTrader(BaseTrader):
             
         spread = self.calculate_spread(top_bid_price, top_ask_price)
 
-        if order_side == OrderType.BID:
-            if spread <= self.informed_edge:
-                price_to_send = top_ask_price
-                # Increase order amount by multiplier
-                amount = self.order_multiplier
-                await self.post_new_order(amount, price_to_send, order_side)
-        else:
-            if spread <= self.informed_edge:
-                price_to_send = top_bid_price
-                # Increase order amount by multiplier
-                amount = self.order_multiplier
-                await self.post_new_order(amount, price_to_send, order_side)
+        if flag_send_aggresive:
+            if order_side == OrderType.BID:
+                if spread <= self.informed_edge:
+                    price_to_send = top_ask_price
+                    # Increase order amount by multiplier
+                    amount = self.order_multiplier
+                    await self.post_new_order(amount, price_to_send, order_side)
+            else:
+                if spread <= self.informed_edge:
+                    price_to_send = top_bid_price
+                    # Increase order amount by multiplier
+                    amount = self.order_multiplier
+                    await self.post_new_order(amount, price_to_send, order_side)
         
         self.number_trades = len(self.filled_orders)
-        if self.goal * self.order_multiplier == self.number_trades:
+        if (self.goal * self.order_multiplier) == self.number_trades:
             for order in self.orders:
                 order_id = order['id']
                 await self.send_cancel_order_request(order_id)
