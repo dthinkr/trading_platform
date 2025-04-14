@@ -82,7 +82,7 @@ class TradingParameters(BaseModel):
         ge=0,
     )
     trading_day_duration: float = Field(
-        default=0.1,
+        default=3,
         title="Trading Day Duration",
         description="model_parameter",
         gt=0,
@@ -123,7 +123,7 @@ class TradingParameters(BaseModel):
 
     # informed trader settings
     informed_trade_intensity: float = Field(
-        default=0.52,
+        default=0.43,
         title="Trade Intensity",
         description="informed_parameter",
     )
