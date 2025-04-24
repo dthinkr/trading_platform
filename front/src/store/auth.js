@@ -15,6 +15,8 @@ export const useAuthStore = defineStore('auth', {
     isPersisted: false,
     lastLoginTime: null,
     loginInProgress: false,
+    prolificToken: null,
+    prolificUserHasCompletedOnboarding: false,
   }),
   actions: {
     async initializeAuth() {
@@ -44,6 +46,83 @@ export const useAuthStore = defineStore('auth', {
           if (unsubscribe) unsubscribe();
         });
       });
+    },
+    
+    async prolificLogin(prolificParams, credentials = null) {
+      if (this.loginInProgress) {
+        console.log('Login already in progress');
+        return;
+      }
+      
+      try {
+        this.loginInProgress = true;
+        console.log('Starting Prolific login with params:', prolificParams);
+        
+        // Create a pseudo-user object for Prolific users
+        const prolificPID = prolificParams.PROLIFIC_PID;
+        const pseudoUser = {
+          uid: `prolific_${prolificPID}`,
+          email: `${prolificPID}@prolific.co`,
+          displayName: `Prolific User ${prolificPID}`,
+          isProlific: true,
+          prolificData: prolificParams
+        };
+        
+        // Set user in store
+        this.user = pseudoUser;
+        
+        // Make API call to backend with Prolific parameters in URL
+        const url = `/user/login?PROLIFIC_PID=${prolificParams.PROLIFIC_PID}&STUDY_ID=${prolificParams.STUDY_ID}&SESSION_ID=${prolificParams.SESSION_ID}`;
+        console.log('Making API call to:', url);
+        
+        // Include credentials if provided
+        let requestBody = {};
+        if (credentials && credentials.username && credentials.password) {
+          console.log('Including credentials in Prolific login request');
+          requestBody = {
+            username: credentials.username,
+            password: credentials.password
+          };
+        }
+        
+        const response = await axios.post(url, requestBody);
+        console.log('Prolific login response:', response.data);
+        
+        if (!response.data.data || !response.data.data.trader_id) {
+          console.error('Invalid response format:', response.data);
+          throw new Error('No trader ID received');
+        }
+        
+        this.isAdmin = response.data.data.is_admin || false;
+        this.traderId = response.data.data.trader_id;
+        this.marketId = response.data.data.market_id;
+        this.lastLoginTime = Date.now();
+        this.isPersisted = false;
+        
+        // Store the Prolific token if available
+        if (response.data.data.prolific_token) {
+          this.prolificToken = response.data.data.prolific_token;
+          console.log('Stored Prolific token for future authentication');
+        }
+        
+        // Check if this user has previously logged in via Prolific
+        const prolificUserId = `prolific_${prolificParams.PROLIFIC_PID}`;
+        const hasCompletedOnboarding = localStorage.getItem(`prolific_onboarded_${prolificUserId}`) === 'true';
+        this.prolificUserHasCompletedOnboarding = hasCompletedOnboarding;
+        console.log('Prolific user onboarding status:', { hasCompletedOnboarding });
+        
+        console.log('Prolific login successful, user data:', {
+          traderId: this.traderId,
+          marketId: this.marketId,
+          isAdmin: this.isAdmin
+        });
+      } catch (error) {
+        console.error('Prolific login error:', error);
+        this.user = null;
+        throw new Error(error.message || 'Failed to login with Prolific');
+      } finally {
+        this.loginInProgress = false;
+      }
     },
     
     async login(user, isAutoLogin = false) {

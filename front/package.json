@@ -21,6 +21,7 @@
     "dayjs": "^1.11.13",
     "file-saver": "^2.0.5",
     "firebase": "^10.13.1",
+    "haikunator": "^2.1.2",
     "highcharts": "^11.3.0",
     "highcharts-vue": "^1.4.3",
     "jszip": "^3.10.1",

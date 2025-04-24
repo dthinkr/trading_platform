@@ -8,7 +8,17 @@ const instance = axios.create({
 
 instance.interceptors.request.use(async (config) => {
   try {
-    if (auth.currentUser) {
+    // Import the auth store to check for Prolific token
+    const { useAuthStore } = await import('@/store/auth');
+    const authStore = useAuthStore();
+    
+    // Check for Prolific token first
+    if (authStore.prolificToken) {
+      console.log('Using Prolific token for authentication');
+      config.headers.Authorization = `Prolific ${authStore.prolificToken}`;
+    } 
+    // Fall back to Firebase authentication if no Prolific token
+    else if (auth.currentUser) {
       // Force token refresh if it's close to expiring
       const user = auth.currentUser;
       const tokenResult = await user.getIdTokenResult();

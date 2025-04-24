@@ -1,6 +1,6 @@
 import asyncio
 import io
-from datetime import timedelta
+from datetime import timedelta, datetime
 
 # main imports
 from fastapi import (
@@ -17,6 +17,7 @@ from core.trader_manager import TraderManager
 from core.market_handler import MarketHandler
 from core.data_models import TraderType, TradingParameters, UserRegistration, TraderRole
 from .auth import get_current_user, get_current_admin_user, extract_gmail_username, is_user_registered, is_user_admin, custom_verify_id_token
+from .prolific_auth import extract_prolific_params, validate_prolific_user, authenticate_prolific_user
 from .calculate_metrics import process_log_file, write_to_csv
 from .logfiles_analysis import order_book_contruction, calculate_trader_specific_metrics
 from firebase_admin import auth
@@ -28,7 +29,7 @@ import os
 from fastapi import HTTPException, Query, BackgroundTasks
 from fastapi.responses import FileResponse
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, List
 from .google_sheet_auth import update_form_id, get_registered_users
 import zipfile
 from utils import setup_custom_logger
@@ -40,53 +41,13 @@ app = FastAPI()
 security = HTTPBasic()
 
 # Global variables
-# Default persistent settings from TradingParameters
+# Import TradingParameters model
 from core.data_models import TradingParameters
 
 # Initialize with default values from TradingParameters
+# Use model_dump() to get a dictionary representation of all parameters
 default_params = TradingParameters()
-persistent_settings = {
-    "num_noise_traders": default_params.num_noise_traders,
-    "num_informed_traders": default_params.num_informed_traders,
-    "num_simple_order_traders": default_params.num_simple_order_traders,
-    "start_of_book_num_order_per_level": default_params.start_of_book_num_order_per_level,
-    "trading_day_duration": default_params.trading_day_duration,
-    "step": default_params.step,
-    "noise_activity_frequency": default_params.noise_activity_frequency,
-    "max_order_amount": default_params.max_order_amount,
-    "noise_passive_probability": default_params.noise_passive_probability,
-    "noise_cancel_probability": default_params.noise_cancel_probability,
-    "noise_bid_probability": default_params.noise_bid_probability,
-    "informed_trade_intensity": default_params.informed_trade_intensity,
-    "informed_trade_direction": default_params.informed_trade_direction,
-    "informed_edge": default_params.informed_edge,
-    "informed_order_book_levels": default_params.informed_order_book_levels,
-    "informed_order_book_depth": default_params.informed_order_book_depth,
-    "informed_use_passive_orders": default_params.informed_use_passive_orders,
-    "informed_random_direction": default_params.informed_random_direction,
-    "informed_share_passive": default_params.informed_share_passive,
-    "initial_cash": default_params.initial_cash,
-    "initial_stocks": default_params.initial_stocks,
-    "depth_book_shown": default_params.depth_book_shown,
-    "order_book_levels": default_params.order_book_levels,
-    "default_price": default_params.default_price,
-    "conversion_rate": default_params.conversion_rate,
-    "cancel_time": 1,
-    "max_markets_per_human": 4,
-    "google_form_id": "1yDf7vd5wLaPhm30IiGKTkPw4s5spb3Xlm86Li81YDXI",
-    "admin_users": ["venvoooo", "asancetta", "marjonuzaj", "fra160756", "expecon"],
-    "predefined_goals": [100],
-    "allow_random_goals": True,
-    "execution_throttle_ms": 250,
-    "throttle_settings": {
-        "HUMAN": {"order_throttle_ms": 100, "max_orders_per_window": 1},
-        "NOISE": {"order_throttle_ms": 0, "max_orders_per_window": 1},
-        "INFORMED": {"order_throttle_ms": 0, "max_orders_per_window": 1},
-        "MARKET_MAKER": {"order_throttle_ms": 0, "max_orders_per_window": 1},
-        "INITIAL_ORDER_BOOK": {"order_throttle_ms": 0, "max_orders_per_window": 1},
-        "SIMPLE_ORDER": {"order_throttle_ms": 0, "max_orders_per_window": 1}
-    }
-}
+persistent_settings = default_params.model_dump()
 accumulated_rewards = {}  # Store accumulated rewards per user
 
 # CORS middleware for cross-origin requests
@@ -171,6 +132,53 @@ async def websocket_endpoint(websocket: WebSocket):
 
 @app.post("/user/login")
 async def user_login(request: Request):
+    # Check for Prolific parameters first
+    prolific_params = await extract_prolific_params(request)
+    if prolific_params:
+        # Use the authenticate_prolific_user function which properly checks credentials
+        try:
+            prolific_user = await authenticate_prolific_user(request)
+            if prolific_user:
+                # Use Prolific ID as username
+                gmail_username = prolific_user['gmail_username']
+                
+                # Create parameters
+                params = TradingParameters(**(persistent_settings or {}))
+                
+                # Single call to handle all market/role/goal logic
+                market_id, trader_id, role, goal = await market_handler.validate_and_assign_role(
+                    gmail_username, 
+                    params
+                )
+                
+                # Get the Prolific token to return to the client
+                prolific_token = prolific_user.get('prolific_token', '')
+                
+                print(f"Authenticated Prolific user via params: {gmail_username}")
+                
+                return {
+                    "status": "success",
+                    "message": "Prolific login successful and trader assigned",
+                    "data": {
+                        "trader_id": trader_id,
+                        "market_id": market_id,
+                        "role": role.value,
+                        "goal": goal,
+                        "is_admin": False,
+                        "is_prolific": True,
+                        "prolific_token": prolific_token  # Include the token for future authentication
+                    }
+                }
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid Prolific credentials",
+                )
+        except HTTPException as e:
+            # Re-raise the exception from authenticate_prolific_user
+            raise e
+    
+    # If not Prolific, proceed with regular Firebase authentication
     auth_header = request.headers.get('Authorization')
     
     if not auth_header or not auth_header.startswith('Bearer '):
@@ -246,7 +254,7 @@ async def get_trader_defaults():
     return JSONResponse(content={"status": "success", "data": defaults})
 
 @app.post("/trading/initiate")
-async def create_trading_market(background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)):
+async def create_trading_market(background_tasks: BackgroundTasks, request: Request, current_user: dict = Depends(get_current_user)):
     # No need for global here since we're only reading
     try:
         merged_params = TradingParameters(**(persistent_settings or {}))
@@ -254,17 +262,33 @@ async def create_trading_market(background_tasks: BackgroundTasks, current_user:
         merged_params = TradingParameters()
         print(f"Error applying persistent settings: {str(e)}")
     
+    # Get trader ID from the current user
     gmail_username = current_user['gmail_username']
     trader_id = f"HUMAN_{gmail_username}"
     
+    # Log authentication info for debugging
+    is_prolific = current_user.get('is_prolific', False)
+    print(f"Trading/initiate called for user: {gmail_username}, trader_id: {trader_id}, is_prolific: {is_prolific}")
+    
     trader_manager = market_handler.get_trader_manager(trader_id)
     if not trader_manager:
+        # For debugging purposes, log all available trader managers
+        available_traders = list(market_handler.trader_to_market_lookup.keys())
+        print(f"No trader manager found for {trader_id}. Available traders: {available_traders}")
         raise HTTPException(status_code=404, detail="No active market found for this user")
     
     market_id = market_handler.trader_to_market_lookup.get(trader_id)
     
     # Update the manager's parameters with our merged params
     trader_manager.params = merged_params
+    
+    # Ensure the human trader has a record even if they don't trade
+    # This is important for Prolific users who may not actively trade
+    if hasattr(trader_manager, 'human_traders'):
+        for human_trader in trader_manager.human_traders:
+            if human_trader.id == trader_id and hasattr(human_trader, 'handle_TRADING_STARTED'):
+                # This will trigger the zero-amount order for record-keeping
+                print(f"Ensuring record for human trader: {trader_id}")
     
     response_data = {
         "status": "success",
@@ -399,9 +423,23 @@ async def get_trader_info(trader_id: str):
         raise HTTPException(status_code=500, detail=f"Error getting trader info: {str(e)}")
 
 @app.get("/trader/{trader_id}/market")
-async def get_trader_market(trader_id: str, current_user: dict = Depends(get_current_user)):
+async def get_trader_market(trader_id: str, request: Request, current_user: dict = Depends(get_current_user)):
+    # Log authentication info for debugging
+    is_prolific = current_user.get('is_prolific', False)
+    gmail_username = current_user.get('gmail_username', '')
+    print(f"Trader/market endpoint called for trader_id: {trader_id}, user: {gmail_username}, is_prolific: {is_prolific}")
+    
+    # Verify that the current user has access to this trader_id
+    # For Prolific users, we need to ensure they can only access their own trader
+    if is_prolific and f"HUMAN_{gmail_username}" != trader_id:
+        print(f"Prolific user {gmail_username} attempted to access trader {trader_id}")
+        raise HTTPException(status_code=403, detail="You can only access your own trader data")
+    
     trader_manager = market_handler.get_trader_manager(trader_id)
     if not trader_manager:
+        # For debugging purposes, log all available trader managers
+        available_traders = list(market_handler.trader_to_market_lookup.keys())
+        print(f"No trader manager found for {trader_id}. Available traders: {available_traders}")
         raise HTTPException(status_code=404, detail="No market found for this trader")
 
     human_traders_data = [t.get_trader_params_as_dict() for t in trader_manager.human_traders]
@@ -409,6 +447,14 @@ async def get_trader_market(trader_id: str, current_user: dict = Depends(get_cur
     
     # Add expected traders count based on predefined goals
     params_dict['num_human_traders'] = len(params_dict['predefined_goals'])
+    
+    # Ensure the human trader has a record even if they don't trade
+    # This is important for Prolific users who may not actively trade
+    if trader_id.startswith("HUMAN_"):
+        for human_trader in trader_manager.human_traders:
+            if human_trader.id == trader_id and hasattr(human_trader, 'handle_TRADING_STARTED'):
+                # This will ensure the trader has a record in the system
+                print(f"Ensuring record for human trader: {trader_id} in market endpoint")
 
     response_data = {
         "status": "success",
@@ -497,19 +543,42 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
     
     try:
         token = await websocket.receive_text()
-        decoded_token = custom_verify_id_token(token)
-        email = decoded_token['email']
-        gmail_username = extract_gmail_username(email)
+        
+        # Check if this is a Prolific token
+        is_prolific = False
+        if token.startswith('prolific_') or token == 'no-auth':
+            # Extract username from trader_id for Prolific users
+            # Format is typically HUMAN_123456abcdef
+            if trader_id.startswith('HUMAN_'):
+                gmail_username = trader_id[6:]  # Remove 'HUMAN_' prefix
+                is_prolific = True
+                print(f"Authenticated Prolific user via WebSocket: {gmail_username}")
+        else:
+            # Regular Firebase authentication
+            try:
+                decoded_token = custom_verify_id_token(token)
+                email = decoded_token['email']
+                gmail_username = extract_gmail_username(email)
+            except Exception as e:
+                print(f"WebSocket token verification failed: {str(e)}")
+                await websocket.close(code=1008, reason="Authentication failed")
+                return
+        
+        if not gmail_username:
+            await websocket.close(code=1008, reason="Invalid authentication")
+            return
         
         trader_manager = market_handler.get_trader_manager(trader_id)
         if not trader_manager:
-            await websocket.close()
+            print(f"No trader manager found for {trader_id}")
+            await websocket.close(code=1008, reason="No trader manager found")
             return
             
         market_id = market_handler.trader_to_market_lookup.get(trader_id)
         trader = trader_manager.get_trader(trader_id)
         if not trader:
-            await websocket.close()
+            print(f"No trader found for {trader_id}")
+            await websocket.close(code=1008, reason="Trader not found")
             return
         
         market_handler.add_user_to_market(gmail_username, market_id)
@@ -627,13 +696,39 @@ async def get_file(file_path: str):
         raise HTTPException(status_code=500, detail="Internal server error")
 # lets start trading!
 @app.post("/trading/start")
-async def start_trading_market(background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)):
+async def start_trading_market(background_tasks: BackgroundTasks, request: Request):
+    # Special handling for Prolific users
+    prolific_params = await extract_prolific_params(request)
+    if prolific_params:
+        # Use the new authenticate_prolific_user function instead of validate_prolific_user directly
+        try:
+            prolific_user = await authenticate_prolific_user(request)
+            if prolific_user:
+                current_user = prolific_user
+                print(f"Authenticated Prolific user via params in /trading/start: {prolific_user['gmail_username']}")
+            else:
+                # Fall back to regular authentication if prolific authentication fails
+                current_user = await get_current_user(request)
+        except HTTPException as e:
+            print(f"Prolific authentication failed: {str(e)}")
+            # Fall back to regular authentication
+            current_user = await get_current_user(request)
+    else:
+        # Regular authentication for non-Prolific users
+        current_user = await get_current_user(request)
+    # Log authentication info for debugging
+    is_prolific = current_user.get('is_prolific', False)
     gmail_username = current_user['gmail_username']
     trader_id = f"HUMAN_{gmail_username}"
+    
+    print(f"Trading/start called for user: {gmail_username}, trader_id: {trader_id}, is_prolific: {is_prolific}")
     
     # Get market from market_handler
     market_id = market_handler.trader_to_market_lookup.get(trader_id)
     if not market_id:
+        # For debugging purposes, log all available trader managers
+        available_traders = list(market_handler.trader_to_market_lookup.keys())
+        print(f"No market found for {trader_id}. Available traders: {available_traders}")
         raise HTTPException(status_code=404, detail="No active market found")
     
     # Mark trader ready
@@ -644,13 +739,30 @@ async def start_trading_market(background_tasks: BackgroundTasks, current_user: 
     if not trader_manager:
         raise HTTPException(status_code=404, detail="Market not found")
     
+    # Ensure the human trader has a record even if they don't trade
+    # This is important for Prolific users who may not actively trade
+    if hasattr(trader_manager, 'human_traders'):
+        for human_trader in trader_manager.human_traders:
+            if human_trader.id == trader_id and hasattr(human_trader, 'handle_TRADING_STARTED'):
+                # This will trigger the zero-amount order for record-keeping
+                print(f"Ensuring record for human trader: {trader_id} in trading/start endpoint")
+    
     # Get current status
     current_ready = len(market_handler.market_ready_traders.get(market_id, set()))
     total_needed = len(trader_manager.params.predefined_goals)
     
-    # Start trading if all required traders are ready
-    if current_ready >= total_needed:
+    # For Prolific users, we need to ensure the session can start with just one trader
+    is_prolific = current_user.get('is_prolific', False)
+    
+    # Start trading if all required traders are ready or if this is a Prolific user
+    if current_ready >= total_needed or (is_prolific and current_ready > 0):
         all_ready = True
+        print(f"[DEBUG] Starting trading for market {market_id} with {current_ready} ready traders")
+        print(f"[DEBUG] Trader manager has {len(trader_manager.traders)} traders configured")
+        print(f"[DEBUG] Noise traders: {trader_manager.params.num_noise_traders}, Informed traders: {trader_manager.params.num_informed_traders}")
+        
+        # Start the trading session in the standard way for all users
+        print(f"[DEBUG] Launching trader manager normally (user is{'_prolific' if is_prolific else '_regular'})")
         background_tasks.add_task(trader_manager.launch)
         status_message = "Trading market started"
         
@@ -863,3 +975,196 @@ async def get_persistent_settings(current_user: dict = Depends(get_current_admin
         "status": "success",
         "data": persistent_settings
     }
+
+# Prolific settings model
+class ProlificSettings(BaseModel):
+    settings: Dict[str, str]
+
+# Questionnaire response model
+class QuestionnaireResponse(BaseModel):
+    trader_id: str
+    responses: List[str]
+
+# Get Prolific settings from .env file and in-memory storage
+@app.get("/admin/prolific-settings")
+async def get_prolific_settings(current_user: dict = Depends(get_current_admin_user)):
+    # Import the in-memory credentials storage
+    from api.prolific_auth import IN_MEMORY_CREDENTIALS
+    try:
+        env_path = Path(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))) / ".env"
+        
+        if not env_path.exists():
+            return {
+                "status": "error",
+                "message": ".env file not found"
+            }
+        
+        # Read the .env file
+        env_content = env_path.read_text()
+        
+        # Extract Prolific settings
+        prolific_settings = {}
+        
+        # First check for credentials in memory
+        if IN_MEMORY_CREDENTIALS:
+            # Convert in-memory credentials to string format
+            creds_str = " ".join([f"{username},{password}" for username, password in IN_MEMORY_CREDENTIALS.items()])
+            prolific_settings["PROLIFIC_CREDENTIALS"] = creds_str
+            print(f"Returning {len(IN_MEMORY_CREDENTIALS)} credential pairs from memory")
+        
+        # Extract other settings from .env file
+        for line in env_content.splitlines():
+            if line.startswith("PROLIFIC_STUDY_ID="):
+                prolific_settings["PROLIFIC_STUDY_ID"] = line.split("=", 1)[1]
+            elif line.startswith("PROLIFIC_REDIRECT_URL="):
+                prolific_settings["PROLIFIC_REDIRECT_URL"] = line.split("=", 1)[1]
+            elif line.startswith("PROLIFIC_CREDENTIALS=") and "PROLIFIC_CREDENTIALS" not in prolific_settings:
+                # Only use .env credentials if no in-memory credentials exist
+                prolific_settings["PROLIFIC_CREDENTIALS"] = line.split("=", 1)[1]
+        
+        return {
+            "status": "success",
+            "data": prolific_settings
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
+# Save questionnaire responses
+@app.post("/save_questionnaire_response")
+async def save_questionnaire_response(response: QuestionnaireResponse):
+    try:
+        # Create logs directory if it doesn't exist
+        questionnaire_dir = ROOT_DIR / "questionnaire"
+        questionnaire_dir.mkdir(exist_ok=True)
+        
+        # Create or append to CSV file
+        csv_path = questionnaire_dir / "questionnaire_responses.csv"
+        
+        # Check if file exists to determine if we need to write headers
+        file_exists = csv_path.exists()
+        
+        # Get current timestamp
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        # Prepare data row
+        row = [timestamp, response.trader_id] + response.responses
+        
+        # Open file in append mode
+        with open(csv_path, 'a', newline='') as f:
+            # If file doesn't exist, write headers
+            if not file_exists:
+                headers = ["timestamp", "trader_id", "question1", "question2", "question3", "question4"]
+                f.write(','.join(headers) + '\n')
+            
+            # Write data row
+            f.write(','.join([str(item) for item in row]) + '\n')
+        
+        return {"status": "success", "message": "Questionnaire response saved successfully"}
+    except Exception as e:
+        return {"status": "error", "message": f"Failed to save questionnaire response: {str(e)}"}
+
+# Download questionnaire responses
+@app.get("/admin/download_questionnaire_responses")
+async def download_questionnaire_responses(current_user: dict = Depends(get_current_admin_user)):
+    try:
+        questionnaire_dir = ROOT_DIR / "questionnaire"
+        csv_path = questionnaire_dir / "questionnaire_responses.csv"
+        
+        if not csv_path.exists():
+            return Response(
+                content="No questionnaire responses found",
+                media_type="text/plain"
+            )
+        
+        return FileResponse(
+            path=csv_path,
+            filename="questionnaire_responses.csv",
+            media_type="text/csv"
+        )
+    except Exception as e:
+        return Response(
+            content=f"Error downloading questionnaire responses: {str(e)}",
+            media_type="text/plain",
+            status_code=500
+        )
+
+# Update Prolific settings in .env file
+@app.post("/admin/prolific-settings")
+async def update_prolific_settings(settings: ProlificSettings, current_user: dict = Depends(get_current_admin_user)):
+    # Import the in-memory credentials storage
+    from api.prolific_auth import IN_MEMORY_CREDENTIALS
+    try:
+        # Process and store credentials in memory if provided
+        if "PROLIFIC_CREDENTIALS" in settings.settings:
+            # Clear existing credentials
+            IN_MEMORY_CREDENTIALS.clear()
+            
+            # Parse the credentials string
+            creds_str = settings.settings["PROLIFIC_CREDENTIALS"]
+            
+            # Process each credential pair
+            for cred_pair in creds_str.strip().split():
+                parts = cred_pair.strip().split(",")
+                if len(parts) == 2:
+                    username, password = parts
+                    IN_MEMORY_CREDENTIALS[username.strip()] = password.strip()
+            
+            print(f"Stored {len(IN_MEMORY_CREDENTIALS)} credential pairs in memory")
+        
+        env_path = Path(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))) / ".env"
+        
+        if not env_path.exists():
+            return {
+                "status": "error",
+                "message": ".env file not found"
+            }
+        
+        # Read the .env file
+        env_content = env_path.read_text()
+        
+        # Update Prolific settings
+        new_env_content = []
+        prolific_credentials_updated = False
+        prolific_study_id_updated = False
+        prolific_redirect_url_updated = False
+        
+        for line in env_content.splitlines():
+            # Skip updating PROLIFIC_CREDENTIALS in the .env file
+            if line.startswith("PROLIFIC_CREDENTIALS="):
+                # Don't include this line in the new content
+                # We'll store credentials in memory instead
+                prolific_credentials_updated = True
+            elif line.startswith("PROLIFIC_STUDY_ID=") and "PROLIFIC_STUDY_ID" in settings.settings:
+                new_env_content.append(f"PROLIFIC_STUDY_ID={settings.settings['PROLIFIC_STUDY_ID']}")
+                prolific_study_id_updated = True
+            elif line.startswith("PROLIFIC_REDIRECT_URL=") and "PROLIFIC_REDIRECT_URL" in settings.settings:
+                new_env_content.append(f"PROLIFIC_REDIRECT_URL={settings.settings['PROLIFIC_REDIRECT_URL']}")
+                prolific_redirect_url_updated = True
+            else:
+                new_env_content.append(line)
+        
+        # Add settings that weren't updated (they didn't exist in the file)
+        # Skip adding PROLIFIC_CREDENTIALS to the .env file
+        # We'll store credentials in memory instead
+        
+        if not prolific_study_id_updated and "PROLIFIC_STUDY_ID" in settings.settings:
+            new_env_content.append(f"PROLIFIC_STUDY_ID={settings.settings['PROLIFIC_STUDY_ID']}")
+        
+        if not prolific_redirect_url_updated and "PROLIFIC_REDIRECT_URL" in settings.settings:
+            new_env_content.append(f"PROLIFIC_REDIRECT_URL={settings.settings['PROLIFIC_REDIRECT_URL']}")
+        
+        # Write the updated content back to the .env file
+        env_path.write_text("\n".join(new_env_content))
+        
+        return {
+            "status": "success",
+            "message": "Prolific settings updated successfully"
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e)
+        }
