@@ -95,7 +95,7 @@ def logfile_to_message(logfile_name):
                 
     df = pd.DataFrame({'Timestamp': timestamp_save,
                   'Price': price_save,
-                  'Amount': amount,
+                  'Amount': amount_save,
                   'Direction': direction_save,
                   'Type' : type_save,
                   'Trader': trader_save})
