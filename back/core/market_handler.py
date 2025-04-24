@@ -221,6 +221,14 @@ class MarketHandler:
         trader_manager = self.trader_managers.get(market_id)
         if trader_manager:
             num_required_traders = len(trader_manager.params.predefined_goals)
+            
+            # Special handling for Prolific users - allow starting with just one trader
+            # Check if this is a Prolific user (HUMAN_prolific pattern in trader_id)
+            is_prolific_user = trader_id.startswith("HUMAN_") and "prolific" in trader_id.lower()
+            
+            if is_prolific_user and len(self.market_ready_traders[market_id]) > 0:
+                return True
+                
             return len(self.market_ready_traders[market_id]) >= num_required_traders
         return False
 

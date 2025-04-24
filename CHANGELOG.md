@@ -14,6 +14,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added `/admin/download_parameter_history` endpoint
   - Added parameter history download button in market configuration UI
 
+## [2.1.0][2.1.0] - 2025-03-20
+
+### Added
+
+- Prolific integration for research studies
+  - Added authentication system for Prolific participants
+  - Implemented credential handling for Prolific users
+  - Added pre-study questions before Prolific link
+  - Enhanced session management for Prolific users
+- Market management improvements
+  - Added ability to manually start sessions from admin panel
+  - Implemented first-time user instructions flow
+  - Fixed session counting to persist across state resets
+  - Enhanced trader role assignment and management
+
 To propose changes:
 
 1. Edit this section directly in CHANGELOG.md
@@ -309,6 +324,7 @@ To propose changes:
 - Customizable trading scenarios
 - Basic data analysis tools
 
+[2.1.0]: https://github.com/dthinkr/trading_platform/compare/v2.0.2...v2.1.0
 [2.0.2]: https://github.com/dthinkr/trading_platform/compare/v2.0.1...v2.0.2
 [2.0.1]: https://github.com/dthinkr/trading_platform/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/dthinkr/trading_platform/compare/v1.3.5...v2.0.0

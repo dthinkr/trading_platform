@@ -5,7 +5,13 @@ import { useAuthStore } from '@/store/auth'; // Import the auth store
 const routes = [
   {
     path: "/",
-    redirect: "/register",
+    name: "Root",
+    component: () => import("@/components/Auth.vue"),
+    props: (route) => ({
+      prolificPID: route.query.PROLIFIC_PID,
+      studyID: route.query.STUDY_ID,
+      sessionID: route.query.SESSION_ID
+    })
   },
   {
     path: "/register",
@@ -93,10 +99,24 @@ router.beforeEach(async (to, from, next) => {
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
   const requiresAdmin = to.matched.some(record => record.meta.requiresAdmin);
 
+  // Check for Prolific parameters in the URL
+  const hasProlificParams = to.query.PROLIFIC_PID && to.query.STUDY_ID && to.query.SESSION_ID;
+  
+  // If we have Prolific parameters, allow the navigation to proceed
+  // The Auth component will handle the Prolific login
+  if (hasProlificParams) {
+    console.log('Router detected Prolific params, allowing navigation to:', to.path);
+    next();
+    return;
+  }
+
+  // Regular authentication flow
   if (requiresAuth && !authStore.isAuthenticated) {
-    next('/register');
+    console.log('Router redirecting unauthenticated user to root');
+    next('/');
   } else if (requiresAdmin && !authStore.isAdmin) {
-    next('/'); // or to some 'unauthorized' page
+    console.log('Router redirecting non-admin user to root');
+    next('/'); 
   } else {
     next();
   }
