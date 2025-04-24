@@ -198,22 +198,34 @@ class InformedTrader(BaseTrader):
         print('number of trades', self.number_trades)
         
         if self.total_number_passive_orders < self.num_passive_to_keep:
-            num_passive_order_to_send = self.num_passive_to_keep - self.total_number_passive_orders
+            remaining_trades = max(self.goal - self.number_trades,0)
+            if remaining_trades >= self.num_passive_to_keep:
+                num_passive_order_to_send = self.num_passive_to_keep - self.total_number_passive_orders
+            else:
+                num_passive_order_to_send = max(remaining_trades -  self.total_number_passive_orders,0)
         else:
             num_passive_order_to_send = 0
-        
-        # calculate how many passive orders i need to send
+       
+
         # if i fulfilled the goal
         # if goal fulfilled cancel all active orders
-        if self.number_trades == (self.goal * self.order_multiplier):
+        # and do not send aggresive order
+
+        flag_send_aggresive = True
+        if self.number_trades >= (self.goal * self.order_multiplier):
             num_passive_order_to_send = 0
+            flag_send_aggresive = False
             for order in self.orders:
                 order_id = order['id']
                 await self.send_cancel_order_request(order_id)
 
+        if remaining_trades <= self.total_number_passive_orders:
+            flag_send_aggresive = False
+
+
+        print('num of passive orders exist', self.total_number_passive_orders)
         print('num_passive_order_to_send',num_passive_order_to_send)
         # send passive orders at the top self.informed_order_book_levels levels
-        flag_send_aggresive = True
         if int(num_passive_order_to_send) > 0:
             for jj in range(int(num_passive_order_to_send)):
                 if order_side == OrderType.BID:
@@ -248,6 +260,7 @@ class InformedTrader(BaseTrader):
             
         spread = self.calculate_spread(top_bid_price, top_ask_price)
 
+        print('flag_send aggresive',flag_send_aggresive)
         if flag_send_aggresive:
             if order_side == OrderType.BID:
                 if spread <= self.informed_edge:
@@ -263,7 +276,7 @@ class InformedTrader(BaseTrader):
                     await self.post_new_order(amount, price_to_send, order_side)
         
         self.number_trades = len(self.filled_orders)
-        if (self.goal * self.order_multiplier) == self.number_trades:
+        if self.number_trades >= (self.goal * self.order_multiplier):
             for order in self.orders:
                 order_id = order['id']
                 await self.send_cancel_order_request(order_id)
@@ -313,6 +326,7 @@ class InformedTrader(BaseTrader):
         self.number_trades = sum(order['amount'] for order in self.filled_orders)
         # Adjust sleep time calculation to account for increased order volume
         self.next_sleep_time = self.calculate_sleep_time(remaining_time, self.number_trades, self.goal * self.order_multiplier)
+        print('next sleep time', self.next_sleep_time)
 
     async def run(self) -> None:
         while not self._stop_requested.is_set():
