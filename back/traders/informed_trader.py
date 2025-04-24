@@ -229,7 +229,6 @@ class InformedTrader(BaseTrader):
 
         print('num_passive_order_to_send',num_passive_order_to_send)
         # send passive orders at the top self.informed_order_book_levels levels
-        flag_send_aggresive = True
         if int(num_passive_order_to_send) > 0:
             for jj in range(int(num_passive_order_to_send)):
                 if order_side == OrderType.BID:
