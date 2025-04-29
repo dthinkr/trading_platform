@@ -223,8 +223,8 @@ class InformedTrader(BaseTrader):
                 order_id = order['id']
                 await self.send_cancel_order_request(order_id)
 
-        if remaining_trades <= self.total_number_passive_orders:
-            flag_send_aggresive = False
+        #if remaining_trades <= self.total_number_passive_orders:
+        #    flag_send_aggresive = False
 
 
         print('num_passive_order_to_send',num_passive_order_to_send)
