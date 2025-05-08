@@ -59,6 +59,30 @@ class BaseTrader:
 
         # Update throttle tracking to use config from params
         self.last_order_time = 0
+
+class PausingTrader(BaseTrader):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.sleep_duration = getattr(self, 'params', {}).get('sleep_duration', 0)
+        self.sleep_interval = getattr(self, 'params', {}).get('sleep_interval', 60)
+        self.last_sleep_time = 0
+        self.total_sleep_time = 0
+    async def maybe_sleep(self):
+        import asyncio
+        from datetime import datetime
+        if self.sleep_duration > 0 and self.sleep_interval > 0:
+            now = datetime.now().timestamp()
+            if now - self.last_sleep_time >= self.sleep_interval:
+                self.last_sleep_time = now
+                sleep_start = datetime.now()
+                await asyncio.sleep(self.sleep_duration)
+                self.total_sleep_time += (datetime.now() - sleep_start).total_seconds()
+    async def run(self):
+        while not self._stop_requested.is_set():
+            await self.maybe_sleep()
+            await self.act()
+            await asyncio.sleep(self.calculate_cooling_interval())
+
         self.orders_in_window = 0
         self.throttle_config = None  # Will be set when params are passed
 
