@@ -1,5 +1,9 @@
 <template>
   <v-card height="100%" elevation="3" class="trading-panel">
+    <div v-if="isNoiseTraderSleeping" class="sleep-notification">
+      <v-icon color="orange" small class="mr-1">mdi-sleep</v-icon>
+      Trading paused: Noise trader is sleeping
+    </div>
     <div class="orders-container">
       <div class="order-column buy-column">
         <h3 class="order-type-title">
@@ -14,7 +18,7 @@
           v-for="(price, index) in buyPrices" 
           :key="'buy-' + index" 
           class="order-item bid"
-          :class="{ 'best-price': price === bestAsk, 'locked': !canBuy }"
+          :class="{ 'best-price': price === bestAsk, 'locked': !canBuy || isNoiseTraderSleeping }"
         >
           <div class="order-content">
             <span class="order-type">BUY</span>
@@ -23,7 +27,7 @@
           </div>
           <v-btn 
             @click="sendOrder('BUY', price)" 
-            :disabled="isBuyButtonDisabled || isGoalAchieved || !canBuy" 
+            :disabled="isBuyButtonDisabled || isGoalAchieved || !canBuy || isNoiseTraderSleeping" 
             color="primary" 
             small
           >
@@ -45,7 +49,7 @@
           v-for="(price, index) in sellPrices" 
           :key="'sell-' + index" 
           class="order-item ask"
-          :class="{ 'best-price': price === bestBid, 'locked': !canSell }"
+          :class="{ 'best-price': price === bestBid, 'locked': !canSell || isNoiseTraderSleeping }"
         >
           <div class="order-content">
             <span class="order-type">SELL</span>
@@ -54,7 +58,7 @@
           </div>
           <v-btn 
             @click="sendOrder('SELL', price)" 
-            :disabled="isSellButtonDisabled || isGoalAchieved || !canSell" 
+            :disabled="isSellButtonDisabled || isGoalAchieved || !canSell || isNoiseTraderSleeping" 
             color="error" 
             small
           >
@@ -102,16 +106,6 @@ const buyPrices = computed(() => {
   }
 });
 
-// const buyPrices = computed(() => {
-//   if (bestAsk.value === null || !orderBookLevels.value) return [];
-//   return Array.from({ length: orderBookLevels.value }, (_, i) => bestAsk.value - step.value * i);
-// });
-
-// const sellPrices = computed(() => {
-//   if (bestBid.value === null || !orderBookLevels.value) return [];
-//   return Array.from({ length: orderBookLevels.value }, (_, i) => bestBid.value + step.value * i);
-// });
-
 const sellPrices = computed(() => {
   if (bestBid.value === null || !orderBookLevels.value){
    return Array.from({ length: orderBookLevels.value }, (_, i) => bestAsk.value - step.value*1 + step.value * i);
@@ -120,11 +114,9 @@ const sellPrices = computed(() => {
   }
 });
 
-// const isBuyButtonDisabled = computed(() => !hasAskData.value);
 const isBuyButtonDisabled = computed(() => {
   return false;  // Always keep Buy button enabled
 });
-//const isSellButtonDisabled = computed(() => !hasBidData.value);
 const isSellButtonDisabled = computed(() => {
   return false;  // Always keep Buy button enabled
 });
@@ -133,6 +125,13 @@ const isMobile = ref(false);
 
 const canBuy = computed(() => props.goalType === 'buy' || props.goalType === 'free');
 const canSell = computed(() => props.goalType === 'sell' || props.goalType === 'free');
+
+const noiseTraderStatus = computed(() => {
+  const statusParam = tradingStore.extraParams.find(param => param.var_name === 'noise_trader_status');
+  return statusParam ? statusParam.value : 'active';
+});
+
+const isNoiseTraderSleeping = computed(() => noiseTraderStatus.value === 'sleeping');
 
 function sendOrder(orderType, price) {
   if (!props.isGoalAchieved && ((orderType === 'BUY' && canBuy.value) || (orderType === 'SELL' && canSell.value))) {
@@ -242,5 +241,18 @@ onUnmounted(() => {
 
 .locked {
   opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sleep-notification {
+  background-color: rgba(255, 152, 0, 0.1);
+  color: #ff9800;
+  padding: 8px;
+  text-align: center;
+  font-weight: 500;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 </style>
