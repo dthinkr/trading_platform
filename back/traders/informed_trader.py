@@ -7,7 +7,9 @@ from core.data_models import OrderType, TraderType, TradeDirection
 from .base_trader import BaseTrader
 
 
-class InformedTrader(BaseTrader):
+from .base_trader import PausingTrader
+
+class InformedTrader(PausingTrader):
     def __init__(
         self,
         id: str,

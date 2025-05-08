@@ -9,7 +9,9 @@ import traceback
 from datetime import datetime, timedelta
 
 
-class NoiseTrader(BaseTrader):
+from .base_trader import PausingTrader
+
+class NoiseTrader(PausingTrader):
     def __init__(self, id: str, params: dict):
         super().__init__(trader_type=TraderType.NOISE, id=id)
         self.params = params
