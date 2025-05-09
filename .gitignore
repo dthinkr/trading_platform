@@ -7,3 +7,4 @@ appmap.log
 !.github/workflows/docker-build-push.yml
 .secrets
 *.gz
+/ssh
