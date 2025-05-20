@@ -7,3 +7,5 @@ appmap.log
 !.github/workflows/docker-build-push.yml
 .secrets
 *.gz
+key_pair
+key_pair.pub
