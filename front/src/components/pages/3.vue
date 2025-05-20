@@ -79,8 +79,12 @@
                   <br><br>
                   By the end of the market, you must ensure that you have achieved your goal.
                   <br><br>
+                  <div style="border: 1px solid #f44336; background-color: #fdecea; color: #b71c1c; padding: 16px; border-radius: 8px; font-family: sans-serif;">
+                  <strong>Important Notice:</strong>
+                  <br><br>
                   If, at the end of each market, you haven't completed your task, the platform will automatically buy or sell the remaining shares at a penalized price. 
                   This will affect your profits.
+                  </div>
                 </p>
               </v-card-text>
             </v-card>
@@ -107,8 +111,13 @@
                   <br><br>
                   By the end of the market, you must ensure that the number of shares matches the initial number you were given.
                   <br><br>
-                  If, at the end of each market, the number of shares differs from the initial amount, 
-                  the platform will liquidate the surplus or deficit at the Initial Midprice. This could potentially affect your profits.
+
+                  <div style="border: 1px solid #f44336; background-color: #fdecea; color: #b71c1c; padding: 16px; border-radius: 8px; font-family: sans-serif;">
+                  <strong>Important Notice:</strong>
+                  <br><br>
+                  If, at the end of each market, the number of shares differs from the initial amount, the platform will liquidate the surplus or deficit at the <strong>Initial Midprice</strong>.<br><br>
+                  This is likely to affect your profits.
+                  </div>
                 </p>
               </v-card-text>
             </v-card>
