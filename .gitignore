@@ -8,3 +8,4 @@ appmap.log
 .secrets
 *.gz
 /ssh
+ssh/
