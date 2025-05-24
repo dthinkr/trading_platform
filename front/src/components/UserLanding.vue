@@ -24,7 +24,7 @@
               </v-row>
             </v-container>
           </v-card-text>
-          <v-card-actions>
+          <v-card-actions v-if="currentRouteName !== 'consent'">
             <v-btn @click="prevPage" :disabled="isFirstPage">Previous</v-btn>
             <v-spacer></v-spacer>
             <v-btn 
