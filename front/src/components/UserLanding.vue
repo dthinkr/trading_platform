@@ -18,7 +18,7 @@
                   <router-view 
                     :traderAttributes="traderAttributes"
                     :iconColor="deepBlueColor"
-                    @update:canProgress="canProgressFromQuestions = $event"
+                    @update:canProgress="handleProgress"
                   />
                 </v-col>
               </v-row>
@@ -60,6 +60,7 @@ const traderUuid = ref(route.params.traderUuid);
 const marketId = ref(route.params.marketId);
 
 const pages = [
+  { name: 'consent', title: 'Research Participant Consent Form', icon: 'mdi-clipboard-check' },
   { name: 'welcome', title: 'Welcome', icon: 'mdi-handshake' },
   { name: 'platform', title: 'Trading Platform', icon: 'mdi-monitor' },
   { name: 'setup', title: 'Setup', icon: 'mdi-cog' },
@@ -105,10 +106,22 @@ const prevPage = () => {
 };
 
 const canProgressFromQuestions = ref(false);
+const consentGiven = ref(false);
 const currentRouteName = computed(() => route.name);
+
+const handleProgress = (value) => {
+  if (currentRouteName.value === 'consent') {
+    consentGiven.value = value;
+  } else if (currentRouteName.value === 'questions') {
+    canProgressFromQuestions.value = value;
+  }
+};
 
 // Add this computed property to handle Next button disabled state
 const shouldDisableNext = computed(() => {
+  if (currentRouteName.value === 'consent') {
+    return !consentGiven.value;
+  }
   return currentRouteName.value === 'questions' && !canProgressFromQuestions.value;
 });
 
@@ -121,7 +134,7 @@ onMounted(async () => {
       
       // Redirect based on whether this is a persisted login or not
       if (!route.name || route.name === 'onboarding') {
-        const targetRoute = authStore.isPersisted ? 'practice' : 'welcome';
+        const targetRoute = authStore.isPersisted ? 'practice' : 'consent';
         router.push({ 
           name: targetRoute,
           params: { marketId: marketId.value, traderUuid: traderUuid.value }

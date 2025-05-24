@@ -26,7 +26,12 @@ const routes = [
     children: [
       {
         path: "",
-        redirect: "welcome"
+        redirect: "consent"
+      },
+      {
+        path: "consent",
+        name: "consent",
+        component: () => import("@/components/pages/0.vue"),
       },
       {
         path: "welcome",

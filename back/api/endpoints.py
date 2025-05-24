@@ -5,7 +5,7 @@ from datetime import timedelta, datetime
 # main imports
 from fastapi import (
     FastAPI, WebSocket, HTTPException, WebSocketDisconnect, 
-    BackgroundTasks, Depends, Request
+    BackgroundTasks, Depends, Request, Response
 )
 
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,6 +26,7 @@ from firebase_admin import auth
 import json
 from pydantic import BaseModel, ValidationError
 import os
+import csv
 from fastapi import HTTPException, Query, BackgroundTasks
 from fastapi.responses import FileResponse
 from pathlib import Path
@@ -985,6 +986,28 @@ class QuestionnaireResponse(BaseModel):
     trader_id: str
     responses: List[str]
 
+# Consent form data model
+class ConsentData(BaseModel):
+    trader_id: str = ''  # Make trader_id optional
+    user_id: str = ''
+    user_type: str = ''  # 'google' or 'prolific'
+    prolific_id: str = ''
+    consent_given: bool = True
+    consent_timestamp: str = ''
+
+# Debug endpoint for consent
+@app.post("/consent/debug")
+async def debug_consent(data: dict):
+    print("\n\n==== CONSENT DEBUG CALLED =====")
+    print(f"Received raw data: {data}")
+    
+    try:
+        # Just echo back the data
+        return {"status": "success", "received": data}
+    except Exception as e:
+        print(f"ERROR in debug endpoint: {str(e)}")
+        return {"status": "error", "message": str(e)}
+
 # Get Prolific settings from .env file and in-memory storage
 @app.get("/admin/prolific-settings")
 async def get_prolific_settings(current_user: dict = Depends(get_current_admin_user)):
@@ -1090,6 +1113,42 @@ async def download_questionnaire_responses(current_user: dict = Depends(get_curr
             media_type="text/plain",
             status_code=500
         )
+
+# Save consent form data
+@app.post("/consent/save")
+async def save_consent_data(consent: ConsentData):
+    consent_dir = Path("logs/consent")
+    consent_dir.mkdir(parents=True, exist_ok=True)
+    consent_file = consent_dir / "consent_data.csv"
+    file_exists = consent_file.exists()
+    timestamp = datetime.now().isoformat()
+    user_id = consent.user_id or consent.prolific_id
+    user_type = consent.user_type or ("prolific" if consent.prolific_id else None)
+    with open(consent_file, mode='a', newline='') as file:
+        fieldnames = ['trader_id', 'user_id', 'user_type', 'consent_given', 'consent_timestamp']
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
+        if not file_exists:
+            writer.writeheader()
+        trader_id = consent.trader_id or user_id
+        row_data = {
+            'trader_id': trader_id,
+            'user_id': user_id,
+            'user_type': user_type,
+            'consent_given': str(consent.consent_given),
+            'consent_timestamp': timestamp
+        }
+        writer.writerow(row_data)
+    return {"status": "success", "message": "Consent data saved successfully", "timestamp": timestamp}
+
+
+# Download consent data
+@app.get("/admin/download-consent-data")
+async def download_consent_data(current_user: dict = Depends(get_current_admin_user)):
+    consent_dir = ROOT_DIR.parent / "logs/consent"
+    consent_file = consent_dir / "consent_data.csv"
+    if not consent_file.exists():
+        return JSONResponse(status_code=404, content={"status": "error", "message": "Consent data file not found"})
+    return FileResponse(path=consent_file, filename="consent_data.csv", media_type="text/csv")
 
 # Update Prolific settings in .env file
 @app.post("/admin/prolific-settings")
