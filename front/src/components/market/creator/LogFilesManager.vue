@@ -40,6 +40,18 @@
         <v-icon left large>mdi-clipboard-text</v-icon>
         Download Questionnaire Responses
       </v-btn>
+
+      <v-btn 
+        color="success" 
+        @click="downloadConsentData" 
+        block
+        elevation="2"
+        class="mb-2 custom-btn"
+        x-large
+      >
+        <v-icon left large>mdi-clipboard-check</v-icon>
+        Download Consent Data
+      </v-btn>
       
       <v-data-table
         :headers="[
@@ -175,6 +187,24 @@ const downloadQuestionnaireResponses = async () => {
     document.body.removeChild(link);
   } catch (error) {
     console.error("Error downloading questionnaire responses:", error);
+  }
+};
+
+const downloadConsentData = async () => {
+  try {
+    const response = await axios.get(
+      `${import.meta.env.VITE_HTTP_URL}admin/download-consent-data`, 
+      { responseType: 'blob' }
+    );
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'consent_data.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (error) {
+    console.error("Error downloading consent data:", error);
   }
 };
 
