@@ -197,6 +197,7 @@ export const useAuthStore = defineStore('auth', {
   },
   getters: {
     isAuthenticated: (state) => !!state.user,
+    prolificId: (state) => state.user?.isProlific ? state.user.prolificData?.PROLIFIC_PID || '' : '',
   },
   persist: {
     enabled: true,

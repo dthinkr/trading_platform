@@ -243,7 +243,7 @@ const signInWithGoogle = async () => {
         });
       } else {
         router.push({ 
-          name: 'welcome',  // New users start from welcome page
+          name: 'consent',  // New users start from consent page
           params: { 
             traderUuid: authStore.traderId,
             marketId: authStore.marketId
@@ -329,9 +329,9 @@ const handleProlificCredentialLogin = async () => {
         targetPage = 'practice';
         console.log('Returning Prolific user, redirecting to practice page');
       } else {
-        // First-time Prolific user, go to welcome/instructions page
-        targetPage = 'welcome';
-        console.log('First-time Prolific user, redirecting to welcome/instructions page');
+        // First-time Prolific user, go to consent page
+        targetPage = 'consent';
+        console.log('First-time Prolific user, redirecting to consent page');
       }
       
       const redirectPath = `/onboarding/${authStore.marketId}/${authStore.traderId}/${targetPage}`;
