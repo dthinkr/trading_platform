@@ -115,8 +115,8 @@
                   <div style="border: 1px solid #f44336; background-color: #fdecea; color: #b71c1c; padding: 16px; border-radius: 8px; font-family: sans-serif;">
                   <strong>Important Notice:</strong>
                   <br><br>
-                  If, at the end of each market, the number of shares differs from the initial amount, the platform will liquidate the surplus or deficit at the <strong>Initial Midprice</strong>.<br><br>
-                  This is likely to affect your profits.
+                  If, at the end of each market, the number of shares differs from the initial amount, the platform will balance the surplus or deficit at the <strong>Initial Midprice</strong>.<br><br>
+                  This is very likely to result in a <strong>negative</strong> profit.
                   </div>
                 </p>
               </v-card-text>
