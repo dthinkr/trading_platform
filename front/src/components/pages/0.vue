@@ -19,13 +19,13 @@
               <p><strong>Funding Body:</strong> The Leverhulme Trust</p>
               
               <h4 class="text-h6 mt-4">Introduction</h4>
-              <p>Royal Holloway, University of London supports the practise of protecting human participants in research. This form provides you with important information about taking part in this study. Your participation in this study is entirely voluntary, and you have the right to withdraw at any time without penalty or negative consequences. If you choose to withdraw, any data collected from you will be deleted and not included in the final analysis.</p>
+              <p>Royal Holloway, University of London supports the practise of protecting human participants in research. This form provides you with important information about taking part in this study. Your participation in this study is entirely voluntary, and you have the right to withdraw at any time during the experimental session without penalty or negative consequences. If you choose to withdraw during the experimental session, any data collected from you will be deleted and not included in the final analysis. However, you will not be able to withdraw your consent after the study is completed, and the payment has been issued.</p>
               
               <h4 class="text-h6 mt-4">Summary</h4>
               <p>The purpose of this study is to investigate the interaction between human and machines (AI agents) in electronic financial markets. In this study, we will ask you to participate in various experimental financial markets where you will be able to make decisions regarding buying or selling a virtual financial asset (not a real asset). This study will take approximately 30 minutes to complete. Taking part in this study is a great opportunity to learn how electronic financial markets operate, and you will also have the chance to earn financial profits depending on your performance.</p>
               
               <h4 class="text-h6 mt-4">Ethical Approval</h4>
-              <p>This study has received ethics approval from Royal Holloway, University of Lonon's Research Ethics Committee, with the approval ID of [????].</p>
+              <p>This study has received ethics approval from Royal Holloway, University of Lonon's Research Ethics Committee, with the approval ID of 713.</p>
               
               <h4 class="text-h6 mt-4">Data collection</h4>
               <p>During this study, we will collect data from you only related to your buy or sell decision orders. At the end of the study, you will be asked to complete a short survey about your overall experience with our platform. Additionally, the Prolific platform will provide some basic demographic characteristics such as age, gender and education. All data will be anonymized and labelled using only your Unique Prolific ID.</p>
