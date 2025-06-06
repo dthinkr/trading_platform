@@ -10,6 +10,7 @@ import pandas as pd
 import numpy as np
 import random
 import json
+from datetime import datetime
 
 def logfile_to_message(logfile_name):
     log_file_path = logfile_name
@@ -133,7 +134,15 @@ def get_random_order(orders,trader):
     return_order = random.choice(random_orders)
     
     return return_order
-            
+
+def get_order_to_cancel(orders,trader,price):
+    orders_trader = [order for order in orders if order['Trader'] ==trader]
+    orders_at_price = [order for order in orders_trader if order['Price'] ==price] 
+
+    if orders_at_price:
+        order_to_cancel = max(orders_at_price, key=lambda order: order['Timestamp'])
+   
+    return order_to_cancel       
     
 def order_book_contruction(logfile_name):
     message_df, all_metrics = process_logfile(logfile_name)
@@ -155,9 +164,13 @@ def process_logfile(logfile_name):
     all_midprices = []
     all_best_bid_prices = []
     all_best_ask_prices = []
+
+    start_time = message_df['Timestamp'].iloc[0]
+    message_df['New_Timestamp'] = (message_df['Timestamp'] - start_time).dt.total_seconds()
+
     
     for index, row in message_df.iterrows():
-        timestamp = row['Timestamp']
+        timestamp = row['New_Timestamp']
         price = row['Price']
         amount = row['Amount']
         direction = row['Direction']
@@ -216,11 +229,11 @@ def process_logfile(logfile_name):
             
         elif order_type == 'CANCEL_ORDER':
             if direction == 'BID':
-                order_to_cancel = get_random_order(orders['BIDS'], trader)
+                order_to_cancel = get_order_to_cancel(orders['BIDS'], trader, price)
                 orders['BIDS'].remove(order_to_cancel)
                 total_cancellations +=1
             else:
-                order_to_cancel = get_random_order(orders['ASKS'], trader)
+                order_to_cancel = get_order_to_cancel(orders['ASKS'], trader, price)
                 orders['ASKS'].remove(order_to_cancel)
                 total_cancellations +=1
         
@@ -398,10 +411,10 @@ def calculate_trader_specific_metrics(trader_specific_metrics, general_metrics, 
     return trader_specific_metrics
 
 if __name__ == '__main__':
-    location = '/Users/marioljonuzaj/Documents/Python Projects/Trading Platform/trading_platform/back/logs/'
-    logfile_name = location + 'SESSION_1730472204_trading.log'  # Replace with your log file path
+    location = '/Users/marioljonuzaj/Documents/Python Projects/Trading Platform/2025/June/trading_platform/back/logs/'
+    logfile_name = location + 'SESSION_1749199327_trading.log'  # Replace with your log file path
     market_id = logfile_name.split('/')[-1].split('_trading')[0]
-    
+    message_df = logfile_to_message(logfile_name)
     order_book_metrics = order_book_contruction(logfile_name)
         
     output_message_file = location  + market_id + '_' + 'message_book.csv'
