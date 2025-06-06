@@ -64,7 +64,20 @@ class NoiseTrader(BaseTrader):
         if not self.orders:
             return
 
-        orders_to_cancel = random.sample(self.orders, min(amt, len(self.orders)))
+        # Get unique prices available
+        available_prices = list(set([order['price'] for order in self.orders]))
+        prices_to_cancel = random.sample(available_prices, min(amt, len(available_prices)))
+        orders_to_cancel = []
+        
+        for price in prices_to_cancel:
+            # Find all orders at this price level
+            orders_at_price = [order for order in self.orders if order['price'] == price]
+            
+            if orders_at_price:
+                # Pick the most recent order at this price level
+                most_recent_order = max(orders_at_price, key=lambda order: datetime.strptime(order['timestamp'], '%Y-%m-%d %H:%M:%S.%f'))
+                orders_to_cancel.append(most_recent_order)
+
         for order in orders_to_cancel:
             await self.send_cancel_order_request(order["id"])
             self.historical_cancelled_orders += 1
