@@ -72,7 +72,7 @@
                   <v-icon size="28" color="warning" class="mr-2">mdi-alert</v-icon>
                   <span class="text-h6">Task as a Informed Trader</span>
                 </div>
-                <p class="text-body-1 font-weight-medium">
+                <div class="text-body-1 font-weight-medium">
                   In this role, your task is to buy or sell a specific number of shares.
                   <br><br>
                   At the beginning of each market, you will be given a specific number of shares.
@@ -85,7 +85,7 @@
                   If, at the end of each market, you haven't completed your task, the platform will automatically buy or sell the remaining shares at a penalized price. 
                   This will affect your profits.
                   </div>
-                </p>
+                </div>
               </v-card-text>
             </v-card>
           </v-hover>
@@ -104,7 +104,7 @@
                   <v-icon size="28" color="warning" class="mr-2">mdi-alert</v-icon>
                   <span class="text-h6">Task as a Speculator</span>
                 </div>
-                <p class="text-body-1 font-weight-medium">
+                <div class="text-body-1 font-weight-medium">
                   In this role, your task is to buy and sell shares in order to make profits.
                   <br><br>
                   At the beginning of each market, you will be given a specific number of shares.
@@ -115,10 +115,39 @@
                   <div style="border: 1px solid #f44336; background-color: #fdecea; color: #b71c1c; padding: 16px; border-radius: 8px; font-family: sans-serif;">
                   <strong>Important Notice:</strong>
                   <br><br>
-                  If, at the end of each market, the number of shares differs from the initial amount, the platform will liquidate the surplus or deficit at the <strong>Initial Midprice</strong>.<br><br>
-                  This is likely to affect your profits.
+                  If, at the end of each market, the number of shares held differs from the initial amount, the platform will restore the original balance by buying or selling shares at the the <strong>Initial Midprice</strong>.
+                  <br><br>
+                  This is very likely to result in a loss.
+                  <br><br>
+                  <strong>Example 1</strong>
+                  <br>
+                  Initial Midprice = 100 Liras
+                  <br>
+                  Initial Shares = 100
+                  <br>
+                  Shares at the end of the market = 110
+                  <br>
+                  The 10 excess shares (110 - 100) were purchased at an average price of 120 Liras.
+                  <br>
+                  The platform liquidates these 10 shares at the initial midprice of 100 Liras.
+                  <br>
+                  Loss = 10 shares × (100 - 120) = -200 Liras
+                  <br><br>
+                  <strong>Example 2</strong>
+                  <br>
+                  Initial Midprice = 100 Liras
+                  <br>
+                  Initial Shares = 100
+                  <br>
+                  Shares at the end of the market = 90
+                  <br>
+                  The 10 missing shares (100 - 90) were sold at an average price of 80 Liras.
+                  <br>
+                  The platform purchases these 10 shares at the initial midprice of 100 Liras.
+                  <br>
+                  Loss = 10 shares × (80 - 100) = -200 Liras
                   </div>
-                </p>
+                </div>
               </v-card-text>
             </v-card>
           </v-hover>
