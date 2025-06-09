@@ -10,4 +10,4 @@ appmap.log
 /ssh
 ssh/
 # Firebase cache files
-front/.firebase/hosting.ZGlzdA.cache
+front/.firebase/
