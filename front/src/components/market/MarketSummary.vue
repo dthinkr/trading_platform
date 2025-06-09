@@ -133,14 +133,75 @@
                   <br></br>
                   Your final payment will be {{formatValue(traderSpecificMetrics?.Accumulated_Reward + 5, 'gbp') }}.
                 </p>
-                <v-btn 
-                  color="secondary" 
-                  x-large 
-                  @click="downloadMarketMetrics"
-                  class="mt-2"
-                >
-                  Download Metrics
-                </v-btn>
+                <!-- Questionnaire Section -->
+                <div v-if="!questionnaireCompleted" class="questionnaire-section mt-4 mb-4">
+                  <h3 class="text-h6 mb-3">Please complete this short questionnaire before finishing</h3>
+                  
+                  <!-- Question 1 -->
+                  <div class="question-container mb-4">
+                    <p class="text-subtitle-1 mb-2">1. Was the overall direction of the price movement clear throughout the markets?</p>
+                    <v-radio-group v-model="questionnaire.q1" row>
+                      <v-radio label="Yes" value="Yes"></v-radio>
+                      <v-radio label="No" value="No"></v-radio>
+                      <v-radio label="Not sure" value="Not sure"></v-radio>
+                    </v-radio-group>
+                  </div>
+                  
+                  <!-- Question 2 -->
+                  <div class="question-container mb-4">
+                    <p class="text-subtitle-1 mb-2">2. Which window of the trading platform provided the most useful information for your decisions?</p>
+                    <v-radio-group v-model="questionnaire.q2" row>
+                      <v-radio label="Order Book Chart (Bar Plot)" value="Order Book Chart"></v-radio>
+                      <v-radio label="Price History Chart (Line Plot)" value="Price History Chart"></v-radio>
+                      <v-radio label="Market Info Card (Market Information)" value="Market Info Card"></v-radio>
+                    </v-radio-group>
+                  </div>
+                  
+                  <!-- Question 3 -->
+                  <div class="question-container mb-4">
+                    <p class="text-subtitle-1 mb-2">3. Were you able to effectively monitor your inventory imbalance using information provided by the platform?</p>
+                    <v-radio-group v-model="questionnaire.q3" row>
+                      <v-radio label="Yes" value="Yes"></v-radio>
+                      <v-radio label="No" value="No"></v-radio>
+                      <v-radio label="Not sure" value="Not sure"></v-radio>
+                    </v-radio-group>
+                  </div>
+                  
+                  <!-- Question 4 -->
+                  <div class="question-container mb-4">
+                    <p class="text-subtitle-1 mb-2">4. Was the Volume Weighted Average Price (VWAP) of Buy and Sell trades helpful in informing your decisions?</p>
+                    <v-radio-group v-model="questionnaire.q4" row>
+                      <v-radio label="Yes" value="Yes"></v-radio>
+                      <v-radio label="No" value="No"></v-radio>
+                      <v-radio label="Not sure" value="Not sure"></v-radio>
+                    </v-radio-group>
+                  </div>
+                  
+                  <v-btn 
+                    color="primary" 
+                    x-large 
+                    @click="submitQuestionnaire"
+                    :disabled="!isQuestionnaireComplete"
+                    class="mt-2"
+                  >
+                    Submit Questionnaire
+                  </v-btn>
+                </div>
+                
+                <!-- Show this after questionnaire is completed -->
+                <div v-if="questionnaireCompleted" class="mt-4">
+                  <p class="text-subtitle-1 mb-4">
+                    <span class="font-weight-bold">Please click <a :href="prolificRedirectUrl" target="_blank" class="primary--text">here</a> to complete your submission on Prolific.</span>
+                  </p>
+                  <v-btn 
+                    color="secondary" 
+                    x-large 
+                    @click="downloadMarketMetrics"
+                    class="mt-2"
+                  >
+                    Download Metrics
+                  </v-btn>
+                </div>
               </div>
             </template>
             <template v-else>
@@ -195,9 +256,60 @@ const traderInfo = ref(null);
 const orderBookMetrics = ref(null);
 const traderSpecificMetrics = ref(null);
 const httpUrl = import.meta.env.VITE_HTTP_URL;
+const prolificRedirectUrl = import.meta.env.VITE_PROLIFIC_REDIRECT_URL || 'https://app.prolific.com/submissions/complete?cc=C11I8OGE';
 const showDialog = ref(false);
 const dialogTitle = ref('');
 const dialogMessage = ref('');
+
+// Questionnaire state
+const questionnaireCompleted = ref(false);
+const questionnaire = ref({
+  q1: null,
+  q2: null,
+  q3: null,
+  q4: null
+});
+
+// Check if all questions are answered
+const isQuestionnaireComplete = computed(() => {
+  return questionnaire.value.q1 && 
+         questionnaire.value.q2 && 
+         questionnaire.value.q3 && 
+         questionnaire.value.q4;
+});
+
+// Submit questionnaire responses
+async function submitQuestionnaire() {
+  try {
+    // Prepare responses array
+    const responses = [
+      questionnaire.value.q1,
+      questionnaire.value.q2,
+      questionnaire.value.q3,
+      questionnaire.value.q4
+    ];
+    
+    // Send to backend
+    const response = await axios.post(`${httpUrl}save_questionnaire_response`, {
+      trader_id: props.traderUuid,
+      responses: responses
+    });
+    
+    if (response.data.status === 'success') {
+      questionnaireCompleted.value = true;
+      // Success case - no dialog shown, just proceed to show the redirect URL
+    } else {
+      dialogTitle.value = 'Error';
+      dialogMessage.value = 'There was an error saving your responses. Please try again.';
+      showDialog.value = true;
+    }
+  } catch (error) {
+    console.error('Error submitting questionnaire:', error);
+    dialogTitle.value = 'Error';
+    dialogMessage.value = 'There was an error saving your responses. Please try again.';
+    showDialog.value = true;
+  }
+};
 
 const maxRetries = 3;
 const retryDelay = 1000; // 1 second
