@@ -133,56 +133,47 @@
                   <br></br>
                   Your final payment will be {{formatValue(traderSpecificMetrics?.Accumulated_Reward + 5, 'gbp') }}.
                 </p>
-                
                 <!-- Questionnaire Section -->
                 <div v-if="!questionnaireCompleted" class="questionnaire-section mt-4 mb-4">
                   <h3 class="text-h6 mb-3">Please complete this short questionnaire before finishing</h3>
                   
                   <!-- Question 1 -->
                   <div class="question-container mb-4">
-                    <p class="text-subtitle-1 mb-2">1. How would you rate your overall experience with the trading platform?</p>
+                    <p class="text-subtitle-1 mb-2">1. Was the overall direction of the price movement clear throughout the markets?</p>
                     <v-radio-group v-model="questionnaire.q1" row>
-                      <v-radio label="Poor" value="Poor"></v-radio>
-                      <v-radio label="Fair" value="Fair"></v-radio>
-                      <v-radio label="Good" value="Good"></v-radio>
-                      <v-radio label="Very Good" value="Very Good"></v-radio>
-                      <v-radio label="Excellent" value="Excellent"></v-radio>
+                      <v-radio label="Yes" value="Yes"></v-radio>
+                      <v-radio label="No" value="No"></v-radio>
+                      <v-radio label="Not sure" value="Not sure"></v-radio>
                     </v-radio-group>
                   </div>
                   
                   <!-- Question 2 -->
                   <div class="question-container mb-4">
-                    <p class="text-subtitle-1 mb-2">2. How easy was it to understand the trading interface?</p>
+                    <p class="text-subtitle-1 mb-2">2. Which window of the trading platform provided the most useful information for your decisions?</p>
                     <v-radio-group v-model="questionnaire.q2" row>
-                      <v-radio label="Very Difficult" value="Very Difficult"></v-radio>
-                      <v-radio label="Difficult" value="Difficult"></v-radio>
-                      <v-radio label="Neutral" value="Neutral"></v-radio>
-                      <v-radio label="Easy" value="Easy"></v-radio>
-                      <v-radio label="Very Easy" value="Very Easy"></v-radio>
+                      <v-radio label="Order Book Chart (Bar Plot)" value="Order Book Chart"></v-radio>
+                      <v-radio label="Price History Chart (Line Plot)" value="Price History Chart"></v-radio>
+                      <v-radio label="Market Info Card (Market Information)" value="Market Info Card"></v-radio>
                     </v-radio-group>
                   </div>
                   
                   <!-- Question 3 -->
                   <div class="question-container mb-4">
-                    <p class="text-subtitle-1 mb-2">3. Did you feel that your trading strategy improved over time?</p>
+                    <p class="text-subtitle-1 mb-2">3. Were you able to effectively monitor your inventory imbalance using information provided by the platform?</p>
                     <v-radio-group v-model="questionnaire.q3" row>
-                      <v-radio label="Not at all" value="Not at all"></v-radio>
-                      <v-radio label="Slightly" value="Slightly"></v-radio>
-                      <v-radio label="Moderately" value="Moderately"></v-radio>
-                      <v-radio label="Considerably" value="Considerably"></v-radio>
-                      <v-radio label="Significantly" value="Significantly"></v-radio>
+                      <v-radio label="Yes" value="Yes"></v-radio>
+                      <v-radio label="No" value="No"></v-radio>
+                      <v-radio label="Not sure" value="Not sure"></v-radio>
                     </v-radio-group>
                   </div>
                   
                   <!-- Question 4 -->
                   <div class="question-container mb-4">
-                    <p class="text-subtitle-1 mb-2">4. Would you participate in similar trading experiments in the future?</p>
+                    <p class="text-subtitle-1 mb-2">4. Was the Volume Weighted Average Price (VWAP) of Buy and Sell trades helpful in informing your decisions?</p>
                     <v-radio-group v-model="questionnaire.q4" row>
-                      <v-radio label="Definitely not" value="Definitely not"></v-radio>
-                      <v-radio label="Probably not" value="Probably not"></v-radio>
-                      <v-radio label="Maybe" value="Maybe"></v-radio>
-                      <v-radio label="Probably yes" value="Probably yes"></v-radio>
-                      <v-radio label="Definitely yes" value="Definitely yes"></v-radio>
+                      <v-radio label="Yes" value="Yes"></v-radio>
+                      <v-radio label="No" value="No"></v-radio>
+                      <v-radio label="Not sure" value="Not sure"></v-radio>
                     </v-radio-group>
                   </div>
                   
@@ -252,7 +243,6 @@ import { ref, onMounted, computed } from "vue";
 import axios from "axios";
 import { useRouter } from 'vue-router';
 import { useTraderStore } from "@/store/app";
-import { useAuthStore } from "@/store/auth";
 import { storeToRefs } from "pinia";
 
 const props = defineProps({
@@ -261,7 +251,6 @@ const props = defineProps({
 
 const router = useRouter();
 const traderStore = useTraderStore();
-const authStore = useAuthStore();
 const { pnl, vwap } = storeToRefs(traderStore);
 const traderInfo = ref(null);
 const orderBookMetrics = ref(null);
@@ -380,36 +369,6 @@ const formatValue = (value, format) => {
 };
 
 const goToRegister = () => {
-  // Check if the user is a Prolific user
-  if (authStore.user?.isProlific) {
-    console.log('Prolific user detected, preparing for next market');
-    
-    // Mark this user as having completed onboarding
-    if (authStore.user?.uid) {
-      localStorage.setItem(`prolific_onboarded_${authStore.user.uid}`, 'true');
-      authStore.prolificUserHasCompletedOnboarding = true;
-      
-      // Store a flag indicating this is a continuation to the next market
-      // This will help prevent immediate redirection to the market summary
-      localStorage.setItem('prolific_next_market', 'true');
-      
-      // Store Prolific parameters in localStorage for auto-login
-      if (authStore.user.prolificData) {
-        const prolificData = {
-          PROLIFIC_PID: authStore.user.prolificData.PROLIFIC_PID,
-          STUDY_ID: authStore.user.prolificData.STUDY_ID,
-          SESSION_ID: authStore.user.prolificData.SESSION_ID,
-          timestamp: Date.now()
-        };
-        
-        console.log('Storing Prolific data for auto-login:', prolificData);
-        localStorage.setItem('prolific_auto_login', JSON.stringify(prolificData));
-      }
-    }
-  }
-  
-  // Use the original behavior - redirect to register which will trigger the root page reload
-  console.log('Redirecting to register page (original behavior)');
   router.push({ name: 'Register', replace: true }).then(() => {
     window.location.href = '/register';
   });
@@ -467,26 +426,5 @@ onMounted(() => {
 .metric-card:hover {
   transform: translateY(-3px);
   box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
-}
-
-.questionnaire-section {
-  background-color: rgba(245, 247, 250, 0.9);
-  border-radius: 12px;
-  padding: 20px;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
-}
-
-.question-container {
-  text-align: left;
-  background-color: rgba(255, 255, 255, 0.7);
-  padding: 15px;
-  border-radius: 8px;
-  transition: all 0.3s ease;
-}
-
-.question-container:hover {
-  background-color: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 </style>
