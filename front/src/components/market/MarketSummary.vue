@@ -311,6 +311,35 @@ async function submitQuestionnaire() {
   }
 };
 
+// Close dialog function
+const closeDialog = () => {
+  showDialog.value = false;
+};
+
+// Download market metrics function
+const downloadMarketMetrics = async () => {
+  try {
+    const market_id = traderInfo.value?.trading_market_id || 'unknown';
+    const response = await axios.get(`${httpUrl}market_metrics?trader_id=${props.traderUuid}&market_id=${market_id}`, {
+      responseType: 'blob'
+    });
+    
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `market_${market_id}_trader_${props.traderUuid}_metrics.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error('Error downloading market metrics:', error);
+    dialogTitle.value = 'Error';
+    dialogMessage.value = 'Failed to download market metrics. Please try again.';
+    showDialog.value = true;
+  }
+};
+
 const maxRetries = 3;
 const retryDelay = 1000; // 1 second
 
