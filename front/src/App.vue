@@ -1,21 +1,22 @@
 <template>
-  <v-app>
-    <v-main class="fill-height gradient-background">
-      <router-view></router-view> <!-- This will render the matched component -->
-    </v-main>
-  </v-app>
+  <div id="app" class="min-h-screen bg-neutral-50">
+    <!-- Skip to content link for accessibility -->
+    <a href="#main-content" class="skip-link">
+      Skip to main content
+    </a>
+    
+    <!-- Main application -->
+    <main id="main-content" class="min-h-screen">
+      <RouterView />
+    </main>
+  </div>
 </template>
 
 <script setup>
-const testValue = import.meta.env.VITE_TEST;
+// The app is now purely declarative with minimal setup
+// All logic is handled in individual components and stores
 </script>
 
-<style>
-.gradient-background {
-  background: linear-gradient(135deg, #eceff1 0%, #90a4ae 100%);
-}
-
-.v-application__wrap {
-  min-height: 100vh;
-}
+<style scoped>
+/* Component-specific styles if needed */
 </style>

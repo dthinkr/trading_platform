@@ -1,11 +1,10 @@
 import { createRouter, createWebHistory } from "vue-router";
-import { auth } from '@/firebaseConfig';
-import { useAuthStore } from '@/store/auth'; // Import the auth store
+import { useAuthStore } from "@/stores/auth";
 
 const routes = [
   {
     path: "/",
-    name: "Root",
+    name: "Auth",
     component: () => import("@/components/Auth.vue"),
     props: (route) => ({
       prolificPID: route.query.PROLIFIC_PID,
@@ -16,10 +15,11 @@ const routes = [
   {
     path: "/register",
     name: "Register",
-    component: () => import("@/components/Auth.vue"),
+    component: () => import("@/components/Auth.vue")
   },
   {
     path: "/onboarding/:marketId/:traderUuid",
+    name: "Onboarding",
     component: () => import("@/components/UserLanding.vue"),
     props: true,
     meta: { requiresAuth: true },
@@ -30,98 +30,94 @@ const routes = [
       },
       {
         path: "consent",
-        name: "consent",
-        component: () => import("@/components/pages/0.vue"),
+        name: "Consent",
+        component: () => import("@/components/onboarding/ConsentPage.vue")
       },
       {
         path: "welcome",
-        name: "welcome",
-        component: () => import("@/components/pages/1.vue"),
+        name: "Welcome",
+        component: () => import("@/components/onboarding/WelcomePage.vue")
       },
       {
         path: "platform",
-        name: "platform",
-        component: () => import("@/components/pages/2.vue"),
+        name: "Platform",
+        component: () => import("@/components/onboarding/PlatformPage.vue")
       },
       {
         path: "setup",
-        name: "setup",
-        component: () => import("@/components/pages/3.vue"),
+        name: "Setup",
+        component: () => import("@/components/onboarding/SetupPage.vue")
       },
       {
         path: "earnings",
-        name: "earnings",
-        component: () => import("@/components/pages/4.vue"),
+        name: "Earnings",
+        component: () => import("@/components/onboarding/EarningsPage.vue")
       },
       {
         path: "participants",
-        name: "participants",
-        component: () => import("@/components/pages/6.vue"),
+        name: "Participants",
+        component: () => import("@/components/onboarding/ParticipantsPage.vue")
       },
       {
         path: "questions",
-        name: "questions",
-        component: () => import("@/components/pages/7.vue"),
+        name: "Questions",
+        component: () => import("@/components/onboarding/QuestionsPage.vue")
       },
       {
         path: "practice",
-        name: "practice",
-        component: () => import("@/components/pages/8.vue"),
-      },
+        name: "Practice",
+        component: () => import("@/components/onboarding/PracticePage.vue")
+      }
     ]
   },
   {
-    path: "/MarketCreator",
+    path: "/market-creator",
     name: "MarketCreator",
-    component: () => import("@/components/market/MarketCreator.vue"),
-    props: true,
+    component: () => import("@/components/admin/MarketCreator.vue"),
     meta: { requiresAuth: true, requiresAdmin: true }
   },
   {
     path: "/trading/:traderUuid/:marketId",
-    name: "trading",
+    name: "Trading",
     component: () => import("@/components/TradingDashboard.vue"),
     props: true,
     meta: { requiresAuth: true }
   },
   {
     path: "/summary/:traderUuid",
-    name: "summary",
-    component: () => import("@/components/market/MarketSummary.vue"),
+    name: "Summary",
+    component: () => import("@/components/MarketSummary.vue"),
     props: true,
     meta: { requiresAuth: true }
-  },
+  }
 ];
 
 const router = createRouter({
   history: createWebHistory(),
-  routes: routes
+  routes
 });
 
-// Navigation guard for authentication
+// Navigation guard
 router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore();
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
   const requiresAdmin = to.matched.some(record => record.meta.requiresAdmin);
 
-  // Check for Prolific parameters in the URL
+  // Allow Prolific parameters through
   const hasProlificParams = to.query.PROLIFIC_PID && to.query.STUDY_ID && to.query.SESSION_ID;
-  
-  // If we have Prolific parameters, allow the navigation to proceed
-  // The Auth component will handle the Prolific login
   if (hasProlificParams) {
-    console.log('Router detected Prolific params, allowing navigation to:', to.path);
+    console.log('Router: Prolific params detected, allowing navigation');
     next();
     return;
   }
 
-  // Regular authentication flow
+  // Check authentication
   if (requiresAuth && !authStore.isAuthenticated) {
-    console.log('Router redirecting unauthenticated user to root');
+    console.log('Router: Authentication required, redirecting to auth');
     next('/');
   } else if (requiresAdmin && !authStore.isAdmin) {
-    console.log('Router redirecting non-admin user to root');
-    next('/'); 
+    console.log('Router: Admin access required, redirecting to auth');
+    next('/');
   } else {
     next();
   }

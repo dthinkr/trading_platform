@@ -1,374 +1,288 @@
 <template>
-  <v-container fluid class="auth-wrapper fill-height">
-    <v-row align="center" justify="center" class="fill-height">
-      <v-col cols="12" sm="8" md="6" lg="4">
-        <v-card elevation="24" class="auth-card">
-          <v-card-text class="text-center">
-            <img :src="logo" alt="Trading Logo" class="trading-logo mb-4">
-            <h1 class="text-h4 font-weight-bold mb-2">Trade</h1>
-            
-            <!-- Loading indicator for Prolific authentication -->
-            <div v-if="isProlificUser && isLoading" class="text-center my-6">
-              <v-progress-circular indeterminate color="primary" size="64"></v-progress-circular>
-              <p class="text-subtitle-1 mt-4">Authenticating with Prolific...</p>
+  <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-md w-full space-y-8">
+      <div class="card">
+        <div class="card-body text-center">
+          <!-- Logo and Header -->
+          <div class="mb-8">
+            <div class="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-blue-100">
+              <ChartBarIcon class="h-6 w-6 text-blue-600" aria-hidden="true" />
             </div>
+            <h1 class="mt-4 text-3xl font-bold text-neutral-900">Trading Platform</h1>
+            <p class="mt-2 text-neutral-600">Sign in to access your trading account</p>
+          </div>
+
+          <!-- Loading State for Prolific -->
+          <div v-if="isProlificUser && isLoading" class="py-8">
+            <div class="flex flex-col items-center space-y-4">
+              <div class="spinner h-8 w-8 text-blue-600"></div>
+              <p class="text-neutral-600">Authenticating with Prolific...</p>
+            </div>
+          </div>
+
+          <!-- Prolific Credential Form -->
+          <div v-else-if="isProlificUser && !isLoading && !authStore.isAuthenticated" class="space-y-6">
+            <h2 class="text-xl font-semibold text-neutral-900">Enter Your Credentials</h2>
+            <p class="text-sm text-neutral-600">Please enter your username and password to continue</p>
             
-            <!-- Prolific user credential form -->
-            <div v-if="isProlificUser && !isLoading && !authStore.isAuthenticated" class="text-center my-6">
-              <h2 class="text-h5 font-weight-bold mb-4">Enter Your Credentials</h2>
-              <p class="text-subtitle-2 mb-4">Please enter your username and password to continue</p>
-              
-              <v-form @submit.prevent="handleProlificCredentialLogin" class="mb-4">
-                <v-text-field
+            <form @submit.prevent="handleProlificCredentialLogin" class="space-y-4">
+              <div>
+                <label for="username" class="form-label">Username</label>
+                <input
+                  id="username"
                   v-model="username"
-                  label="Username"
+                  type="text"
                   required
-                  variant="outlined"
-                  class="mb-3"
-                ></v-text-field>
-                
-                <v-text-field
+                  class="form-input"
+                  placeholder="Enter your username"
+                  aria-describedby="username-help"
+                />
+              </div>
+              
+              <div>
+                <label for="password" class="form-label">Password</label>
+                <input
+                  id="password"
                   v-model="password"
-                  label="Password"
                   type="password"
                   required
-                  variant="outlined"
-                  class="mb-4"
-                ></v-text-field>
-                
-                <v-btn 
-                  type="submit" 
-                  block 
-                  color="primary" 
-                  size="x-large"
-                  :loading="credentialLoading"
-                >
-                  Login
-                </v-btn>
-              </v-form>
-            </div>
-            
-            <!-- Regular authentication UI -->
-            <template v-else>
-              <p class="text-subtitle-1 mb-6">Sign in to access a trading market</p>
+                  class="form-input"
+                  placeholder="Enter your password"
+                  aria-describedby="password-help"
+                />
+              </div>
               
-              <!-- Hidden buttons that will be auto-clicked -->
-              <v-btn
-                ref="autoSignInBtn"
-                v-show="false"
-                @click="signInWithGoogle"
-              ></v-btn>
-              
-              <v-btn
-                ref="autoAdminSignInBtn"
-                v-show="false"
-                @click="adminSignInWithGoogle"
-              ></v-btn>
+              <button 
+                type="submit" 
+                :disabled="credentialLoading || !username || !password"
+                class="btn-primary w-full"
+              >
+                <span v-if="credentialLoading" class="flex items-center justify-center">
+                  <div class="spinner h-4 w-4 mr-2"></div>
+                  Signing in...
+                </span>
+                <span v-else>Sign In</span>
+              </button>
+            </form>
+          </div>
 
-              <!-- Visible buttons for manual login -->
-              <template v-if="!authStore.isAuthenticated">
-                <v-btn block color="error" size="x-large" @click="signInWithGoogle" class="mb-4">
-                  <v-icon start icon="mdi-google"></v-icon>
-                  Sign in with Google
-                </v-btn>
-                
-                <v-btn block color="primary" size="x-large" @click="adminSignInWithGoogle" class="mb-4">
-                  <v-icon start icon="mdi-google"></v-icon>
-                  Admin Sign in with Google
-                </v-btn>
-              </template>
-            </template>
-
-            <v-alert
-              v-if="errorMessage"
-              type="error"
-              class="mt-4"
-              closable
-              @click:close="errorMessage = ''"
+          <!-- Regular Authentication -->
+          <div v-else-if="!authStore.isAuthenticated" class="space-y-4">
+            <button 
+              @click="signInWithGoogle"
+              class="w-full flex items-center justify-center px-4 py-3 border border-transparent rounded-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
             >
-              {{ errorMessage }}
-            </v-alert>
-          </v-card-text>
-        </v-card>
-      </v-col>
-    </v-row>
-  </v-container>
+              <svg class="w-5 h-5 mr-2" viewBox="0 0 24 24" aria-hidden="true">
+                <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+              </svg>
+              Sign in with Google
+            </button>
+            
+            <button 
+              @click="adminSignInWithGoogle"
+              class="btn-primary w-full"
+            >
+              <UserIcon class="h-4 w-4 mr-2" aria-hidden="true" />
+              Admin Sign in with Google
+            </button>
+          </div>
+
+          <!-- Error Alert -->
+          <div v-if="errorMessage" class="mt-4">
+            <div class="rounded-md bg-red-50 p-4" role="alert">
+              <div class="flex">
+                <ExclamationTriangleIcon class="h-5 w-5 text-red-400" aria-hidden="true" />
+                <div class="ml-3">
+                  <h3 class="text-sm font-medium text-red-800">Error</h3>
+                  <div class="mt-2 text-sm text-red-700">
+                    {{ errorMessage }}
+                  </div>
+                  <div class="mt-4">
+                    <button 
+                      @click="errorMessage = ''"
+                      class="btn-secondary text-xs"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
-import { ref, onMounted, defineProps } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
-import { getAuth, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
-import { useAuthStore } from '@/store/auth';
-import logo from '@/assets/trading_platform_logo.svg';
+import { ref, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { getAuth, GoogleAuthProvider, signInWithPopup } from 'firebase/auth'
+import { useAuthStore } from '@/stores/auth'
+import { 
+  ChartBarIcon, 
+  UserIcon, 
+  ExclamationTriangleIcon 
+} from '@heroicons/vue/24/outline'
 
-// Define props that can be passed from the router
+// Props
 const props = defineProps({
   prolificPID: String,
   studyID: String,
   sessionID: String
-});
+})
 
-const router = useRouter();
-const route = useRoute();
-const auth = getAuth();
-const authStore = useAuthStore();
+// Composables
+const router = useRouter()
+const route = useRoute()
+const auth = getAuth()
+const authStore = useAuthStore()
 
-const errorMessage = ref('');
-const autoSignInBtn = ref(null);
-const autoAdminSignInBtn = ref(null);
-const isProlificUser = ref(false);
-const isLoading = ref(false);
-const username = ref('');
-const password = ref('');
-const credentialLoading = ref(false);
-const prolificParams = ref(null);
+// State
+const errorMessage = ref('')
+const isProlificUser = ref(false)
+const isLoading = ref(false)
+const username = ref('')
+const password = ref('')
+const credentialLoading = ref(false)
+const prolificParams = ref(null)
 
-onMounted(async () => {
-  console.log('Auth component mounted at path:', route.path);
-  
-  // Check for Prolific parameters from props, URL, or localStorage
-  let prolificPID = props.prolificPID || route.query.PROLIFIC_PID;
-  let studyID = props.studyID || route.query.STUDY_ID;
-  let sessionID = props.sessionID || route.query.SESSION_ID;
-  
-  console.log('Initial Prolific parameters:', { prolificPID, studyID, sessionID });
-  
-  // Check if we have stored Prolific parameters for auto-login
-  const storedProlificData = localStorage.getItem('prolific_auto_login');
-  console.log('Stored Prolific data exists:', !!storedProlificData);
-  
-  if (!prolificPID && !studyID && !sessionID && storedProlificData) {
-    try {
-      const parsedData = JSON.parse(storedProlificData);
-      console.log('Parsed stored Prolific data:', parsedData);
-      
-      const timestamp = parsedData.timestamp || 0;
-      const currentTime = Date.now();
-      const ageInMinutes = Math.floor((currentTime - timestamp) / (60 * 1000));
-      
-      console.log(`Stored data age: ${ageInMinutes} minutes`);
-      
-      // Only use stored data if it's less than 1 hour old
-      if (currentTime - timestamp < 60 * 60 * 1000) {
-        console.log('Using stored Prolific parameters for auto-login');
-        prolificPID = parsedData.PROLIFIC_PID;
-        studyID = parsedData.STUDY_ID;
-        sessionID = parsedData.SESSION_ID;
-        
-        // Don't remove the data immediately, only after successful login
-        console.log('Will use these parameters for login:', { prolificPID, studyID, sessionID });
+// Methods
+async function signInWithGoogle() {
+  try {
+    const provider = new GoogleAuthProvider()
+    const result = await signInWithPopup(auth, provider)
+    
+    await authStore.login(result.user)
+    
+    if (authStore.isAuthenticated) {
+      if (authStore.traderId && authStore.marketId) {
+        router.push({
+          name: 'onboarding',
+          params: {
+            traderUuid: authStore.traderId,
+            marketId: authStore.marketId
+          }
+        })
       } else {
-        // Data is too old, clear it
-        console.log(`Stored Prolific parameters are too old (${ageInMinutes} minutes), clearing them`);
-        localStorage.removeItem('prolific_auto_login');
+        router.push({ name: 'register' })
       }
-    } catch (error) {
-      console.error('Error parsing stored Prolific data:', error);
-      localStorage.removeItem('prolific_auto_login');
+    }
+  } catch (error) {
+    console.error('Google sign-in error:', error)
+    errorMessage.value = error.message || 'Failed to sign in with Google'
+  }
+}
+
+async function adminSignInWithGoogle() {
+  try {
+    const provider = new GoogleAuthProvider()
+    const result = await signInWithPopup(auth, provider)
+    
+    await authStore.adminLogin(result.user)
+    
+    if (authStore.isAuthenticated && authStore.isAdmin) {
+      router.push({ name: 'MarketCreator' })
+    } else {
+      errorMessage.value = 'Admin access denied'
+    }
+  } catch (error) {
+    console.error('Admin Google sign-in error:', error)
+    errorMessage.value = error.message || 'Failed to sign in as admin'
+  }
+}
+
+async function handleProlificCredentialLogin() {
+  if (!prolificParams.value) {
+    errorMessage.value = 'Prolific parameters missing'
+    return
+  }
+  
+  try {
+    credentialLoading.value = true
+    
+    await authStore.prolificLogin(prolificParams.value, {
+      username: username.value,
+      password: password.value
+    })
+    
+    if (authStore.isAuthenticated) {
+      // Store credentials for future use
+      localStorage.setItem('prolific_last_username', username.value)
+      localStorage.setItem('prolific_last_password', password.value)
+      
+      // Navigate to onboarding
+      router.push({
+        name: 'onboarding',
+        params: {
+          traderUuid: authStore.traderId,
+          marketId: authStore.marketId
+        }
+      })
+    }
+  } catch (error) {
+    console.error('Prolific credential login error:', error)
+    errorMessage.value = error.message || 'Invalid credentials'
+  } finally {
+    credentialLoading.value = false
+  }
+}
+
+// Lifecycle
+onMounted(async () => {
+  console.log('Auth component mounted at path:', route.path)
+  
+  // Check for Prolific parameters
+  let prolificPID = props.prolificPID || route.query.PROLIFIC_PID
+  let studyID = props.studyID || route.query.STUDY_ID
+  let sessionID = props.sessionID || route.query.SESSION_ID
+  
+  // Check localStorage for stored Prolific data
+  if (!prolificPID && !studyID && !sessionID) {
+    const storedProlificData = localStorage.getItem('prolific_auto_login')
+    if (storedProlificData) {
+      try {
+        const parsedData = JSON.parse(storedProlificData)
+        const currentTime = Date.now()
+        
+        // Only use if less than 1 hour old
+        if (currentTime - parsedData.timestamp < 60 * 60 * 1000) {
+          prolificPID = parsedData.PROLIFIC_PID
+          studyID = parsedData.STUDY_ID
+          sessionID = parsedData.SESSION_ID
+        } else {
+          localStorage.removeItem('prolific_auto_login')
+        }
+      } catch (error) {
+        console.error('Error parsing stored Prolific data:', error)
+        localStorage.removeItem('prolific_auto_login')
+      }
     }
   }
   
-  console.log('Auth component mounted, checking for Prolific params:', { 
-    prolificPID, 
-    studyID, 
-    sessionID,
-    'from props': !!props.prolificPID,
-    'from query': !!route.query.PROLIFIC_PID
-  });
-  
   if (prolificPID && studyID && sessionID) {
-    // We have Prolific parameters, store them and show credential form
-    isProlificUser.value = true;
-    isLoading.value = false; // Don't show loading, show credential form instead
+    isProlificUser.value = true
+    isLoading.value = false
     
-    // Store Prolific parameters for later use
     prolificParams.value = {
       PROLIFIC_PID: prolificPID,
       STUDY_ID: studyID,
       SESSION_ID: sessionID
-    };
+    }
     
-    // Check if we have stored credentials from previous login
-    const lastUsername = localStorage.getItem('prolific_last_username');
-    const lastPassword = localStorage.getItem('prolific_last_password');
-    
-    // Auto-fill the form with stored credentials if available
+    // Auto-fill stored credentials
+    const lastUsername = localStorage.getItem('prolific_last_username')
     if (lastUsername) {
-      console.log('Auto-filling username from previous login');
-      username.value = lastUsername;
-    }
-    
-    if (lastPassword) {
-      console.log('Auto-filling password from previous login');
-      password.value = lastPassword;
-    }
-    
-    console.log('Detected Prolific parameters, showing credential form', prolificParams.value);
-  } else {
-    // Regular authentication flow
-    console.log('No Prolific parameters, using regular authentication');
-    await authStore.initializeAuth();
-    
-    // If user is already authenticated and has trader/market IDs, auto-navigate
-    if (authStore.isAuthenticated && authStore.traderId && authStore.marketId) {
-      router.push({ 
-        name: 'practice',
-        params: { 
-          traderUuid: authStore.traderId,
-          marketId: authStore.marketId
-        } 
-      });
+      username.value = lastUsername
     }
   }
-});
-
-const signInWithGoogle = async () => {
-  try {
-    const provider = new GoogleAuthProvider();
-    const result = await signInWithPopup(auth, provider);
-    const user = result.user;
-    
-    await authStore.login(user);
-    
-    if (authStore.traderId && authStore.marketId) {
-      // Check if this is a persisted login
-      if (authStore.isPersisted) {
-        router.push({ 
-          name: 'practice',  // Go directly to practice page
-          params: { 
-            traderUuid: authStore.traderId,
-            marketId: authStore.marketId
-          } 
-        });
-      } else {
-        router.push({ 
-          name: 'consent',  // New users start from consent page
-          params: { 
-            traderUuid: authStore.traderId,
-            marketId: authStore.marketId
-          } 
-        });
-      }
-    }
-  } catch (error) {
-    console.error("Google sign-in error:", error);
-    errorMessage.value = error.message || "An error occurred during sign-in";
-  }
-};
-
-const adminSignInWithGoogle = async () => {
-  try {
-    const provider = new GoogleAuthProvider();
-    const result = await signInWithPopup(auth, provider);
-    const user = result.user;
-    
-    await authStore.adminLogin(user);
-    
-    if (authStore.isAdmin) {
-      router.push('/MarketCreator');
-    } else {
-      errorMessage.value = "You do not have admin privileges.";
-    }
-  } catch (error) {
-    console.error("Admin Google sign-in error:", error);
-    errorMessage.value = error.message || "An error occurred during admin sign-in";
-  }
-};
-
-// Handle Prolific credential login
-const handleProlificCredentialLogin = async () => {
-  if (!username.value || !password.value) {
-    errorMessage.value = "Please enter both username and password";
-    return;
-  }
-  
-  credentialLoading.value = true;
-  isLoading.value = true;
-  
-  try {
-    console.log('Proceeding with Prolific login with credentials...');
-    
-    // Pass credentials to the prolificLogin method
-    await authStore.prolificLogin(prolificParams.value, {
-      username: username.value,
-      password: password.value
-    });
-    
-    console.log('Prolific login successful:', { 
-      traderId: authStore.traderId, 
-      marketId: authStore.marketId,
-      hasCompletedOnboarding: authStore.prolificUserHasCompletedOnboarding
-    });
-    
-    // Now that login is successful, remove the stored Prolific data
-    localStorage.removeItem('prolific_auto_login');
-    
-    // Store the username for future auto-fill
-    localStorage.setItem('prolific_last_username', username.value);
-    // Store the password for future auto-fill (only for Prolific users)
-    localStorage.setItem('prolific_last_password', password.value);
-    
-    // Check if this is a continuation from the market summary
-    const isNextMarket = localStorage.getItem('prolific_next_market') === 'true';
-    if (isNextMarket) {
-      console.log('Detected next market flag, clearing it');
-      localStorage.removeItem('prolific_next_market');
-    }
-    
-    if (authStore.traderId && authStore.marketId) {
-      let targetPage;
-      
-      // Determine where to redirect based on different conditions
-      if (isNextMarket) {
-        // If coming from market summary, always go to practice page
-        targetPage = 'practice';
-        console.log('Coming from market summary, redirecting to practice page');
-      } else if (authStore.prolificUserHasCompletedOnboarding) {
-        // If returning Prolific user, go to practice page
-        targetPage = 'practice';
-        console.log('Returning Prolific user, redirecting to practice page');
-      } else {
-        // First-time Prolific user, go to consent page
-        targetPage = 'consent';
-        console.log('First-time Prolific user, redirecting to consent page');
-      }
-      
-      const redirectPath = `/onboarding/${authStore.marketId}/${authStore.traderId}/${targetPage}`;
-      console.log(`Redirecting to ${targetPage} page:`, redirectPath);
-      
-      // Use replace instead of push to avoid navigation issues
-      router.replace(redirectPath);
-    } else {
-      console.error('Missing trader or market ID after Prolific login');
-      errorMessage.value = "Login successful but missing trader or market assignment";
-    }
-  } catch (error) {
-    console.error("Prolific login error:", error);
-    errorMessage.value = error.message || "An error occurred during Prolific sign-in";
-  } finally {
-    credentialLoading.value = false;
-    isLoading.value = false;
-  }
-};
+})
 </script>
 
 <style scoped>
-
-.auth-card {
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(10px);
-  max-width: 400px;
-  width: 100%;
-}
-.trading-logo {
-  width: 80%;
-  height: 80%;
-  vertical-align: middle;
-  margin-left: 8px;
-}
-
-.admin-login-form {
-  width: 100%;
-}
+/* Any component-specific styles */
 </style>
