@@ -2,6 +2,7 @@
 import { computed } from "vue";
 import { useTraderStore } from "@/store/app";
 import { storeToRefs } from "pinia";
+import { ClockIcon, DocumentIcon } from '@heroicons/vue/24/outline'
 
 const traderStore = useTraderStore();
 const { executedOrders, recentTransactions, traderUuid } = storeToRefs(traderStore);
@@ -119,63 +120,34 @@ const formatTime = (timestamp) => {
 </script>
 
 <template>
-  <v-card height="100%" elevation="3" class="order-history-card">
-    <div class="trading-summary pa-2">
-      <div class="vwap-display">
-        <div class="label">VWAP</div>
-        <span class="vwap-item buy">{{ tradingSummary.buyVWAP }}</span>
-        <span class="vwap-divider">|</span>
-        <span class="vwap-item sell">{{ tradingSummary.sellVWAP }}</span>
-      </div>
-      <!-- <div class="count-display">
-        <div class="label">Count</div>
-        <span class="count-item buy">{{ tradingSummary.buyCount }}</span>
-        <span class="count-divider">|</span>
-        <span class="count-item sell">{{ tradingSummary.sellCount }}</span>
-      </div> -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="text-lg font-semibold text-neutral-900 flex items-center">
+        <ClockIcon class="h-5 w-5 mr-2 text-blue-600" aria-hidden="true" />
+        Order History
+      </h3>
     </div>
-
-    <v-divider></v-divider>
-
-    <div class="order-history-container px-4">
-      <div v-if="groupedOrders.bids.length || groupedOrders.asks.length" class="order-columns">
-        <div class="order-column">
-          <TransitionGroup name="order-change">
-            <div v-for="order in groupedOrders.bids" :key="order.price" 
-                 class="order-item bid elevation-1">
-              <div class="price-amount">
-                <span class="price">{{ Math.round(order.price) }}</span>
-                <span class="amount">{{ order.amount }} shares</span>
-              </div>
-              <div class="time">
-                <v-icon size="12" class="mr-1">mdi-clock-outline</v-icon>
-                {{ formatTime(order.latestTime) }}
-              </div>
-            </div>
-          </TransitionGroup>
-        </div>
-        <div class="order-column">
-          <TransitionGroup name="order-change">
-            <div v-for="order in groupedOrders.asks" :key="order.price" 
-                 class="order-item ask elevation-1">
-              <div class="price-amount">
-                <span class="price">{{ Math.round(order.price) }}</span>
-                <span class="amount">{{ order.amount }} shares</span>
-              </div>
-              <div class="time">
-                <v-icon size="12" class="mr-1">mdi-clock-outline</v-icon>
-                {{ formatTime(order.latestTime) }}
-              </div>
-            </div>
-          </TransitionGroup>
+    <div class="card-body">
+      <div v-if="orders.length === 0" class="text-center py-8 text-neutral-500">
+        <DocumentIcon class="h-12 w-12 mx-auto mb-2 text-neutral-300" aria-hidden="true" />
+        <p>No order history yet</p>
+      </div>
+      <div v-else class="space-y-2">
+        <div v-for="order in orders" :key="order.id" 
+             class="p-3 rounded-lg border border-neutral-200 text-sm">
+          <div class="flex justify-between items-center">
+            <span :class="order.type === 'BUY' ? 'text-green-600' : 'text-red-600'" class="font-medium">
+              {{ order.type }}
+            </span>
+            <span class="font-mono">{{ formatPrice(order.price) }}</span>
+          </div>
+          <div class="text-xs text-neutral-500 mt-1">
+            {{ formatTime(order.timestamp) }}
+          </div>
         </div>
       </div>
-      <div v-else class="no-orders-message">
-        <v-icon color="grey" size="40" class="mb-2">mdi-clipboard-text-outline</v-icon>
-        <div>No executed trades yet</div>
-      </div>
     </div>
-  </v-card>
+  </div>
 </template>
 
 <style scoped>

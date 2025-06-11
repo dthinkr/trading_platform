@@ -1,52 +1,41 @@
 <template>
-  <v-card height="100%" elevation="3" class="market-info-card">
-    <v-card-text class="market-info-content" ref="messageContainer">
-      <v-list>
-        <v-list-item v-for="(item, index) in extraParams" :key="item.var_name" class="market-info-item">
-          <v-list-item-title class="info-title">
-            {{ item.display_name }}
-            <v-tooltip location="bottom" :text="item.explanation" max-width="300">
-              <template v-slot:activator="{ props }">
-                <v-icon x-small v-bind="props" color="grey lighten-1">mdi-information-outline</v-icon>
-              </template>
-            </v-tooltip>
-          </v-list-item-title>
-          <v-list-item-subtitle class="info-value" :class="getValueColor(item.value)">
-            {{ formatValue(item.value) }}
-          </v-list-item-subtitle>
-        </v-list-item>
-      </v-list>
-    </v-card-text>
-  </v-card>
+  <div class="card">
+    <div class="card-header">
+      <h3 class="text-lg font-semibold text-neutral-900 flex items-center">
+        <InformationCircleIcon class="h-5 w-5 mr-2 text-blue-600" aria-hidden="true" />
+        Market Info
+      </h3>
+    </div>
+    <div class="card-body">
+      <div v-if="messages.length === 0" class="text-center py-8 text-neutral-500">
+        <ChatBubbleLeftIcon class="h-12 w-12 mx-auto mb-2 text-neutral-300" aria-hidden="true" />
+        <p>No market messages yet</p>
+      </div>
+      <div v-else class="space-y-2">
+        <div v-for="message in messages" :key="message.id" 
+             class="p-3 rounded-lg bg-blue-50 border border-blue-200 text-sm">
+          <p class="text-blue-800">{{ message.text }}</p>
+          <div class="text-xs text-blue-600 mt-1">
+            {{ formatTime(message.timestamp) }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from "vue";
-import { storeToRefs } from "pinia";
-import { useTraderStore } from "@/store/app";
+import { computed } from 'vue'
+import { InformationCircleIcon, ChatBubbleLeftIcon } from '@heroicons/vue/24/outline'
+import { useTradingStore } from '@/stores/trading'
 
-const { extraParams } = storeToRefs(useTraderStore());
+const tradingStore = useTradingStore()
 
-const formatValue = (value) => {
-  if (typeof value === 'number') {
-    return value.toLocaleString('en-US', { 
-      minimumFractionDigits: 2, 
-      maximumFractionDigits: 2 
-    });
-  }
-  return value;
-};
+const messages = computed(() => tradingStore.messages)
 
-const getValueColor = (value) => {
-  if (typeof value === 'number') {
-    return value > 0 ? 'green--text' : value < 0 ? 'red--text' : '';
-  }
-  return '';
-};
-
-onMounted(() => {
-  // Any necessary setup
-});
+function formatTime(timestamp) {
+  return new Date(timestamp).toLocaleTimeString()
+}
 </script>
 
 <style scoped>
