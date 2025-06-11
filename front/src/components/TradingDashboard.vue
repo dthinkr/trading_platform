@@ -1,583 +1,353 @@
 <template>
-  <div class="trading-dashboard" v-show="isInitialized">
-    <v-app>
-      <!-- Add error alert at the top -->
-      <v-alert
-        v-if="showErrorAlert"
-        type="error"
-        closable
-        class="ma-4"
-        style="position: fixed; top: 0; left: 50%; transform: translateX(-50%); z-index: 1000;"
-      >
-        Connection error. Please refresh the page.
-        <v-btn
-          color="white"
-          variant="text"
-          class="ml-4"
-          @click="refreshPage"
-        >
-          Refresh Now
-        </v-btn>
-      </v-alert>
+  <div v-if="isInitialized" class="min-h-screen bg-neutral-50">
+    <!-- Skip link for accessibility -->
+    <a href="#trading-content" class="skip-link">Skip to trading content</a>
+    
+    <!-- Error Alert -->
+    <div v-if="showErrorAlert" class="fixed top-4 left-1/2 transform -translate-x-1/2 z-50">
+      <div class="rounded-md bg-red-50 p-4 shadow-lg" role="alert">
+        <div class="flex">
+          <ExclamationTriangleIcon class="h-5 w-5 text-red-400" aria-hidden="true" />
+          <div class="ml-3">
+            <p class="text-sm font-medium text-red-800">Connection error. Please refresh the page.</p>
+            <button @click="refreshPage" class="mt-2 btn-secondary text-xs">
+              Refresh Now
+            </button>
+          </div>
+          <button @click="showErrorAlert = false" class="ml-auto">
+            <XMarkIcon class="h-4 w-4 text-red-400" aria-hidden="true" />
+          </button>
+        </div>
+      </div>
+    </div>
 
-      <v-app-bar app elevation="2" color="white">
-        <v-container fluid class="py-0 fill-height">
-          <v-row align="center" no-gutters>
-            <v-col cols="auto">
-              <h1 class="text-h5 font-weight-bold primary--text">
-                <v-icon left color="light-blue" large>mdi-chart-line</v-icon>
-                Trading Dashboard
-              </h1>
-            </v-col>
-            <v-spacer></v-spacer>
-            <v-col cols="auto" class="d-flex align-center">
-              <!-- Add role chip before other chips -->
-              <v-chip class="mr-2" :color="roleColor" text-color="white">
-                <v-icon left small>{{ roleIcon }}</v-icon>
-                {{ roleDisplay.text }}
-              </v-chip>
-              <v-chip v-for="(item, index) in [
-                // { label: 'VWAP', value: formatNumber(vwap), icon: 'mdi-chart-line' },
-                { label: 'PnL', value: pnl, icon: 'mdi-cash-plus' },
-                { label: 'Shares', value: `${initial_shares} ${formatDelta}`, icon: 'mdi-package-variant' },
-                { label: 'Cash', value: cash, icon: 'mdi-cash-multiple' },
-                { label: 'Traders', value: `${currentHumanTraders} / ${expectedHumanTraders}`, icon: 'mdi-account-multiple' }
-              ]" :key="index" class="mr-2" color="grey lighten-4">
-                <v-icon left small color="deep-blue">{{ item.icon }}</v-icon>
-                <span class="black--text">{{ item.label }}: {{ item.value }}</span>
-              </v-chip>
-              <v-chip 
-                v-if="hasGoal" 
-                :color="getGoalMessageClass" 
-                text-color="white" 
-                class="mr-2 goal-chip"
-              >
-                <div class="d-flex align-center">
-                  <v-icon left small>{{ getGoalMessageIcon }}</v-icon>
-                  <span class="goal-type-text mr-2">{{ goalTypeText }}</span>
+    <!-- Header -->
+    <header class="bg-white shadow-sm border-b border-neutral-200">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between h-16">
+          <!-- Logo and Title -->
+          <div class="flex items-center space-x-4">
+            <div class="flex items-center space-x-2">
+              <ChartBarIcon class="h-8 w-8 text-blue-600" aria-hidden="true" />
+              <h1 class="text-xl font-bold text-neutral-900">Trading Dashboard</h1>
+            </div>
+          </div>
+
+          <!-- Status Indicators -->
+          <div class="flex items-center space-x-3">
+            <!-- Role Badge -->
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium" 
+                  :class="roleColorClass">
+              <component :is="roleIcon" class="w-3 h-3 mr-1" aria-hidden="true" />
+              {{ roleDisplay.text }}
+            </span>
+
+            <!-- Stats -->
+            <div class="hidden sm:flex items-center space-x-4 text-sm">
+              <div class="flex items-center space-x-1">
+                <CurrencyDollarIcon class="h-4 w-4 text-neutral-500" aria-hidden="true" />
+                <span class="font-medium">PnL:</span>
+                <span class="font-mono" :class="pnl >= 0 ? 'text-green-600' : 'text-red-600'">
+                  {{ formatCurrency(pnl) }}
+                </span>
+              </div>
+              <div class="flex items-center space-x-1">
+                <CubeIcon class="h-4 w-4 text-neutral-500" aria-hidden="true" />
+                <span class="font-medium">Shares:</span>
+                <span class="font-mono">{{ initialShares }}{{ formatDelta }}</span>
+              </div>
+              <div class="flex items-center space-x-1">
+                <BanknotesIcon class="h-4 w-4 text-neutral-500" aria-hidden="true" />
+                <span class="font-medium">Cash:</span>
+                <span class="font-mono">{{ formatCurrency(cash) }}</span>
+              </div>
+              <div class="flex items-center space-x-1">
+                <UsersIcon class="h-4 w-4 text-neutral-500" aria-hidden="true" />
+                <span class="font-medium">Traders:</span>
+                <span class="font-mono">{{ currentHumanTraders }}/{{ expectedHumanTraders }}</span>
+              </div>
+            </div>
+
+            <!-- Goal Progress -->
+            <div v-if="hasGoal" class="flex items-center space-x-2">
+              <div class="flex flex-col items-end">
+                <span class="text-xs text-neutral-600">{{ goalTypeText }} Goal</span>
+                <div class="flex items-center space-x-1">
+                  <div class="w-16 bg-neutral-200 rounded-full h-2">
+                    <div class="h-2 rounded-full transition-all duration-300" 
+                         :class="progressBarColor" 
+                         :style="{ width: goalProgressPercentage + '%' }"></div>
+                  </div>
+                  <span class="text-xs font-mono">{{ Math.abs(goalProgress) }}/{{ Math.abs(goal) }}</span>
                 </div>
-                <v-progress-linear
-                  :value="goalProgressPercentage"
-                  :color="progressBarColor"
-                  height="6"
-                  rounded
-                  striped
-                  class="ml-2"
-                ></v-progress-linear>
-                <span class="progress-text ml-2">{{ Math.abs(goalProgress) }}/{{ Math.abs(goal) }}</span>
-              </v-chip>
-              <v-chip color="deep-blue" text-color="white">
-                <v-icon left small>mdi-clock-outline</v-icon>
-                <vue-countdown v-if="remainingTime" :time="remainingTime * 1000" v-slot="{ minutes, seconds }">
-                  {{ minutes }}:{{ seconds.toString().padStart(2, '0') }}
-                </vue-countdown>
-                <span v-else>Waiting to start</span>
-              </v-chip>
-            </v-col>
-          </v-row>
-        </v-container>
-      </v-app-bar>
+              </div>
+            </div>
 
-      <v-main class="grey lighten-4">
-        <v-container fluid class="pa-4">
-          <!-- Modified waiting screen -->
-          <v-row v-if="!isTradingStarted" justify="center" align="center" style="height: 80vh;">
-            <v-col cols="12" md="6" class="text-center">
-              <v-card elevation="2" class="pa-6">
-                <v-card-title class="text-h4 mb-4">Waiting for Traders</v-card-title>
-                <v-card-text>
-                  <p class="text-h6 mb-4">
-                    {{ currentHumanTraders }} out of {{ expectedHumanTraders }} traders have joined
-                  </p>
-                  <p class="subtitle-1 mb-4">
-                    Your Role: 
-                    <v-chip :color="roleColor" text-color="white" small>
-                      <v-icon left small>{{ roleIcon }}</v-icon>
-                      {{ roleDisplay.text }}
-                    </v-chip>
-                  </p>
-                  <v-progress-circular
-                    :size="70"
-                    :width="7"
-                    color="primary"
-                    indeterminate
-                  ></v-progress-circular>
-                  <p class="text--secondary mt-4">
-                    <v-icon small color="grey">mdi-refresh</v-icon>
-                    If waiting too long, you can refresh the page to try again
-                  </p>
-                </v-card-text>
-              </v-card>
-            </v-col>
-          </v-row>
-          <v-row v-else>            <v-col v-for="(columnTools, colIndex) in columns" :key="colIndex" :cols="12" :md="colIndex === 0 ? 2 : 5" class="d-flex flex-column">
-              <v-card v-for="(tool, toolIndex) in columnTools" :key="toolIndex" 
-                      class="mb-4 tool-card" 
-                      :class="{'price-history-card': tool.title === 'Price History'}"
-                      elevation="2">
-                <v-card-title class="headline">
-                  <v-icon left color="deep-blue">{{ getToolIcon(tool.title) }}</v-icon>
-                  {{ tool.title }}
-                </v-card-title>
-                <v-card-text class="pa-0">
-                  <component :is="tool.component" :isGoalAchieved="isGoalAchieved" :goalType="goalType" />
-                </v-card-text>
-              </v-card>
-            </v-col>
-          </v-row>
-        </v-container>
-      </v-main>
-    </v-app>
+            <!-- Timer -->
+            <div class="flex items-center space-x-1 px-3 py-1 bg-blue-50 rounded-lg">
+              <ClockIcon class="h-4 w-4 text-blue-600" aria-hidden="true" />
+              <span class="font-mono text-sm text-blue-800">
+                <CountdownTimer v-if="remainingTime" :time="remainingTime" />
+                <span v-else>Waiting to start</span>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main id="trading-content" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <!-- Waiting Screen -->
+      <div v-if="!isTradingStarted" class="flex items-center justify-center min-h-[60vh]">
+        <div class="card max-w-md w-full">
+          <div class="card-body text-center">
+            <div class="mb-6">
+              <div class="mx-auto h-16 w-16 flex items-center justify-center rounded-full bg-blue-100 mb-4">
+                <UsersIcon class="h-8 w-8 text-blue-600" aria-hidden="true" />
+              </div>
+              <h2 class="text-2xl font-bold text-neutral-900 mb-2">Waiting for Traders</h2>
+              <p class="text-neutral-600 mb-4">
+                {{ currentHumanTraders }} out of {{ expectedHumanTraders }} traders have joined
+              </p>
+              <div class="flex items-center justify-center space-x-2 text-sm text-neutral-600 mb-4">
+                <span>Your Role:</span>
+                <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium" 
+                      :class="roleColorClass">
+                  <component :is="roleIcon" class="w-3 h-3 mr-1" aria-hidden="true" />
+                  {{ roleDisplay.text }}
+                </span>
+              </div>
+              <div class="spinner h-8 w-8 text-blue-600 mx-auto mb-4"></div>
+              <p class="text-xs text-neutral-500">
+                If waiting too long, you can refresh the page to try again
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Trading Interface -->
+      <div v-else class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Left Sidebar -->
+        <div class="lg:col-span-3 space-y-6">
+          <OrderHistory />
+          <MarketMessages />
+        </div>
+
+        <!-- Main Trading Area -->
+        <div class="lg:col-span-6 space-y-6">
+          <OrderBookChart />
+          <ActiveOrders />
+        </div>
+
+        <!-- Right Sidebar -->
+        <div class="lg:col-span-3 space-y-6">
+          <PriceHistory />
+          <TradingPanel :is-goal-achieved="isGoalAchieved" :goal-type="goalType" />
+        </div>
+      </div>
+    </main>
   </div>
 </template>
 
-<script setup>  
-import BidAskDistribution from "@charts/BidAskDistribution.vue";
-import PriceHistory from "@charts/PriceHistory.vue";
-import PlaceOrder from "@trading/PlaceOrder.vue";
-import OrderHistory from "@trading/OrderHistory.vue";
-import ActiveOrders from "@trading/ActiveOrders.vue";
-import MarketMessages from "@trading/MarketMessages.vue";
+<script setup>
+import { computed, watch, ref, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { 
+  ChartBarIcon,
+  CurrencyDollarIcon,
+  CubeIcon,
+  BanknotesIcon,
+  UsersIcon,
+  ClockIcon,
+  ExclamationTriangleIcon,
+  XMarkIcon,
+  TrendingUpIcon,
+  TrendingDownIcon,
+  EyeIcon
+} from '@heroicons/vue/24/outline'
 
-import { computed, watch } from "vue";
-import { useRouter } from "vue-router";
-import { useFormatNumber } from "@/composables/utils";
-import { storeToRefs } from "pinia";
-import { useTraderStore } from "@/store/app";
+// Components
+import OrderHistory from './trading/OrderHistory.vue'
+import MarketMessages from './trading/MarketMessages.vue'
+import OrderBookChart from './trading/OrderBookChart.vue'
+import ActiveOrders from './trading/ActiveOrders.vue'
+import PriceHistory from './trading/PriceHistory.vue'
+import TradingPanel from './trading/TradingPanel.vue'
+import CountdownTimer from './ui/CountdownTimer.vue'
 
-import { onMounted, onUnmounted, ref, onBeforeUnmount } from 'vue';
-import { debounce } from 'lodash';
-import axios from '@/api/axios';
+// Stores
+import { useTradingStore } from '@/stores/trading'
+import { useAuthStore } from '@/stores/auth'
 
-const { formatNumber } = useFormatNumber();
-const router = useRouter();
-const store = useTraderStore();
-const { 
-  goalMessage, 
-  initial_shares, 
-  pnl, 
-  vwap, 
-  remainingTime, 
-  isTradingStarted,
-  currentHumanTraders,
-  expectedHumanTraders,
-  traderUuid,
-  cash,
-  sum_dinv,
-  activeOrders
-} = storeToRefs(store);
+// Router
+const router = useRouter()
 
-const columns = [
-  [
-    { title: "Trades History", component: OrderHistory },
-    { title: "Market Info", component: MarketMessages },
-  ],
-  [
-    { title: "Buy-Sell Chart", component: BidAskDistribution },
-    { title: "Passive Orders", component: ActiveOrders },
-  ],
-  [
-    { title: "Price History", component: PriceHistory },
-    { title: "Trading Panel", component: PlaceOrder },
-  ],
-];
+// Stores
+const tradingStore = useTradingStore()
+const authStore = useAuthStore()
 
-const formatDelta = computed(() => {
-  if (sum_dinv.value == undefined) return "";
-  const halfChange = Math.round(sum_dinv.value);
-  return halfChange >= 0 ? "+" + halfChange : halfChange.toString();
-});
+// State
+const showErrorAlert = ref(false)
 
-const finalizingDay = () => {
-  if (traderUuid.value) {
-    router.push({ name: "summary", params: { traderUuid: traderUuid.value } });
-  } else {
-    console.error('No trader UUID found');
-    router.push({ name: "Register" });
-  }
-};
+// Props (from router params)
+const props = defineProps({
+  traderUuid: String,
+  marketId: String
+})
 
-watch(remainingTime, (newValue) => {
-  if (newValue !== null && newValue <= 0 && isTradingStarted.value) {
-    finalizingDay();
-  }
-});
+// Computed properties
+const isInitialized = computed(() => 
+  tradingStore.traderAttributes && authStore.traderId
+)
 
-// Remove the calculateZoom function and replace with a fixed value
-const zoomLevel = ref(0.95);  // Fixed 90% zoom
-
-onMounted(async () => {
-  // Apply zoom only once, using CSS transform instead of zoom
-  document.body.style.transform = 'scale(0.95)';
-  document.body.style.transformOrigin = 'top left';
-  // Remove the zoom property as it can cause flickering in some browsers
-  // document.body.style.zoom = zoomLevel.value;
-  
-  // Set default user role
-  userRole.value = 'trader';
-
-  // Start market timeout countdown if not started
-  if (!isTradingStarted.value) {
-    marketTimeoutInterval.value = setInterval(() => {
-      if (marketTimeRemaining.value > 0) {
-        marketTimeRemaining.value--;
-      }
-    }, 1000);
-  }
-});
-
-onUnmounted(() => {
-  // Remove other cleanup code if needed
-});
-
-// First, define the basic computed properties
-const goal = computed(() => store.traderAttributes?.goal || 0);
-const goalProgress = computed(() => store.traderAttributes?.goal_progress || 0);
-const hasGoal = computed(() => goal.value !== 0);
-
-// Then define the dependent computed properties
-const isGoalAchieved = computed(() => {
-  if (!hasGoal.value) return false;
-  return Math.abs(goalProgress.value) >= Math.abs(goal.value);
-});
+const hasGoal = computed(() => tradingStore.hasGoal)
+const goal = computed(() => tradingStore.goal)
+const goalProgress = computed(() => tradingStore.goalProgress)
+const isGoalAchieved = computed(() => tradingStore.isGoalAchieved)
 
 const goalType = computed(() => {
-  if (!hasGoal.value) return 'free';
-  return goal.value > 0 ? 'buy' : 'sell';
-});
+  if (!hasGoal.value) return 'free'
+  return goal.value > 0 ? 'buy' : 'sell'
+})
+
+const goalTypeText = computed(() => {
+  if (!hasGoal.value) return 'FREE'
+  return goal.value > 0 ? 'BUY' : 'SELL'
+})
 
 const goalProgressPercentage = computed(() => {
-  if (!hasGoal.value) return 0;
-  const targetGoal = Math.abs(goal.value);
-  const currentProgress = Math.abs(goalProgress.value);
-  return Math.min((currentProgress / targetGoal) * 100, 100);
-});
+  if (!hasGoal.value) return 0
+  const targetGoal = Math.abs(goal.value)
+  const currentProgress = Math.abs(goalProgress.value)
+  return Math.min((currentProgress / targetGoal) * 100, 100)
+})
 
-const goalProgressColor = computed(() => {
-  if (isGoalAchieved.value) return 'light-green accent-4';
-  return goal.value > 0 ? 'blue lighten-1' : 'red lighten-1';
-});
+const progressBarColor = computed(() => {
+  const percentage = goalProgressPercentage.value
+  if (percentage === 100) return 'bg-green-500'
+  if (percentage > 75) return 'bg-green-400'
+  if (percentage > 50) return 'bg-yellow-400'
+  if (percentage > 25) return 'bg-orange-400'
+  return 'bg-red-400'
+})
 
-const getGoalMessageClass = computed(() => {
-  if (isGoalAchieved.value) return 'success-bg';
-  return goal.value > 0 ? 'buy-bg' : 'sell-bg';
-});
-
-const getGoalMessageIcon = computed(() => {
-  if (!hasGoal.value) return 'mdi-information';
-  return goal.value > 0 ? 'mdi-arrow-up-bold' : 'mdi-arrow-down-bold';
-});
-
-const displayGoalMessage = computed(() => {
-  if (!goalMessage.value) {
-    return {
-      type: 'info',
-      text: 'You can freely trade. Your goal is to profit from the market.'
-    };
-  }
-  return goalMessage.value;
-});
-
-// Add this function to cancel all active orders
-const cancelAllActiveOrders = () => {
-  activeOrders.value.forEach(order => {
-    store.cancelOrder(order.id);
-  });
-};
-
-// Watch for changes in isGoalAchieved
-watch(isGoalAchieved, (newValue) => {
-  if (newValue) {
-    cancelAllActiveOrders();
-  }
-});
-
-// Add this function to get icons for each tool
-const getToolIcon = (toolTitle) => {
-  switch (toolTitle) {
-    case 'Trades History': return 'mdi-history';
-    case 'Market Info': return 'mdi-information';
-    case 'Buy-Sell Chart': return 'mdi-chart-bar';
-    case 'Passive Orders': return 'mdi-format-list-bulleted';
-    case 'Price History': return 'mdi-chart-line';
-    case 'Trading Panel': return 'mdi-cash-register';
-    default: return 'mdi-help-circle';
-  }
-};
-
-// Add these to your existing refs/computed
-const userRole = ref('');
-const marketTimeRemaining = ref(null); // Infinite timeout
-const marketTimeoutInterval = ref(null);
-
-// Add these computed properties
 const roleDisplay = computed(() => {
   if (!hasGoal.value) {
     return {
       text: 'SPECULATOR',
-      icon: 'mdi-account-search',
+      icon: EyeIcon,
       color: 'teal'
-    };
+    }
   }
-  // Informed trader with different types
+  
   if (goal.value > 0) {
     return {
       text: 'INFORMED (BUY)',
-      icon: 'mdi-trending-up',
-      color: 'indigo'
-    };
+      icon: TrendingUpIcon,
+      color: 'blue'
+    }
   }
+  
   return {
     text: 'INFORMED (SELL)',
-    icon: 'mdi-trending-down',
-    color: 'deep-purple'
-  };
-});
-
-// Replace the existing roleColor and roleIcon computed properties
-const roleColor = computed(() => roleDisplay.value.color);
-const roleIcon = computed(() => roleDisplay.value.icon);
-
-// Add watcher for trading started
-watch(isTradingStarted, (newValue) => {
-  if (newValue && marketTimeoutInterval.value) {
-    clearInterval(marketTimeoutInterval.value);
-    marketTimeRemaining.value = 0;
+    icon: TrendingDownIcon,
+    color: 'red'
   }
-});
+})
 
-// Add handler for market timeout
-watch(marketTimeRemaining, (newValue) => {
-  if (newValue === 0 && !isTradingStarted.value) {
-    router.push({ name: 'Register', query: { error: 'Market timed out - not enough traders joined' } });
+const roleIcon = computed(() => roleDisplay.value.icon)
+
+const roleColorClass = computed(() => {
+  const color = roleDisplay.value.color
+  const colorMap = {
+    teal: 'bg-teal-100 text-teal-800',
+    blue: 'bg-blue-100 text-blue-800',
+    red: 'bg-red-100 text-red-800'
   }
-});
+  return colorMap[color] || 'bg-neutral-100 text-neutral-800'
+})
 
-const goalTypeText = computed(() => {
-  if (!hasGoal.value) return 'FREE';
-  return goal.value > 0 ? 'BUY' : 'SELL';
-});
+const formatDelta = computed(() => {
+  if (tradingStore.sumDinv == undefined) return ''
+  const change = Math.round(tradingStore.sumDinv)
+  return change >= 0 ? ` (+${change})` : ` (${change})`
+})
 
-const progressBarColor = computed(() => {
-  if (goalProgressPercentage.value === 100) {
-    return 'light-green accent-3';
+// Reactive getters from stores
+const {
+  pnl,
+  cash,
+  initialShares,
+  remainingTime,
+  isTradingStarted,
+  currentHumanTraders,
+  expectedHumanTraders
+} = tradingStore
+
+// Methods
+function formatCurrency(value) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(value)
+}
+
+function refreshPage() {
+  window.location.reload()
+}
+
+function finalizingDay() {
+  if (props.traderUuid) {
+    router.push({ name: 'Summary', params: { traderUuid: props.traderUuid } })
+  } else {
+    console.error('No trader UUID found')
+    router.push({ name: 'Auth' })
   }
-  if (goalProgressPercentage.value > 75) {
-    return 'light-green lighten-1';
+}
+
+// Watchers
+watch(() => remainingTime, (newValue) => {
+  if (newValue === 0 && isTradingStarted.value) {
+    finalizingDay()
   }
-  if (goalProgressPercentage.value > 50) {
-    return 'amber lighten-1';
+})
+
+watch(() => isGoalAchieved.value, (newValue) => {
+  if (newValue) {
+    // Cancel all active orders when goal is achieved
+    tradingStore.activeOrders.forEach(order => {
+      tradingStore.cancelOrder(order.id)
+    })
   }
-  if (goalProgressPercentage.value > 25) {
-    return 'orange lighten-1';
+})
+
+// Lifecycle
+onMounted(async () => {
+  try {
+    // Initialize trading data
+    await tradingStore.fetchTraderAttributes(props.traderUuid)
+    await tradingStore.fetchGameParams()
+    await tradingStore.initializeWebSocket()
+  } catch (error) {
+    console.error('Failed to initialize trading dashboard:', error)
+    showErrorAlert.value = true
   }
-  return 'deep-orange lighten-1';
-});
+})
 
-// Add this computed property
-const allTradersReady = computed(() => {
-  // This should be updated based on the WebSocket status updates
-  // You'll need to track this in your store
-  return store.allTradersReady;
-});
-
-// Add this computed property
-const readyCount = computed(() => {
-  return store.readyCount || 0;
-});
-
-// Add a computed property to track trader count changes
-const traderCountDisplay = computed(() => {
-  return `${currentHumanTraders.value} / ${expectedHumanTraders.value}`;
-});
-
-// Add a watcher to log changes (for debugging)
-watch([currentHumanTraders, expectedHumanTraders], ([newCurrent, newExpected], [oldCurrent, oldExpected]) => {
-  console.log(`Trader count updated: ${oldCurrent}/${oldExpected} -> ${newCurrent}/${newExpected}`);
-});
-
-// Add to your existing imports
-//import { ref } from 'vue';
-
-
-// Add these refs
-const showErrorAlert = ref(false);
-
-// Add this method
-const refreshPage = () => {
-  window.location.reload();
-};
-
-// Modify your store watch or WebSocket handler to include error handling
-watch(() => store.ws, (newWs) => {
-  if (newWs) {
-    const debouncedHandler = debounce((event) => {
-      try {
-        if (typeof event.data === 'string' && 
-            (event.data.startsWith('<!DOCTYPE') || event.data.startsWith('<html'))) {
-          showErrorAlert.value = true;
-          return;
-        }
-        const data = JSON.parse(event.data);
-        // Your normal message handling...
-      } catch (error) {
-        if (error.message.includes("Unexpected token '<'")) {
-          showErrorAlert.value = true;
-        }
-        console.error("WebSocket message error:", error);
-      }
-    }, 16); // Debounce to roughly one frame (60fps)
-
-    newWs.addEventListener('message', debouncedHandler);
+onUnmounted(() => {
+  // Clean up WebSocket connection
+  if (tradingStore.ws) {
+    tradingStore.ws.close()
   }
-}, { immediate: true });
-
-// Add this computed property
-const isInitialized = computed(() => {
-  return Boolean(traderUuid.value && store.traderAttributes);
-});
+})
 </script>
 
 <style scoped>
-.trading-dashboard {
-  font-family: 'Inter', sans-serif;
-}
-
-.v-card {
-  border-radius: 12px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-.v-card__title {
-  font-size: 1.3rem;
-  font-weight: 600;
-  color: #2c3e50;
-}
-
-.headline {
-  display: flex;
-  align-items: center;
-}
-
-.tool-card {
-  display: flex;
-  flex-direction: column;
-  background-color: white;
-  transition: all 0.3s ease;
-}
-
-.tool-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(0,0,0,0.1);
-}
-
-.price-history-card {
-  flex-grow: 1;
-}
-
-.goal-success {
-  background-color: #4caf50 !important;
-}
-
-.goal-warning {
-  background-color: #ff9800 !important;
-}
-
-.goal-info {
-  background-color: #2196f3 !important;
-}
-
-.deep-blue {
-  color: #1a237e !important;
-}
-
-.light-blue {
-  color: #03a9f4 !important;
-}
-
-.v-chip {
-  font-size: 0.85rem;
-}
-
-.black--text {
-  color: black !important;
-}
-
-/* Add to existing styles */
-.role-chip {
-  font-weight: 500;
-}
-
-.market-timeout {
-  color: #ff5252;
-  font-weight: 500;
-}
-
-.goal-chip {
-  min-width: 150px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  padding: 0 12px;
-}
-
-.goal-type-text {
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  min-width: 35px;
-}
-
-.v-progress-linear {
-  width: 60px;
-  margin: 0;
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.progress-text {
-  font-size: 0.75rem;
-  min-width: 32px;
-  text-align: right;
-  font-weight: 500;
-}
-
-/* Update the background colors */
-.success-bg {
-  background-color: #2e7d32 !important; /* Darker green */
-}
-
-.buy-bg {
-  background-color: #1565c0 !important; /* Darker blue */
-}
-
-.sell-bg {
-  background-color: #c62828 !important; /* Darker red */
-}
-
-/* Add to your existing styles */
-.v-chip {
-  font-weight: 500;
-  letter-spacing: 0.5px;
-}
-
-/* Role-specific colors */
-.informed-buy {
-  background-color: #3949ab !important; /* Indigo */
-}
-
-.informed-sell {
-  background-color: #673ab7 !important; /* Deep Purple */
-}
-
-.speculator {
-  background-color: #00897b !important; /* Teal */
-}
-
-.v-alert {
-  max-width: 500px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-}
+/* Component-specific styles if needed */
 </style>
 
 
