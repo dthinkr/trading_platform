@@ -18,57 +18,10 @@ const routes = [
     component: () => import("@/components/Auth.vue")
   },
   {
-    path: "/onboarding/:marketId/:traderUuid",
+    path: "/onboarding",
     name: "Onboarding",
-    component: () => import("@/components/UserLanding.vue"),
-    props: true,
-    meta: { requiresAuth: true },
-    children: [
-      {
-        path: "",
-        redirect: "consent"
-      },
-      {
-        path: "consent",
-        name: "Consent",
-        component: () => import("@/components/onboarding/ConsentPage.vue")
-      },
-      {
-        path: "welcome",
-        name: "Welcome",
-        component: () => import("@/components/onboarding/WelcomePage.vue")
-      },
-      {
-        path: "platform",
-        name: "Platform",
-        component: () => import("@/components/onboarding/PlatformPage.vue")
-      },
-      {
-        path: "setup",
-        name: "Setup",
-        component: () => import("@/components/onboarding/SetupPage.vue")
-      },
-      {
-        path: "earnings",
-        name: "Earnings",
-        component: () => import("@/components/onboarding/EarningsPage.vue")
-      },
-      {
-        path: "participants",
-        name: "Participants",
-        component: () => import("@/components/onboarding/ParticipantsPage.vue")
-      },
-      {
-        path: "questions",
-        name: "Questions",
-        component: () => import("@/components/onboarding/QuestionsPage.vue")
-      },
-      {
-        path: "practice",
-        name: "Practice",
-        component: () => import("@/components/onboarding/PracticePage.vue")
-      }
-    ]
+    component: () => import("@/components/OnboardingFlow.vue"),
+    meta: { requiresAuth: true }
   },
   {
     path: "/market-creator",
@@ -77,10 +30,9 @@ const routes = [
     meta: { requiresAuth: true, requiresAdmin: true }
   },
   {
-    path: "/trading/:traderUuid/:marketId",
+    path: "/trading",
     name: "Trading",
     component: () => import("@/components/TradingDashboard.vue"),
-    props: true,
     meta: { requiresAuth: true }
   },
   {
