@@ -13,6 +13,7 @@ export const useTradingStore = defineStore('trading', () => {
   // Market data
   const orderBook = ref({ bids: [], asks: [] })
   const recentTransactions = ref([])
+  const priceHistory = ref([])
   const currentPrice = ref(null)
   const midPoint = ref(0)
   const spread = ref(null)
@@ -227,9 +228,19 @@ export const useTradingStore = defineStore('trading', () => {
       timestamp: new Date()
     })
     
-    // Keep only recent transactions
+    // Add to price history for charts
+    priceHistory.value.push({
+      price: payload.price,
+      volume: payload.quantity,
+      timestamp: new Date().toISOString()
+    })
+    
+    // Keep only recent data (last 1000 points)
     if (recentTransactions.value.length > 100) {
       recentTransactions.value = recentTransactions.value.slice(0, 100)
+    }
+    if (priceHistory.value.length > 1000) {
+      priceHistory.value = priceHistory.value.slice(-1000)
     }
   }
   
@@ -327,6 +338,7 @@ export const useTradingStore = defineStore('trading', () => {
     dayOver.value = false
     orderBook.value = { bids: [], asks: [] }
     recentTransactions.value = []
+    priceHistory.value = []
     currentPrice.value = null
     midPoint.value = 0
     spread.value = null
@@ -357,6 +369,7 @@ export const useTradingStore = defineStore('trading', () => {
     dayOver,
     orderBook,
     recentTransactions,
+    priceHistory,
     currentPrice,
     midPoint,
     spread,
