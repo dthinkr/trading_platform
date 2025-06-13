@@ -18,15 +18,16 @@ const routes = [
     component: () => import("@/components/Auth.vue")
   },
   {
-    path: "/onboarding",
+    path: "/onboarding/:traderUuid/:marketId",
     name: "Onboarding",
     component: () => import("@/components/OnboardingFlow.vue"),
+    props: true,
     meta: { requiresAuth: true }
   },
   {
     path: "/market-creator",
     name: "MarketCreator",
-    component: () => import("@/components/admin/MarketCreator.vue"),
+    component: () => import("@/components/market/MarketCreator.vue"),
     meta: { requiresAuth: true, requiresAdmin: true }
   },
   {
@@ -38,7 +39,7 @@ const routes = [
   {
     path: "/summary/:traderUuid",
     name: "Summary",
-    component: () => import("@/components/MarketSummary.vue"),
+    component: () => import("@/components/market/MarketSummary.vue"),
     props: true,
     meta: { requiresAuth: true }
   }
@@ -69,7 +70,7 @@ router.beforeEach(async (to, from, next) => {
     next('/');
   } else if (requiresAdmin && !authStore.isAdmin) {
     console.log('Router: Admin access required, redirecting to auth');
-    next('/');
+    next('/'); 
   } else {
     next();
   }

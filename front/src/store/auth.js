@@ -194,6 +194,28 @@ export const useAuthStore = defineStore('auth', {
       
       localStorage.removeItem('auth');
     },
+
+    async completeOnboarding() {
+      try {
+        // For prolific users, mark onboarding as complete in localStorage
+        if (this.user?.isProlific) {
+          const prolificUserId = `prolific_${this.user.prolificData.PROLIFIC_PID}`;
+          localStorage.setItem(`prolific_onboarded_${prolificUserId}`, 'true');
+          this.prolificUserHasCompletedOnboarding = true;
+        }
+        
+        // Make API call to backend to mark onboarding as complete
+        await axios.post('/user/complete-onboarding', {
+          trader_id: this.traderId,
+          market_id: this.marketId
+        });
+        
+        return true;
+      } catch (error) {
+        console.error('Failed to complete onboarding:', error);
+        throw error;
+      }
+    },
   },
   getters: {
     isAuthenticated: (state) => !!state.user,

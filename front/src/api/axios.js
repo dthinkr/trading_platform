@@ -9,7 +9,7 @@ const instance = axios.create({
 instance.interceptors.request.use(async (config) => {
   try {
     // Import the auth store to check for Prolific token
-    const { useAuthStore } = await import('@/store/auth');
+    const { useAuthStore } = await import('@/stores/auth');
     const authStore = useAuthStore();
     
     // Check for Prolific token first

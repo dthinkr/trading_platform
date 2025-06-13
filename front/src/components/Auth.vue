@@ -11,7 +11,7 @@
             <h1 class="mt-4 text-3xl font-bold text-neutral-900">Trading Platform</h1>
             <p class="mt-2 text-neutral-600">Sign in to access your trading account</p>
           </div>
-
+            
           <!-- Loading State for Prolific -->
           <div v-if="isProlificUser && isLoading" class="py-8">
             <div class="flex flex-col items-center space-y-4">
@@ -19,12 +19,12 @@
               <p class="text-neutral-600">Authenticating with Prolific...</p>
             </div>
           </div>
-
+            
           <!-- Prolific Credential Form -->
           <div v-else-if="isProlificUser && !isLoading && !authStore.isAuthenticated" class="space-y-6">
             <h2 class="text-xl font-semibold text-neutral-900">Enter Your Credentials</h2>
             <p class="text-sm text-neutral-600">Please enter your username and password to continue</p>
-            
+              
             <form @submit.prevent="handleProlificCredentialLogin" class="space-y-4">
               <div>
                 <label for="username" class="form-label">Username</label>
@@ -51,9 +51,9 @@
                   aria-describedby="password-help"
                 />
               </div>
-              
+                
               <button 
-                type="submit" 
+                  type="submit" 
                 :disabled="credentialLoading || !username || !password"
                 class="btn-primary w-full"
               >
@@ -64,12 +64,12 @@
                 <span v-else>Sign In</span>
               </button>
             </form>
-          </div>
-
+            </div>
+            
           <!-- Regular Authentication -->
           <div v-else-if="!authStore.isAuthenticated" class="space-y-4">
             <button 
-              @click="signInWithGoogle"
+                @click="signInWithGoogle"
               class="w-full flex items-center justify-center px-4 py-3 border border-transparent rounded-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
             >
               <svg class="w-5 h-5 mr-2" viewBox="0 0 24 24" aria-hidden="true">
@@ -82,7 +82,7 @@
             </button>
             
             <button 
-              @click="adminSignInWithGoogle"
+                @click="adminSignInWithGoogle"
               class="btn-primary w-full"
             >
               <UserIcon class="h-4 w-4 mr-2" aria-hidden="true" />
@@ -98,7 +98,7 @@
                 <div class="ml-3">
                   <h3 class="text-sm font-medium text-red-800">Error</h3>
                   <div class="mt-2 text-sm text-red-700">
-                    {{ errorMessage }}
+              {{ errorMessage }}
                   </div>
                   <div class="mt-4">
                     <button 
@@ -153,20 +153,20 @@ const prolificParams = ref(null)
 
 // Methods
 async function signInWithGoogle() {
-  try {
+    try {
     const provider = new GoogleAuthProvider()
     const result = await signInWithPopup(auth, provider)
     
     await authStore.login(result.user)
     
     if (authStore.isAuthenticated) {
-      if (authStore.traderId && authStore.marketId) {
-        router.push({
-          name: 'onboarding',
-          params: {
+    if (authStore.traderId && authStore.marketId) {
+        router.push({ 
+          name: 'Onboarding',
+          params: { 
             traderUuid: authStore.traderId,
             marketId: authStore.marketId
-          }
+          } 
         })
       } else {
         router.push({ name: 'register' })
@@ -217,7 +217,7 @@ async function handleProlificCredentialLogin() {
       
       // Navigate to onboarding
       router.push({
-        name: 'onboarding',
+        name: 'Onboarding',
         params: {
           traderUuid: authStore.traderId,
           marketId: authStore.marketId
