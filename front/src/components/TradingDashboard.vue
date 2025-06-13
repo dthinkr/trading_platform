@@ -328,7 +328,7 @@ onMounted(async () => {
     await tradingStore.initializeWebSocket()
     
     console.log('Trading dashboard initialized successfully')
-  } catch (error) {
+      } catch (error) {
     console.error('Failed to initialize trading dashboard:', error)
     showErrorAlert.value = true
   }

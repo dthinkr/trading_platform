@@ -267,10 +267,6 @@ class MarketPipeline:
         trader_manager = TraderManager(params)
         trader_manager.trading_market.id = market_id
         
-        # Update RabbitMQ queue names to match the correct market ID
-        trader_manager.trading_market.broadcast_exchange_name = f"broadcast_{market_id}"
-        trader_manager.trading_market.queue_name = f"trading_system_queue_{market_id}"
-        
         # Add all human traders
         for user_data in market_data["users"]:
             username = user_data["username"]

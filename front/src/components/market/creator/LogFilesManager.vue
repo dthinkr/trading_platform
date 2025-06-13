@@ -16,31 +16,31 @@
       <!-- Compact Action Buttons -->
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-4">
         <button 
-          @click="downloadAllFiles" 
+        @click="downloadAllFiles" 
           class="btn btn-primary text-xs px-2 py-1.5 flex items-center justify-center"
-        >
+      >
           <ArrowDownTrayIcon class="h-3 w-3 mr-1" aria-hidden="true" />
           All Files
         </button>
 
         <button 
-          @click="downloadParameterHistory" 
+        @click="downloadParameterHistory" 
           class="btn btn-secondary text-xs px-2 py-1.5 flex items-center justify-center"
-        >
+      >
           <ClockIcon class="h-3 w-3 mr-1" aria-hidden="true" />
           Parameters
         </button>
 
         <button 
-          @click="downloadQuestionnaireResponses" 
+        @click="downloadQuestionnaireResponses" 
           class="btn btn-info text-xs px-2 py-1.5 flex items-center justify-center"
-        >
+      >
           <ClipboardDocumentIcon class="h-3 w-3 mr-1" aria-hidden="true" />
           Questionnaire
         </button>
 
         <button 
-          @click="downloadConsentData" 
+        @click="downloadConsentData" 
           class="btn btn-success text-xs px-2 py-1.5 flex items-center justify-center"
         >
           <ClipboardDocumentCheckIcon class="h-3 w-3 mr-1" aria-hidden="true" />
