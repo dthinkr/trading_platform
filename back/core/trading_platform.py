@@ -3,17 +3,12 @@ import json
 import os
 from asyncio import Event
 from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Set
 import uuid
-
-import aio_pika
-import polars as pl
-from pydantic import ValidationError
 
 from utils import setup_custom_logger, setup_trading_logger, CustomEncoder, if_active
 from core.orderbook_manager import OrderBookManager
 from core.transaction_manager import TransactionManager
-from core.rabbitmq_manager import RabbitMQManager
 from core.data_models import (
     Message,
     Order,
@@ -23,7 +18,6 @@ from core.data_models import (
     TransactionModel,
 )
 
-rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://localhost")
 logger = setup_custom_logger(__name__)
 
 class TradingPlatform:
@@ -47,13 +41,14 @@ class TradingPlatform:
         # Set up trading components
         self.order_book_manager = OrderBookManager()
         self.transaction_manager = TransactionManager(market_id)
-        self.rabbitmq_manager = RabbitMQManager(rabbitmq_url)
         self.connected_traders: Dict[str, Dict] = {}
-        self.trader_responses: Dict[str, bool] = {}
+        
+        # Direct references to traders (no messaging needed)
+        self.traders = {}  # trader_id -> trader_instance
+        self.websocket_subscribers: Set = set()  # WebSocket connections for humans
         
         # Set up asyncio components
         self._stop_requested = asyncio.Event()
-        self.release_event: Event = Event()
         self.order_lock: asyncio.Lock = asyncio.Lock()
         
         # Initialize other attributes
@@ -64,11 +59,6 @@ class TradingPlatform:
         self.trading_started = False
         self.current_price = 0
         self.is_finished = False
-        
-        # Set up RabbitMQ-related attributes
-        self.broadcast_exchange_name = f"broadcast_{self.id}"
-        self.queue_name = f"trading_system_queue_{self.id}"
-        self.trader_exchange = None
         self.process_transactions_task = None
         
         # Set up logging
@@ -78,22 +68,12 @@ class TradingPlatform:
         """Initialize the trading platform."""
         self.start_time = datetime.now(timezone.utc)
         self.active = True
-        await self.rabbitmq_manager.initialize()
-        await self._setup_rabbitmq()
         self.process_transactions_task = asyncio.create_task(self.transaction_manager.process_transactions())
 
     async def clean_up(self) -> None:
         """Clean up resources when shutting down."""
         self._stop_requested.set()
         self.active = False
-        
-        # Cancel execution queue processor
-        if self.process_executions_task:
-            self.process_executions_task.cancel()
-            try:
-                await self.process_executions_task
-            except asyncio.CancelledError:
-                pass
         
         # Cancel transaction processor
         if self.process_transactions_task:
@@ -102,16 +82,19 @@ class TradingPlatform:
                 await self.process_transactions_task
             except asyncio.CancelledError:
                 pass
-                
-        await self.rabbitmq_manager.clean_up()
-
-    # RabbitMQ setup and cleanup methods
-    async def _setup_rabbitmq(self) -> None:
-        """Set up RabbitMQ connections and exchanges."""
-        await self.rabbitmq_manager.declare_exchange(self.broadcast_exchange_name, aio_pika.ExchangeType.FANOUT)
-        self.trader_exchange = await self.rabbitmq_manager.declare_exchange(self.queue_name, aio_pika.ExchangeType.DIRECT)
-        await self.rabbitmq_manager.bind_queue_to_exchange(self.queue_name, self.queue_name)
-        await self.rabbitmq_manager.consume(self.queue_name, self.on_individual_message)
+    
+    def register_trader(self, trader_id: str, trader_instance):
+        """Register trader for direct communication"""
+        self.traders[trader_id] = trader_instance
+        self.connected_traders[trader_id] = {"trader_type": trader_instance.trader_type}
+        
+    def register_websocket(self, websocket):
+        """Register WebSocket for human trader updates"""
+        self.websocket_subscribers.add(websocket)
+        
+    def unregister_websocket(self, websocket):
+        """Unregister WebSocket"""
+        self.websocket_subscribers.discard(websocket)
 
     # Order book methods
     def place_order(self, order_dict: Dict) -> Dict:
@@ -176,50 +159,100 @@ class TradingPlatform:
         """Get a list of active orders to broadcast."""
         return self.order_book_manager.get_active_orders_to_broadcast()
 
-    async def send_broadcast(
-        self, message: dict, message_type="BOOK_UPDATED", incoming_message=None
-    ) -> None:
+    async def broadcast_to_websockets(self, message: dict) -> None:
+        """Send message to all WebSocket connections"""
+        if not self.websocket_subscribers:
+            return
+            
+        # Create tasks for all websocket sends
+        tasks = []
+        for websocket in list(self.websocket_subscribers):  # Copy to avoid modification during iteration
+            tasks.append(self._safe_websocket_send(websocket, message))
         
-        if "type" not in message:
-            message["type"] = message_type
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+    
+    async def _safe_websocket_send(self, websocket, message):
+        """Safely send message to websocket"""
+        try:
+            await websocket.send_json(message)
+        except Exception:
+            # Remove broken websocket
+            self.websocket_subscribers.discard(websocket)
 
-        message.update(
-            {
-                "current_time": self.current_time.isoformat(),
-                "start_time": self.start_time.isoformat() if self.start_time else None,
-                "duration": self.duration,
-                "order_book": await self.get_order_book_snapshot(),
-                "active_orders": self.get_active_orders_to_broadcast(),
-                "history": self.get_transaction_history(),
-                "spread": self.order_book_manager.get_spread()[0],
-                "midpoint": self.order_book_manager.get_spread()[1],
-                "transaction_price": self.transaction_price,
-                "incoming_message": incoming_message,
-                "informed_trader_progress": incoming_message.get("informed_trader_progress") if incoming_message else None,
-            }
-        )
+    async def notify_traders(self, message_type: str, data: dict = None) -> None:
+        """Notify all automated traders directly with specific updates"""
+        data = data or {}
+        
+        # Prepare common update data
+        update_data = {
+            "order_book": await self.get_order_book_snapshot(),
+            "midpoint": self.order_book_manager.get_spread()[1],
+            "active_orders": self.get_active_orders_to_broadcast(),
+            **data
+        }
+        
+        for trader_id, trader in self.traders.items():
+            try:
+                # Update trader's internal state directly
+                if update_data.get("order_book"):
+                    trader.order_book = update_data["order_book"]
+                    
+                if update_data.get("midpoint"):
+                    trader.update_mid_price(update_data["midpoint"])
+                    
+                if update_data.get("active_orders"):
+                    trader.active_orders_in_book = update_data["active_orders"]
+                    own_orders = [order for order in update_data["active_orders"] if order["trader_id"] == trader_id]
+                    trader.orders = own_orders
+                
+                # Handle specific message types
+                if message_type == "TRADING_STARTED" and hasattr(trader, 'handle_TRADING_STARTED'):
+                    await trader.handle_TRADING_STARTED(data)
+                elif message_type == "transaction_update" and data.get("transactions"):
+                    trader.update_filled_orders(data["transactions"])
+                    
+            except Exception as e:
+                logger.error(f"Error notifying trader {trader_id}: {e}")
 
-        current_history = self.get_transaction_history()
+    async def send_broadcast(self, message_type: str, data: dict = None, **kwargs) -> None:
+        """Send updates to all traders and WebSocket connections"""
+        data = data or {}
+        
+        # Create comprehensive message for WebSocket connections
+        ws_message = {
+            "type": message_type,
+            "current_time": self.current_time.isoformat(),
+            "start_time": self.start_time.isoformat() if self.start_time else None,
+            "duration": self.duration,
+            "order_book": await self.get_order_book_snapshot(),
+            "active_orders": self.get_active_orders_to_broadcast(),
+            "history": self.get_transaction_history(),
+            "spread": self.order_book_manager.get_spread()[0],
+            "midpoint": self.order_book_manager.get_spread()[1],
+            "transaction_price": self.transaction_price,
+            **data,
+            **kwargs
+        }
 
-        if message_type == "FILLED_ORDER" and incoming_message:
-            message["matched_orders"] = incoming_message.get("matched_orders")
-
-        await self.rabbitmq_manager.publish(self.broadcast_exchange_name, message)
+        # Send to WebSocket connections (humans)
+        await self.broadcast_to_websockets(ws_message)
+        
+        # Send to automated traders with direct updates
+        await self.notify_traders(message_type, data)
     
     async def create_transaction(
         self, bid: Dict, ask: Dict, transaction_price: float
     ) -> Tuple[str, str, TransactionModel]:
         ask_trader_id, bid_trader_id, transaction, transaction_details = await self.transaction_manager.create_transaction(bid, ask, transaction_price)
 
-        # Use RabbitMQManager to publish the message
-        await self.rabbitmq_manager.publish(
-            self.broadcast_exchange_name,
-            transaction_details,
-            routing_key=""
+        # Send transaction details via broadcast
+        await self.send_broadcast(
+            message_type="transaction_update",
+            data={"transactions": [transaction_details]}
         )
 
         return ask_trader_id, bid_trader_id, transaction
-
 
     async def clear_orders(self) -> Dict:
         """Clear matched orders from the order book."""
@@ -234,18 +267,22 @@ class TradingPlatform:
         return res
 
     @if_active
-    async def handle_add_order(self, data: dict) -> Dict:
-        """Handle adding a new order to the order book."""
+    async def add_order(self, order_data: dict, trader_id: str = None) -> Dict:
+        """Add a new order to the order book."""
         async with self.order_lock:
-            return await self._process_add_order(data)
+            return await self._process_add_order(order_data, trader_id)
 
-    async def _process_add_order(self, data: dict) -> Dict:
+    async def _process_add_order(self, data: dict, trader_id: str = None) -> Dict:
         """Process the addition of a new order."""
         data["order_type"] = int(data["order_type"])
         informed_trader_progress = data.get("informed_trader_progress")
         order_id = data.get("order_id")
         if order_id:
             data["id"] = order_id
+
+        # Ensure trader_id is set
+        if trader_id:
+            data["trader_id"] = trader_id
 
         # Special handling for zero-amount orders (for record-keeping only)
         is_record_keeping = data.get("is_record_keeping", False)
@@ -300,24 +337,31 @@ class TradingPlatform:
                 }
                 self.trading_logger.info(f"MATCHED_ORDER: {match_data}")
 
+        # Send broadcast update
+        await self.send_broadcast(
+            message_type="ADDED_ORDER",
+            data={"informed_trader_progress": informed_trader_progress}
+        )
+
         return {
             "type": "ADDED_ORDER",
-            "content": "A",
+            "content": "Order added successfully",
             "respond": True,
             "informed_trader_progress": informed_trader_progress,
         }
 
     @if_active
-    async def handle_cancel_order(self, data: dict) -> Dict:
-        """Handle canceling an order."""
+    async def cancel_order(self, order_id: str, trader_id: str = None) -> Dict:
+        """Cancel an order."""
         try:
-            order_id = data.get("order_id")
-            trader_id = data.get("trader_id")
-
             cancel_result = self.order_book_manager.cancel_order(order_id)
 
             if cancel_result:
-                self.trading_logger.info(f"CANCEL_ORDER: {data}")
+                self.trading_logger.info(f"CANCEL_ORDER: {{'order_id': '{order_id}', 'trader_id': '{trader_id}'}}")
+                
+                # Send broadcast update
+                await self.send_broadcast(message_type="ORDER_CANCELLED")
+                
                 return {
                     "status": "cancel success",
                     "order_id": str(order_id),
@@ -331,45 +375,6 @@ class TradingPlatform:
             }
         except Exception as e:
             return {"status": "failed", "reason": str(e)}
-
-    @if_active
-    async def handle_register_me(self, msg_body: Dict) -> Dict:
-        """Handle registering a new trader."""
-        trader_id = msg_body.get("trader_id")
-        trader_type = msg_body.get("trader_type")
-        gmail_username = msg_body.get("gmail_username")  # Add this line
-        self.connected_traders[gmail_username] = {  # Use gmail_username as the key
-            "trader_type": trader_type,
-        }
-        self.trader_responses[gmail_username] = False  # Use gmail_username as the key
-
-        return {
-            "respond": True,
-            "trader_id": trader_id,
-            "message": "Registered successfully",
-            "individual": True,
-        }
-
-    async def on_individual_message(self, message: Dict) -> None:
-        """Handle incoming messages from traders."""
-        incoming_message = json.loads(message.body.decode())
-        action = incoming_message.pop("action", None)
-        trader_id = incoming_message.get("trader_id", None)
-
-        if action:
-            handler_method = getattr(self, f"handle_{action}", None)
-            if handler_method:
-                result = await handler_method(incoming_message)
-                if result and result.pop("respond", None) and trader_id:
-                    if not result.get("individual", False):
-                        message_type = result.get("type", f"{action.upper()}")
-                        await self.send_broadcast(
-                            message=dict(text=f"{action} update processed"),
-                            message_type=message_type,
-                            incoming_message=result.get(
-                                "incoming_message", incoming_message
-                            ),
-                        )
 
     async def close_existing_book(self) -> None:
         """Close the existing order book."""
@@ -399,61 +404,7 @@ class TradingPlatform:
                     platform_order.model_dump(), order, closure_price
                 )
 
-        await self.send_broadcast(message=dict(text="book is updated"))
-
-    async def handle_inventory_report(self, data: dict) -> Dict:
-        """Handle inventory reports from traders."""
-        gmail_username = data.get("gmail_username")  # Change this line
-        self.trader_responses[gmail_username] = True
-        
-        # Check if the trader is still in connected_traders
-        if gmail_username not in self.connected_traders:
-            logger.warning(f"Received inventory report for unknown trader: {gmail_username}")
-            return {}
-
-        trader_type = self.connected_traders[gmail_username].get("trader_type")
-        if not trader_type:
-            logger.warning(f"Trader type not found for trader: {gmail_username}")
-            return {}
-
-        shares = data.get("shares", 0)
-
-        if shares != 0:
-            trader_order_type = OrderType.ASK if shares > 0 else OrderType.BID
-            platform_order_type = OrderType.BID if shares > 0 else OrderType.ASK
-            shares = abs(shares)
-            closure_price = self.get_closure_price(shares, trader_order_type)
-
-            proto_order = dict(
-                amount=shares,
-                price=closure_price,
-                status=OrderStatus.BUFFERED.value,
-                market_id=self.id,
-            )
-            trader_order = Order(
-                trader_id=gmail_username, order_type=trader_order_type, **proto_order
-            )
-            platform_order = Order(
-                trader_id=self.id, order_type=platform_order_type, **proto_order
-            )
-
-            self.place_order(platform_order.model_dump())
-            self.place_order(trader_order.model_dump())
-
-            if trader_order_type == OrderType.BID:
-                await self.create_transaction(
-                    trader_order.model_dump(),
-                    platform_order.model_dump(),
-                    closure_price,
-                )
-            else:
-                await self.create_transaction(
-                    platform_order.model_dump(),
-                    trader_order.model_dump(),
-                    closure_price,
-                )
-
-        return {}
+        await self.send_broadcast(message_type="book_updated")
 
     def set_initialization_complete(self):
         """Set the initialization_complete flag."""
@@ -465,9 +416,7 @@ class TradingPlatform:
         self.active = True
         self.trading_started = True
         
-        await self.send_broadcast(
-            {"type": "TRADING_STARTED", "content": "Market is open"}
-        )
+        await self.send_broadcast(message_type="TRADING_STARTED", data={"content": "Market is open"})
 
     async def run(self) -> None:
         """Run the trading market."""
@@ -494,16 +443,27 @@ class TradingPlatform:
         """End the trading market and perform cleanup."""
         self.active = False
         await self.close_existing_book()
-        await self.send_broadcast({"type": "stop_trading"})
-        await self._handle_final_inventory_reports()
-        await self.send_broadcast({"type": "closure"})
+        await self.send_broadcast(message_type="stop_trading")
+        await self.send_broadcast(message_type="closure")
         self.is_finished = True
+
+    # Legacy methods for compatibility (can be removed later)
+    async def handle_add_order(self, data: dict, trader_id: str = None) -> Dict:
+        """Legacy wrapper - use add_order() instead"""
+        return await self.add_order(data, trader_id)
         
-    async def _handle_final_inventory_reports(self) -> None:
-        """Handle final inventory reports from all traders."""
-        await asyncio.gather(
-            *[
-                self.handle_inventory_report({"trader_id": trader_id})
-                for trader_id in self.connected_traders
-            ]
-        )
+    async def handle_cancel_order(self, data: dict, trader_id: str = None) -> Dict:
+        """Legacy wrapper - use cancel_order() instead"""
+        order_id = data.get("order_id")
+        trader_id = trader_id or data.get("trader_id")
+        return await self.cancel_order(order_id, trader_id)
+        
+    async def handle_register_me(self, trader_id: str, trader_type: str, gmail_username: str = None) -> Dict:
+        """Legacy wrapper for registration"""
+        # Registration is now handled automatically in register_trader()
+        return {
+            "respond": True,
+            "trader_id": trader_id,
+            "message": "Registered successfully",
+            "individual": True,
+        }

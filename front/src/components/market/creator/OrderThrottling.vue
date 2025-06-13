@@ -36,22 +36,22 @@
               <td class="py-2 pr-4">
                 <input
                   v-model.number="throttleSettings[traderType].order_throttle_ms"
-                  type="number"
-                  min="0"
+                type="number"
+                min="0"
                   class="input w-20 text-xs py-1"
-                  @input="updateSettings"
+                @input="updateSettings"
                 />
-              </td>
+            </td>
               <td class="py-2">
                 <input
                   v-model.number="throttleSettings[traderType].max_orders_per_window"
-                  type="number"
-                  min="1"
+                type="number"
+                min="1"
                   class="input w-16 text-xs py-1"
-                  @input="updateSettings"
+                @input="updateSettings"
                 />
-              </td>
-            </tr>
+            </td>
+          </tr>
           </tbody>
         </table>
       </div>

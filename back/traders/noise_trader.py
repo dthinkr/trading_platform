@@ -201,7 +201,6 @@ class NoiseTrader(BaseTrader):
         while not self._stop_requested.is_set():
             try:
                 await self.act()
-                print(f"Action counter: {self.orders}")
                 await asyncio.sleep(self.calculate_cooling_interval())
             except asyncio.CancelledError:
                 await self.clean_up()

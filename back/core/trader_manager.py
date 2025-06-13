@@ -29,87 +29,72 @@ class TraderManager:
     human_traders = List[HumanTrader]
     noise_traders = List[NoiseTrader]
     informed_traders = List[InformedTrader]
-    human_informed_trader = None  # Track the human trader with INFORMED role in this market
+    human_informed_trader = None
 
     def __init__(self, params: TradingParameters):
         self.params = params
-        self.tasks = []
-        self.human_informed_trader = None  # Keep only for tracking human trader with INFORMED role
-        self.human_traders = []
-        
-        params_dict = params.model_dump()  # Convert to dict for easier access
-        
-        # Create basic traders
-        self.book_initializer = self._create_book_initializer(params)
-        self.simple_order_traders = self._create_simple_order_traders(params_dict)  # Pass dict
-        self.noise_traders = self._create_noise_traders(params.num_noise_traders, params_dict)  # Pass dict
-        self.informed_traders = self._create_informed_traders(params.num_informed_traders, params_dict)  # Pass dict
-
-        # Combine all traders into one dict
-        self.traders = {
-            t.id: t
-            for t in self.noise_traders
-            + self.informed_traders
-            + [self.book_initializer]
-            + self.simple_order_traders
-        }
-        
-        # Create trading market
-        current_timestamp = int(time.time())
-        market_id = f"SESSION_{current_timestamp}"
         self.trading_market = TradingPlatform(
-            market_id=market_id,
+            market_id=f"MARKET_{int(time.time())}",
             duration=params.trading_day_duration,
             default_price=params.default_price,
-            params=params_dict  # Pass dict
+            default_spread=getattr(params, 'default_spread', 10),
+            punishing_constant=getattr(params, 'punishing_constant', 1),
+            params=params.model_dump(),
         )
+        self.traders = {}
+        self.human_traders = []
+        self.noise_traders = []
+        self.informed_traders = []
+        self.human_informed_trader = None
+        self.book_initializer = None
+        self.tasks = []
 
-    def _create_simple_order_traders(self, params: dict):
-        traders = []
-        num_traders = params["num_simple_order_traders"]
-        for i in range(num_traders):
-            if i % 2 == 0:  # even numbers do bids
-                trader_orders = [
-                    {"amount": 1, "price": 100 + i, "order_type": OrderType.BID},
-                    {"amount": 1, "price": 101 + i, "order_type": OrderType.BID},
-                    {"amount": 1, "price": 102 + i, "order_type": OrderType.BID},
-                ]
-            else:  # odd numbers do asks
-                trader_orders = [
-                    {"amount": 1, "price": 100 + i, "order_type": OrderType.ASK},
-                    {"amount": 1, "price": 101 + i, "order_type": OrderType.ASK},
-                    {"amount": 1, "price": 102 + i, "order_type": OrderType.ASK},
-                ]
-            traders.append(
-                SimpleOrderTrader(id=f"SIMPLE_ORDER_{i+1}", orders=trader_orders)
+        # Set up automated traders
+        self._setup_noise_traders()
+        self._setup_informed_traders() 
+        self._setup_book_initializer()
+
+    def _setup_noise_traders(self):
+        """Set up noise traders"""
+        for i in range(self.params.num_noise_traders):
+            trader_id = f"NOISE_{i}"
+            noise_trader = NoiseTrader(
+                id=trader_id,
+                initial_cash=self.params.initial_cash,
+                initial_shares=self.params.initial_stocks,
+                default_price=self.params.default_price,
+                trading_market=self.trading_market,
+                params=self.params.model_dump(),
             )
-        return traders
+            self.traders[trader_id] = noise_trader
+            self.noise_traders.append(noise_trader)
 
-    def _create_book_initializer(self, params: TradingParameters):
-        return BookInitializer(id="BOOK_INITIALIZER", trader_creation_data=params.model_dump())
-
-    def _create_noise_traders(self, n_noise_traders: int, params: dict):
-        return [
-            NoiseTrader(
-                id=f"NOISE_{i+1}",
-                params=params,
+    def _setup_informed_traders(self):
+        """Set up informed traders"""
+        for i in range(self.params.num_informed_traders):
+            trader_id = f"INFORMED_{i}"
+            informed_trader = InformedTrader(
+                id=trader_id,
+                initial_cash=self.params.initial_cash,
+                initial_shares=self.params.initial_stocks,
+                default_price=self.params.default_price,
+                trading_market=self.trading_market,
+                params=self.params.model_dump(),
             )
-            for i in range(n_noise_traders)
-        ]
+            self.traders[trader_id] = informed_trader
+            self.informed_traders.append(informed_trader)
 
-    def _create_informed_traders(self, n_informed_traders: int, params: dict):
-        if n_informed_traders <= 0:
-            return []
-            
-        traders = [
-            InformedTrader(
-                id=f"INFORMED_{i+1}",
-                params=params,
-            )
-            for i in range(n_informed_traders)
-        ]
-        
-        return traders
+    def _setup_book_initializer(self):
+        """Set up book initializer"""
+        self.book_initializer = BookInitializer(
+            default_price=self.params.default_price,
+            default_spread=self.params.default_spread,
+            initial_depth=self.params.initial_depth,
+            trading_market=self.trading_market,
+            params=self.params.model_dump(),
+        )
+        trader_id = f"BOOK_INITIALIZER"
+        self.traders[trader_id] = self.book_initializer
 
     async def add_human_trader(self, gmail_username: str, role: TraderRole, goal: Optional[int] = None) -> str:
         """Add human trader with specified role and goal"""
@@ -145,49 +130,48 @@ class TraderManager:
             return True
         return False
 
-    async def update_parameters_and_recreate_traders(self, new_params: TradingParameters):
-        """Update parameters and recreate automated traders with new settings"""
-        # Update the main parameters
-        self.params = new_params
-        params_dict = new_params.model_dump()
-        
-        # Store human traders separately as they shouldn't be recreated
-        human_traders = {tid: trader for tid, trader in self.traders.items() if isinstance(trader, HumanTrader)}
-        
-        # Recreate automated traders with new parameters
-        self.noise_traders = self._create_noise_traders(new_params.num_noise_traders, params_dict)
-        self.informed_traders = self._create_informed_traders(new_params.num_informed_traders, params_dict)
-        self.simple_order_traders = self._create_simple_order_traders(params_dict)
-        
-        # Recreate the traders dictionary with both human and automated traders
-        automated_traders = {
-            t.id: t
-            for t in self.noise_traders
-            + self.informed_traders
-            + [self.book_initializer]  # Keep existing book initializer
-            + self.simple_order_traders
-        }
-        
-        # Combine human and automated traders
-        self.traders = {**human_traders, **automated_traders}
-        
-        # Update trading market parameters
-        self.trading_market.params = params_dict
-        
-        print(f"Recreated {len(self.noise_traders)} noise traders and {len(self.informed_traders)} informed traders")
-        return True
+    def get_num_human_traders(self):
+        return len(self.human_traders)
+
+    def get_all_trader_ids(self):
+        return list(self.traders.keys())
+
+    def get_all_human_trader_ids(self):
+        return [trader.id for trader in self.human_traders]
+
+    def get_num_noise_traders(self):
+        return len(self.noise_traders)
+
+    def get_num_informed_traders(self):
+        return len(self.informed_traders)
+
+    def get_noise_trader_ids(self):
+        return [trader.id for trader in self.noise_traders]
+
+    def get_informed_trader_ids(self):
+        return [trader.id for trader in self.informed_traders]
+
+    def get_remaining_goals(self):
+        """Get remaining goals that haven't been assigned to human traders"""
+        assigned_goals = [trader.goal for trader in self.human_traders if trader.goal]
+        remaining = [goal for goal in self.params.predefined_goals if goal not in assigned_goals]
+        return remaining
 
     async def launch(self):
         await self.trading_market.initialize()
 
+        # Connect all traders to the trading platform
         for trader_id, trader in self.traders.items():
             await trader.initialize()
-
+            
+            # Set up direct connection to trading platform
+            trader.set_trading_platform(self.trading_market)
+            
+            # Connect non-human traders to market immediately
             if not isinstance(trader, HumanTrader):
-                await trader.connect_to_market(
-                    trading_market_uuid=self.trading_market.id
-                )
+                await trader.connect_to_market(self.trading_market.id)
 
+        # Initialize the order book
         await self.book_initializer.initialize_order_book()
 
         self.trading_market.set_initialization_complete()
@@ -205,12 +189,9 @@ class TraderManager:
 
         await self.trading_market.start_trading()
 
-        # Give a brief moment for the book initializer's orders to be processed 
-        # and the order book to be populated before starting automated traders
-        await asyncio.sleep(0.5)
-
+        # Start all trader tasks
         trading_market_task = asyncio.create_task(self.trading_market.run())
-        trader_tasks = [asyncio.create_task(i.run()) for i in self.traders.values()]
+        trader_tasks = [asyncio.create_task(trader.run()) for trader in self.traders.values()]
 
         self.tasks.append(trading_market_task)
         self.tasks.extend(trader_tasks)

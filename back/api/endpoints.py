@@ -204,7 +204,7 @@ async def join_waiting_room_endpoint(request: Request, current_user: dict = Depe
         
         print(f"🎯 User {gmail_username} joining constraint-based matching system")
         
-                # Use beautiful market pipeline
+        # Use beautiful market pipeline
         market_ready, result_data = await market_pipeline.join_queue(gmail_username, is_prolific, params)
         
         if market_ready:

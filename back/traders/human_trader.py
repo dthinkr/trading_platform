@@ -19,6 +19,7 @@ class HumanTrader(BaseTrader):
         self.params = params
         self.gmail_username = gmail_username
         self.websocket = None
+        self.socket_status = False
         self.goal_progress = 0
 
     def get_trader_params_as_dict(self):
@@ -28,11 +29,12 @@ class HumanTrader(BaseTrader):
             "initial_cash": self.initial_cash,
             "initial_shares": self.initial_shares,
             "goal": self.goal,
-            "goal_progress": self.goal_progress,  # Add this line
+            "goal_progress": self.goal_progress,
             **self.params
         }
 
     async def post_processing_server_message(self, json_message):
+        """Send updates to frontend via WebSocket"""
         message_type = json_message.pop("type", None)
         if message_type:
             await self.send_message_to_client(message_type, **json_message)
@@ -42,14 +44,16 @@ class HumanTrader(BaseTrader):
             self.websocket = websocket
             self.socket_status = True
             
-            if not self.channel:
-                await self.initialize()
-            
-            if not self.trading_system_exchange:
-                await self.connect_to_market(self.trading_market.id)
+            if not hasattr(self, 'trading_platform') or not self.trading_platform:
+                logger.error(f"HumanTrader {self.id}: No trading platform connected")
+                return
+                
+            # Register websocket with trading platform for updates
+            self.trading_platform.register_websocket(websocket)
             
             await self.register()
         except Exception as e:
+            logger.error(f"Error connecting human trader {self.id} to socket: {e}")
             traceback.print_exc()
 
     async def send_message_to_client(self, message_type, **kwargs):
@@ -69,8 +73,8 @@ class HumanTrader(BaseTrader):
                 "pnl": self.get_current_pnl(),
                 "type": message_type,
                 "inventory": dict(shares=self.shares, cash=self.cash),
-                "goal": self.goal,  # Add this line
-                "goal_progress": self.goal_progress,  # Add this line
+                "goal": self.goal,
+                "goal_progress": self.goal_progress,
                 **kwargs,
                 "order_book": order_book,
                 "initial_cash": self.initial_cash,
@@ -83,25 +87,32 @@ class HumanTrader(BaseTrader):
             await self.websocket.send_json(message)
         except WebSocketDisconnect:
             self.socket_status = False
+            # Unregister from trading platform
+            if self.trading_platform:
+                self.trading_platform.unregister_websocket(self.websocket)
         except Exception as e:
+            logger.error(f"Error sending message to client {self.id}: {e}")
             traceback.print_exc()
 
     async def on_message_from_client(self, message):
+        """Handle messages from frontend WebSocket"""
         try:
             json_message = json.loads(message)
             action_type = json_message.get("type")
             data = json_message.get("data")
-            handler = getattr(self, f"handle_{action_type}", None)
-            if handler:
-                await handler(data)
+            
+            if action_type == "add_order":
+                await self.handle_add_order(data)
+            elif action_type == "cancel_order":
+                await self.handle_cancel_order(data)
             else:
-                logger.critical(
-                    f"Do not recognice the type: {action_type}. Invalid message format: {message}"
-                )
+                logger.warning(f"Unknown message type: {action_type}")
+                
         except json.JSONDecodeError:
             logger.critical(f"Error decoding message: {message}")
 
     async def handle_add_order(self, data):
+        """Handle order placement from frontend"""
         order_type = data.get("type")
         price = data.get("price")
         amount = data.get("amount", 1)
@@ -109,14 +120,11 @@ class HumanTrader(BaseTrader):
         await self.post_new_order(amount, price, order_type)
 
     async def handle_cancel_order(self, data):
+        """Handle order cancellation from frontend"""
         order_uuid = data.get("id")
 
         if order_uuid in [order["id"] for order in self.orders]:
             await self.send_cancel_order_request(order_uuid)
-
-    async def handle_closure(self, data):
-        await self.post_processing_server_message(data)
-        await super().handle_closure(data)
 
     async def handle_TRADING_STARTED(self, data):
         """
@@ -152,3 +160,15 @@ class HumanTrader(BaseTrader):
         
         # Forward the message to the client
         await self.post_processing_server_message(data)
+
+    async def act(self):
+        """Human traders don't need to act automatically - they respond to WebSocket messages"""
+        # Human traders are event-driven through WebSocket messages
+        # This method is required by BaseTrader but doesn't need to do anything
+        pass
+
+    async def clean_up(self):
+        """Clean up WebSocket connection"""
+        if self.websocket and self.trading_platform:
+            self.trading_platform.unregister_websocket(self.websocket)
+        await super().clean_up()

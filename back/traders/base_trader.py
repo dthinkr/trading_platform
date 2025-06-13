@@ -1,14 +1,12 @@
 import asyncio
-import aio_pika
 import json
 import uuid
 from core.data_models import OrderType, ActionType, TraderType, ThrottleConfig
 import os
 from abc import abstractmethod
+from datetime import datetime
 
 from utils.utils import CustomEncoder
-
-rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://localhost")
 
 class BaseTrader:
     orders: list = []
@@ -30,14 +28,10 @@ class BaseTrader:
         self._stop_requested = asyncio.Event()
         self.trader_type = trader_type.value
         self.id = id
-        self.connection = None
-        self.channel = None
-        self.trading_market_uuid = None
-        self.trader_queue_name = f"trader_{self.id}"
-        self.queue_name = None
-        self.broadcast_exchange_name = None
-        self.trading_system_exchange = None
-
+        
+        # Direct reference to trading platform (no messaging)
+        self.trading_platform = None
+        
         # PNL BLOCK
         self.DInv = []
         self.transaction_prices = []
@@ -66,199 +60,49 @@ class BaseTrader:
         current_time = asyncio.get_event_loop().time()
         return current_time - self.start_time
 
-    def get_vwap(self):
-        return (
-            sum(self.transaction_prices) / len(self.transaction_prices)
-            if self.transaction_prices
-            else 0
-        )
+    def calculate_goal_progress(self):
+        """Calculate goal progress based on current shares"""
+        if hasattr(self, 'goal') and self.goal != 0:
+            self.goal_progress = self.shares - self.initial_shares
+        return getattr(self, 'goal_progress', 0)
 
-    def update_mid_price(self, new_mid_price):
-        self.general_mid_prices.append(new_mid_price)
+    def get_current_pnl(self) -> float:
+        if not self.order_book:
+            return 0.0
+            
+        # Calculate unrealized PnL using mid-market value
+        bids = self.order_book.get("bids", [])
+        asks = self.order_book.get("asks", [])
+        
+        if bids and asks:
+            best_bid = max(bid["x"] for bid in bids)
+            best_ask = min(ask["x"] for ask in asks)
+            mid_price = (best_bid + best_ask) / 2
+        else:
+            mid_price = 100  # Default price if no order book
+            
+        # Unrealized PnL = change in shares * current mid price + change in cash
+        unrealized_pnl = (self.shares - self.initial_shares) * mid_price + (self.cash - self.initial_cash)
+        return round(unrealized_pnl, 2)
 
-    def update_data_for_pnl(self, dinv: float, transaction_price: float) -> None:
-        relevant_mid_price = (
-            self.general_mid_prices[-1]
-            if self.general_mid_prices
-            else transaction_price
-        )
+    def get_vwap(self) -> float:
+        if not self.transaction_prices or not self.filled_orders:
+            return 0.0
+        
+        total_value = sum(order["price"] * order["amount"] for order in self.filled_orders if order.get("price") and order.get("amount"))
+        total_volume = sum(order["amount"] for order in self.filled_orders if order.get("amount"))
+        
+        return round(total_value / total_volume, 2) if total_volume > 0 else 0.0
 
-        self.DInv.append(dinv)
-        self.transaction_prices.append(transaction_price)
-        self.transaction_relevant_mid_prices.append(relevant_mid_price)
+    def update_mid_price(self, mid_price):
+        self.general_mid_prices.append(mid_price)
 
-        self.sum_cost += dinv * (transaction_price - relevant_mid_price)
-        self.sum_dinv += dinv
-        self.sum_mid_executions += relevant_mid_price * dinv
-
-        self.current_pnl = (
-            relevant_mid_price * self.sum_dinv - self.sum_mid_executions - self.sum_cost
-        )
-
-    def get_current_pnl(self, use_latest_general_mid_price=True):
-        if use_latest_general_mid_price and self.general_mid_prices:
-            latest_mid_price = self.general_mid_prices[-1]
-            pnl_adjusted = (
-                latest_mid_price * self.sum_dinv
-                - self.sum_mid_executions
-                - self.sum_cost
-            )
-            return pnl_adjusted
-        return self.current_pnl
-
-    @property
-    def delta_cash(self):
-        return self.cash - self.initial_cash
-
-    async def initialize(self):
-        self.connection = await aio_pika.connect_robust(rabbitmq_url)
-        self.channel = await self.connection.channel()
-        if hasattr(self, 'params'):
-            # Get throttle config for this trader type
-            self.throttle_config = self.params.get('throttle_settings', {}).get(self.trader_type, None)
-            if self.throttle_config:
-                self.throttle_config = ThrottleConfig(**self.throttle_config)
-            else:
-                self.throttle_config = ThrottleConfig()  # Default no throttling
-
-    async def clean_up(self):
-        self._stop_requested.set()
-        try:
-            if self.channel:
-                await self.channel.close()
-            if self.connection:
-                await self.connection.close()
-        except Exception:
-            pass
-
-    async def connect_to_market(self, trading_market_uuid):
-        print(f"Trader {self.id}: Connecting to market {trading_market_uuid}")
-        if not self.channel:
-            await self.initialize()
-
-        self.trading_market_uuid = trading_market_uuid
-        self.queue_name = f"trading_system_queue_{self.trading_market_uuid}"
-        self.trader_queue_name = f"trader_{self.id}"
-
-        self.broadcast_exchange_name = f"broadcast_{self.trading_market_uuid}"
-        print(f"Trader {self.id}: Set up queue names - queue: {self.queue_name}, trader_queue: {self.trader_queue_name}")
-
-        broadcast_exchange = await self.channel.declare_exchange(
-            self.broadcast_exchange_name, aio_pika.ExchangeType.FANOUT, auto_delete=True
-        )
-        broadcast_queue = await self.channel.declare_queue("", auto_delete=True)
-        await broadcast_queue.bind(broadcast_exchange)
-        await broadcast_queue.consume(self.on_message_from_system)
-
-        self.trading_system_exchange = await self.channel.declare_exchange(
-            self.queue_name, aio_pika.ExchangeType.DIRECT, auto_delete=True
-        )
-        trader_queue = await self.channel.declare_queue(
-            self.trader_queue_name, auto_delete=True
-        )
-        await trader_queue.bind(
-            self.trading_system_exchange, routing_key=self.trader_queue_name
-        )
-        await trader_queue.consume(self.on_message_from_system)
-
-    async def register(self):
-        if not self.trading_system_exchange:
-            await self.connect_to_market(self.trading_market_uuid)
-
-        message = {
-            "type": ActionType.REGISTER.value,
-            "action": ActionType.REGISTER.value,
-            "trader_type": self.trader_type,
-        }
-
-        await self.send_to_trading_system(message)
-
-
-    async def register(self):
-        message = {
-            "type": ActionType.REGISTER.value,
-            "action": ActionType.REGISTER.value,
-            "trader_type": self.trader_type,
-        }
-
-        await self.send_to_trading_system(message)
-
-    async def send_to_trading_system(self, message):
-        message["trader_id"] = self.id
-        print(f"Trader {self.id}: Sending message to trading system: {message}")
-        if not self.trading_system_exchange:
-            print(f"Trader {self.id}: ERROR - trading_system_exchange is None!")
-            return
-        await self.trading_system_exchange.publish(
-            aio_pika.Message(body=json.dumps(message, cls=CustomEncoder).encode()),
-            routing_key=self.queue_name,
-        )
-        print(f"Trader {self.id}: Message sent successfully")
-
-    def check_if_relevant(self, transactions: list) -> list:
-        transactions_relevant_to_self = []
+    def update_filled_orders(self, transactions: list):
         for transaction in transactions:
-            if transaction["trader_id"] == self.id:
-                transactions_relevant_to_self.append(transaction)
-        return transactions_relevant_to_self
-
-    def update_filled_orders(self, transactions):
-        for transaction in transactions:
-            if transaction["trader_id"] == self.id:
-                filled_order = {
-                    "id": transaction["id"],
-                    "price": transaction["price"],
-                    "amount": transaction["amount"],
-                    "type": transaction["type"],
-                    "timestamp": transaction.get("timestamp", None),
-                }
-                self.filled_orders.append(filled_order)
-
+            if transaction.get("trader_id") == self.id:
+                self.filled_orders.append(transaction)
+                self.transaction_prices.append(transaction["price"])
                 self.update_inventory([transaction])
-                self.update_goal_progress(transaction)  
-
-                self.update_data_for_pnl(
-                    transaction["amount"]
-                    if transaction["type"] == "bid"
-                    else -transaction["amount"],
-                    transaction["price"],
-                )
-
-    async def on_message_from_system(self, message):
-        try:
-            json_message = json.loads(message.body.decode())
-            action_type = json_message.get("type")
-            data = json_message
-
-            if action_type == "transaction_update":
-                transactions = data.get("transactions", [])
-                self.update_filled_orders(transactions)
-
-            if data.get("midpoint"):
-                self.update_mid_price(data["midpoint"])
-            if not data:
-                return
-            order_book = data.get("order_book")
-            if order_book:
-                print(f"Trader {self.id}: Received order_book update: {order_book}")
-                self.order_book = order_book
-            else:
-                print(f"Trader {self.id}: No order_book in message: {data.keys()}")
-            active_orders_in_book = data.get("active_orders")
-            if active_orders_in_book:
-                self.active_orders_in_book = active_orders_in_book
-                own_orders = [
-                    order for order in active_orders_in_book if order["trader_id"] == self.id
-                ]
-                self.orders = own_orders
-
-            handler = getattr(self, f"handle_{action_type}", None)
-            if handler:
-                await handler(data)
-            await self.post_processing_server_message(data)
-
-        except json.JSONDecodeError:
-            pass
 
     def update_inventory(self, transactions_relevant_to_self: list) -> None:
         for transaction in transactions_relevant_to_self:
@@ -269,158 +113,147 @@ class BaseTrader:
                 self.shares -= transaction["amount"]
                 self.cash += transaction["price"] * transaction["amount"]
 
-    @abstractmethod
-    async def post_processing_server_message(self, json_message):
+    async def initialize(self):
+        """Initialize the trader."""
+        # Set up throttle config if available
+        if hasattr(self, 'params') and self.params:
+            # Get throttle config for this trader type
+            self.throttle_config = self.params.get('throttle_settings', {}).get(self.trader_type, None)
+            if self.throttle_config:
+                self.throttle_config = ThrottleConfig(**self.throttle_config)
+            else:
+                self.throttle_config = ThrottleConfig()  # Default no throttling
+
+    async def connect_to_market(self, trading_market_uuid: str):
+        """Connect to trading market directly"""
+        # This method will be called by the trader manager
+        # to set the trading platform reference
         pass
 
-    async def post_new_order(
-        self, amount: int, price: int, order_type: OrderType
-    ) -> str:
-        # Only apply throttling if configured
-        if self.throttle_config and self.throttle_config.order_throttle_ms > 0:
-            current_time = asyncio.get_event_loop().time() * 1000  # Convert to milliseconds
-            
-            # Check if we're in a new window
-            if current_time - self.last_order_time > self.throttle_config.order_throttle_ms:
-                self.last_order_time = current_time
-                self.orders_in_window = 0
-                
-            # Check if we've exceeded the order limit in this window
-            if self.orders_in_window >= self.throttle_config.max_orders_per_window:
-                return None  # Discard the order
-                
-            # Increment order count for this window
-            self.orders_in_window += 1
+    def set_trading_platform(self, platform):
+        """Set direct reference to trading platform"""
+        self.trading_platform = platform
+        # Register with the platform for direct communication
+        platform.register_trader(self.id, self)
 
-        # Special handling for zero-amount orders (only for human traders)
-        if amount == 0 and self.trader_type == TraderType.HUMAN.value:
-            # Create a special zero-amount order for record-keeping purposes
-            order_id = f"{self.id}_zero_amount_{len(self.placed_orders)}"
-            new_order = {
-                "action": ActionType.POST_NEW_ORDER.value,
-                "amount": 0,
-                "price": price,
-                "order_type": order_type,
-                "order_id": order_id,
-                "is_record_keeping": True,  # Flag to indicate this is for record-keeping only
-            }
-            
-            await self.send_to_trading_system(new_order)
-            
-            self.placed_orders.append({
-                "order_ids": [order_id],
-                "amount": 0,
-                "price": price,
-                "order_type": order_type,
-                "timestamp": asyncio.get_event_loop().time(),
-                "is_record_keeping": True,
-            })
-            
-            return order_id
+    async def register(self):
+        """Register with the trading platform"""
+        if self.trading_platform:
+            await self.trading_platform.handle_register_me(
+                trader_id=self.id,
+                trader_type=self.trader_type,
+                gmail_username=getattr(self, 'gmail_username', None)
+            )
 
-        # Original order posting logic
-        if self.trader_type != TraderType.NOISE.value:
-            if order_type == OrderType.BID:
-                if self.cash < price * amount:
-                    return None
-            elif order_type == OrderType.ASK:
-                if self.shares < amount:
-                    return None
-
-        placed_order_ids = []
-        for i in range(int(amount)):
-            order_id = f"{self.id}_{len(self.placed_orders)}_{i}"
-            new_order = {
-                "action": ActionType.POST_NEW_ORDER.value,
-                "amount": 1,
-                "price": price,
-                "order_type": order_type,
-                "order_id": order_id,
-            }
-
-            if self.trader_type == TraderType.INFORMED.value:
-                new_order["informed_trader_progress"] = f"{self.number_trades} | {self.goal}"
-
-            await self.send_to_trading_system(new_order)
-            placed_order_ids.append(order_id)
-
-        self.placed_orders.append(
-            {
-                "order_ids": placed_order_ids,
-                "amount": amount,
-                "price": price,
-                "order_type": order_type,
-                "timestamp": asyncio.get_event_loop().time(),
-            }
-        )
-
-        return placed_order_ids[-1] if placed_order_ids else None
-
-    async def send_cancel_order_request(self, order_id: uuid.UUID) -> bool:
-        if not order_id:
-            return False
-        if not self.orders:
-            return False
-        if order_id not in [order["id"] for order in self.orders]:
-            return False
-
-        order_to_cancel = next(
-            (order for order in self.orders if order["id"] == order_id), None
-        )
-
-        if self.trader_type != TraderType.NOISE.value:
-            if order_to_cancel["order_type"] == OrderType.BID:
-                self.cash += order_to_cancel["price"] * order_to_cancel["amount"]
-            elif order_to_cancel["order_type"] == OrderType.ASK:
-                self.shares += order_to_cancel["amount"]
-
-        cancel_order_request = {
-            "action": ActionType.CANCEL_ORDER.value,
-            "trader_id": self.id,
-            "order_id": order_id,
-            "amount": -order_to_cancel["amount"],
-            "price": order_to_cancel["price"],
-            "order_type": order_to_cancel["order_type"],
-        }
-
-        try:
-            await self.send_to_trading_system(cancel_order_request)
-            return True
-        except Exception:
-            return False
+    async def clean_up(self):
+        """Clean up resources."""
+        self._stop_requested.set()
 
     async def run(self):
+        """Main loop for the trader."""
+        while not self._stop_requested.is_set():
+            try:
+                await self.act()
+                await asyncio.sleep(0.1)  # Small delay to prevent busy waiting
+            except Exception as e:
+                print(f"Error in trader {self.id}: {e}")
+                await asyncio.sleep(1)  # Wait longer on error
+
+    @abstractmethod
+    async def act(self):
+        """The main action that the trader performs."""
+        pass
+
+    def is_throttled(self):
+        """Check if the trader is throttled based on order frequency"""
+        if not self.throttle_config:
+            return False
+
+        current_time = datetime.now().timestamp()
+        
+        # Check time-based throttling
+        if current_time - self.last_order_time < self.throttle_config.min_time_between_orders:
+            return True
+        
+        # Check frequency-based throttling
+        window_start = current_time - self.throttle_config.time_window
+        recent_orders = [order for order in self.placed_orders 
+                        if order.get('timestamp', 0) > window_start]
+        
+        if len(recent_orders) >= self.throttle_config.max_orders_per_window:
+            return True
+            
+        return False
+
+    async def post_new_order(self, amount: int, price: int, order_type: OrderType, **kwargs):
+        """Post a new order directly to the trading platform"""
+        if not self.trading_platform:
+            print(f"Trader {self.id}: No trading platform connected")
+            return
+
+        # Check if throttled
+        if self.is_throttled():
+            print(f"Trader {self.id}: Order throttled")
+            return
+
+        # Handle zero-amount orders for record-keeping
+        is_record_keeping = amount == 0
+        
+        order_data = {
+            "trader_id": self.id,
+            "order_type": order_type.value,
+            "amount": amount,
+            "price": price,
+            "order_id": str(uuid.uuid4()),
+            "is_record_keeping": is_record_keeping,
+            **kwargs
+        }
+
+        # Track placed order
+        placed_order = {
+            "id": order_data["order_id"],
+            "trader_id": self.id,
+            "amount": amount,
+            "price": price,
+            "type": order_type.value,
+            "timestamp": datetime.now().timestamp()
+        }
+        self.placed_orders.append(placed_order)
+        
+        # Update throttling counters
+        self.last_order_time = datetime.now().timestamp()
+
+        try:
+            # Call trading platform directly
+            result = await self.trading_platform.add_order(order_data, self.id)
+            return result
+        except Exception as e:
+            print(f"Error posting order for trader {self.id}: {e}")
+            return None
+
+    async def send_cancel_order_request(self, order_id: str):
+        """Cancel an order directly through the trading platform"""
+        if not self.trading_platform:
+            print(f"Trader {self.id}: No trading platform connected")
+            return
+
+        try:
+            result = await self.trading_platform.cancel_order(order_id, self.id)
+            return result
+        except Exception as e:
+            print(f"Error cancelling order for trader {self.id}: {e}")
+            return None
+
+    # Optional handlers for specific events (can be overridden by subclasses)
+    async def handle_TRADING_STARTED(self, data):
+        """Handle trading start notification - can be overridden"""
         pass
 
     async def handle_closure(self, data):
-        self._stop_requested.set()
-        await self.clean_up()
+        """Handle market closure - can be overridden"""
+        pass
 
-    async def handle_stop_trading(self, data):
-        await self.send_to_trading_system(
-            {
-                "action": "inventory_report",
-                "trader_id": self.id,
-                "shares": self.shares,
-                "cash": self.cash,
-            }
-        )
-        self._stop_requested.set()
-
-    def update_goal_progress(self, transaction):
-        """Update progress towards the trader's goal"""
-        if self.goal == 0:  # No goal to track
-            return
-            
-        amount = transaction.get('amount', 1)
-        if transaction['type'] == 'bid':
-            self.goal_progress += amount
-        elif transaction['type'] == 'ask':
-            self.goal_progress -= amount
-
-    async def handle_TRADING_STARTED(self, data):
-        """
-        Reset the start_time when trading actually begins.
-        This ensures that get_elapsed_time() returns the correct time since trading started.
-        """
-        self.start_time = asyncio.get_event_loop().time()
+    @abstractmethod
+    async def post_processing_server_message(self, json_message):
+        """Process server messages - mainly for human traders"""
+        pass
