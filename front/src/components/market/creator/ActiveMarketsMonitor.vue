@@ -1,231 +1,111 @@
 <template>
-  <v-card elevation="2">
-    <v-card-title class="headline">
-      <v-icon left color="deep-blue">mdi-monitor-dashboard</v-icon>
-      Active Markets Monitor
-    </v-card-title>
+  <div class="card">
+    <div class="card-header pb-3">
+      <div class="flex items-center space-x-2">
+        <ComputerDesktopIcon class="h-4 w-4 text-blue-600" aria-hidden="true" />
+        <h2 class="text-base font-semibold text-neutral-900">Active Markets</h2>
+      </div>
+    </div>
     
-    <v-card-text>
-      <v-data-table
-        :headers="[
-          { text: 'Market ID', value: 'market_id', class: 'custom-header' },
-          { text: 'Status', value: 'status', class: 'custom-header' },
-          { text: 'Members', value: 'member_ids', class: 'custom-header' },
-          { text: 'Started At', value: 'started_at', class: 'custom-header' },
-          { text: 'Actions', value: 'actions', class: 'custom-header', sortable: false }
-        ]"
-        :items="activeSessions"
-        :items-per-page="5"
-        class="elevation-1"
-        dense
-      >
-        <template v-slot:item.status="{ item }">
-          <v-chip
-            :color="getStatusColor(item.status)"
-            small
-            label
-          >
-            {{ item.status }}
-          </v-chip>
-        </template>
-        
-        <template v-slot:item.member_ids="{ item }">
-          <div class="d-flex align-center">
-            <v-chip
-              small
-              class="mr-2"
-              :color="item.member_ids?.length ? 'info' : 'grey'"
-              label
-            >
-              {{ item.member_ids?.length || 0 }}
-            </v-chip>
-            <v-menu
-              offset-y
-              :close-on-content-click="false"
-              max-width="300"
-            >
-              <template v-slot:activator="{ on, attrs }">
-                <v-btn
-                  x-small
-                  icon
-                  v-bind="attrs"
-                  v-on="on"
-                  :disabled="!item.member_ids?.length"
-                  :color="item.member_ids?.length ? 'primary' : undefined"
-                >
-                  <v-icon small>mdi-account-group</v-icon>
-                </v-btn>
-              </template>
-              <v-card class="member-list-card">
-                <v-card-title class="text-subtitle-2 primary lighten-4 py-2 px-4 white--text">
-                  <v-icon left small class="white--text">mdi-account-group</v-icon>
-                  Session Members
-                </v-card-title>
-                <v-list dense class="py-2">
-                  <v-list-item
-                    v-for="member in item.member_ids"
-                    :key="member"
-                    class="px-4"
-                  >
-                    <v-list-item-icon class="mr-2">
-                      <v-icon small color="grey darken-1">mdi-account</v-icon>
-                    </v-list-item-icon>
-                    <v-list-item-content>
-                      <v-list-item-title class="subtitle-2">
-                        {{ formatMemberName(member) }}
-                      </v-list-item-title>
-                      <v-list-item-subtitle class="caption grey--text text--darken-1">
-                        {{ member.replace('HUMAN_', '') }}
-                      </v-list-item-subtitle>
-                    </v-list-item-content>
-                  </v-list-item>
-                </v-list>
-                <v-card-actions class="py-2 px-4 grey lighten-4">
-                  <v-spacer></v-spacer>
-                  <v-btn
-                    x-small
-                    text
-                    @click="$root.$emit('click:outside')"
-                  >
-                    Close
-                  </v-btn>
-                </v-card-actions>
-              </v-card>
-            </v-menu>
+    <div class="card-body p-4">
+      <div v-if="activeSessions.length === 0" class="text-center py-6">
+        <ComputerDesktopIcon class="h-8 w-8 text-neutral-400 mx-auto mb-2" />
+        <p class="text-xs text-neutral-500">No active sessions</p>
+      </div>
+      
+      <div v-else class="space-y-2">
+        <div
+          v-for="session in activeSessions.slice(0, 5)"
+          :key="session.market_id"
+          class="border border-neutral-200 rounded p-2 hover:bg-neutral-25"
+        >
+          <div class="flex items-center justify-between mb-1">
+            <div class="text-xs font-medium text-neutral-900 truncate mr-2">
+              {{ session.market_id }}
+            </div>
+            <span :class="[
+              'inline-flex px-1.5 py-0.5 text-xs font-semibold rounded-full',
+              getStatusColor(session.status)
+            ]">
+              {{ session.status }}
+            </span>
           </div>
-        </template>
+          
+          <div class="flex items-center justify-between text-xs text-neutral-600">
+            <div class="flex items-center">
+              <UsersIcon class="h-3 w-3 mr-1" aria-hidden="true" />
+              <span>{{ session.member_ids?.length || 0 }} members</span>
+            </div>
+            <button
+              v-if="session.status !== 'active' && session.member_ids?.length"
+              @click="forceStartSession(session.market_id)"
+              class="text-blue-600 hover:text-blue-800 text-xs px-2 py-0.5 rounded border border-blue-200 hover:bg-blue-50"
+            >
+              Start
+            </button>
+          </div>
+          
+          <div v-if="session.started_at" class="text-xs text-neutral-500 mt-1">
+            {{ new Date(session.started_at).toLocaleTimeString() }}
+          </div>
+        </div>
         
-        <template v-slot:item.started_at="{ item }">
-          {{ item.started_at ? new Date(item.started_at).toLocaleString() : 'Not started' }}
-        </template>
-
-        <template v-slot:item.actions="{ item }">
-          <v-btn
-            x-small
-            color="primary"
-            :disabled="item.status === 'active' || !item.member_ids?.length"
-            @click="forceStartSession(item.market_id)"
-            class="mr-2"
-          >
-            <v-icon left x-small>mdi-play</v-icon>
-            Start
-          </v-btn>
-        </template>
-      </v-data-table>
-    </v-card-text>
-  </v-card>
+        <div v-if="activeSessions.length > 5" class="text-xs text-neutral-500 text-center pt-2 border-t border-neutral-200">
+          +{{ activeSessions.length - 5 }} more sessions
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
-import axios from '@/api/axios';
-import { useTraderStore } from "@/store/app";
+import { ref, onMounted, onUnmounted } from 'vue'
+import { 
+  ComputerDesktopIcon, 
+  UsersIcon
+} from '@heroicons/vue/24/outline'
+import axios from '@/api/axios'
 
-const traderStore = useTraderStore();
-const activeSessions = ref([]);
-let sessionPollingInterval;
+const activeSessions = ref([])
+let sessionPollingInterval
 
 const fetchActiveSessions = async () => {
   try {
-    const response = await axios.get(`${import.meta.env.VITE_HTTP_URL}sessions`);
-    activeSessions.value = response.data;
+    const response = await axios.get(`${import.meta.env.VITE_HTTP_URL}sessions`)
+    activeSessions.value = response.data || []
   } catch (error) {
-    console.error("Failed to fetch sessions:", error);
+    console.error("Failed to fetch sessions:", error)
   }
-};
+}
 
 const forceStartSession = async (marketId) => {
   try {
-    await axios.post(`${import.meta.env.VITE_HTTP_URL}sessions/${marketId}/force-start`);
-    traderStore.showSnackbar({
-      text: 'Session started successfully',
-      color: 'success'
-    });
-    await fetchActiveSessions();
+    await axios.post(`${import.meta.env.VITE_HTTP_URL}sessions/${marketId}/force-start`)
+    console.log('Session started successfully')
+    await fetchActiveSessions()
   } catch (error) {
-    traderStore.showSnackbar({
-      text: error.response?.data?.detail || 'Error starting session',
-      color: 'error'
-    });
+    console.error('Error starting session:', error.response?.data?.detail || 'Unknown error')
   }
-};
-
-const formatMemberName = (email) => {
-  if (!email) return '';
-  // Remove the 'HUMAN_' prefix if it exists
-  const cleanEmail = email.replace('HUMAN_', '');
-  // Extract the username part before @gmail.com
-  const username = cleanEmail.split('@')[0];
-  // Capitalize first letter of each word and replace underscores/dots with spaces
-  return username
-    .split(/[._]/)
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ');
-};
+}
 
 const getStatusColor = (status) => {
   const colors = {
-    'pending': 'warning',
-    'active': 'success',
-    'completed': 'grey'
-  };
-  return colors[status] || 'grey';
-};
+    'pending': 'bg-yellow-100 text-yellow-800',
+    'active': 'bg-green-100 text-green-800',
+    'completed': 'bg-neutral-100 text-neutral-800'
+  }
+  return colors[status] || 'bg-neutral-100 text-neutral-800'
+}
 
 onMounted(() => {
-  fetchActiveSessions();
-  // Poll for session updates every 5 seconds
-  sessionPollingInterval = setInterval(fetchActiveSessions, 5000);
-});
+  fetchActiveSessions()
+  // Poll for session updates every 10 seconds (less frequent)
+  sessionPollingInterval = setInterval(fetchActiveSessions, 10000)
+})
 
 onUnmounted(() => {
   if (sessionPollingInterval) {
-    clearInterval(sessionPollingInterval);
+    clearInterval(sessionPollingInterval)
   }
-});
+})
 </script>
-
-<style scoped>
-.custom-header {
-  font-weight: 600 !important;
-  font-size: 0.81rem !important;
-  color: #2c3e50 !important;
-}
-
-.v-data-table :deep(.v-data-table__wrapper > table > tbody > tr > td:last-child) {
-  width: 1%;
-  white-space: nowrap;
-}
-
-.v-btn.v-btn--icon.v-size--x-small {
-  width: 22px;
-  height: 22px;
-  margin: 0 2px;
-}
-
-.v-btn.v-btn--icon.v-size--x-small .v-icon {
-  font-size: 14px;
-}
-
-.member-list-card {
-  border-radius: 8px;
-  overflow: hidden;
-  max-width: 400px;
-}
-
-.member-list-card .v-list-item {
-  border-radius: 4px;
-  margin: 2px 8px;
-  transition: background-color 0.2s;
-}
-
-.member-list-card .v-list-item:hover {
-  background-color: var(--v-primary-lighten5);
-}
-
-.member-list-card .v-list-item__subtitle {
-  margin-top: 2px;
-  font-size: 11px !important;
-  opacity: 0.7;
-}
-</style>

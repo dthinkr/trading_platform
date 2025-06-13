@@ -242,7 +242,8 @@
 import { ref, onMounted, computed } from "vue";
 import axios from "axios";
 import { useRouter } from 'vue-router';
-import { useTraderStore } from "@/store/app";
+import { useTradingStore } from "@/stores/trading";
+import { useAuthStore } from "@/stores/auth";
 import { storeToRefs } from "pinia";
 
 const props = defineProps({
@@ -250,8 +251,9 @@ const props = defineProps({
 });
 
 const router = useRouter();
-const traderStore = useTraderStore();
-const { pnl, vwap } = storeToRefs(traderStore);
+const tradingStore = useTradingStore();
+const authStore = useAuthStore();
+const { pnl, vwap } = storeToRefs(tradingStore);
 const traderInfo = ref(null);
 const orderBookMetrics = ref(null);
 const traderSpecificMetrics = ref(null);
@@ -396,7 +398,7 @@ onMounted(() => {
   fetchTraderInfo();
   // Ensure the trading market data is set in the store
   if (traderInfo.value && traderInfo.value.trading_market_id) {
-    traderStore.tradingMarketData = { trading_market_uuid: traderInfo.value.trading_market_id };
+    // Trading market data is handled by the new stores
   }
 });
 </script>

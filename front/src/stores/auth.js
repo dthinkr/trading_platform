@@ -14,12 +14,14 @@ export const useAuthStore = defineStore('auth', () => {
   const isPersisted = ref(false)
   const loginInProgress = ref(false)
   const prolificToken = ref(null)
+  const onboardingCompleted = ref(false)
   
   // Computed
   const isAuthenticated = computed(() => !!user.value)
   const prolificId = computed(() => 
     user.value?.isProlific ? user.value.prolificData?.PROLIFIC_PID || '' : ''
   )
+  const hasCompletedOnboarding = computed(() => onboardingCompleted.value)
   
   // Actions
   async function initializeAuth() {
@@ -38,6 +40,9 @@ export const useAuthStore = defineStore('auth', () => {
           user.value = null
           isPersisted.value = false
         }
+        
+        // Load onboarding status
+        loadOnboardingStatus()
         
         isInitialized.value = true
         resolve()
@@ -93,6 +98,9 @@ export const useAuthStore = defineStore('auth', () => {
       if (response.data.data.prolific_token) {
         prolificToken.value = response.data.data.prolific_token
       }
+      
+      // Load onboarding status for Prolific users too
+      loadOnboardingStatus()
       
       console.log('Prolific login successful')
     } catch (error) {
@@ -156,6 +164,36 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
   
+  async function completeOnboarding() {
+    try {
+      // Mark onboarding as completed
+      onboardingCompleted.value = true
+      
+      // Save to localStorage for persistence
+      localStorage.setItem('onboarding-completed', 'true')
+      
+      // Optionally save to backend
+      if (traderId.value) {
+        try {
+          await axios.post('/user/complete-onboarding', {
+            trader_id: traderId.value
+          })
+        } catch (error) {
+          console.warn('Failed to save onboarding completion to backend:', error)
+          // Don't throw - local completion is sufficient
+        }
+      }
+    } catch (error) {
+      console.error('Failed to complete onboarding:', error)
+      throw error
+    }
+  }
+  
+  function loadOnboardingStatus() {
+    const completed = localStorage.getItem('onboarding-completed')
+    onboardingCompleted.value = completed === 'true'
+  }
+  
   function logout() {
     user.value = null
     isAdmin.value = false
@@ -165,8 +203,10 @@ export const useAuthStore = defineStore('auth', () => {
     isInitialized.value = false
     loginInProgress.value = false
     prolificToken.value = null
+    onboardingCompleted.value = false
     
     localStorage.removeItem('auth')
+    localStorage.removeItem('onboarding-completed')
   }
   
   return {
@@ -179,16 +219,20 @@ export const useAuthStore = defineStore('auth', () => {
     isPersisted,
     loginInProgress,
     prolificToken,
+    onboardingCompleted,
     
     // Computed
     isAuthenticated,
     prolificId,
+    hasCompletedOnboarding,
     
     // Actions
     initializeAuth,
     prolificLogin,
     login,
     adminLogin,
-    logout
+    logout,
+    completeOnboarding,
+    loadOnboardingStatus
   }
 }) 
