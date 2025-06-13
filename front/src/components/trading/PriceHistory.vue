@@ -3,7 +3,7 @@
     <div class="card-header">
       <div class="flex items-center justify-between">
         <h3 class="text-lg font-semibold text-neutral-900 flex items-center">
-          <TrendingUpIcon class="h-5 w-5 mr-2 text-green-600" aria-hidden="true" />
+          <ArrowTrendingUpIcon class="h-5 w-5 mr-2 text-green-600" aria-hidden="true" />
           Price History
         </h3>
         <div class="flex items-center space-x-2">
@@ -74,7 +74,7 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, watch, computed, nextTick } from 'vue'
-import { TrendingUpIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
+import { ArrowTrendingUpIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
 import { useTradingStore } from '@/stores/trading'
 import {
   Chart as ChartJS,

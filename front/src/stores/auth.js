@@ -86,13 +86,7 @@ export const useAuthStore = defineStore('auth', () => {
       
       const response = await axios.post(url, requestBody)
       
-      if (!response.data.data?.trader_id) {
-        throw new Error('No trader ID received')
-      }
-      
       isAdmin.value = response.data.data.is_admin || false
-      traderId.value = response.data.data.trader_id
-      marketId.value = response.data.data.market_id
       isPersisted.value = false
       
       if (response.data.data.prolific_token) {
@@ -113,7 +107,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
   
   async function login(firebaseUser, isAutoLogin = false) {
-    if (loginInProgress.value || (user.value?.uid === firebaseUser.uid && traderId.value)) {
+    if (loginInProgress.value || (user.value?.uid === firebaseUser.uid)) {
       return
     }
     
@@ -121,25 +115,9 @@ export const useAuthStore = defineStore('auth', () => {
       loginInProgress.value = true
       const response = await axios.post('/user/login')
       
-      if (!response.data.data.trader_id) {
-        if (!isAutoLogin) {
-          // Retry once for manual login
-          await new Promise(resolve => setTimeout(resolve, 1000))
-          const retryResponse = await axios.post('/user/login')
-          if (!retryResponse.data.data.trader_id) {
-            throw new Error('Failed to get trader ID')
-          }
-          Object.assign(response, retryResponse)
-        } else {
-          throw new Error('Failed to get trader ID')
-        }
-      }
-      
       if (firebaseUser.uid === auth.currentUser?.uid) {
         user.value = firebaseUser
         isAdmin.value = response.data.data.is_admin
-        traderId.value = response.data.data.trader_id
-        marketId.value = response.data.data.market_id
         
         if (!isAutoLogin) {
           isPersisted.value = false
@@ -172,19 +150,45 @@ export const useAuthStore = defineStore('auth', () => {
       // Save to localStorage for persistence
       localStorage.setItem('onboarding-completed', 'true')
       
-      // Optionally save to backend
-      if (traderId.value) {
-        try {
-          await axios.post('/user/complete-onboarding', {
-            trader_id: traderId.value
-          })
-        } catch (error) {
-          console.warn('Failed to save onboarding completion to backend:', error)
-          // Don't throw - local completion is sufficient
-        }
+      // Save to backend
+      try {
+        const response = await axios.post('/user/complete-onboarding')
+        console.log('Onboarding completed successfully')
+        return response.data.data
+      } catch (error) {
+        console.warn('Failed to save onboarding completion to backend:', error)
+        // Don't throw - local completion is sufficient
       }
     } catch (error) {
       console.error('Failed to complete onboarding:', error)
+      throw error
+    }
+  }
+
+  async function joinWaitingRoom() {
+    try {
+      const response = await axios.post('/user/join-waiting-room')
+      console.log('Waiting room response:', response.data)
+      
+      // If session is ready, store trader/market info
+      if (response.data.data?.session_ready && response.data.data.trader_id) {
+        traderId.value = response.data.data.trader_id
+        marketId.value = response.data.data.market_id
+      }
+      
+      return response.data
+    } catch (error) {
+      console.error('Error joining waiting room:', error)
+      throw error
+    }
+  }
+
+  async function getWaitingRoomStatus() {
+    try {
+      const response = await axios.get('/user/waiting-room-status')
+      return response.data.data
+    } catch (error) {
+      console.error('Error getting waiting room status:', error)
       throw error
     }
   }
@@ -233,6 +237,8 @@ export const useAuthStore = defineStore('auth', () => {
     adminLogin,
     logout,
     completeOnboarding,
-    loadOnboardingStatus
+    loadOnboardingStatus,
+    joinWaitingRoom,
+    getWaitingRoomStatus
   }
 }) 

@@ -153,23 +153,20 @@ const prolificParams = ref(null)
 
 // Methods
 async function signInWithGoogle() {
-    try {
+  try {
     const provider = new GoogleAuthProvider()
     const result = await signInWithPopup(auth, provider)
     
     await authStore.login(result.user)
     
     if (authStore.isAuthenticated) {
-    if (authStore.traderId && authStore.marketId) {
-        router.push({ 
-          name: 'Onboarding',
-          params: { 
-            traderUuid: authStore.traderId,
-            marketId: authStore.marketId
-          } 
-        })
+      // Check if user has completed onboarding
+      if (authStore.hasCompletedOnboarding) {
+        // Go to waiting room to join a session
+        router.push({ name: 'WaitingRoom' })
       } else {
-        router.push({ name: 'register' })
+        // Go to onboarding (no longer need trader/market IDs)
+        router.push({ name: 'Onboarding' })
       }
     }
   } catch (error) {
@@ -215,14 +212,14 @@ async function handleProlificCredentialLogin() {
       localStorage.setItem('prolific_last_username', username.value)
       localStorage.setItem('prolific_last_password', password.value)
       
-      // Navigate to onboarding
-      router.push({
-        name: 'Onboarding',
-        params: {
-          traderUuid: authStore.traderId,
-          marketId: authStore.marketId
-        }
-      })
+      // Check if user has completed onboarding
+      if (authStore.hasCompletedOnboarding) {
+        // Go to waiting room to join a session
+        router.push({ name: 'WaitingRoom' })
+      } else {
+        // Go to onboarding (no longer need trader/market IDs)
+        router.push({ name: 'Onboarding' })
+      }
     }
   } catch (error) {
     console.error('Prolific credential login error:', error)
