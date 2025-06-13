@@ -24,11 +24,12 @@ class RabbitMQManager:
         return await self.channel.declare_queue(queue_name, auto_delete=auto_delete)
 
     async def bind_queue_to_exchange(self, queue_name: str, exchange_name: str):
-        queue = await self.channel.get_queue(queue_name)
+        queue = await self.declare_queue(queue_name)
         await queue.bind(self.exchanges[exchange_name])
 
     async def consume(self, queue_name: str, callback: Callable):
-        queue = await self.channel.get_queue(queue_name)
+        # Use declare_queue to ensure the queue exists and get the queue object
+        queue = await self.declare_queue(queue_name)
         await queue.consume(callback)
 
     async def publish(self, exchange_name: str, message: Dict, routing_key: str = ""):

@@ -132,6 +132,7 @@ class BaseTrader:
             pass
 
     async def connect_to_market(self, trading_market_uuid):
+        print(f"Trader {self.id}: Connecting to market {trading_market_uuid}")
         if not self.channel:
             await self.initialize()
 
@@ -140,6 +141,7 @@ class BaseTrader:
         self.trader_queue_name = f"trader_{self.id}"
 
         self.broadcast_exchange_name = f"broadcast_{self.trading_market_uuid}"
+        print(f"Trader {self.id}: Set up queue names - queue: {self.queue_name}, trader_queue: {self.trader_queue_name}")
 
         broadcast_exchange = await self.channel.declare_exchange(
             self.broadcast_exchange_name, aio_pika.ExchangeType.FANOUT, auto_delete=True
@@ -183,10 +185,15 @@ class BaseTrader:
 
     async def send_to_trading_system(self, message):
         message["trader_id"] = self.id
+        print(f"Trader {self.id}: Sending message to trading system: {message}")
+        if not self.trading_system_exchange:
+            print(f"Trader {self.id}: ERROR - trading_system_exchange is None!")
+            return
         await self.trading_system_exchange.publish(
             aio_pika.Message(body=json.dumps(message, cls=CustomEncoder).encode()),
             routing_key=self.queue_name,
         )
+        print(f"Trader {self.id}: Message sent successfully")
 
     def check_if_relevant(self, transactions: list) -> list:
         transactions_relevant_to_self = []
@@ -233,7 +240,10 @@ class BaseTrader:
                 return
             order_book = data.get("order_book")
             if order_book:
+                print(f"Trader {self.id}: Received order_book update: {order_book}")
                 self.order_book = order_book
+            else:
+                print(f"Trader {self.id}: No order_book in message: {data.keys()}")
             active_orders_in_book = data.get("active_orders")
             if active_orders_in_book:
                 self.active_orders_in_book = active_orders_in_book

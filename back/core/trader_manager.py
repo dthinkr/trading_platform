@@ -205,6 +205,10 @@ class TraderManager:
 
         await self.trading_market.start_trading()
 
+        # Give a brief moment for the book initializer's orders to be processed 
+        # and the order book to be populated before starting automated traders
+        await asyncio.sleep(0.5)
+
         trading_market_task = asyncio.create_task(self.trading_market.run())
         trader_tasks = [asyncio.create_task(i.run()) for i in self.traders.values()]
 
