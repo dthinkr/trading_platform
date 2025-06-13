@@ -13,10 +13,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.security import HTTPBasic
 
-# our stuff
+# our stuff - new beautiful architecture
+from .market_pipeline import MarketPipeline
 from core.trader_manager import TraderManager
-from core.market_handler import MarketHandler
-from core.waiting_room import WaitingRoom
 from core.data_models import TraderType, TradingParameters, UserRegistration, TraderRole
 from .auth import get_current_user, get_current_admin_user, extract_gmail_username, is_user_registered, is_user_admin, custom_verify_id_token
 from .prolific_auth import extract_prolific_params, validate_prolific_user, authenticate_prolific_user
@@ -46,14 +45,13 @@ security = HTTPBasic()
 # Global variables - MINIMAL STATE
 from core.data_models import TradingParameters
 
+# Global instances - beautiful and clean
+market_pipeline = MarketPipeline()
+accumulated_rewards = {}  # Store accumulated rewards per user
+
 # Initialize with default values from TradingParameters
 default_params = TradingParameters()
 persistent_settings = default_params.model_dump()
-accumulated_rewards = {}  # Store accumulated rewards per user
-
-# Initialize core components
-market_handler = MarketHandler()
-waiting_room = WaitingRoom(market_handler)
 
 # CORS middleware for cross-origin requests
 app.add_middleware(
@@ -195,8 +193,8 @@ async def complete_onboarding(request: Request, current_user: dict = Depends(get
 # ============================================================================
 
 @app.post("/user/join-waiting-room")
-async def join_waiting_room(request: Request, current_user: dict = Depends(get_current_user)):
-    """Join waiting room and get assigned to session when enough players join"""
+async def join_waiting_room_endpoint(request: Request, current_user: dict = Depends(get_current_user)):
+    """Join waiting room using beautiful constraint-based matching"""
     try:
         gmail_username = current_user['gmail_username']
         is_prolific = current_user.get('is_prolific', False)
@@ -204,110 +202,103 @@ async def join_waiting_room(request: Request, current_user: dict = Depends(get_c
         # Get trading parameters
         params = TradingParameters(**(persistent_settings or {}))
         
-        print(f"User {gmail_username} joining waiting room (prolific: {is_prolific})")
+        print(f"🎯 User {gmail_username} joining constraint-based matching system")
         
-        # Use waiting room to handle the logic
-        session_id, session_data = await waiting_room.join_waiting_room(gmail_username, is_prolific, params)
+                # Use beautiful market pipeline
+        market_ready, result_data = await market_pipeline.join_queue(gmail_username, is_prolific, params)
         
-        if session_data.get("session_ready"):
-            # Session is ready, find this user's assignment
-            assigned_traders = session_data.get("assigned_traders", [])
-            user_trader_info = next((t for t in assigned_traders if t["username"] == gmail_username), None)
+        if market_ready:
+            # Find this user's assignment
+            user_data = next((u for u in result_data["users"] if u["username"] == gmail_username), None)
             
-            return {
-                "status": "success",
-                "message": "Session ready! You've been assigned to a trading market.",
-                "data": {
-                    "session_ready": True,
-                    "session_id": session_id,
-                    "market_id": session_data.get("market_id"),
-                    "trader_id": user_trader_info["trader_id"] if user_trader_info else None,
-                    "role": user_trader_info["role"] if user_trader_info else None,
-                    "goal": user_trader_info["goal"] if user_trader_info else None,
-                    "total_players": session_data.get("total_players", 0)
+            if user_data:
+                market_id = result_data["market_id"]
+                return {
+                    "status": "success",
+                    "message": f"✨ Market ready! Trading in {market_id}",
+                    "data": {
+                        "session_ready": True,  # Keep for frontend compatibility
+                        "market_id": market_id,
+                        "trader_id": user_data["trader_id"],
+                        "role": user_data["role"],
+                        "goal": user_data["goal"]
+                    }
                 }
-            }
+            else:
+                raise HTTPException(status_code=500, detail="User not found in market data")
         else:
-            # Still waiting for more players
+            # Still waiting - return detailed pool status
             return {
                 "status": "success",
-                "message": f"Waiting for more players ({session_data['current_players']}/{session_data['required_players']})",
-                "data": session_data
+                "message": f"⏳ Waiting for more players...",
+                "data": result_data
             }
-        
+            
     except Exception as e:
         print(f"Error joining waiting room: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to join waiting room: {str(e)}")
 
 @app.get("/user/waiting-room-status")
-async def get_waiting_room_status(current_user: dict = Depends(get_current_user)):
-    """Get current waiting room status for the user"""
+async def get_waiting_room_status_endpoint(current_user: dict = Depends(get_current_user)):
+    """Get current waiting room status for user"""
     try:
-        username = current_user['gmail_username']
-        status = waiting_room.get_user_status(username, persistent_settings)
+        gmail_username = current_user['gmail_username']
         
+        # Check if user has a market assignment
+        market_id = market_pipeline.get_market_for_user(gmail_username)
+        if market_id:
+            # User is already assigned to a market
+            return {
+                "status": "success",
+                "data": {
+                    "in_waiting_room": False,
+                    "session_ready": True,
+                    "market_id": market_id
+                }
+            }
+        
+        # Check waiting room status
+        status = market_pipeline.get_user_status(gmail_username)
         return {
             "status": "success",
             "data": status
         }
+        
     except Exception as e:
         print(f"Error getting waiting room status: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to get waiting room status")
 
 @app.get("/trader_info/{trader_id}")
 async def get_trader_info(trader_id: str, current_user: dict = Depends(get_current_user)):
-    """Get trader information - simplified version for clean architecture"""
+    """Get trader information"""
     try:
-        # Verify user has access to this trader
-        username = current_user['gmail_username']
-        expected_trader_id = f"HUMAN_{username}"
+        gmail_username = current_user['gmail_username']
+        is_prolific = current_user.get('is_prolific', False)
         
-        if trader_id != expected_trader_id:
-            raise HTTPException(status_code=403, detail="Access denied")
+        print(f"Getting trader info for {trader_id} (user: {gmail_username}, prolific: {is_prolific})")
         
         # Get trader manager for this trader
-        trader_manager = market_handler.get_trader_manager(trader_id)
+        trader_manager = market_pipeline.get_trader_manager(trader_id)
         if not trader_manager:
             raise HTTPException(status_code=404, detail="Trader not found or not assigned to market yet")
         
-        # Get trader data
         trader = trader_manager.get_trader(trader_id)
         if not trader:
             raise HTTPException(status_code=404, detail="Trader not found in market")
         
-        trader_data = trader.get_trader_params_as_dict()
-        
-        # Add basic attributes
-        if 'all_attributes' not in trader_data:
-            trader_data['all_attributes'] = {}
-        
-        # Add market parameters
-        params = trader_manager.params.model_dump() if trader_manager.params else {}
-        trader_data['all_attributes']['params'] = params
-        
-        # Ensure basic fields exist
-        if 'cash' not in trader_data:
-            trader_data['cash'] = getattr(trader, 'cash', 0)
-        if 'shares' not in trader_data:
-            trader_data['shares'] = getattr(trader, 'shares', 0)
-        if 'goal' not in trader_data:
-            trader_data['goal'] = getattr(trader, 'goal', 0)
-        if 'initial_cash' not in trader_data:
-            trader_data['initial_cash'] = getattr(trader, 'initial_cash', trader_data.get('cash', 0))
-        if 'initial_shares' not in trader_data:
-            trader_data['initial_shares'] = getattr(trader, 'initial_shares', trader_data.get('shares', 0))
-        
         return {
-            "status": "success",
-            "message": "Trader found",
-            "data": trader_data
+            "trader_id": trader_id,
+            "role": trader.role.value if hasattr(trader.role, 'value') else str(trader.role),
+            "goal": trader.goal,
+            "current_value": trader.current_value if hasattr(trader, 'current_value') else 0,
+            "current_holdings": trader.current_holdings if hasattr(trader, 'current_holdings') else 0,
+            "cash": trader.cash if hasattr(trader, 'cash') else 0,
+            "market_id": trader_manager.trading_market.id
         }
         
-    except HTTPException:
-        raise
     except Exception as e:
         print(f"Error getting trader info: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error getting trader info: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get trader info: {str(e)}")
 
 # ============================================================================
 # TRADING ENDPOINTS
@@ -330,14 +321,14 @@ async def create_trading_market(background_tasks: BackgroundTasks, request: Requ
     is_prolific = current_user.get('is_prolific', False)
     print(f"Trading/initiate called for user: {gmail_username}, trader_id: {trader_id}, is_prolific: {is_prolific}")
     
-    trader_manager = market_handler.get_trader_manager(trader_id)
+    trader_manager = market_pipeline.get_trader_manager(trader_id)
     if not trader_manager:
         # For debugging purposes, log all available trader managers
-        available_traders = list(market_handler.trader_to_market_lookup.keys())
+        available_traders = list(market_pipeline.trader_to_market.keys())
         print(f"No trader manager found for {trader_id}. Available traders: {available_traders}")
         raise HTTPException(status_code=404, detail="No active market found for this user")
     
-    market_id = market_handler.trader_to_market_lookup.get(trader_id)
+    market_id = market_pipeline.trader_to_market.get(trader_id)
     
     # Update the manager's parameters with our merged params
     trader_manager.params = merged_params
@@ -370,70 +361,44 @@ async def start_trading_market(background_tasks: BackgroundTasks, request: Reque
             else:
                 current_user = await get_current_user(request)
         except HTTPException as e:
-            print(f"Prolific authentication failed: {str(e)}")
             current_user = await get_current_user(request)
     else:
         current_user = await get_current_user(request)
     
-    # Log authentication info for debugging
-    is_prolific = current_user.get('is_prolific', False)
     gmail_username = current_user['gmail_username']
+    is_prolific = current_user.get('is_prolific', False)
     trader_id = f"HUMAN_{gmail_username}"
     
     print(f"Trading/start called for user: {gmail_username}, trader_id: {trader_id}, is_prolific: {is_prolific}")
     
-    # Get market from market_handler
-    market_id = market_handler.trader_to_market_lookup.get(trader_id)
-    if not market_id:
-        available_traders = list(market_handler.trader_to_market_lookup.keys())
-        print(f"No market found for {trader_id}. Available traders: {available_traders}")
-        raise HTTPException(status_code=404, detail="No active market found")
-    
-    # Get trader manager
-    trader_manager = market_handler.trader_managers.get(market_id)
-    if not trader_manager:
-        raise HTTPException(status_code=404, detail="Market not found")
-    
-    # IMPORTANT: Update the manager's parameters with current persistent settings
-    # This was missing in the new session-based approach!
     try:
-        merged_params = TradingParameters(**(persistent_settings or {}))
-        await trader_manager.update_parameters_and_recreate_traders(merged_params)
-        print(f"Updated trader manager parameters for market {market_id}")
-        print(f"Noise traders: {merged_params.num_noise_traders}, Informed traders: {merged_params.num_informed_traders}")
+        # Get current parameters
+        params = TradingParameters(**(persistent_settings or {}))
+        
+        # Mark trader as ready and start market if all ready
+        all_ready = await market_pipeline.mark_trader_ready(trader_id)
+        
+        if all_ready:
+            # Start the market
+            success = await market_pipeline.start_market(trader_id, params)
+            if success:
+                status_message = "Trading started!"
+                print(f"Market started successfully for trader {trader_id}")
+            else:
+                status_message = "Failed to start market"
+                print(f"Failed to start market for trader {trader_id}")
+        else:
+            status_message = "Waiting for other traders to be ready"
+        
+        return {
+            "status": "success",
+            "all_ready": all_ready,
+            "message": status_message
+        }
+        
     except Exception as e:
-        print(f"Error updating parameters: {str(e)}")
-        # Continue with existing parameters if update fails
-    
-    # Mark trader ready
-    all_ready = await market_handler.mark_trader_ready(trader_id, market_id)
-    
-    # Get current status
-    current_ready = len(market_handler.market_ready_traders.get(market_id, set()))
-    total_needed = len(trader_manager.params.predefined_goals)
-    
-    # Start trading if all required traders are ready
-    if current_ready >= total_needed:
-        all_ready = True
-        print(f"Starting trading for market {market_id} with {current_ready} ready traders")
-        
-        background_tasks.add_task(trader_manager.launch)
-        status_message = "Trading market started"
-        
-        # Record market in historical markets when it starts
-        if gmail_username not in market_handler.user_historical_markets:
-            market_handler.user_historical_markets[gmail_username] = set()
-        market_handler.user_historical_markets[gmail_username].add(market_id)
-    else:
-        status_message = f"Waiting for other traders ({current_ready}/{total_needed} ready)"
-    
-    return {
-        "ready_count": current_ready,
-        "total_needed": total_needed,
-        "ready_traders": list(market_handler.market_ready_traders.get(market_id, set())),
-        "all_ready": all_ready,
-        "message": status_message
-    }
+        print(f"Error in start_trading_market: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to start trading: {str(e)}")
 
 # ============================================================================
 # TRADER INFO ENDPOINTS
@@ -441,11 +406,7 @@ async def start_trading_market(background_tasks: BackgroundTasks, request: Reque
 
 def get_manager_by_trader(trader_id: str):
     """Get trader manager for trader ID"""
-    if trader_id not in market_handler.trader_to_market_lookup:
-        return None
-    trading_market_id = market_handler.trader_to_market_lookup[trader_id]
-    manager = market_handler.trader_managers.get(trading_market_id)
-    return manager
+    return market_pipeline.get_trader_manager(trader_id)
 
 @app.get("/trader/{trader_id}")
 async def get_trader(trader_id: str, current_user: dict = Depends(get_current_user)):
@@ -473,9 +434,9 @@ async def get_trader_market(trader_id: str, request: Request, current_user: dict
         print(f"Prolific user {gmail_username} attempted to access trader {trader_id}")
         raise HTTPException(status_code=403, detail="You can only access your own trader data")
     
-    trader_manager = market_handler.get_trader_manager(trader_id)
+    trader_manager = market_pipeline.get_trader_manager(trader_id)
     if not trader_manager:
-        available_traders = list(market_handler.trader_to_market_lookup.keys())
+        available_traders = list(market_pipeline.trader_to_market.keys())
         print(f"No trader manager found for {trader_id}. Available traders: {available_traders}")
         raise HTTPException(status_code=404, detail="No market found for this trader")
 
@@ -539,13 +500,8 @@ async def reset_state(current_user: dict = Depends(get_current_admin_user)):
         global persistent_settings, accumulated_rewards
         current_settings = persistent_settings.copy()
         
-        # Reset market handler
-        await market_handler.reset_state()
-        
-        # Reset waiting room
-        waiting_room.sessions.clear()
-        waiting_room.user_to_session.clear()
-        waiting_room.session_counter = 0
+        # Reset market pipeline
+        await market_pipeline.reset_all()
         
         # Restore settings and reset rewards
         persistent_settings = current_settings
@@ -561,26 +517,12 @@ async def reset_state(current_user: dict = Depends(get_current_admin_user)):
 
 @app.get("/sessions")
 async def list_sessions(current_user: dict = Depends(get_current_user)):
-    """List current waiting room sessions and active markets"""
-    # Get waiting room sessions
-    waiting_sessions = waiting_room.get_all_sessions()
+    """List current market pipeline status and active markets"""
+    # Get market pipeline debug info
+    await market_pipeline.cleanup_finished_markets()
+    pipeline_info = market_pipeline.get_debug_info()
     
-    # Get active markets
-    await market_handler.cleanup_finished_markets()
-    active_markets = []
-    for market_id, manager in market_handler.trader_managers.items():
-        market = manager.trading_market
-        active_markets.append({
-            "market_id": market_id,
-            "status": "active" if market.trading_started else "pending",
-            "member_ids": list(market_handler.active_users.get(market_id, set())),
-            "started_at": market.start_time if market.trading_started else None
-        })
-    
-    return {
-        "waiting_sessions": waiting_sessions,
-        "active_markets": active_markets
-    }
+    return pipeline_info
 
 # ============================================================================
 # WEBSOCKET ENDPOINTS
@@ -617,25 +559,25 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
             await websocket.close(code=1008, reason="Invalid authentication")
             return
         
-        trader_manager = market_handler.get_trader_manager(trader_id)
+        trader_manager = market_pipeline.get_trader_manager(trader_id)
         if not trader_manager:
             print(f"No trader manager found for {trader_id}")
             await websocket.close(code=1008, reason="No trader manager found")
             return
             
-        market_id = market_handler.trader_to_market_lookup.get(trader_id)
+        market_id = market_pipeline.trader_to_market.get(trader_id)
         trader = trader_manager.get_trader(trader_id)
         if not trader:
             print(f"No trader found for {trader_id}")
             await websocket.close(code=1008, reason="Trader not found")
             return
         
-        market_handler.add_user_to_market(gmail_username, market_id)
+        market_pipeline.add_active_user(gmail_username, market_id)
         
         initial_count = {
             "type": "trader_count_update",
             "data": {
-                "current_human_traders": len(market_handler.active_users.get(market_id, set())),
+                "current_human_traders": len(market_pipeline.active_users.get(market_id, set())),
                 "expected_human_traders": len(trader_manager.params.predefined_goals),
                 "market_id": market_id
             }
@@ -656,16 +598,14 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
             task.cancel()
             
     except WebSocketDisconnect:
-        # Record market if it was active when disconnected
-        if market_id and gmail_username and trader_manager and trader_manager.trading_market.trading_started:
-            if gmail_username not in market_handler.user_historical_markets:
-                market_handler.user_historical_markets[gmail_username] = set()
-            market_handler.user_historical_markets[gmail_username].add(market_id)
+        # Just log the disconnection
+        if market_id and gmail_username:
+            print(f"User {gmail_username} disconnected from market {market_id}")
     except Exception:
         pass
     finally:
         if market_id and gmail_username:
-            market_handler.remove_user_from_market(gmail_username, market_id)
+            market_pipeline.remove_active_user(gmail_username, market_id)
         try:
             await websocket.close()
         except RuntimeError:
@@ -698,6 +638,7 @@ async def send_to_frontend(websocket: WebSocket, trader_manager):
         await asyncio.sleep(1)
 
 async def receive_from_frontend(websocket: WebSocket, trader):
+    """Handle messages from frontend"""
     while True:
         try:
             message = await asyncio.wait_for(websocket.receive_text(), timeout=0.1)
@@ -756,8 +697,8 @@ async def periodic_cleanup():
     """Periodic cleanup of stale sessions"""
     while True:
         try:
-            waiting_room.cleanup_stale_sessions()
-            await market_handler.cleanup_finished_markets()
+            market_pipeline.cleanup_old_users()
+            await market_pipeline.cleanup_finished_markets()
         except Exception as e:
             print(f"Error in periodic cleanup: {str(e)}")
         finally:
