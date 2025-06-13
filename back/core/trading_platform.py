@@ -110,7 +110,6 @@ class TradingPlatform:
         """Set up RabbitMQ connections and exchanges."""
         await self.rabbitmq_manager.declare_exchange(self.broadcast_exchange_name, aio_pika.ExchangeType.FANOUT)
         self.trader_exchange = await self.rabbitmq_manager.declare_exchange(self.queue_name, aio_pika.ExchangeType.DIRECT)
-        trader_queue = await self.rabbitmq_manager.declare_queue(self.queue_name)
         await self.rabbitmq_manager.bind_queue_to_exchange(self.queue_name, self.queue_name)
         await self.rabbitmq_manager.consume(self.queue_name, self.on_individual_message)
 
@@ -465,6 +464,7 @@ class TradingPlatform:
         self.start_time = datetime.now(timezone.utc)
         self.active = True
         self.trading_started = True
+        
         await self.send_broadcast(
             {"type": "TRADING_STARTED", "content": "Market is open"}
         )

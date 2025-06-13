@@ -173,7 +173,8 @@ export const useTradingStore = defineStore('trading', () => {
     
     switch (type) {
       case 'order_book_update':
-        orderBook.value = payload.order_book
+      case 'BOOK_UPDATED':
+        orderBook.value = payload.order_book || { bids: [], asks: [] }
         updateMidpoint()
         break
         
@@ -190,10 +191,13 @@ export const useTradingStore = defineStore('trading', () => {
         break
         
       case 'trading_started':
+      case 'TRADING_STARTED':
         isTradingStarted.value = true
+        console.log('Trading has started!')
         break
         
       case 'trading_ended':
+      case 'stop_trading':
         dayOver.value = true
         break
         
@@ -226,6 +230,72 @@ export const useTradingStore = defineStore('trading', () => {
           timestamp: new Date(),
           ...payload
         })
+        break
+        
+      case 'ADDED_ORDER':
+        // Handle order book updates from backend
+        if (payload.order_book) {
+          orderBook.value = payload.order_book
+          updateMidpoint()
+        }
+        // Update trader data if present
+        if (payload.cash !== undefined) {
+          updateTraderData(payload)
+        }
+        break
+        
+      case 'FILLED_ORDER':
+        // Handle transaction update
+        if (payload.matched_orders) {
+          handleTransaction({
+            price: payload.matched_orders.transaction_price,
+            quantity: payload.matched_orders.transaction_amount
+          })
+        }
+        // Update order book
+        if (payload.order_book) {
+          orderBook.value = payload.order_book
+          updateMidpoint()
+        }
+        // Update trader data
+        if (payload.cash !== undefined) {
+          updateTraderData(payload)
+        }
+        break
+        
+      case 'RECORD_KEEPING_ORDER':
+        // Just update trader data if present, no order book changes
+        if (payload.cash !== undefined) {
+          updateTraderData(payload)
+        }
+        break
+        
+      case 'transaction_update':
+        if (payload.transactions && payload.transactions.length > 0) {
+          payload.transactions.forEach(tx => {
+            handleTransaction({
+              price: tx.price,
+              quantity: tx.amount
+            })
+          })
+        }
+        break
+        
+      case 'ORDER_CANCELLED':
+        // Handle order cancellation
+        if (payload.order_book) {
+          orderBook.value = payload.order_book
+          updateMidpoint()
+        }
+        // Update trader data
+        if (payload.cash !== undefined) {
+          updateTraderData(payload)
+        }
+        break
+        
+      case 'closure':
+        dayOver.value = true
+        console.log('Trading session ended')
         break
         
       default:
@@ -347,13 +417,19 @@ export const useTradingStore = defineStore('trading', () => {
   async function fetchTraderAttributes(traderId) {
     try {
       const response = await axios.get(`trader_info/${traderId}`)
-      if (response.data.status === 'success') {
-        traderAttributes.value = response.data.data
-        initialCash.value = response.data.data.initial_cash
-        initialShares.value = response.data.data.initial_shares
-        cash.value = response.data.data.initial_cash
-        shares.value = response.data.data.initial_shares
+
+      
+      // Handle both response formats: direct data or wrapped in {status, data}
+      let traderData = response.data
+      if (response.data.status === 'success' && response.data.data) {
+        traderData = response.data.data
       }
+      
+      traderAttributes.value = traderData
+      initialCash.value = traderData.initial_cash || 0
+      initialShares.value = traderData.initial_shares || 0
+      cash.value = traderData.initial_cash || 0
+      shares.value = traderData.initial_shares || 0
     } catch (error) {
       console.error('Failed to fetch trader attributes:', error)
       throw error

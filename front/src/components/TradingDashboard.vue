@@ -125,6 +125,7 @@
 <script setup>  
 import { computed, watch, ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { storeToRefs } from 'pinia'
 import { 
   ChartBarIcon,
   CurrencyDollarIcon,
@@ -246,7 +247,7 @@ const formatDelta = computed(() => {
   return change >= 0 ? ` (+${change})` : ` (${change})`
 })
 
-// Reactive getters from stores
+// Reactive getters from stores - use storeToRefs to maintain reactivity
 const {
   pnl,
   cash,
@@ -255,7 +256,7 @@ const {
   isTradingStarted,
   currentHumanTraders,
   expectedHumanTraders
-} = tradingStore
+} = storeToRefs(tradingStore)
 
 // Methods
 function formatCurrency(value) {

@@ -47,12 +47,15 @@ class BookInitializer(BaseTrader):
         ask_prices.sort()
 
         # Post bid orders
+        print(f"BookInitializer: Posting {len(bid_prices)} bid orders")
         for price in bid_prices:
             await self.post_new_order(1.0, price, OrderType.BID)
 
         # Post ask orders
+        print(f"BookInitializer: Posting {len(ask_prices)} ask orders")
         for price in ask_prices:
             await self.post_new_order(1.0, price, OrderType.ASK)
+        print(f"BookInitializer: Finished posting all orders")
 
     async def run(self) -> None:
         pass

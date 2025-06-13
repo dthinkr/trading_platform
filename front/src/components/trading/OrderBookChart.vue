@@ -60,10 +60,12 @@ import {
   CategoryScale,
   LinearScale,
   BarElement,
+  BarController,
   Title,
   Tooltip,
   Legend,
   LineElement,
+  LineController,
   PointElement
 } from 'chart.js'
 
@@ -72,10 +74,12 @@ ChartJS.register(
   CategoryScale,
   LinearScale,
   BarElement,
+  BarController,
   Title,
   Tooltip,
   Legend,
   LineElement,
+  LineController,
   PointElement
 )
 
