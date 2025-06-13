@@ -91,35 +91,35 @@ const stepConfig = {
   1: {
     title: 'Welcome to the Trading Platform',
     description: 'Please read and agree to the terms before proceeding',
-    nextButtonText: 'I Agree & Continue',
+    nextButtonText: 'I Agree → Continue',
     skippable: false,
     helpText: 'You must agree to the terms to participate in the trading session'
   },
   2: {
     title: 'Trading Instructions',
     description: 'Learn how the trading platform works',
-    nextButtonText: 'I Understand',
+    nextButtonText: 'I Understand → Next',
     skippable: false,
     helpText: 'Understanding the trading mechanics is essential for participation'
   },
   3: {
     title: 'Practice Trading',
     description: 'Try placing some practice orders to get familiar with the interface',
-    nextButtonText: 'Complete Practice',
+    nextButtonText: 'Complete Practice → Next',
     skippable: true,
     helpText: 'Practice is recommended but you can skip if you\'re already familiar'
   },
   4: {
     title: 'Knowledge Quiz',
     description: 'Answer a few questions to confirm your understanding',
-    nextButtonText: 'Submit Quiz',
+    nextButtonText: 'Submit Quiz → Next',
     skippable: false,
     helpText: 'You must pass the quiz to ensure you understand the trading rules'
   },
   5: {
     title: 'Ready to Trade',
     description: 'Final confirmation before entering the live trading session',
-    nextButtonText: 'Enter Trading Session',
+    nextButtonText: 'Enter Trading Session →',
     skippable: false,
     helpText: 'Once you proceed, the live trading session will begin'
   }
@@ -145,17 +145,25 @@ function updateCanProceed() {
 }
 
 async function handleNext() {
-  if (!canProceed.value || isNavigating.value) return
+  console.log('handleNext called - currentStep:', currentStep.value, 'canProceed:', canProceed.value)
+  
+  if (!canProceed.value || isNavigating.value) {
+    console.log('Cannot proceed - canProceed:', canProceed.value, 'isNavigating:', isNavigating.value)
+    return
+  }
 
   isNavigating.value = true
 
   try {
     if (currentStep.value === totalSteps) {
       // Final step - navigate to trading
+      console.log('Completing onboarding...')
       await completeOnboarding()
     } else {
       // Move to next step
+      const oldStep = currentStep.value
       currentStep.value++
+      console.log('Moving from step', oldStep, 'to step', currentStep.value)
       await saveProgress()
     }
   } catch (error) {
@@ -167,8 +175,12 @@ async function handleNext() {
 }
 
 function handleBack() {
+  console.log('handleBack called - currentStep:', currentStep.value)
+  
   if (currentStep.value > 1 && !isNavigating.value) {
+    const oldStep = currentStep.value
     currentStep.value--
+    console.log('Moving back from step', oldStep, 'to step', currentStep.value)
     saveProgress()
   }
 }

@@ -1,117 +1,35 @@
 <script setup>
 import { computed } from "vue";
-import { useTraderStore } from "@/store/app";
+import { useTradingStore } from "@/stores/trading";
+import { useAuthStore } from "@/stores/auth";
 import { storeToRefs } from "pinia";
 import { ClockIcon, DocumentIcon } from '@heroicons/vue/24/outline'
 
-const traderStore = useTraderStore();
-const { executedOrders, recentTransactions, traderUuid } = storeToRefs(traderStore);
+const tradingStore = useTradingStore();
+const authStore = useAuthStore();
+const { filledOrders, recentTransactions } = storeToRefs(tradingStore);
+const { traderId } = storeToRefs(authStore);
 
-const filledOrders = computed(() => {
-  // Filter transactions to only include those where the current trader was involved
-  const relevantTransactions = recentTransactions.value.filter(t => {
-    const isBidTrader = t.bid_trader_id === traderUuid.value;
-    const isAskTrader = t.ask_trader_id === traderUuid.value;
-    return isBidTrader || isAskTrader;
-  });
-
-  // Get all order IDs that appear in transactions as either order_id or matched_order_id
-  const transactionOrderIds = new Set(
-    relevantTransactions.flatMap(t => [t.order_id, t.matched_order_id, t.bid_order_id, t.ask_order_id]
-      .filter(Boolean))
-  );
-
-  // Filter executed orders to ensure they belong to the current trader
-  // and exclude orders that appear in any transaction order IDs
-  const relevantExecutedOrders = executedOrders.value.filter(order => 
-    order.trader_id === traderUuid.value && !transactionOrderIds.has(order.id)
-  );
-
-  // Combine and remove duplicates
-  const allOrders = [...relevantExecutedOrders, ...relevantTransactions];
-  return Array.from(new Map(
-    allOrders.map(order => [order.id || order.timestamp, order])
-  ).values());
+// Use the filled orders from the trading store directly
+const orders = computed(() => {
+  return filledOrders.value.map(order => ({
+    id: order.id,
+    type: order.type === 'BID' ? 'BUY' : 'SELL',
+    price: order.price,
+    quantity: order.quantity,
+    timestamp: order.timestamp
+  }));
 });
 
-const groupedOrders = computed(() => {
-  const bids = {};
-  const asks = {};
-
-  filledOrders.value.forEach(order => {
-    // Determine if this is a bid or ask for the current trader
-    const isBid = (order.bid_trader_id === traderUuid.value) || 
-                 (order.trader_id === traderUuid.value && 
-                  ['BUY', 'BID', 1].includes(order.type || order.order_type));
-                  
-    const isAsk = (order.ask_trader_id === traderUuid.value) || 
-                 (order.trader_id === traderUuid.value && 
-                  ['SELL', 'ASK', -1].includes(order.type || order.order_type));
-
-    // Skip if not the current trader's order
-    if (!isBid && !isAsk) return;
-
-    const group = isBid ? bids : asks;
-    const price = order.price || order.transaction_price;
-    const amount = order.amount || 1;
-    const timestamp = new Date(order.timestamp || order.transaction_time).getTime();
-
-    if (!group[price]) {
-      group[price] = { 
-        price, 
-        amount, 
-        latestTime: timestamp
-      };
-    } else {
-      group[price].amount += amount;
-      if (timestamp > group[price].latestTime) {
-        group[price].latestTime = timestamp;
-      }
-    }
-  });
-
-  const sortByTimeDesc = (a, b) => b.latestTime - a.latestTime;
-
-  return {
-    bids: Object.values(bids).sort(sortByTimeDesc),
-    asks: Object.values(asks).sort(sortByTimeDesc)
-  };
-});
-
-const tradingSummary = computed(() => {
-  let buyCount = 0;
-  let sellCount = 0;
-  let buyVolume = 0;
-  let sellVolume = 0;
-  let buyValue = 0;
-  let sellValue = 0;
-
-  filledOrders.value.forEach(order => {
-    const isBid = (order.bid_trader_id === traderUuid.value) || 
-                 (order.trader_id === traderUuid.value && 
-                  ['BUY', 'BID', 1].includes(order.type || order.order_type));
-
-    const price = order.price || order.transaction_price;
-    const amount = order.amount || 1;
-
-    if (isBid) {
-      buyCount++;
-      buyVolume += amount;
-      buyValue += price * amount;
-    } else {
-      sellCount++;
-      sellVolume += amount;
-      sellValue += price * amount;
-    }
-  });
-
-  return {
-    buyCount,
-    sellCount,
-    buyVWAP: buyVolume > 0 ? (buyValue / buyVolume).toFixed(2) : 0,
-    sellVWAP: sellVolume > 0 ? (sellValue / sellVolume).toFixed(2) : 0,
-  };
-});
+// Helper functions
+const formatPrice = (price) => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(price);
+};
 
 const formatTime = (timestamp) => {
   const date = new Date(timestamp);

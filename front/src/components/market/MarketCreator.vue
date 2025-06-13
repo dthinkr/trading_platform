@@ -1,57 +1,71 @@
 <template>
-  <div class="market-creator min-h-screen bg-gray-50 p-4">
-    <div class="max-w-7xl mx-auto">
-      <div class="mb-6">
-        <h1 class="text-3xl font-bold text-gray-900 mb-2">Trading Market Configuration</h1>
-        <p class="text-gray-600">Configure and monitor your trading markets</p>
+  <div class="min-h-screen bg-neutral-50">
+    <!-- Skip link for accessibility -->
+    <a href="#admin-content" class="skip-link">Skip to admin content</a>
+    
+    <!-- Compact Header -->
+    <header class="bg-white shadow-sm border-b border-neutral-200">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center h-14">
+          <div class="flex items-center space-x-3">
+            <div class="w-6 h-6 bg-blue-600 rounded-lg flex items-center justify-center">
+              <CogIcon class="h-4 w-4 text-white" aria-hidden="true" />
+            </div>
+            <div>
+              <h1 class="text-lg font-semibold text-neutral-900">Trading Market Configuration</h1>
+            </div>
+          </div>
+        </div>
       </div>
-      
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Configuration Form -->
-        <div class="lg:col-span-3">
+    </header>
+
+    <!-- Compact Main Content -->
+    <main id="admin-content" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Left Column: Configuration Forms -->
+        <div class="lg:col-span-8 space-y-6">
+          <!-- Configuration Form -->
           <MarketConfigForm 
             :formState="formState" 
-            :formFields="formFields" 
-            :serverActive="serverActive"
+            :formFields="formFields"
             @update:formState="updateFormState"
           />
-        </div>
-        
-        <!-- Order Throttling -->
-        <div class="lg:col-span-3">
+          
+          <!-- Order Throttling -->
           <OrderThrottling 
             :formState="formState"
             @update:formState="updateFormState"
           />
         </div>
 
-        <!-- Market Monitor -->
-        <div class="lg:col-span-2">
+        <!-- Right Column: Monitoring & Settings -->
+        <div class="lg:col-span-4 space-y-6">
+          <!-- Active Markets Monitor -->
           <ActiveMarketsMonitor />
-        </div>
-
-        <!-- Prolific Settings -->
-        <div class="lg:col-span-1">
-          <ProlificSettings class="mb-6" />
-        </div>
-        
-        <!-- Log Files -->
-        <div class="lg:col-span-1">
+          
+          <!-- Prolific Settings -->
+          <ProlificSettings />
+          
+          <!-- Log Files -->
           <LogFilesManager />
         </div>
       </div>
-    </div>
+    </main>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
-import axios from '@/api/axios';
-import MarketConfigForm from './creator/MarketConfigForm.vue';
-import OrderThrottling from './creator/OrderThrottling.vue';
-import ActiveMarketsMonitor from './creator/ActiveMarketsMonitor.vue';
-import ProlificSettings from './creator/ProlificSettings.vue';
-import LogFilesManager from './creator/LogFilesManager.vue';
+import { ref, onMounted } from 'vue'
+import { 
+  CogIcon
+} from '@heroicons/vue/24/outline'
+import axios from '@/api/axios'
+import MarketConfigForm from './creator/MarketConfigForm.vue'
+import OrderThrottling from './creator/OrderThrottling.vue'
+import ActiveMarketsMonitor from './creator/ActiveMarketsMonitor.vue'
+import ProlificSettings from './creator/ProlificSettings.vue'
+import LogFilesManager from './creator/LogFilesManager.vue'
 
 // Main state
 const formState = ref({
@@ -63,14 +77,13 @@ const formState = ref({
     INITIAL_ORDER_BOOK: { order_throttle_ms: 0, max_orders_per_window: 1 },
     SIMPLE_ORDER: { order_throttle_ms: 0, max_orders_per_window: 1 }
   }
-});
-const formFields = ref([]);
-const serverActive = ref(false);
+})
+const formFields = ref([])
 
 // Update form state when child components modify it
 const updateFormState = (newState) => {
-  formState.value = newState;
-};
+  formState.value = newState
+}
 
 // Fetch initial data
 const fetchData = async () => {
@@ -78,19 +91,19 @@ const fetchData = async () => {
     const [defaultsResponse, persistentSettingsResponse] = await Promise.all([
       axios.get(`${import.meta.env.VITE_HTTP_URL}traders/defaults`),
       axios.get(`${import.meta.env.VITE_HTTP_URL}admin/get_persistent_settings`)
-    ]);
+    ])
 
-    const defaultData = defaultsResponse.data.data;
-    const persistentSettings = persistentSettingsResponse.data.data;
+    const defaultData = defaultsResponse.data.data
+    const persistentSettings = persistentSettingsResponse.data.data
 
     // Initialize formState
-    formState.value = {};
+    formState.value = {}
     
     // Load the form data first
     for (const [key, value] of Object.entries(defaultData)) {
       if (key !== 'throttle_settings') {
-        formState.value[key] = persistentSettings[key] || value.default;
-        formFields.value.push({ name: key, ...value });
+        formState.value[key] = persistentSettings[key] || value.default
+        formFields.value.push({ name: key, ...value })
       }
     }
     
@@ -102,19 +115,18 @@ const fetchData = async () => {
       MARKET_MAKER: { order_throttle_ms: 0, max_orders_per_window: 1 },
       INITIAL_ORDER_BOOK: { order_throttle_ms: 0, max_orders_per_window: 1 },
       SIMPLE_ORDER: { order_throttle_ms: 0, max_orders_per_window: 1 }
-    };
+    }
     
-    formState.value.throttle_settings = persistentSettings.throttle_settings || defaultThrottleSettings;
-    serverActive.value = true;
+    formState.value.throttle_settings = persistentSettings.throttle_settings || defaultThrottleSettings
   } catch (error) {
-    serverActive.value = false;
-    console.error("Failed to fetch data:", error);
+    console.error('Error fetching data:', error)
   }
-};
+}
 
+// Lifecycle
 onMounted(() => {
-  fetchData();
-});
+  fetchData()
+})
 </script>
 
 <style scoped>
