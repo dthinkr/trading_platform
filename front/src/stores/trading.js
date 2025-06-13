@@ -205,6 +205,17 @@ export const useTradingStore = defineStore('trading', () => {
         expectedHumanTraders.value = payload.expected
         break
         
+      case 'trader_count_update':
+        currentHumanTraders.value = payload.data?.current_human_traders || payload.current_human_traders || 0
+        expectedHumanTraders.value = payload.data?.expected_human_traders || payload.expected_human_traders || 0
+        console.log(`Trader count updated: ${currentHumanTraders.value}/${expectedHumanTraders.value}`)
+        
+        // Check if we have enough traders and trading should start
+        if (currentHumanTraders.value >= expectedHumanTraders.value && expectedHumanTraders.value > 0) {
+          console.log('Required number of traders reached, trading should start soon...')
+        }
+        break
+        
       case 'market_message':
         messages.value.push({
           id: Date.now(),

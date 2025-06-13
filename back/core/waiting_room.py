@@ -41,7 +41,8 @@ class WaitingRoom:
     def __init__(self, market_handler: MarketHandler):
         self.market_handler = market_handler
         self.sessions: Dict[str, Session] = {}
-        self.user_to_session: Dict[str, str] = {}  # username -> session_id
+        self.user_to_session: Dict[str, str] = {}
+        self.user_assignments: Dict[str, Dict] = {}  # Track completed assignments
         self.session_counter = 0
         
     async def join_waiting_room(self, username: str, is_prolific: bool, params: TradingParameters) -> Tuple[str, Dict]:
@@ -88,12 +89,27 @@ class WaitingRoom:
     
     def get_user_status(self, username: str, params: TradingParameters) -> Dict:
         """Get the current waiting room status for a user"""
+        # Check if user has a completed assignment
+        if username in self.user_assignments:
+            assignment = self.user_assignments[username]
+            return {
+                "in_waiting_room": False,
+                "assigned_to_market": True,
+                "session_ready": True,
+                "market_id": assignment["market_id"],
+                "trader_id": assignment["trader_id"],
+                "role": assignment["role"],
+                "goal": assignment["goal"]
+            }
+        
+        # Check if user is in an active session
         session_id = self.user_to_session.get(username)
         
         if session_id and session_id in self.sessions:
             session = self.sessions[session_id]
             return {
                 "in_waiting_room": True,
+                "assigned_to_market": False,
                 "session_id": session_id,
                 "current_players": session.current_players,
                 "required_players": session.required_players,
@@ -101,7 +117,10 @@ class WaitingRoom:
                 "players": [u.username for u in session.users]
             }
         
-        return {"in_waiting_room": False}
+        return {
+            "in_waiting_room": False,
+            "assigned_to_market": False
+        }
     
     def remove_user(self, username: str) -> None:
         """Remove a user from any waiting room session"""
@@ -140,6 +159,16 @@ class WaitingRoom:
             
             print(f"Session {session_id} ready! Assigned to market {market_id}")
             
+            # Store assignments for later retrieval
+            for trader in assigned_traders:
+                self.user_assignments[trader["username"]] = {
+                    "market_id": market_id,
+                    "trader_id": trader["trader_id"],
+                    "role": trader["role"],
+                    "goal": trader["goal"],
+                    "assigned_at": time.time()
+                }
+            
             # Clean up session
             self._cleanup_session(session_id)
             
@@ -163,6 +192,9 @@ class WaitingRoom:
         assigned_traders = []
         goals = params.predefined_goals.copy()
         
+        print(f"Creating market {market_id} for session {session.session_id}")
+        
+        # First, assign all users and collect their assignments
         for i, user in enumerate(session.users):
             # Assign goal (cycle through available goals)
             goal = goals[i % len(goals)] if goals else 0
@@ -185,6 +217,23 @@ class WaitingRoom:
             
             print(f"Assigned {user.username} to market {market_id_assigned} with goal {goal_assigned}")
         
+        # Ensure the market is fully initialized before returning
+        # Wait a moment for all traders to be properly created
+        import asyncio
+        await asyncio.sleep(0.1)  # Small delay to ensure market initialization
+        
+        # Verify all traders are actually created and accessible
+        trader_manager = self.market_handler.get_trader_manager(assigned_traders[0]["trader_id"])
+        if not trader_manager:
+            raise Exception(f"Market {market_id} was not properly initialized")
+        
+        # Verify all traders exist in the market
+        for trader_info in assigned_traders:
+            trader = trader_manager.get_trader(trader_info["trader_id"])
+            if not trader:
+                raise Exception(f"Trader {trader_info['trader_id']} was not properly created in market {market_id}")
+        
+        print(f"Market {market_id} fully initialized with {len(assigned_traders)} traders")
         return market_id, assigned_traders
     
     def _remove_user_from_session(self, username: str) -> None:
@@ -241,4 +290,17 @@ class WaitingRoom:
         
         for session_id in stale_sessions:
             print(f"Cleaning up stale session: {session_id}")
-            self._cleanup_session(session_id) 
+            self._cleanup_session(session_id)
+    
+    def cleanup_stale_assignments(self, max_age_seconds: int = 7200) -> None:
+        """Remove old user assignments (2 hours by default)"""
+        current_time = time.time()
+        stale_users = []
+        
+        for username, assignment in self.user_assignments.items():
+            if current_time - assignment.get("assigned_at", 0) > max_age_seconds:
+                stale_users.append(username)
+        
+        for username in stale_users:
+            print(f"Cleaning up stale assignment for user: {username}")
+            del self.user_assignments[username] 

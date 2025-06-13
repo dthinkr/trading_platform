@@ -42,6 +42,13 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
+    path: "/trading/:traderUuid/:marketId",
+    name: "TradingDashboard",
+    component: () => import("@/components/TradingDashboard.vue"),
+    props: true,
+    meta: { requiresAuth: true }
+  },
+  {
     path: "/summary/:traderUuid",
     name: "Summary",
     component: () => import("@/components/market/MarketSummary.vue"),
