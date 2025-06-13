@@ -243,6 +243,7 @@ import { ref, onMounted, computed } from "vue";
 import axios from "axios";
 import { useRouter } from 'vue-router';
 import { useTraderStore } from "@/store/app";
+import { useAuthStore } from "@/store/auth";
 import { storeToRefs } from "pinia";
 
 const props = defineProps({
@@ -251,6 +252,7 @@ const props = defineProps({
 
 const router = useRouter();
 const traderStore = useTraderStore();
+const authStore = useAuthStore();
 const { pnl, vwap } = storeToRefs(traderStore);
 const traderInfo = ref(null);
 const orderBookMetrics = ref(null);
@@ -289,9 +291,20 @@ async function submitQuestionnaire() {
       questionnaire.value.q4
     ];
     
+    // Get the correct trader ID
+    let traderId = props.traderUuid;
+    
+    // If this is a prolific user, ensure the trader ID is correctly formatted
+    if (authStore.user?.isProlific) {
+      // For prolific users, the trader ID should be in the format HUMAN_PROLIFIC_PID
+      const prolificPID = authStore.user.prolificData.PROLIFIC_PID;
+      traderId = `HUMAN_${prolificPID}`;
+      console.log('Using prolific trader ID:', traderId);
+    }
+    
     // Send to backend
     const response = await axios.post(`${httpUrl}save_questionnaire_response`, {
-      trader_id: props.traderUuid,
+      trader_id: traderId,
       responses: responses
     });
     
@@ -398,9 +411,35 @@ const formatValue = (value, format) => {
 };
 
 const goToRegister = () => {
-  router.push({ name: 'Register', replace: true }).then(() => {
-    window.location.href = '/register';
-  });
+  // Check if this is a prolific user
+  if (authStore.user?.isProlific && authStore.user?.prolificData) {
+    // For prolific users, set a flag and redirect to root with prolific parameters
+    console.log('Prolific user continuing to next market');
+    localStorage.setItem('prolific_next_market', 'true');
+    
+    // Store prolific parameters for auto-login
+    const prolificData = {
+      PROLIFIC_PID: authStore.user.prolificData.PROLIFIC_PID,
+      STUDY_ID: authStore.user.prolificData.STUDY_ID,
+      SESSION_ID: authStore.user.prolificData.SESSION_ID,
+      timestamp: Date.now()
+    };
+    localStorage.setItem('prolific_auto_login', JSON.stringify(prolificData));
+    
+    // Redirect to root with prolific parameters
+    const prolificParams = new URLSearchParams({
+      PROLIFIC_PID: authStore.user.prolificData.PROLIFIC_PID,
+      STUDY_ID: authStore.user.prolificData.STUDY_ID,
+      SESSION_ID: authStore.user.prolificData.SESSION_ID
+    });
+    
+    window.location.href = `/?${prolificParams.toString()}`;
+  } else {
+    // For regular Google users, use the existing register flow
+    router.push({ name: 'Register', replace: true }).then(() => {
+      window.location.href = '/register';
+    });
+  }
 };
 
 const currentMarket = computed(() => {
