@@ -9,6 +9,7 @@ export const useTradingStore = defineStore('trading', () => {
   const isConnected = ref(false)
   const isTradingStarted = ref(false)
   const dayOver = ref(false)
+  const isStartingTrading = ref(false)
   
   // Market data
   const orderBook = ref({ bids: [], asks: [] })
@@ -211,8 +212,11 @@ export const useTradingStore = defineStore('trading', () => {
         console.log(`Trader count updated: ${currentHumanTraders.value}/${expectedHumanTraders.value}`)
         
         // Check if we have enough traders and trading should start
-        if (currentHumanTraders.value >= expectedHumanTraders.value && expectedHumanTraders.value > 0) {
-          console.log('Required number of traders reached, trading should start soon...')
+        if (currentHumanTraders.value >= expectedHumanTraders.value && expectedHumanTraders.value > 0 && !isTradingStarted.value && !isStartingTrading.value) {
+          console.log('Required number of traders reached, starting trading...')
+          startTrading().catch(error => {
+            console.error('Failed to start trading automatically:', error)
+          })
         }
         break
         
@@ -368,6 +372,34 @@ export const useTradingStore = defineStore('trading', () => {
     }
   }
   
+  async function startTrading() {
+    if (isStartingTrading.value) {
+      console.log('Trading start already in progress...')
+      return
+    }
+    
+    try {
+      isStartingTrading.value = true
+      console.log('Calling /trading/start endpoint...')
+      
+      const response = await axios.post('/trading/start')
+      console.log('Trading start response:', response.data)
+      
+      if (response.data.all_ready) {
+        console.log('Trading started successfully!')
+      } else {
+        console.log(`Waiting for more traders: ${response.data.ready_count}/${response.data.total_needed}`)
+      }
+      
+      return response.data
+    } catch (error) {
+      console.error('Failed to start trading:', error)
+      throw error
+    } finally {
+      isStartingTrading.value = false
+    }
+  }
+  
   function clearStore() {
     // Reset all state
     ws.value?.close()
@@ -406,6 +438,7 @@ export const useTradingStore = defineStore('trading', () => {
     isConnected,
     isTradingStarted,
     dayOver,
+    isStartingTrading,
     orderBook,
     recentTransactions,
     priceHistory,
@@ -446,6 +479,7 @@ export const useTradingStore = defineStore('trading', () => {
     sendWebSocketMessage,
     fetchTraderAttributes,
     fetchGameParams,
+    startTrading,
     clearStore
   }
 }) 

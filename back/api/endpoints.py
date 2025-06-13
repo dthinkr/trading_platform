@@ -389,13 +389,24 @@ async def start_trading_market(background_tasks: BackgroundTasks, request: Reque
         print(f"No market found for {trader_id}. Available traders: {available_traders}")
         raise HTTPException(status_code=404, detail="No active market found")
     
-    # Mark trader ready
-    all_ready = await market_handler.mark_trader_ready(trader_id, market_id)
-    
     # Get trader manager
     trader_manager = market_handler.trader_managers.get(market_id)
     if not trader_manager:
         raise HTTPException(status_code=404, detail="Market not found")
+    
+    # IMPORTANT: Update the manager's parameters with current persistent settings
+    # This was missing in the new session-based approach!
+    try:
+        merged_params = TradingParameters(**(persistent_settings or {}))
+        await trader_manager.update_parameters_and_recreate_traders(merged_params)
+        print(f"Updated trader manager parameters for market {market_id}")
+        print(f"Noise traders: {merged_params.num_noise_traders}, Informed traders: {merged_params.num_informed_traders}")
+    except Exception as e:
+        print(f"Error updating parameters: {str(e)}")
+        # Continue with existing parameters if update fails
+    
+    # Mark trader ready
+    all_ready = await market_handler.mark_trader_ready(trader_id, market_id)
     
     # Get current status
     current_ready = len(market_handler.market_ready_traders.get(market_id, set()))

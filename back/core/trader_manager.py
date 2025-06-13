@@ -145,6 +145,38 @@ class TraderManager:
             return True
         return False
 
+    async def update_parameters_and_recreate_traders(self, new_params: TradingParameters):
+        """Update parameters and recreate automated traders with new settings"""
+        # Update the main parameters
+        self.params = new_params
+        params_dict = new_params.model_dump()
+        
+        # Store human traders separately as they shouldn't be recreated
+        human_traders = {tid: trader for tid, trader in self.traders.items() if isinstance(trader, HumanTrader)}
+        
+        # Recreate automated traders with new parameters
+        self.noise_traders = self._create_noise_traders(new_params.num_noise_traders, params_dict)
+        self.informed_traders = self._create_informed_traders(new_params.num_informed_traders, params_dict)
+        self.simple_order_traders = self._create_simple_order_traders(params_dict)
+        
+        # Recreate the traders dictionary with both human and automated traders
+        automated_traders = {
+            t.id: t
+            for t in self.noise_traders
+            + self.informed_traders
+            + [self.book_initializer]  # Keep existing book initializer
+            + self.simple_order_traders
+        }
+        
+        # Combine human and automated traders
+        self.traders = {**human_traders, **automated_traders}
+        
+        # Update trading market parameters
+        self.trading_market.params = params_dict
+        
+        print(f"Recreated {len(self.noise_traders)} noise traders and {len(self.informed_traders)} informed traders")
+        return True
+
     async def launch(self):
         await self.trading_market.initialize()
 
