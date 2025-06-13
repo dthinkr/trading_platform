@@ -11,7 +11,7 @@
           <div class="ml-3">
             <p class="text-sm font-medium text-red-800">Connection error. Please refresh the page.</p>
             <button @click="refreshPage" class="mt-2 btn-secondary text-xs">
-              Refresh Now
+          Refresh Now
             </button>
           </div>
           <button @click="showErrorAlert = false" class="ml-auto">
@@ -39,7 +39,7 @@
             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium" 
                   :class="roleColorClass">
               <component :is="roleIcon" class="w-3 h-3 mr-1" aria-hidden="true" />
-              {{ roleDisplay.text }}
+                {{ roleDisplay.text }}
             </span>
 
             <!-- Stats -->
@@ -108,20 +108,20 @@
               </div>
               <h2 class="text-2xl font-bold text-neutral-900 mb-2">Waiting for Traders</h2>
               <p class="text-neutral-600 mb-4">
-                {{ currentHumanTraders }} out of {{ expectedHumanTraders }} traders have joined
-              </p>
+                    {{ currentHumanTraders }} out of {{ expectedHumanTraders }} traders have joined
+                  </p>
               <div class="flex items-center justify-center space-x-2 text-sm text-neutral-600 mb-4">
                 <span>Your Role:</span>
                 <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium" 
                       :class="roleColorClass">
                   <component :is="roleIcon" class="w-3 h-3 mr-1" aria-hidden="true" />
-                  {{ roleDisplay.text }}
+                      {{ roleDisplay.text }}
                 </span>
               </div>
               <div class="spinner h-8 w-8 text-blue-600 mx-auto mb-4"></div>
               <p class="text-xs text-neutral-500">
-                If waiting too long, you can refresh the page to try again
-              </p>
+                    If waiting too long, you can refresh the page to try again
+                  </p>
             </div>
           </div>
         </div>
@@ -151,7 +151,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup>  
 import { computed, watch, ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { 
@@ -327,12 +327,12 @@ watch(() => isGoalAchieved.value, (newValue) => {
 
 // Lifecycle
 onMounted(async () => {
-  try {
+      try {
     // Initialize trading data
     await tradingStore.fetchTraderAttributes(props.traderUuid)
     await tradingStore.fetchGameParams()
     await tradingStore.initializeWebSocket()
-  } catch (error) {
+      } catch (error) {
     console.error('Failed to initialize trading dashboard:', error)
     showErrorAlert.value = true
   }

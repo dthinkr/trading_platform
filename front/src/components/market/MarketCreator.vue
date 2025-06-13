@@ -1,41 +1,46 @@
 <template>
-  <div class="market-creator">
-    <v-container fluid class="pa-4">
-      <v-row class="mb-4">
+  <div class="market-creator min-h-screen bg-gray-50 p-4">
+    <div class="max-w-7xl mx-auto">
+      <div class="mb-6">
+        <h1 class="text-3xl font-bold text-gray-900 mb-2">Trading Market Configuration</h1>
+        <p class="text-gray-600">Configure and monitor your trading markets</p>
+      </div>
+      
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- Configuration Form -->
-        <v-col cols="12">
+        <div class="lg:col-span-3">
           <MarketConfigForm 
             :formState="formState" 
             :formFields="formFields" 
             :serverActive="serverActive"
             @update:formState="updateFormState"
           />
-        </v-col>
+        </div>
         
         <!-- Order Throttling -->
-        <v-col cols="12">
+        <div class="lg:col-span-3">
           <OrderThrottling 
             :formState="formState"
             @update:formState="updateFormState"
           />
-        </v-col>
+        </div>
 
         <!-- Market Monitor -->
-        <v-col cols="12" md="8">
+        <div class="lg:col-span-2">
           <ActiveMarketsMonitor />
-        </v-col>
+        </div>
 
         <!-- Prolific Settings -->
-        <v-col cols="12" md="4">
-          <ProlificSettings class="mb-4" />
-        </v-col>
+        <div class="lg:col-span-1">
+          <ProlificSettings class="mb-6" />
+        </div>
         
         <!-- Log Files -->
-        <v-col cols="12" md="4">
-          <LogFilesManager class="mb-4" />
-        </v-col>
-      </v-row>
-    </v-container>
+        <div class="lg:col-span-1">
+          <LogFilesManager />
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 

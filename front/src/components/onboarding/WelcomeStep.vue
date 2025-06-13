@@ -3,7 +3,7 @@
     <!-- Welcome message -->
     <div class="text-center">
       <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-        <HandshakeIcon class="h-8 w-8 text-blue-600" aria-hidden="true" />
+        <UserGroupIcon class="h-8 w-8 text-blue-600" aria-hidden="true" />
       </div>
       <h3 class="text-2xl font-bold text-neutral-900 mb-2">
         Welcome to the Trading Research Study
@@ -131,7 +131,7 @@
 <script setup>
 import { ref } from 'vue'
 import { 
-  HandshakeIcon,
+  UserGroupIcon,
   InformationCircleIcon,
   DocumentTextIcon,
   PhoneIcon

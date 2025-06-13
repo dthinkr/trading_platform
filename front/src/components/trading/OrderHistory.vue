@@ -131,7 +131,7 @@ const formatTime = (timestamp) => {
       <div v-if="orders.length === 0" class="text-center py-8 text-neutral-500">
         <DocumentIcon class="h-12 w-12 mx-auto mb-2 text-neutral-300" aria-hidden="true" />
         <p>No order history yet</p>
-      </div>
+              </div>
       <div v-else class="space-y-2">
         <div v-for="order in orders" :key="order.id" 
              class="p-3 rounded-lg border border-neutral-200 text-sm">
@@ -140,10 +140,10 @@ const formatTime = (timestamp) => {
               {{ order.type }}
             </span>
             <span class="font-mono">{{ formatPrice(order.price) }}</span>
-          </div>
+              </div>
           <div class="text-xs text-neutral-500 mt-1">
             {{ formatTime(order.timestamp) }}
-          </div>
+            </div>
         </div>
       </div>
     </div>
