@@ -241,21 +241,73 @@ async def join_waiting_room(request: Request, current_user: dict = Depends(get_c
 
 @app.get("/user/waiting-room-status")
 async def get_waiting_room_status(current_user: dict = Depends(get_current_user)):
-    """Get current waiting room status for user"""
+    """Get current waiting room status for the user"""
     try:
-        gmail_username = current_user['gmail_username']
-        params = TradingParameters(**(persistent_settings or {}))
-        
-        status = waiting_room.get_user_status(gmail_username, params)
+        username = current_user['gmail_username']
+        status = waiting_room.get_user_status(username, persistent_settings)
         
         return {
             "status": "success",
             "data": status
         }
-        
     except Exception as e:
         print(f"Error getting waiting room status: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to get waiting room status: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/trader_info/{trader_id}")
+async def get_trader_info(trader_id: str, current_user: dict = Depends(get_current_user)):
+    """Get trader information - simplified version for clean architecture"""
+    try:
+        # Verify user has access to this trader
+        username = current_user['gmail_username']
+        expected_trader_id = f"HUMAN_{username}"
+        
+        if trader_id != expected_trader_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        # Get trader manager for this trader
+        trader_manager = market_handler.get_trader_manager(trader_id)
+        if not trader_manager:
+            raise HTTPException(status_code=404, detail="Trader not found or not assigned to market yet")
+        
+        # Get trader data
+        trader = trader_manager.get_trader(trader_id)
+        if not trader:
+            raise HTTPException(status_code=404, detail="Trader not found in market")
+        
+        trader_data = trader.get_trader_params_as_dict()
+        
+        # Add basic attributes
+        if 'all_attributes' not in trader_data:
+            trader_data['all_attributes'] = {}
+        
+        # Add market parameters
+        params = trader_manager.params.model_dump() if trader_manager.params else {}
+        trader_data['all_attributes']['params'] = params
+        
+        # Ensure basic fields exist
+        if 'cash' not in trader_data:
+            trader_data['cash'] = getattr(trader, 'cash', 0)
+        if 'shares' not in trader_data:
+            trader_data['shares'] = getattr(trader, 'shares', 0)
+        if 'goal' not in trader_data:
+            trader_data['goal'] = getattr(trader, 'goal', 0)
+        if 'initial_cash' not in trader_data:
+            trader_data['initial_cash'] = getattr(trader, 'initial_cash', trader_data.get('cash', 0))
+        if 'initial_shares' not in trader_data:
+            trader_data['initial_shares'] = getattr(trader, 'initial_shares', trader_data.get('shares', 0))
+        
+        return {
+            "status": "success",
+            "message": "Trader found",
+            "data": trader_data
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error getting trader info: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error getting trader info: {str(e)}")
 
 # ============================================================================
 # TRADING ENDPOINTS

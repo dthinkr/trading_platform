@@ -98,37 +98,8 @@
 
     <!-- Main Content -->
     <main id="trading-content" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      <!-- Waiting Screen -->
-      <div v-if="!isTradingStarted" class="flex items-center justify-center min-h-[60vh]">
-        <div class="card max-w-md w-full">
-          <div class="card-body text-center">
-            <div class="mb-6">
-              <div class="mx-auto h-16 w-16 flex items-center justify-center rounded-full bg-blue-100 mb-4">
-                <UsersIcon class="h-8 w-8 text-blue-600" aria-hidden="true" />
-              </div>
-              <h2 class="text-2xl font-bold text-neutral-900 mb-2">Waiting for Traders</h2>
-              <p class="text-neutral-600 mb-4">
-                    {{ currentHumanTraders }} out of {{ expectedHumanTraders }} traders have joined
-                  </p>
-              <div class="flex items-center justify-center space-x-2 text-sm text-neutral-600 mb-4">
-                <span>Your Role:</span>
-                <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium" 
-                      :class="roleColorClass">
-                  <component :is="roleIcon" class="w-3 h-3 mr-1" aria-hidden="true" />
-                      {{ roleDisplay.text }}
-                </span>
-              </div>
-              <div class="spinner h-8 w-8 text-blue-600 mx-auto mb-4"></div>
-              <p class="text-xs text-neutral-500">
-                    If waiting too long, you can refresh the page to try again
-                  </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <!-- Trading Interface -->
-      <div v-else class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <!-- Left Sidebar -->
         <div class="lg:col-span-3 space-y-6">
           <OrderHistory />
@@ -330,9 +301,14 @@ onMounted(async () => {
   try {
     console.log('TradingDashboard mounted, props:', props)
     console.log('Auth store traderId:', authStore.traderId)
+    console.log('Auth store marketId:', authStore.marketId)
     
-    // Use trader ID from auth store if not provided in props
+    // Use trader ID from props first, then auth store fallback
     const traderId = props.traderUuid || authStore.traderId
+    const marketId = props.marketId || authStore.marketId
+    
+    console.log('Final traderId:', traderId)
+    console.log('Final marketId:', marketId)
     
     if (!traderId) {
       console.error('No trader ID available')
@@ -340,7 +316,7 @@ onMounted(async () => {
       return
     }
     
-    console.log('Initializing trading dashboard for trader:', traderId)
+    console.log('Initializing trading dashboard for trader:', traderId, 'market:', marketId)
     
     // Initialize trading data
     await tradingStore.fetchTraderAttributes(traderId)

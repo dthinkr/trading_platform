@@ -96,9 +96,44 @@ const joinWaitingRoom = async () => {
     
     if (response.status === 'success') {
       if (response.data.session_ready) {
-        // Session is ready, redirect to trading
+        // Session is ready, redirect to trading with proper IDs
         console.log('Session ready, redirecting to trading...')
-        await router.push('/trading')
+        console.log('Session data:', response.data)
+        
+        let traderUuid, marketId
+        
+        // Check if we have direct trader_id in the response (single user case)
+        if (response.data.trader_id && response.data.market_id) {
+          traderUuid = response.data.trader_id
+          marketId = response.data.market_id
+        } else {
+          // Find the current user's trader assignment from assigned_traders array
+          const currentUser = authStore.user?.email?.split('@')[0] || authStore.traderId?.replace('HUMAN_', '')
+          const userAssignment = response.data.assigned_traders?.find(
+            trader => trader.username === currentUser
+          )
+          
+          if (userAssignment) {
+            traderUuid = userAssignment.trader_id
+            marketId = response.data.market_id
+          }
+        }
+        
+        if (traderUuid && marketId) {
+          console.log(`Navigating to trading with trader: ${traderUuid}, market: ${marketId}`)
+          // Navigate with trader and market IDs
+          await router.push({
+            name: 'TradingDashboard',
+            params: {
+              traderUuid: traderUuid,
+              marketId: marketId
+            }
+          })
+        } else {
+          console.warn('Could not extract trader and market IDs, using fallback navigation')
+          // Fallback: navigate without params and let the dashboard figure it out
+          await router.push('/trading')
+        }
       } else {
         // Update waiting room status
         updateStatus(response.data)
@@ -117,10 +152,22 @@ const checkStatus = async () => {
   try {
     const status = await authStore.getWaitingRoomStatus()
     
-    if (status.in_waiting_room) {
+    if (status.assigned_to_market) {
+      // User has been assigned to a market, redirect to trading
+      console.log('User assigned to market, redirecting to trading...')
+      console.log('Assignment data:', status)
+      
+      await router.push({
+        name: 'TradingDashboard',
+        params: {
+          traderUuid: status.trader_id,
+          marketId: status.market_id
+        }
+      })
+    } else if (status.in_waiting_room) {
       updateStatus(status)
     } else {
-      // User not in waiting room, try to join
+      // User not in waiting room and not assigned, try to join
       await joinWaitingRoom()
     }
   } catch (err) {
@@ -135,9 +182,30 @@ const updateStatus = (data) => {
   waitingFor.value = data.waiting_for || 1
   sessionId.value = data.session_id || ''
   
-  // If session is ready, redirect
+  // If session is ready, redirect with proper data
   if (data.session_ready || currentPlayers.value >= requiredPlayers.value) {
     stopPolling()
+    
+    if (data.assigned_traders && data.market_id) {
+      // Find current user's assignment
+      const currentUser = authStore.user?.email?.split('@')[0] || authStore.traderId?.replace('HUMAN_', '')
+      const userAssignment = data.assigned_traders.find(
+        trader => trader.username === currentUser
+      )
+      
+      if (userAssignment) {
+        router.push({
+          name: 'TradingDashboard',
+          params: {
+            traderUuid: userAssignment.trader_id,
+            marketId: data.market_id
+          }
+        })
+        return
+      }
+    }
+    
+    // Fallback navigation
     router.push('/trading')
   }
 }
