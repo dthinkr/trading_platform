@@ -50,7 +50,7 @@ class MarketHandler:
             
         return role, goal
 
-    async def find_or_create_market(self, gmail_username: str, params: TradingParameters) -> tuple[str, str, TraderRole, int]:
+    async def find_or_create_market(self, gmail_username: str, params: TradingParameters, preferred_market_id: str = None, preferred_goal: int = None) -> tuple[str, str, TraderRole, int]:
         """find market and assign role or make new one"""
         trader_id = f"HUMAN_{gmail_username}"
         max_retries = 4
@@ -109,16 +109,25 @@ class MarketHandler:
             
             # Only create new market if not in cooldown period
             if not recently_created:
-                # Create new market with first role/goal
-                role = TraderRole.INFORMED if params.predefined_goals[0] != 0 else TraderRole.SPECULATOR
-                goal = params.predefined_goals[0]
+                # Use preferred goal if provided, otherwise use first goal
+                if preferred_goal is not None:
+                    goal = preferred_goal
+                    role = TraderRole.INFORMED if goal != 0 else TraderRole.SPECULATOR
+                else:
+                    # Create new market with first role/goal
+                    role = TraderRole.INFORMED if params.predefined_goals[0] != 0 else TraderRole.SPECULATOR
+                    goal = params.predefined_goals[0]
                 
-                if role == TraderRole.INFORMED and params.allow_random_goals:
+                if role == TraderRole.INFORMED and params.allow_random_goals and preferred_goal is None:
                     goal *= random.choice([-1, 1])
                     
                 self.user_roles[gmail_username] = role
                 
-                market_id, trader_id = await self._create_new_market(gmail_username, role, goal, params)
+                # Use preferred market ID if provided
+                if preferred_market_id:
+                    market_id, trader_id = await self._create_new_market_with_id(gmail_username, role, goal, params, preferred_market_id)
+                else:
+                    market_id, trader_id = await self._create_new_market(gmail_username, role, goal, params)
                 self.last_market_creation = datetime.now()
                 return market_id, trader_id, role, goal
                 
@@ -232,7 +241,7 @@ class MarketHandler:
             return len(self.market_ready_traders[market_id]) >= num_required_traders
         return False
 
-    async def validate_and_assign_role(self, gmail_username: str, params: TradingParameters) -> tuple[str, str, TraderRole, int]:
+    async def validate_and_assign_role(self, gmail_username: str, params: TradingParameters, preferred_market_id: str = None, preferred_goal: int = None) -> tuple[str, str, TraderRole, int]:
         """check and assign market"""
         can_join = await self.can_join_market(gmail_username, params)
         if not can_join:
@@ -241,8 +250,8 @@ class MarketHandler:
                 detail="Maximum number of allowed markets reached"
             )
         
-        # find and assign
-        return await self.find_or_create_market(gmail_username, params)
+        # find and assign with preferences
+        return await self.find_or_create_market(gmail_username, params, preferred_market_id, preferred_goal)
 
     async def reset_state(self):
         """reset everything"""
@@ -329,6 +338,33 @@ class MarketHandler:
             raise HTTPException(
                 status_code=500,
                 detail=f"Error creating trading market: {str(e)}"
+            )
+
+    async def _create_new_market_with_id(self, gmail_username: str, role: TraderRole, goal: int, params: TradingParameters, market_id: str) -> tuple[str, str]:
+        """make new market with specific ID"""
+        try:
+            new_trader_manager = TraderManager(params)
+            # Override the market ID
+            new_trader_manager.trading_market.id = market_id
+            self.trader_managers[market_id] = new_trader_manager
+            self.active_users[market_id] = set()
+            
+            trader_id = await new_trader_manager.add_human_trader(
+                gmail_username, 
+                role=role,
+                goal=goal
+            )
+            
+            self.trader_to_market_lookup[trader_id] = market_id
+            self.active_users[market_id].add(gmail_username)
+            self.user_markets[gmail_username] = market_id
+            
+            return market_id, trader_id
+            
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error creating trading market with ID: {str(e)}"
             )
 
     async def cleanup_finished_markets(self) -> None:

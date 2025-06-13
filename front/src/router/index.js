@@ -18,10 +18,9 @@ const routes = [
     component: () => import("@/components/Auth.vue")
   },
   {
-    path: "/onboarding/:traderUuid/:marketId",
+    path: "/onboarding",
     name: "Onboarding",
     component: () => import("@/components/OnboardingFlow.vue"),
-    props: true,
     meta: { requiresAuth: true }
   },
   {
@@ -29,6 +28,12 @@ const routes = [
     name: "MarketCreator",
     component: () => import("@/components/market/MarketCreator.vue"),
     meta: { requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: "/waiting-room",
+    name: "WaitingRoom",
+    component: () => import("@/components/WaitingRoom.vue"),
+    meta: { requiresAuth: true, requiresOnboarding: true }
   },
   {
     path: "/trading",
@@ -55,6 +60,7 @@ router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore();
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
   const requiresAdmin = to.matched.some(record => record.meta.requiresAdmin);
+  const requiresOnboarding = to.matched.some(record => record.meta.requiresOnboarding);
 
   // Allow Prolific parameters through
   const hasProlificParams = to.query.PROLIFIC_PID && to.query.STUDY_ID && to.query.SESSION_ID;
@@ -71,6 +77,9 @@ router.beforeEach(async (to, from, next) => {
   } else if (requiresAdmin && !authStore.isAdmin) {
     console.log('Router: Admin access required, redirecting to auth');
     next('/'); 
+  } else if (requiresOnboarding && !authStore.hasCompletedOnboarding) {
+    console.log('Router: Onboarding required, redirecting to onboarding');
+    next('/onboarding');
   } else {
     next();
   }

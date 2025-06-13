@@ -174,7 +174,7 @@ const deleteFile = async () => {
 
 const downloadAllFiles = async () => {
   try {
-    // Download all files individually since JSZip isn't available
+    // Download all files individually
     for (const file of logFiles.value) {
       await downloadFile(file.name)
       // Add a small delay between downloads to prevent overwhelming the server

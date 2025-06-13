@@ -163,8 +163,8 @@ import {
   ClockIcon,
   ExclamationTriangleIcon,
   XMarkIcon,
-  TrendingUpIcon,
-  TrendingDownIcon,
+  ArrowTrendingUpIcon,
+  ArrowTrendingDownIcon,
   EyeIcon
 } from '@heroicons/vue/24/outline'
 
@@ -245,14 +245,14 @@ const roleDisplay = computed(() => {
   if (goal.value > 0) {
     return {
       text: 'INFORMED (BUY)',
-      icon: TrendingUpIcon,
+      icon: ArrowTrendingUpIcon,
       color: 'blue'
     }
   }
   
   return {
     text: 'INFORMED (SELL)',
-    icon: TrendingDownIcon,
+    icon: ArrowTrendingDownIcon,
     color: 'red'
   }
 })
@@ -327,12 +327,31 @@ watch(() => isGoalAchieved.value, (newValue) => {
 
 // Lifecycle
 onMounted(async () => {
-      try {
+  try {
+    console.log('TradingDashboard mounted, props:', props)
+    console.log('Auth store traderId:', authStore.traderId)
+    
+    // Use trader ID from auth store if not provided in props
+    const traderId = props.traderUuid || authStore.traderId
+    
+    if (!traderId) {
+      console.error('No trader ID available')
+      showErrorAlert.value = true
+      return
+    }
+    
+    console.log('Initializing trading dashboard for trader:', traderId)
+    
     // Initialize trading data
-    await tradingStore.fetchTraderAttributes(props.traderUuid)
+    await tradingStore.fetchTraderAttributes(traderId)
     await tradingStore.fetchGameParams()
+    
+    // Initialize WebSocket connection
+    console.log('Initializing WebSocket...')
     await tradingStore.initializeWebSocket()
-      } catch (error) {
+    
+    console.log('Trading dashboard initialized successfully')
+  } catch (error) {
     console.error('Failed to initialize trading dashboard:', error)
     showErrorAlert.value = true
   }

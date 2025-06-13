@@ -104,11 +104,39 @@ export const useTradingStore = defineStore('trading', () => {
     }
     
     try {
+      const authStore = useAuthStore()
+      console.log('Initializing WebSocket for trader:', authStore.traderId)
+      
       ws.value = new WebSocket(wsPath.value)
       
-      ws.value.onopen = () => {
-        isConnected.value = true
-        console.log('WebSocket connected')
+      ws.value.onopen = async () => {
+        console.log('WebSocket connected, sending authentication...')
+        
+        // Send authentication token as first message
+        try {
+          // Get the current Firebase token or use Prolific token
+          let token = 'no-auth' // Default for Prolific users
+          
+          if (authStore.user && !authStore.prolificToken) {
+            // Firebase user - get fresh token
+            const firebaseToken = await authStore.user.getIdToken()
+            token = firebaseToken
+            console.log('Sending Firebase token for authentication')
+          } else if (authStore.prolificToken) {
+            // Prolific user
+            token = authStore.prolificToken
+            console.log('Sending Prolific token for authentication')
+          } else {
+            console.log('Using no-auth for authentication')
+          }
+          
+          ws.value.send(token)
+          isConnected.value = true
+          console.log('WebSocket authenticated successfully')
+        } catch (authError) {
+          console.error('WebSocket authentication failed:', authError)
+          ws.value.close()
+        }
       }
       
       ws.value.onmessage = (event) => {
@@ -319,7 +347,7 @@ export const useTradingStore = defineStore('trading', () => {
   
   async function fetchGameParams() {
     try {
-      const response = await axios.get('trading/persistent_settings')
+      const response = await axios.get('admin/get_persistent_settings')
       if (response.data.status === 'success') {
         gameParams.value = response.data.data
       }

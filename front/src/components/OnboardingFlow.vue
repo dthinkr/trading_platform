@@ -58,6 +58,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useTradingStore } from '@/stores/trading'
+import axios from '@/api/axios'
 
 import OnboardingLayout from './onboarding/OnboardingLayout.vue'
 import WelcomeStep from './onboarding/WelcomeStep.vue'
@@ -198,17 +199,19 @@ function handleSkip() {
 
 async function completeOnboarding() {
   try {
+    console.log('Starting onboarding completion...')
+    
     // Mark onboarding as complete
     await authStore.completeOnboarding()
+    console.log('Onboarding marked as complete')
     
-    // Initialize trading connection
-    await tradingStore.initializeWebSocket()
-    
-    // Navigate to trading dashboard
-    router.push('/trading')
+    // Navigate to waiting room instead of directly to trading
+    console.log('Navigating to waiting room...')
+    router.push('/waiting-room')
   } catch (error) {
     console.error('Failed to complete onboarding:', error)
-    throw error
+    // Still navigate to waiting room even if backend call fails
+    router.push('/waiting-room')
   }
 }
 
