@@ -7,10 +7,12 @@ polars
 prefect
 pydantic
 pytest
+pytest-asyncio
 PyYAML
 Requests
 sortedcontainers
 starlette
 termcolor
 uvicorn
+aiohttp
 

@@ -60,10 +60,6 @@ class TraderManager:
             trader_id = f"NOISE_{i}"
             noise_trader = NoiseTrader(
                 id=trader_id,
-                initial_cash=self.params.initial_cash,
-                initial_shares=self.params.initial_stocks,
-                default_price=self.params.default_price,
-                trading_market=self.trading_market,
                 params=self.params.model_dump(),
             )
             self.traders[trader_id] = noise_trader
@@ -75,10 +71,6 @@ class TraderManager:
             trader_id = f"INFORMED_{i}"
             informed_trader = InformedTrader(
                 id=trader_id,
-                initial_cash=self.params.initial_cash,
-                initial_shares=self.params.initial_stocks,
-                default_price=self.params.default_price,
-                trading_market=self.trading_market,
                 params=self.params.model_dump(),
             )
             self.traders[trader_id] = informed_trader
@@ -86,14 +78,11 @@ class TraderManager:
 
     def _setup_book_initializer(self):
         """Set up book initializer"""
-        self.book_initializer = BookInitializer(
-            default_price=self.params.default_price,
-            default_spread=self.params.default_spread,
-            initial_depth=self.params.initial_depth,
-            trading_market=self.trading_market,
-            params=self.params.model_dump(),
-        )
         trader_id = f"BOOK_INITIALIZER"
+        self.book_initializer = BookInitializer(
+            id=trader_id,
+            trader_creation_data=self.params.model_dump(),
+        )
         self.traders[trader_id] = self.book_initializer
 
     async def add_human_trader(self, gmail_username: str, role: TraderRole, goal: Optional[int] = None) -> str:

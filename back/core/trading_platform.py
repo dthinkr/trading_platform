@@ -219,17 +219,32 @@ class TradingPlatform:
         """Send updates to all traders and WebSocket connections"""
         data = data or {}
         
+        # Get order book data
+        order_book_snapshot = await self.get_order_book_snapshot()
+        active_orders = self.get_active_orders_to_broadcast()
+        spread_info = self.order_book_manager.get_spread()
+        
+        # DEBUG: Print order book state
+        print(f"\n=== ORDER BOOK DEBUG ({message_type}) ===")
+        print(f"Bids: {order_book_snapshot.get('bids', [])}")
+        print(f"Asks: {order_book_snapshot.get('asks', [])}")
+        print(f"Active orders count: {len(active_orders)}")
+        print(f"First few active orders: {active_orders[:3] if active_orders else 'None'}")
+        print(f"Spread info: {spread_info}")
+        print(f"WebSocket subscribers: {len(self.websocket_subscribers)}")
+        print("===================================\n")
+        
         # Create comprehensive message for WebSocket connections
         ws_message = {
             "type": message_type,
             "current_time": self.current_time.isoformat(),
             "start_time": self.start_time.isoformat() if self.start_time else None,
             "duration": self.duration,
-            "order_book": await self.get_order_book_snapshot(),
-            "active_orders": self.get_active_orders_to_broadcast(),
+            "order_book": order_book_snapshot,
+            "active_orders": active_orders,
             "history": self.get_transaction_history(),
-            "spread": self.order_book_manager.get_spread()[0],
-            "midpoint": self.order_book_manager.get_spread()[1],
+            "spread": spread_info[0],
+            "midpoint": spread_info[1],
             "transaction_price": self.transaction_price,
             **data,
             **kwargs

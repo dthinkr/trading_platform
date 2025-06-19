@@ -275,29 +275,65 @@ async def get_trader_info(trader_id: str, current_user: dict = Depends(get_curre
         gmail_username = current_user['gmail_username']
         is_prolific = current_user.get('is_prolific', False)
         
-        print(f"Getting trader info for {trader_id} (user: {gmail_username}, prolific: {is_prolific})")
+        print(f"=== DEBUG: Getting trader info for {trader_id} ===")
+        print(f"User: {gmail_username}, Prolific: {is_prolific}")
+        
+        # Debug: Show available traders
+        available_traders = list(market_pipeline.trader_to_market.keys())
+        print(f"Available traders in market_pipeline: {available_traders}")
         
         # Get trader manager for this trader
         trader_manager = market_pipeline.get_trader_manager(trader_id)
+        print(f"Trader manager found: {trader_manager is not None}")
+        
         if not trader_manager:
+            print(f"ERROR: No trader manager found for {trader_id}")
+            print(f"Market pipeline state: {len(market_pipeline.markets)} markets, {len(market_pipeline.trader_to_market)} trader mappings")
             raise HTTPException(status_code=404, detail="Trader not found or not assigned to market yet")
         
+        print(f"Trader manager has {len(trader_manager.traders)} traders")
+        print(f"Trader IDs in manager: {list(trader_manager.traders.keys())}")
+        
         trader = trader_manager.get_trader(trader_id)
+        print(f"Trader found in manager: {trader is not None}")
+        
         if not trader:
+            print(f"ERROR: Trader {trader_id} not found in manager")
             raise HTTPException(status_code=404, detail="Trader not found in market")
         
-        return {
+        print(f"Trader type: {type(trader)}")
+        print(f"Trader attributes: {dir(trader)}")
+        
+        # Safe attribute access with debugging
+        role = "unknown"
+        if hasattr(trader, 'role'):
+            role = trader.role.value if hasattr(trader.role, 'value') else str(trader.role)
+            print(f"Trader role: {role}")
+        else:
+            print("WARNING: Trader has no 'role' attribute")
+            
+        goal = getattr(trader, 'goal', 0)
+        print(f"Trader goal: {goal}")
+        
+        result = {
             "trader_id": trader_id,
-            "role": trader.role.value if hasattr(trader.role, 'value') else str(trader.role),
-            "goal": trader.goal,
-            "current_value": trader.current_value if hasattr(trader, 'current_value') else 0,
-            "current_holdings": trader.current_holdings if hasattr(trader, 'current_holdings') else 0,
-            "cash": trader.cash if hasattr(trader, 'cash') else 0,
+            "role": role,
+            "goal": goal,
+            "current_value": getattr(trader, 'current_value', 0),
+            "current_holdings": getattr(trader, 'current_holdings', 0),
+            "cash": getattr(trader, 'cash', 0),
             "market_id": trader_manager.trading_market.id
         }
         
+        print(f"Returning result: {result}")
+        return result
+        
     except Exception as e:
-        print(f"Error getting trader info: {str(e)}")
+        print(f"=== ERROR in get_trader_info ===")
+        print(f"Exception type: {type(e)}")
+        print(f"Exception message: {str(e)}")
+        import traceback
+        print(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Failed to get trader info: {str(e)}")
 
 # ============================================================================

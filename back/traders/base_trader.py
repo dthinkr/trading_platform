@@ -166,17 +166,18 @@ class BaseTrader:
 
     def is_throttled(self):
         """Check if the trader is throttled based on order frequency"""
-        if not self.throttle_config:
+        if not self.throttle_config or self.throttle_config.order_throttle_ms == 0:
             return False
 
         current_time = datetime.now().timestamp()
         
-        # Check time-based throttling
-        if current_time - self.last_order_time < self.throttle_config.min_time_between_orders:
+        # Check time-based throttling (convert ms to seconds)
+        min_time_between_orders = self.throttle_config.order_throttle_ms / 1000.0
+        if current_time - self.last_order_time < min_time_between_orders:
             return True
         
-        # Check frequency-based throttling
-        window_start = current_time - self.throttle_config.time_window
+        # Check frequency-based throttling in a 1-second window
+        window_start = current_time - 1.0  # 1 second window
         recent_orders = [order for order in self.placed_orders 
                         if order.get('timestamp', 0) > window_start]
         
