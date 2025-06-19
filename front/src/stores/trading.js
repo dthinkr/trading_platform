@@ -7,6 +7,7 @@ export const useTradingStore = defineStore('trading', () => {
   // State
   const ws = ref(null)
   const isConnected = ref(false)
+  const isConnecting = ref(false)
   const isTradingStarted = ref(false)
   const dayOver = ref(false)
   const isStartingTrading = ref(false)
@@ -85,7 +86,9 @@ export const useTradingStore = defineStore('trading', () => {
   
   const wsPath = computed(() => {
     const authStore = useAuthStore()
-    return `${import.meta.env.VITE_WS_URL}trader/${authStore.traderId}`
+    const url = `${import.meta.env.VITE_WS_URL}trader/${authStore.traderId}`
+    console.log('WebSocket URL:', url)
+    return url
   })
   
   const chartData = computed(() => {
@@ -100,9 +103,20 @@ export const useTradingStore = defineStore('trading', () => {
   
   // Actions
   async function initializeWebSocket() {
-    if (ws.value) {
-      ws.value.close()
+    // Prevent multiple simultaneous connection attempts
+    if (isConnecting.value) {
+      console.log('WebSocket connection already in progress, skipping...')
+      return
     }
+    
+    // Close existing connection if any
+    if (ws.value) {
+      console.log('Closing existing WebSocket connection')
+      ws.value.close()
+      ws.value = null
+    }
+    
+    isConnecting.value = true
     
     try {
       const authStore = useAuthStore()
@@ -113,68 +127,92 @@ export const useTradingStore = defineStore('trading', () => {
       ws.value.onopen = async () => {
         console.log('WebSocket connected, sending authentication...')
         
-        // Send authentication token as first message
-        try {
-          // Get the current Firebase token or use Prolific token
-          let token = 'no-auth' // Default for Prolific users
-          
-          if (authStore.user && !authStore.prolificToken) {
-            // Firebase user - get fresh token
-            const firebaseToken = await authStore.user.getIdToken()
-            token = firebaseToken
-            console.log('Sending Firebase token for authentication')
-          } else if (authStore.prolificToken) {
-            // Prolific user
-            token = authStore.prolificToken
-            console.log('Sending Prolific token for authentication')
-          } else {
-            console.log('Using no-auth for authentication')
-          }
-          
+        // Send authentication token directly (not as JSON)
+        const token = localStorage.getItem('firebaseAuthToken')
+        if (token) {
+          console.log('Sending Firebase token for authentication')
           ws.value.send(token)
-          isConnected.value = true
-          console.log('WebSocket authenticated successfully')
-        } catch (authError) {
-          console.error('WebSocket authentication failed:', authError)
-          ws.value.close()
+        } else {
+          // For prolific users or no-auth cases
+          console.log('Sending no-auth authentication')
+          ws.value.send('no-auth')
         }
+        
+        // Mark as connected immediately for simple authentication
+        isConnected.value = true
+        isConnecting.value = false
       }
       
       ws.value.onmessage = (event) => {
         try {
-          const data = JSON.parse(event.data)
-          handleWebSocketMessage(data)
+          const message = JSON.parse(event.data)
+          handleWebSocketMessage(message)
         } catch (error) {
           console.error('Error parsing WebSocket message:', error)
         }
       }
       
-      ws.value.onclose = () => {
+      ws.value.onclose = (event) => {
+        console.log('WebSocket connection closed:', event.code, event.reason)
+        console.log('WebSocket close event details:', {
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean,
+          timestamp: new Date().toISOString()
+        })
         isConnected.value = false
-        console.log('WebSocket disconnected')
-        // Auto-reconnect after 3 seconds
-        setTimeout(() => {
-          if (!dayOver.value) {
-            initializeWebSocket()
-          }
-        }, 3000)
+        isConnecting.value = false
+        
+        // Auto-reconnect after 3 seconds if not a clean close
+        if (event.code !== 1000) {
+          console.log('Attempting to reconnect in 3 seconds...')
+          setTimeout(() => {
+            if (!isConnecting.value) {
+              initializeWebSocket()
+            }
+          }, 3000)
+        }
       }
       
       ws.value.onerror = (error) => {
         console.error('WebSocket error:', error)
+        isConnecting.value = false
       }
+      
     } catch (error) {
       console.error('Failed to initialize WebSocket:', error)
+      isConnecting.value = false
     }
   }
   
   function handleWebSocketMessage(data) {
+    console.log('WebSocket message received:', data)
     const { type, ...payload } = data
     
     switch (type) {
       case 'order_book_update':
       case 'BOOK_UPDATED':
+      case 'ADDED_ORDER':
+      case 'ORDER_CANCELLED':
+      case 'transaction_update':
+      case 'book_updated':
+      case 'WEBSOCKET_CONNECTED':
+        console.log('Updating order book:', payload.order_book)
+        console.log('Current orderBook before update:', orderBook.value)
         orderBook.value = payload.order_book || { bids: [], asks: [] }
+        console.log('Current orderBook after update:', orderBook.value)
+        // Update active orders if present in the message
+        if (payload.active_orders) {
+          console.log('Updating active orders:', payload.active_orders.length, 'orders')
+          // Filter active orders to only include those belonging to the current trader
+          const authStore = useAuthStore()
+          const filteredOrders = payload.active_orders.filter(order => 
+            order.trader_id === authStore.traderId
+          )
+          activeOrders.value = filteredOrders
+          console.log(`Active orders filtered: ${payload.active_orders.length} total -> ${filteredOrders.length} for trader ${authStore.traderId}`)
+          console.log('Active orders updated to:', activeOrders.value)
+        }
         updateMidpoint()
         break
         
@@ -183,6 +221,7 @@ export const useTradingStore = defineStore('trading', () => {
         break
         
       case 'transaction':
+      case 'transaction_update':
         handleTransaction(payload)
         break
         
@@ -371,26 +410,16 @@ export const useTradingStore = defineStore('trading', () => {
     }
   }
   
-  async function placeOrder(orderType, price, quantity = 1) {
+  async function placeOrder(orderData) {
     try {
-      const order = {
-        id: `order_${Date.now()}`,
-        type: orderType,
-        price: price,
-        quantity: quantity,
-        status: 'pending',
-        timestamp: new Date()
-      }
-      
-      activeOrders.value.push(order)
-      
-      await sendWebSocketMessage('place_order', {
-        type: orderType,
-        price: price,
-        amount: quantity
+      const authStore = useAuthStore()
+      const response = await axios.post('/trading/order', {
+        ...orderData,
+        trader_id: authStore.traderId
       })
       
-      return order
+      console.log('Order placed successfully:', response.data)
+      return response.data
     } catch (error) {
       console.error('Failed to place order:', error)
       throw error
@@ -399,18 +428,17 @@ export const useTradingStore = defineStore('trading', () => {
   
   async function cancelOrder(orderId) {
     try {
-      await sendWebSocketMessage('cancel_order', { id: orderId })
+      const authStore = useAuthStore()
+      const response = await axios.post('/trading/cancel_order', {
+        order_id: orderId,
+        trader_id: authStore.traderId
+      })
+      
+      console.log('Order cancelled successfully:', response.data)
+      return response.data
     } catch (error) {
       console.error('Failed to cancel order:', error)
       throw error
-    }
-  }
-  
-  async function sendWebSocketMessage(type, data) {
-    if (ws.value && ws.value.readyState === WebSocket.OPEN) {
-      ws.value.send(JSON.stringify({ type, data }))
-    } else {
-      throw new Error('WebSocket not connected')
     }
   }
   
@@ -512,6 +540,7 @@ export const useTradingStore = defineStore('trading', () => {
     // State
     ws,
     isConnected,
+    isConnecting,
     isTradingStarted,
     dayOver,
     isStartingTrading,
@@ -552,7 +581,6 @@ export const useTradingStore = defineStore('trading', () => {
     initializeWebSocket,
     placeOrder,
     cancelOrder,
-    sendWebSocketMessage,
     fetchTraderAttributes,
     fetchGameParams,
     startTrading,

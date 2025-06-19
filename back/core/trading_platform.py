@@ -91,10 +91,12 @@ class TradingPlatform:
     def register_websocket(self, websocket):
         """Register WebSocket for human trader updates"""
         self.websocket_subscribers.add(websocket)
+        print(f"✅ WebSocket registered. Total subscribers: {len(self.websocket_subscribers)}")
         
     def unregister_websocket(self, websocket):
         """Unregister WebSocket"""
         self.websocket_subscribers.discard(websocket)
+        print(f"❌ WebSocket unregistered. Total subscribers: {len(self.websocket_subscribers)}")
 
     # Order book methods
     def place_order(self, order_dict: Dict) -> Dict:
@@ -224,15 +226,15 @@ class TradingPlatform:
         active_orders = self.get_active_orders_to_broadcast()
         spread_info = self.order_book_manager.get_spread()
         
-        # DEBUG: Print order book state
-        print(f"\n=== ORDER BOOK DEBUG ({message_type}) ===")
-        print(f"Bids: {order_book_snapshot.get('bids', [])}")
-        print(f"Asks: {order_book_snapshot.get('asks', [])}")
-        print(f"Active orders count: {len(active_orders)}")
-        print(f"First few active orders: {active_orders[:3] if active_orders else 'None'}")
-        print(f"Spread info: {spread_info}")
-        print(f"WebSocket subscribers: {len(self.websocket_subscribers)}")
-        print("===================================\n")
+        # DEBUG: Print order book state - DISABLED TO REDUCE NOISE
+        # print(f"\n=== ORDER BOOK DEBUG ({message_type}) ===")
+        # print(f"Bids: {order_book_snapshot.get('bids', [])}")
+        # print(f"Asks: {order_book_snapshot.get('asks', [])}")
+        # print(f"Active orders count: {len(active_orders)}")
+        # print(f"First few active orders: {active_orders[:3] if active_orders else 'None'}")
+        # print(f"Spread info: {spread_info}")
+        # print(f"WebSocket subscribers: {len(self.websocket_subscribers)}")
+        # print("===================================\n")
         
         # Create comprehensive message for WebSocket connections
         ws_message = {
@@ -252,6 +254,10 @@ class TradingPlatform:
 
         # Send to WebSocket connections (humans)
         await self.broadcast_to_websockets(ws_message)
+        
+        # Occasional websocket status update (every 10th message to reduce noise)
+        if message_type in ["ADDED_ORDER", "transaction_update"] and len(active_orders) % 10 == 0:
+            print(f"📡 WebSocket status: {len(self.websocket_subscribers)} subscribers, broadcasting {message_type}")
         
         # Send to automated traders with direct updates
         await self.notify_traders(message_type, data)

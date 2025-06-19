@@ -103,6 +103,12 @@ class TraderManager:
             gmail_username=gmail_username
         )
         
+        # Initialize the trader and set trading platform immediately
+        # This ensures websocket connections can work right away
+        await new_trader.initialize()
+        new_trader.set_trading_platform(self.trading_market)
+        print(f"🔧 Set trading platform for {trader_id}: {new_trader.trading_platform is not None}")
+        
         if role == TraderRole.INFORMED:
             # Allow multiple human informed traders
             self.human_informed_trader = new_trader
@@ -151,14 +157,18 @@ class TraderManager:
 
         # Connect all traders to the trading platform
         for trader_id, trader in self.traders.items():
+            # Skip initialization and platform setup for human traders - they're already set up
+            if isinstance(trader, HumanTrader):
+                print(f"🏃 Skipping setup for human trader {trader_id} (already initialized)")
+                continue
+                
             await trader.initialize()
             
             # Set up direct connection to trading platform
             trader.set_trading_platform(self.trading_market)
             
             # Connect non-human traders to market immediately
-            if not isinstance(trader, HumanTrader):
-                await trader.connect_to_market(self.trading_market.id)
+            await trader.connect_to_market(self.trading_market.id)
 
         # Initialize the order book
         await self.book_initializer.initialize_order_book()

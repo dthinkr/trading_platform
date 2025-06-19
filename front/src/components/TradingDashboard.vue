@@ -115,7 +115,7 @@
         <!-- Right Sidebar -->
         <div class="lg:col-span-3 space-y-6">
           <PriceHistory />
-          <TradingPanel :is-goal-achieved="isGoalAchieved" :goal-type="goalType" />
+          <PlaceOrder :is-goal-achieved="isGoalAchieved" :goal-type="goalType" />
         </div>
       </div>
     </main>
@@ -146,7 +146,7 @@ import MarketMessages from './trading/MarketMessages.vue'
 import OrderBookChart from './trading/OrderBookChart.vue'
 import ActiveOrders from './trading/ActiveOrders.vue'
 import PriceHistory from './trading/PriceHistory.vue'
-import TradingPanel from './trading/TradingPanel.vue'
+import PlaceOrder from './trading/PlaceOrder.vue'
 import CountdownTimer from './ui/CountdownTimer.vue'
 
 // Stores

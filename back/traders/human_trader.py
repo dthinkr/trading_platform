@@ -2,6 +2,7 @@ from .base_trader import BaseTrader
 from starlette.websockets import WebSocketDisconnect, WebSocketState
 import random
 import json
+import asyncio
 
 from core.data_models import TraderType, OrderType
 from utils import setup_custom_logger
@@ -44,16 +45,43 @@ class HumanTrader(BaseTrader):
             self.websocket = websocket
             self.socket_status = True
             
+            print(f"🔗 DEBUG: HumanTrader {self.id} connecting to socket")
+            print(f"🔗 DEBUG: Has trading_platform attr: {hasattr(self, 'trading_platform')}")
+            print(f"🔗 DEBUG: trading_platform value: {self.trading_platform}")
+            print(f"🔗 DEBUG: trading_platform type: {type(self.trading_platform)}")
+            
+            # If trading_platform is None, wait a moment and retry
             if not hasattr(self, 'trading_platform') or not self.trading_platform:
-                logger.error(f"HumanTrader {self.id}: No trading platform connected")
+                print(f"⏳ Trading platform not ready for {self.id}, waiting 1 second...")
+                await asyncio.sleep(1)
+                
+                if not hasattr(self, 'trading_platform') or not self.trading_platform:
+                    logger.error(f"❌ HumanTrader {self.id}: No trading platform connected after retry")
+                    print(f"❌ ERROR: trading_platform is still None for {self.id} after retry")
+                    return
+                else:
+                    print(f"✅ Trading platform now available for {self.id}")
+                
+            # Check if trading platform has websocket_subscribers attribute  
+            if not hasattr(self.trading_platform, 'websocket_subscribers'):
+                print(f"❌ ERROR: trading_platform missing websocket_subscribers attribute")
                 return
                 
             # Register websocket with trading platform for updates
+            print(f"📊 DEBUG: Before registration - Total subscribers: {len(self.trading_platform.websocket_subscribers)}")
+            print(f"📊 DEBUG: Registering websocket for trader {self.id}")
             self.trading_platform.register_websocket(websocket)
+            print(f"📊 DEBUG: After registration - Total subscribers: {len(self.trading_platform.websocket_subscribers)}")
+            print(f"✅ DEBUG: Websocket registered successfully")
+            
+            # Send initial order book data
+            await self.trading_platform.send_broadcast(message_type="WEBSOCKET_CONNECTED")
+            print(f"📡 DEBUG: Initial broadcast sent")
             
             await self.register()
+            print(f"🎯 DEBUG: Trader registration completed")
         except Exception as e:
-            logger.error(f"Error connecting human trader {self.id} to socket: {e}")
+            logger.error(f"💥 Error connecting human trader {self.id} to socket: {e}")
             traceback.print_exc()
 
     async def send_message_to_client(self, message_type, **kwargs):
@@ -86,13 +114,24 @@ class HumanTrader(BaseTrader):
             }
             await self.websocket.send_json(message)
         except WebSocketDisconnect:
+            print(f"DEBUG: WebSocket disconnected for trader {self.id}")
             self.socket_status = False
             # Unregister from trading platform
             if self.trading_platform:
+                print(f"DEBUG: Before unregistration - Total subscribers: {len(self.trading_platform.websocket_subscribers)}")
                 self.trading_platform.unregister_websocket(self.websocket)
+                print(f"DEBUG: After unregistration - Total subscribers: {len(self.trading_platform.websocket_subscribers)}")
+            self.websocket = None
         except Exception as e:
             logger.error(f"Error sending message to client {self.id}: {e}")
             traceback.print_exc()
+            # Also unregister on other exceptions that might indicate connection issues
+            if "broken pipe" in str(e).lower() or "connection" in str(e).lower():
+                print(f"DEBUG: Connection error detected for trader {self.id}, cleaning up...")
+                self.socket_status = False
+                if self.trading_platform and self.websocket:
+                    self.trading_platform.unregister_websocket(self.websocket)
+                self.websocket = None
 
     async def on_message_from_client(self, message):
         """Handle messages from frontend WebSocket"""

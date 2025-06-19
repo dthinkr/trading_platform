@@ -436,6 +436,100 @@ async def start_trading_market(background_tasks: BackgroundTasks, request: Reque
         print(f"Error in start_trading_market: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to start trading: {str(e)}")
 
+@app.post("/trading/order")
+async def place_order(request: Request, current_user: dict = Depends(get_current_user)):
+    """Place a trading order"""
+    try:
+        body = await request.json()
+        trader_id = body.get('trader_id')
+        order_type = body.get('order_type')  # 1 for BUY, 0 for SELL
+        price = body.get('price')
+        amount = body.get('amount', 1)
+        
+        if not trader_id:
+            raise HTTPException(status_code=400, detail="trader_id is required")
+        if order_type is None:
+            raise HTTPException(status_code=400, detail="order_type is required")
+        if price is None:
+            raise HTTPException(status_code=400, detail="price is required")
+            
+        # Get the trader manager for this trader
+        trader_manager = market_pipeline.get_trader_manager(trader_id)
+        if not trader_manager:
+            raise HTTPException(status_code=404, detail="Trader manager not found")
+            
+        # Get the trader
+        trader = trader_manager.get_trader(trader_id)
+        if not trader:
+            raise HTTPException(status_code=404, detail="Trader not found")
+            
+        # Check if trading is active
+        if not trader_manager.trading_market or not trader_manager.trading_market.trading_started:
+            raise HTTPException(status_code=400, detail="Trading is not active")
+            
+        # Place the order
+        from core.data_models import OrderType
+        order_type_enum = OrderType.BID if order_type == 1 else OrderType.ASK
+        await trader.post_new_order(amount, price, order_type_enum)
+        
+        return {
+            "status": "success",
+            "message": "Order placed successfully",
+            "data": {
+                "trader_id": trader_id,
+                "order_type": order_type,
+                "price": price,
+                "amount": amount
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error placing order: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to place order: {str(e)}")
+
+@app.post("/trading/cancel_order")
+async def cancel_order(request: Request, current_user: dict = Depends(get_current_user)):
+    """Cancel a trading order"""
+    try:
+        body = await request.json()
+        trader_id = body.get('trader_id')
+        order_id = body.get('order_id')
+        
+        if not trader_id:
+            raise HTTPException(status_code=400, detail="trader_id is required")
+        if not order_id:
+            raise HTTPException(status_code=400, detail="order_id is required")
+            
+        # Get the trader manager for this trader
+        trader_manager = market_pipeline.get_trader_manager(trader_id)
+        if not trader_manager:
+            raise HTTPException(status_code=404, detail="Trader manager not found")
+            
+        # Get the trader
+        trader = trader_manager.get_trader(trader_id)
+        if not trader:
+            raise HTTPException(status_code=404, detail="Trader not found")
+            
+        # Cancel the order
+        await trader.send_cancel_order_request(order_id)
+        
+        return {
+            "status": "success", 
+            "message": "Order cancelled successfully",
+            "data": {
+                "trader_id": trader_id,
+                "order_id": order_id
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error cancelling order: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to cancel order: {str(e)}")
+
 # ============================================================================
 # TRADER INFO ENDPOINTS
 # ============================================================================
@@ -608,6 +702,8 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
             await websocket.close(code=1008, reason="Trader not found")
             return
         
+        print(f"DEBUG: Found trader {trader_id}, type: {type(trader)}")
+        
         market_pipeline.add_active_user(gmail_username, market_id)
         
         initial_count = {
@@ -620,7 +716,14 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
         }
         await websocket.send_json(initial_count)
         
-        await trader.connect_to_socket(websocket)
+        print(f"DEBUG: About to call connect_to_socket for {trader_id}")
+        try:
+            await trader.connect_to_socket(websocket)
+            print(f"DEBUG: connect_to_socket completed for {trader_id}")
+        except Exception as e:
+            print(f"ERROR: connect_to_socket failed for {trader_id}: {e}")
+            import traceback
+            traceback.print_exc()
         
         send_task = asyncio.create_task(send_to_frontend(websocket, trader_manager))
         receive_task = asyncio.create_task(receive_from_frontend(websocket, trader))
