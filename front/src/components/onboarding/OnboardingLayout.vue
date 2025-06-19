@@ -13,7 +13,7 @@
             <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
               <ChartBarIcon class="h-5 w-5 text-white" aria-hidden="true" />
             </div>
-            <h1 class="text-lg font-semibold text-neutral-900">Trading Platform</h1>
+            <h1 class="text-lg font-semibold text-neutral-900">Financial Market Study</h1>
           </div>
           
           <!-- Progress indicator -->

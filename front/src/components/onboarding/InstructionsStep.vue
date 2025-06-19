@@ -6,11 +6,79 @@
         <AcademicCapIcon class="h-8 w-8 text-green-600" aria-hidden="true" />
       </div>
       <h3 class="text-2xl font-bold text-neutral-900 mb-2">
-        How the Trading Platform Works
+        Trading Platform Guide
       </h3>
       <p class="text-lg text-neutral-600">
-        Learn the essential concepts before you start trading
+        Learn how the trading platform works before you start
       </p>
+    </div>
+
+    <!-- What is the Trading Platform -->
+    <div class="bg-blue-50 rounded-lg p-6 border border-blue-200">
+      <div class="flex items-center mb-3">
+        <ComputerDesktopIcon class="h-6 w-6 text-blue-600 mr-2" aria-hidden="true" />
+        <h4 class="text-lg font-semibold text-blue-900">What is the Trading Platform?</h4>
+      </div>
+      <div class="space-y-3 text-blue-800">
+        <p class="text-sm">
+          The trading platform is software that allows participants to trade with one another. 
+          It displays relevant information about the demand and supply of an asset (e.g. a share). 
+          What you see on the trading platform is common knowledge, meaning all other participants can see it.
+        </p>
+        <p class="text-sm">
+          This trading platform closely replicates real financial exchange platforms, where participants trade under a double auction setting.
+          In particular, a double auction trading mechanism allows buyers to submit bids (buy offers) and sellers to submit asks (sell offers) simultaneously. 
+          The platform matches buyers and sellers based on price and quantity.
+        </p>
+        <p class="text-sm font-medium">
+          Please take some time to carefully read the next sections.
+        </p>
+      </div>
+    </div>
+
+    <!-- Order Types -->
+    <div class="grid gap-6 md:grid-cols-2">
+      <!-- Direct Orders -->
+      <div class="bg-green-50 rounded-lg p-6 border border-green-200">
+        <div class="flex items-center mb-3">
+          <CurrencyDollarIcon class="h-6 w-6 text-green-600 mr-2" aria-hidden="true" />
+          <h4 class="text-lg font-semibold text-green-900">Direct Orders</h4>
+        </div>
+        <div class="space-y-3 text-green-800">
+          <p class="text-sm">
+            You can directly accept an existing price to sell or buy, such as an order from another participant. 
+            In this case, the trade is immediately executed at the best bid or ask respectively.
+          </p>
+        </div>
+      </div>
+
+      <!-- Passive Orders -->
+      <div class="bg-purple-50 rounded-lg p-6 border border-purple-200">
+        <div class="flex items-center mb-3">
+          <ChartBarIcon class="h-6 w-6 text-purple-600 mr-2" aria-hidden="true" />
+          <h4 class="text-lg font-semibold text-purple-900">Passive Orders</h4>
+        </div>
+        <div class="space-y-3 text-purple-800">
+          <p class="text-sm">
+            You can place orders to sell or buy that are not immediately executed. 
+            This means you have to wait for someone to accept them.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Improving Orders -->
+    <div class="bg-orange-50 rounded-lg p-6 border border-orange-200">
+      <div class="flex items-center mb-3">
+        <WalletIcon class="h-6 w-6 text-orange-600 mr-2" aria-hidden="true" />
+        <h4 class="text-lg font-semibold text-orange-900">Improving Orders</h4>
+      </div>
+      <div class="space-y-3 text-orange-800">
+        <ul class="text-sm space-y-2 list-disc list-inside">
+          <li>Place an order to sell (ask) a share for a lower price than the current best ask</li>
+          <li>Place an order to buy (bid) a share for a higher price than the current best bid</li>
+        </ul>
+      </div>
     </div>
 
     <!-- Key concepts -->
@@ -29,42 +97,6 @@
             <li><strong>Bids:</strong> Orders to buy shares at specific prices</li>
             <li><strong>Asks:</strong> Orders to sell shares at specific prices</li>
             <li><strong>Spread:</strong> Difference between highest bid and lowest ask</li>
-          </ul>
-        </div>
-      </div>
-
-      <!-- Order Types -->
-      <div class="bg-green-50 rounded-lg p-6 border border-green-200">
-        <div class="flex items-center mb-3">
-          <CurrencyDollarIcon class="h-6 w-6 text-green-600 mr-2" aria-hidden="true" />
-          <h4 class="text-lg font-semibold text-green-900">Order Types</h4>
-        </div>
-        <div class="space-y-3 text-green-800">
-          <p class="text-sm">
-            You can place two types of orders during the trading session.
-          </p>
-          <ul class="text-sm space-y-1 list-disc list-inside">
-            <li><strong>Buy Orders:</strong> Purchase shares at your specified price</li>
-            <li><strong>Sell Orders:</strong> Sell shares at your specified price</li>
-            <li><strong>Market Orders:</strong> Execute immediately at best available price</li>
-          </ul>
-        </div>
-      </div>
-
-      <!-- Price Movement -->
-      <div class="bg-purple-50 rounded-lg p-6 border border-purple-200">
-        <div class="flex items-center mb-3">
-          <ChartBarIcon class="h-6 w-6 text-purple-600 mr-2" aria-hidden="true" />
-          <h4 class="text-lg font-semibold text-purple-900">Price Discovery</h4>
-        </div>
-        <div class="space-y-3 text-purple-800">
-          <p class="text-sm">
-            Prices change based on supply and demand from all traders.
-          </p>
-          <ul class="text-sm space-y-1 list-disc list-inside">
-            <li>Higher demand (more buyers) → Price increases</li>
-            <li>Higher supply (more sellers) → Price decreases</li>
-            <li>Real-time price updates based on completed trades</li>
           </ul>
         </div>
       </div>
@@ -93,8 +125,11 @@
       <div class="bg-neutral-50 px-4 py-3 border-b border-neutral-200">
         <h4 class="font-semibold text-neutral-900 flex items-center">
           <ComputerDesktopIcon class="h-5 w-5 mr-2" aria-hidden="true" />
-          Trading Interface Preview
+          Trading Platform Preview
         </h4>
+        <p class="text-sm text-neutral-600 mt-1">
+          This demonstration shows the trading platform in action with live components.
+        </p>
       </div>
       <div class="p-6">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
@@ -122,7 +157,7 @@
           </div>
           
           <div class="bg-white border border-neutral-200 rounded-lg p-4">
-            <h5 class="font-medium text-neutral-900 mb-2">Place Order</h5>
+            <h5 class="font-medium text-neutral-900 mb-2">Trading Panel</h5>
             <div class="space-y-2">
               <div class="flex space-x-2">
                 <button class="flex-1 px-3 py-1 bg-blue-100 text-blue-800 rounded text-xs">Buy</button>

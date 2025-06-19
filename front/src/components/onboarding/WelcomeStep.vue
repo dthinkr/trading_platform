@@ -6,10 +6,10 @@
         <UserGroupIcon class="h-8 w-8 text-blue-600" aria-hidden="true" />
       </div>
       <h3 class="text-2xl font-bold text-neutral-900 mb-2">
-        Welcome to the Trading Research Study
+        Financial Market Study
       </h3>
       <p class="text-lg text-neutral-600">
-        Thank you for participating in our trading platform research study
+        In this study, we investigate decision-making in financial markets
       </p>
     </div>
 
@@ -21,14 +21,56 @@
       </h4>
       <div class="space-y-3 text-blue-800">
         <p>
-          This research study examines trading behavior in simulated financial markets. 
-          You will participate in a trading session where you can buy and sell shares.
+          The following are the instructions for this study. Please follow them carefully.
         </p>
-        <ul class="list-disc list-inside space-y-1 text-sm">
-          <li>The session typically lasts 15-30 minutes</li>
-          <li>You'll start with virtual cash and shares</li>
-          <li>Your goal may be to maximize profit or achieve specific trading targets</li>
-          <li>All trading is simulated - no real money is involved</li>
+      </div>
+    </div>
+
+    <!-- Earnings information -->
+    <div class="bg-green-50 rounded-lg p-6 border border-green-200">
+      <h4 class="font-semibold text-green-900 mb-3 flex items-center">
+        <InformationCircleIcon class="h-5 w-5 mr-2" aria-hidden="true" />
+        Earnings
+      </h4>
+      <div class="space-y-3 text-green-800">
+        <p>
+          You can earn considerable money depending on your decisions.
+          Your earnings will be transferred to your Prolific account. 
+          The transfer may take a few working days.
+        </p>
+      </div>
+    </div>
+
+    <!-- Study overview -->
+    <div class="bg-blue-50 rounded-lg p-6 border border-blue-200">
+      <h4 class="font-semibold text-blue-900 mb-3 flex items-center">
+        <InformationCircleIcon class="h-5 w-5 mr-2" aria-hidden="true" />
+        Study Overview
+      </h4>
+      <div class="space-y-3 text-blue-800">
+        <p>
+          You will participate in markets where you can earn money by trading. 
+          Each market will last <span class="font-semibold">15 minutes</span> 
+          and you will participate in <span class="font-semibold">multiple markets</span>.
+        </p>
+      </div>
+    </div>
+
+    <!-- Rules after each market -->
+    <div class="border border-neutral-200 rounded-lg">
+      <div class="p-4 bg-neutral-50 border-b border-neutral-200">
+        <h4 class="font-semibold text-neutral-900 flex items-center">
+          <DocumentTextIcon class="h-5 w-5 mr-2" aria-hidden="true" />
+          After each market:
+        </h4>
+      </div>
+      
+      <div class="p-4 text-sm text-neutral-700 space-y-3">
+        <ul class="space-y-2 list-disc list-inside">
+          <li>All your remaining shares and money are converted to pounds sterling</li>
+          <li>You earn this amount from that market</li>
+          <li>A new market starts</li>
+          <li>You cannot use your earnings from the previous market to trade in the following markets</li>
         </ul>
       </div>
     </div>

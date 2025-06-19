@@ -6,10 +6,10 @@
         <PuzzlePieceIcon class="h-8 w-8 text-purple-600" aria-hidden="true" />
       </div>
       <h3 class="text-2xl font-bold text-neutral-900 mb-2">
-        Practice Trading
+        Practice Session
       </h3>
       <p class="text-lg text-neutral-600">
-        Try placing a few practice orders to get familiar with the interface
+        Familiarize yourself with the trading platform
       </p>
     </div>
 
@@ -20,12 +20,13 @@
         Practice Instructions
       </h4>
       <div class="space-y-2 text-purple-800 text-sm">
-        <p>This is a simplified practice environment to help you get familiar with placing orders.</p>
+        <p>This is a practice environment to help you familiarize yourself with the trading platform before the actual markets begin.</p>
         <ul class="list-disc list-inside space-y-1">
-          <li>Try placing both buy and sell orders</li>
-          <li>Experiment with different prices</li>
-          <li>Practice cancelling orders</li>
-          <li>No real money or shares are involved</li>
+          <li>Try placing both buy and sell orders at different price levels</li>
+          <li>Experiment with the interface and understand how orders work</li>
+          <li>Practice cancelling orders before they execute</li>
+          <li>Get comfortable with the order book and price movements</li>
+          <li>This is practice only - no real money or shares are involved</li>
         </ul>
       </div>
     </div>
