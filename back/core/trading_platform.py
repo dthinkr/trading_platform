@@ -250,6 +250,9 @@ class TradingPlatform:
 
         # Broadcast transaction details via WebSocket
         await self.broadcast_to_websockets(transaction_details)
+        
+        # Also send transaction details to traders for processing
+        await self.send_message_to_traders(transaction_details)
 
         return ask_trader_id, bid_trader_id, transaction
 
