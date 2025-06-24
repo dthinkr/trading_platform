@@ -32,6 +32,15 @@ class HumanTrader(BaseTrader):
             **self.params
         }
 
+    async def on_message_from_system(self, data):
+        """Handle messages from the trading platform and send individual trader data."""
+        # Call parent class to handle the basic message processing
+        await super().on_message_from_system(data)
+        
+        # Always send updated individual trader data to the frontend
+        # This ensures PnL, shares, cash calculations are sent in real-time
+        await self.send_message_to_client("BOOK_UPDATED")
+
     async def post_processing_server_message(self, json_message):
         message_type = json_message.pop("type", None)
         if message_type:
@@ -86,10 +95,6 @@ class HumanTrader(BaseTrader):
                 "filled_orders": self.filled_orders,
                 "placed_orders": self.placed_orders,
             }
-            
-            # Debug: Log what data is being sent to frontend
-            logger.info(f"[HUMAN_TRADER_DEBUG] SENDING TO FRONTEND - Trader: {self.id}, Type: {message_type}, Cash: {self.cash}, Shares: {self.shares}, PnL: {self.get_current_pnl()}")
-            
             await self.websocket.send_json(message)
         except WebSocketDisconnect:
             self.socket_status = False

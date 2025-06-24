@@ -256,8 +256,10 @@ export const useTraderStore = defineStore("trader", {
     },
     
     handle_update(data) {
-      // Add debug logging
-      console.log("Received WebSocket message:", data);
+      // Debug BOOK_UPDATED messages specifically
+      if (data.type === "BOOK_UPDATED") {
+        console.log("📦 BOOK_UPDATED MESSAGE FULL DATA:", data);
+      }
 
       if (data.type === "trader_count_update") {
         console.log("Received trader count update:", data.data);
@@ -327,10 +329,33 @@ export const useTraderStore = defineStore("trader", {
         }));
       }
 
+      // Always update individual trader data when present (regardless of order_book)
       if (inventory) {
         const { shares, cash } = inventory;
+        console.log("🔄 UPDATING INVENTORY:", { shares, cash, previous_shares: this.shares, previous_cash: this.cash });
         this.shares = shares;
         this.cash = cash;
+      }
+
+      // Always update PnL and other trader-specific data when present
+      if (pnl !== undefined) {
+        console.log("💰 UPDATING PNL:", { new_pnl: pnl, previous_pnl: this.pnl });
+        this.pnl = pnl;
+      }
+      
+      if (initial_shares !== undefined) {
+        console.log("📈 UPDATING INITIAL_SHARES:", { new_initial_shares: initial_shares, previous_initial_shares: this.initial_shares });
+        this.initial_shares = initial_shares;
+      }
+
+      if (sum_dinv !== undefined) {
+        console.log("📊 UPDATING SUM_DINV:", { new_sum_dinv: sum_dinv, previous_sum_dinv: this.sum_dinv });
+        this.sum_dinv = sum_dinv;
+      }
+
+      if (vwap !== undefined) {
+        console.log("📈 UPDATING VWAP:", { new_vwap: vwap, previous_vwap: this.vwap });
+        this.vwap = vwap;
       }
 
       if (order_book) {
@@ -338,8 +363,6 @@ export const useTraderStore = defineStore("trader", {
         const depth_book_shown = this.gameParams.depth_book_shown || 3;
         this.bidData = bids.slice(0, depth_book_shown);
         this.askData = asks.slice(0, depth_book_shown);
-        this.sum_dinv = sum_dinv;
-        this.initial_shares = initial_shares;
 
         this.midPoint = midpoint || findMidpoint(bids, asks);
         this.chartData = [
@@ -355,10 +378,13 @@ export const useTraderStore = defineStore("trader", {
           },
         ];
 
-        this.history = history;
-        this.spread = spread;
-        this.pnl = pnl;
-        this.vwap = vwap;
+        if (history !== undefined) {
+          this.history = history;
+        }
+        
+        if (spread !== undefined) {
+          this.spread = spread;
+        }
       }
 
       if (data.type === "market_status_update") {

@@ -188,6 +188,19 @@ const formatDelta = computed(() => {
   return halfChange >= 0 ? "+" + halfChange : halfChange.toString();
 });
 
+// Debug reactive values for PnL display
+const debugDisplayValues = computed(() => {
+  const values = {
+    pnl: pnl.value,
+    initial_shares: initial_shares.value,
+    cash: cash.value,
+    sum_dinv: sum_dinv.value,
+    formatDelta: formatDelta.value
+  };
+  console.log("🎯 DASHBOARD DISPLAY VALUES:", values);
+  return values;
+});
+
 const finalizingDay = () => {
   if (traderUuid.value) {
     router.push({ name: "summary", params: { traderUuid: traderUuid.value } });

@@ -248,14 +248,6 @@ class TradingPlatform:
     ) -> Tuple[str, str, TransactionModel]:
         ask_trader_id, bid_trader_id, transaction, transaction_details = await self.transaction_manager.create_transaction(bid, ask, transaction_price)
 
-        # Debug: Log human trader transactions
-        for trader_id in [ask_trader_id, bid_trader_id]:
-            if trader_id and trader_id.startswith("HUMAN_"):
-                trader_info = self.connected_traders.get(trader_id)
-                if trader_info and 'trader_instance' in trader_info:
-                    trader = trader_info['trader_instance']
-                    logger.info(f"[HUMAN_TRADER_DEBUG] TRANSACTION - Trader: {trader_id}, Cash: {trader.cash}, Shares: {trader.shares}, PnL: {trader.get_current_pnl()}, Transaction: {transaction_price}")
-
         # Broadcast transaction details via WebSocket
         await self.broadcast_to_websockets(transaction_details)
 
@@ -323,14 +315,6 @@ class TradingPlatform:
 
         # Log the add order event immediately
         self.trading_logger.info(f"ADD_ORDER: {order_dict}")
-        
-        # Debug: Log human trader state before order placement
-        trader_id = data.get("trader_id")
-        if trader_id and trader_id.startswith("HUMAN_"):
-            trader_info = self.connected_traders.get(trader_id)
-            if trader_info and 'trader_instance' in trader_info:
-                trader = trader_info['trader_instance']
-                logger.info(f"[HUMAN_TRADER_DEBUG] BEFORE ORDER - Trader: {trader_id}, Cash: {trader.cash}, Shares: {trader.shares}, PnL: {trader.get_current_pnl()}")
 
         placed_order, immediately_matched = self.order_book_manager.place_order(order_dict)
 
@@ -348,13 +332,6 @@ class TradingPlatform:
                     "amount": min(bid["amount"], ask["amount"])
                 }
                 self.trading_logger.info(f"MATCHED_ORDER: {match_data}")
-
-        # Debug: Log human trader state after order placement
-        if trader_id and trader_id.startswith("HUMAN_"):
-            trader_info = self.connected_traders.get(trader_id)
-            if trader_info and 'trader_instance' in trader_info:
-                trader = trader_info['trader_instance']
-                logger.info(f"[HUMAN_TRADER_DEBUG] AFTER ORDER - Trader: {trader_id}, Cash: {trader.cash}, Shares: {trader.shares}, PnL: {trader.get_current_pnl()}")
 
         # Broadcast order book update to all clients
         await self.send_broadcast(
