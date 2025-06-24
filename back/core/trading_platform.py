@@ -6,14 +6,12 @@ from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
 import uuid
 
-import aio_pika
 import polars as pl
 from pydantic import ValidationError
 
 from utils import setup_custom_logger, setup_trading_logger, CustomEncoder, if_active
 from core.orderbook_manager import OrderBookManager
 from core.transaction_manager import TransactionManager
-from core.rabbitmq_manager import RabbitMQManager
 from core.data_models import (
     Message,
     Order,
@@ -23,7 +21,6 @@ from core.data_models import (
     TransactionModel,
 )
 
-rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://localhost")
 logger = setup_custom_logger(__name__)
 
 class TradingPlatform:
@@ -47,9 +44,9 @@ class TradingPlatform:
         # Set up trading components
         self.order_book_manager = OrderBookManager()
         self.transaction_manager = TransactionManager(market_id)
-        self.rabbitmq_manager = RabbitMQManager(rabbitmq_url)
         self.connected_traders: Dict[str, Dict] = {}
         self.trader_responses: Dict[str, bool] = {}
+        self.websockets = set()  # Store WebSocket connections for broadcasting
         
         # Set up asyncio components
         self._stop_requested = asyncio.Event()
@@ -65,10 +62,7 @@ class TradingPlatform:
         self.current_price = 0
         self.is_finished = False
         
-        # Set up RabbitMQ-related attributes
-        self.broadcast_exchange_name = f"broadcast_{self.id}"
-        self.queue_name = f"trading_system_queue_{self.id}"
-        self.trader_exchange = None
+        # Set up task management
         self.process_transactions_task = None
         
         # Set up logging
@@ -78,8 +72,6 @@ class TradingPlatform:
         """Initialize the trading platform."""
         self.start_time = datetime.now(timezone.utc)
         self.active = True
-        await self.rabbitmq_manager.initialize()
-        await self._setup_rabbitmq()
         self.process_transactions_task = asyncio.create_task(self.transaction_manager.process_transactions())
 
     async def clean_up(self) -> None:
@@ -102,17 +94,33 @@ class TradingPlatform:
                 await self.process_transactions_task
             except asyncio.CancelledError:
                 pass
-                
-        await self.rabbitmq_manager.clean_up()
 
-    # RabbitMQ setup and cleanup methods
-    async def _setup_rabbitmq(self) -> None:
-        """Set up RabbitMQ connections and exchanges."""
-        await self.rabbitmq_manager.declare_exchange(self.broadcast_exchange_name, aio_pika.ExchangeType.FANOUT)
-        self.trader_exchange = await self.rabbitmq_manager.declare_exchange(self.queue_name, aio_pika.ExchangeType.DIRECT)
-        trader_queue = await self.rabbitmq_manager.declare_queue(self.queue_name)
-        await self.rabbitmq_manager.bind_queue_to_exchange(self.queue_name, self.queue_name)
-        await self.rabbitmq_manager.consume(self.queue_name, self.on_individual_message)
+    # WebSocket connection management
+    def register_websocket(self, websocket):
+        """Register a WebSocket connection for broadcasting."""
+        self.websockets.add(websocket)
+    
+    def unregister_websocket(self, websocket):
+        """Unregister a WebSocket connection."""
+        self.websockets.discard(websocket)
+    
+    async def broadcast_to_websockets(self, message: dict) -> None:
+        """Broadcast a message to all connected WebSockets."""
+        if not self.websockets:
+            return
+        
+        # Send message to all connected WebSockets
+        disconnected = set()
+        for websocket in self.websockets.copy():
+            try:
+                await websocket.send_json(message)
+            except Exception as e:
+                logger.warning(f"Failed to send message to WebSocket: {e}")
+                disconnected.add(websocket)
+        
+        # Remove disconnected WebSockets
+        for websocket in disconnected:
+            self.websockets.discard(websocket)
 
     # Order book methods
     def place_order(self, order_dict: Dict) -> Dict:
@@ -205,19 +213,15 @@ class TradingPlatform:
         if message_type == "FILLED_ORDER" and incoming_message:
             message["matched_orders"] = incoming_message.get("matched_orders")
 
-        await self.rabbitmq_manager.publish(self.broadcast_exchange_name, message)
+        await self.broadcast_to_websockets(message)
     
     async def create_transaction(
         self, bid: Dict, ask: Dict, transaction_price: float
     ) -> Tuple[str, str, TransactionModel]:
         ask_trader_id, bid_trader_id, transaction, transaction_details = await self.transaction_manager.create_transaction(bid, ask, transaction_price)
 
-        # Use RabbitMQManager to publish the message
-        await self.rabbitmq_manager.publish(
-            self.broadcast_exchange_name,
-            transaction_details,
-            routing_key=""
-        )
+        # Broadcast transaction details via WebSocket
+        await self.broadcast_to_websockets(transaction_details)
 
         return ask_trader_id, bid_trader_id, transaction
 
@@ -351,26 +355,7 @@ class TradingPlatform:
             "individual": True,
         }
 
-    async def on_individual_message(self, message: Dict) -> None:
-        """Handle incoming messages from traders."""
-        incoming_message = json.loads(message.body.decode())
-        action = incoming_message.pop("action", None)
-        trader_id = incoming_message.get("trader_id", None)
 
-        if action:
-            handler_method = getattr(self, f"handle_{action}", None)
-            if handler_method:
-                result = await handler_method(incoming_message)
-                if result and result.pop("respond", None) and trader_id:
-                    if not result.get("individual", False):
-                        message_type = result.get("type", f"{action.upper()}")
-                        await self.send_broadcast(
-                            message=dict(text=f"{action} update processed"),
-                            message_type=message_type,
-                            incoming_message=result.get(
-                                "incoming_message", incoming_message
-                            ),
-                        )
 
     async def close_existing_book(self) -> None:
         """Close the existing order book."""

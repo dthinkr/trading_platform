@@ -33,7 +33,7 @@ services:
       - "8000:8000"
     environment:
       - PORT=8000
-      - RABBITMQ_URL=${RABBITMQ_URL}
+
       - ROOT_PATH=/api
       - FIREBASE_API_KEY=${FIREBASE_API_KEY}
       - FIREBASE_AUTH_DOMAIN=${FIREBASE_AUTH_DOMAIN}
@@ -43,8 +43,7 @@ services:
       - FIREBASE_APP_ID=${FIREBASE_APP_ID}
       - FIREBASE_MEASUREMENT_ID=${FIREBASE_MEASUREMENT_ID}
       - GOOGLE_APPLICATION_CREDENTIALS=/app/firebase-service-account.json
-    depends_on:
-      - rabbitmq
+
     networks:
       - app-network
     logging:
@@ -91,22 +90,7 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  rabbitmq:
-    image: rabbitmq:3-management
-    ports:
-      - "5672:5672"
-      - "15672:15672"
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
-      interval: 5s
-      timeout: 10s
-      retries: 5
-    restart: unless-stopped
-    networks:
-      - app-network
-    logging: *default-logging
+
 
   watchtower:
     image: containrrr/watchtower
@@ -122,7 +106,6 @@ services:
       - app-network
 
 volumes:
-  rabbitmq_data:
 
 networks:
   app-network:

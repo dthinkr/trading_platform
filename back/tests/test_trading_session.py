@@ -26,18 +26,7 @@ def cleanup_logs(market_id):
 def market_id():
     return f"TEST_{str(uuid.uuid4())}"
 
-@pytest.fixture
-def mock_aio_pika():
-    with patch('core.trading_platform.aio_pika') as mock:
-        mock_connection = AsyncMock()
-        mock_channel = AsyncMock()
-        mock_connection.channel.return_value = mock_channel
-        
-        async def mock_connect_robust(*args, **kwargs):
-            return mock_connection
 
-        mock.connect_robust = MagicMock(side_effect=mock_connect_robust)
-        yield mock
 
 @pytest.fixture(autouse=True)
 async def cleanup():
@@ -49,7 +38,7 @@ async def cleanup():
     await asyncio.sleep(0.1)  # Give a short time for tasks to complete cancellation
 
 @pytest.mark.asyncio
-async def test_initialize(mock_aio_pika, market_id):
+async def test_initialize(market_id):
     market = TradingPlatform(market_id=market_id, duration=1, default_price=1000)
 
     with patch('core.trading_platform.datetime') as mock_datetime:
@@ -58,10 +47,6 @@ async def test_initialize(mock_aio_pika, market_id):
 
     assert market.active is True
     assert market.start_time == datetime(2023, 4, 1, tzinfo=timezone.utc)
-    mock_aio_pika.connect_robust.assert_called_once()
-    market.connection.channel.assert_awaited_once()
-    market.channel.declare_exchange.assert_awaited()
-    market.channel.declare_queue.assert_awaited()
 
 @pytest.mark.asyncio
 async def test_place_order(market_id):
@@ -194,13 +179,9 @@ async def test_get_spread(market_id):
 @pytest.mark.asyncio
 async def test_clean_up(market_id):
     market = TradingPlatform(market_id=market_id, duration=1, default_price=1000)
-    market.connection = AsyncMock()
-    market.channel = AsyncMock()
     market._stop_requested = asyncio.Event()
     market._stop_requested.set()
     await market.clean_up()
-    market.channel.close.assert_awaited()
-    market.connection.close.assert_awaited()
     assert market.active is False
 
 @pytest.mark.asyncio
