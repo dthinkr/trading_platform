@@ -86,6 +86,10 @@ class HumanTrader(BaseTrader):
                 "filled_orders": self.filled_orders,
                 "placed_orders": self.placed_orders,
             }
+            
+            # Debug: Log what data is being sent to frontend
+            logger.info(f"[HUMAN_TRADER_DEBUG] SENDING TO FRONTEND - Trader: {self.id}, Type: {message_type}, Cash: {self.cash}, Shares: {self.shares}, PnL: {self.get_current_pnl()}")
+            
             await self.websocket.send_json(message)
         except WebSocketDisconnect:
             self.socket_status = False
