@@ -42,13 +42,19 @@ class HumanTrader(BaseTrader):
             self.websocket = websocket
             self.socket_status = True
             
-            if not self.channel:
-                await self.initialize()
+            await self.initialize()
+            await self.connect_to_market(self.trading_market.id, self.trading_market)
             
-            if not self.trading_system_exchange:
-                await self.connect_to_market(self.trading_market.id)
+            # Register WebSocket with the trading platform for broadcasting
+            self.trading_market.register_websocket(websocket)
             
-            await self.register()
+            # Register with the trading platform directly
+            await self.trading_market.handle_register_me({
+                "trader_id": self.id,
+                "trader_type": self.trader_type,
+                "gmail_username": self.gmail_username,
+                "trader_instance": self
+            })
         except Exception as e:
             traceback.print_exc()
 
@@ -83,6 +89,9 @@ class HumanTrader(BaseTrader):
             await self.websocket.send_json(message)
         except WebSocketDisconnect:
             self.socket_status = False
+            # Unregister websocket from trading platform
+            if hasattr(self, 'trading_market') and self.trading_market:
+                self.trading_market.unregister_websocket(self.websocket)
         except Exception as e:
             traceback.print_exc()
 
@@ -117,6 +126,13 @@ class HumanTrader(BaseTrader):
     async def handle_closure(self, data):
         await self.post_processing_server_message(data)
         await super().handle_closure(data)
+
+    async def clean_up(self):
+        """Override base cleanup to also unregister websocket."""
+        await super().clean_up()
+        # Unregister websocket from trading platform
+        if hasattr(self, 'trading_market') and self.trading_market and hasattr(self, 'websocket') and self.websocket:
+            self.trading_market.unregister_websocket(self.websocket)
 
     async def handle_TRADING_STARTED(self, data):
         """

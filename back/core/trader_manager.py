@@ -153,8 +153,17 @@ class TraderManager:
 
             if not isinstance(trader, HumanTrader):
                 await trader.connect_to_market(
-                    trading_market_uuid=self.trading_market.id
+                    trading_market_uuid=self.trading_market.id,
+                    trading_market=self.trading_market
                 )
+                
+                # Register AI trader with the trading platform
+                await self.trading_market.handle_register_me({
+                    "trader_id": trader.id,
+                    "trader_type": trader.trader_type,
+                    "gmail_username": None,
+                    "trader_instance": trader
+                })
 
         await self.book_initializer.initialize_order_book()
 

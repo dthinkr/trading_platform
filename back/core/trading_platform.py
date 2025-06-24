@@ -79,13 +79,7 @@ class TradingPlatform:
         self._stop_requested.set()
         self.active = False
         
-        # Cancel execution queue processor
-        if self.process_executions_task:
-            self.process_executions_task.cancel()
-            try:
-                await self.process_executions_task
-            except asyncio.CancelledError:
-                pass
+
         
         # Cancel transaction processor
         if self.process_transactions_task:
@@ -121,6 +115,37 @@ class TradingPlatform:
         # Remove disconnected WebSockets
         for websocket in disconnected:
             self.websockets.discard(websocket)
+
+    async def handle_trader_message(self, message: dict) -> dict:
+        """Handle messages from traders and route them to appropriate handlers."""
+        action_type = message.get("type", message.get("action"))
+        
+        if action_type == "add_order":
+            return await self.handle_add_order(message)
+        elif action_type == "cancel_order":
+            return await self.handle_cancel_order(message)
+        elif action_type == "register_me":
+            return await self.handle_register_me(message)
+        elif action_type == "inventory_report":
+            return await self.handle_inventory_report(message)
+        else:
+            logger.warning(f"Unknown trader message type: {action_type}")
+            return {"status": "error", "message": "Unknown message type"}
+
+    async def send_message_to_traders(self, message: dict, trader_list=None) -> None:
+        """Send a message to all traders or a specific list of traders."""
+        if trader_list is None:
+            # Send to all connected traders
+            trader_list = list(self.connected_traders.keys())
+        
+        for trader_id in trader_list:
+            trader_info = self.connected_traders.get(trader_id)
+            if trader_info and 'trader_instance' in trader_info:
+                trader = trader_info['trader_instance']
+                try:
+                    await trader.on_message_from_system(message)
+                except Exception as e:
+                    logger.error(f"Failed to send message to trader {trader_id}: {e}")
 
     # Order book methods
     def place_order(self, order_dict: Dict) -> Dict:
@@ -214,6 +239,9 @@ class TradingPlatform:
             message["matched_orders"] = incoming_message.get("matched_orders")
 
         await self.broadcast_to_websockets(message)
+        
+        # Also send to traders directly for processing
+        await self.send_message_to_traders(message)
     
     async def create_transaction(
         self, bid: Dict, ask: Dict, transaction_price: float
@@ -305,6 +333,13 @@ class TradingPlatform:
                 }
                 self.trading_logger.info(f"MATCHED_ORDER: {match_data}")
 
+        # Broadcast order book update to all clients
+        await self.send_broadcast(
+            message={"order_added": True},
+            message_type="BOOK_UPDATED",
+            incoming_message={"informed_trader_progress": informed_trader_progress}
+        )
+
         return {
             "type": "ADDED_ORDER",
             "content": "A",
@@ -323,6 +358,13 @@ class TradingPlatform:
 
             if cancel_result:
                 self.trading_logger.info(f"CANCEL_ORDER: {data}")
+                
+                # Broadcast order book update after cancellation
+                await self.send_broadcast(
+                    message={"order_cancelled": True, "order_id": str(order_id)},
+                    message_type="BOOK_UPDATED"
+                )
+                
                 return {
                     "status": "cancel success",
                     "order_id": str(order_id),
@@ -337,16 +379,19 @@ class TradingPlatform:
         except Exception as e:
             return {"status": "failed", "reason": str(e)}
 
-    @if_active
     async def handle_register_me(self, msg_body: Dict) -> Dict:
         """Handle registering a new trader."""
         trader_id = msg_body.get("trader_id")
         trader_type = msg_body.get("trader_type")
-        gmail_username = msg_body.get("gmail_username")  # Add this line
-        self.connected_traders[gmail_username] = {  # Use gmail_username as the key
+        gmail_username = msg_body.get("gmail_username")
+        trader_instance = msg_body.get("trader_instance")  # Add trader instance
+        
+        self.connected_traders[trader_id] = {
             "trader_type": trader_type,
+            "gmail_username": gmail_username,
+            "trader_instance": trader_instance,
         }
-        self.trader_responses[gmail_username] = False  # Use gmail_username as the key
+        self.trader_responses[trader_id] = False
 
         return {
             "respond": True,
@@ -389,17 +434,17 @@ class TradingPlatform:
 
     async def handle_inventory_report(self, data: dict) -> Dict:
         """Handle inventory reports from traders."""
-        gmail_username = data.get("gmail_username")  # Change this line
-        self.trader_responses[gmail_username] = True
+        trader_id = data.get("trader_id")
+        self.trader_responses[trader_id] = True
         
         # Check if the trader is still in connected_traders
-        if gmail_username not in self.connected_traders:
-            logger.warning(f"Received inventory report for unknown trader: {gmail_username}")
+        if trader_id not in self.connected_traders:
+            logger.warning(f"Received inventory report for unknown trader: {trader_id}")
             return {}
 
-        trader_type = self.connected_traders[gmail_username].get("trader_type")
+        trader_type = self.connected_traders[trader_id].get("trader_type")
         if not trader_type:
-            logger.warning(f"Trader type not found for trader: {gmail_username}")
+            logger.warning(f"Trader type not found for trader: {trader_id}")
             return {}
 
         shares = data.get("shares", 0)
@@ -417,7 +462,7 @@ class TradingPlatform:
                 market_id=self.id,
             )
             trader_order = Order(
-                trader_id=gmail_username, order_type=trader_order_type, **proto_order
+                trader_id=trader_id, order_type=trader_order_type, **proto_order
             )
             platform_order = Order(
                 trader_id=self.id, order_type=platform_order_type, **proto_order
@@ -462,6 +507,19 @@ class TradingPlatform:
             if self._should_stop_trading(current_time):
                 await self._end_trading_market()
                 break
+            
+            # Send time updates for the countdown timer
+            if self.start_time and self.active:
+                remaining_time_seconds = max(0, (self.duration * 60) - (current_time - self.start_time).total_seconds())
+                time_update = {
+                    "type": "time_update",
+                    "payload": {
+                        "remainingTime": remaining_time_seconds,
+                        "dayOver": remaining_time_seconds <= 0
+                    }
+                }
+                await self.broadcast_to_websockets(time_update)
+                
             await asyncio.sleep(1)
         
         # Add delay before cleanup

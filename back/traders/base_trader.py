@@ -1,14 +1,13 @@
 import asyncio
-import aio_pika
 import json
 import uuid
 from core.data_models import OrderType, ActionType, TraderType, ThrottleConfig
 import os
 from abc import abstractmethod
 
-from utils.utils import CustomEncoder
+from utils.utils import CustomEncoder, setup_custom_logger
 
-rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://localhost")
+logger = setup_custom_logger(__name__)
 
 class BaseTrader:
     orders: list = []
@@ -30,13 +29,7 @@ class BaseTrader:
         self._stop_requested = asyncio.Event()
         self.trader_type = trader_type.value
         self.id = id
-        self.connection = None
-        self.channel = None
         self.trading_market_uuid = None
-        self.trader_queue_name = f"trader_{self.id}"
-        self.queue_name = None
-        self.broadcast_exchange_name = None
-        self.trading_system_exchange = None
 
         # PNL BLOCK
         self.DInv = []
@@ -111,8 +104,6 @@ class BaseTrader:
         return self.cash - self.initial_cash
 
     async def initialize(self):
-        self.connection = await aio_pika.connect_robust(rabbitmq_url)
-        self.channel = await self.connection.channel()
         if hasattr(self, 'params'):
             # Get throttle config for this trader type
             self.throttle_config = self.params.get('throttle_settings', {}).get(self.trader_type, None)
@@ -123,70 +114,26 @@ class BaseTrader:
 
     async def clean_up(self):
         self._stop_requested.set()
-        try:
-            if self.channel:
-                await self.channel.close()
-            if self.connection:
-                await self.connection.close()
-        except Exception:
-            pass
+        # No cleanup needed for WebSocket-based implementation
 
-    async def connect_to_market(self, trading_market_uuid):
-        if not self.channel:
-            await self.initialize()
-
+    async def connect_to_market(self, trading_market_uuid, trading_market=None):
+        await self.initialize()
         self.trading_market_uuid = trading_market_uuid
-        self.queue_name = f"trading_system_queue_{self.trading_market_uuid}"
-        self.trader_queue_name = f"trader_{self.id}"
-
-        self.broadcast_exchange_name = f"broadcast_{self.trading_market_uuid}"
-
-        broadcast_exchange = await self.channel.declare_exchange(
-            self.broadcast_exchange_name, aio_pika.ExchangeType.FANOUT, auto_delete=True
-        )
-        broadcast_queue = await self.channel.declare_queue("", auto_delete=True)
-        await broadcast_queue.bind(broadcast_exchange)
-        await broadcast_queue.consume(self.on_message_from_system)
-
-        self.trading_system_exchange = await self.channel.declare_exchange(
-            self.queue_name, aio_pika.ExchangeType.DIRECT, auto_delete=True
-        )
-        trader_queue = await self.channel.declare_queue(
-            self.trader_queue_name, auto_delete=True
-        )
-        await trader_queue.bind(
-            self.trading_system_exchange, routing_key=self.trader_queue_name
-        )
-        await trader_queue.consume(self.on_message_from_system)
+        self.trading_market = trading_market
+        # For WebSocket implementation, we store the trading market reference
+        # The actual connection is handled via WebSocket in human_trader.py
 
     async def register(self):
-        if not self.trading_system_exchange:
-            await self.connect_to_market(self.trading_market_uuid)
-
-        message = {
-            "type": ActionType.REGISTER.value,
-            "action": ActionType.REGISTER.value,
-            "trader_type": self.trader_type,
-        }
-
-        await self.send_to_trading_system(message)
-
-
-    async def register(self):
-        message = {
-            "type": ActionType.REGISTER.value,
-            "action": ActionType.REGISTER.value,
-            "trader_type": self.trader_type,
-        }
-
-        await self.send_to_trading_system(message)
+        # For WebSocket implementation, registration is handled directly
+        # by the trading platform when the trader connects
+        pass
 
     async def send_to_trading_system(self, message):
+        # For WebSocket implementation, send directly to trading platform
         message["trader_id"] = self.id
-        await self.trading_system_exchange.publish(
-            aio_pika.Message(body=json.dumps(message, cls=CustomEncoder).encode()),
-            routing_key=self.queue_name,
-        )
+        if hasattr(self, 'trading_market') and self.trading_market:
+            # Handle the message directly in the trading platform
+            await self.trading_market.handle_trader_message(message)
 
     def check_if_relevant(self, transactions: list) -> list:
         transactions_relevant_to_self = []
@@ -217,11 +164,10 @@ class BaseTrader:
                     transaction["price"],
                 )
 
-    async def on_message_from_system(self, message):
+    async def on_message_from_system(self, data):
+        """Handle messages from the trading platform directly (no RabbitMQ)."""
         try:
-            json_message = json.loads(message.body.decode())
-            action_type = json_message.get("type")
-            data = json_message
+            action_type = data.get("type")
 
             if action_type == "transaction_update":
                 transactions = data.get("transactions", [])
@@ -247,7 +193,8 @@ class BaseTrader:
                 await handler(data)
             await self.post_processing_server_message(data)
 
-        except json.JSONDecodeError:
+        except Exception as e:
+            logger.error(f"Error processing message: {e}")
             pass
 
     def update_inventory(self, transactions_relevant_to_self: list) -> None:
