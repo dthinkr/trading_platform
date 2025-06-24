@@ -513,9 +513,11 @@ class TradingPlatform:
                 remaining_time_seconds = max(0, (self.duration * 60) - (current_time - self.start_time).total_seconds())
                 time_update = {
                     "type": "time_update",
-                    "payload": {
+                    "data": {
                         "remainingTime": remaining_time_seconds,
-                        "dayOver": remaining_time_seconds <= 0
+                        "dayOver": remaining_time_seconds <= 0,
+                        "current_time": current_time.isoformat(),
+                        "is_trading_started": self.trading_started
                     }
                 }
                 await self.broadcast_to_websockets(time_update)
