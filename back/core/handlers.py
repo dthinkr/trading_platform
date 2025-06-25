@@ -322,4 +322,3 @@ class MarketOrchestrator:
         """Unregister WebSocket connection."""
         self.broadcast_service.unregister_websocket(websocket)
     
-    # All other methods will be implemented in the next step... 
