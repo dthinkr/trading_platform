@@ -14,7 +14,7 @@ from traders import (
     BookInitializer,
     SimpleOrderTrader,
 )
-from core import TradingPlatform
+from .trading_platform import TradingPlatform
 import asyncio
 from utils import setup_custom_logger
 import time

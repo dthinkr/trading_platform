@@ -13,8 +13,8 @@
     </div>
     
     <v-container fluid class="fill-height pa-0 relative">
-      <v-row justify="center" align="center" class="fill-height">
-        <v-col cols="12" md="10" lg="8">
+    <v-row justify="center" align="center" class="fill-height">
+      <v-col cols="12" md="10" lg="8">
           <div 
             v-motion-slide-visible-once-bottom
             :delay="200"
@@ -51,9 +51,9 @@
                 :delay="600"
                 class="page-title"
               >
-                {{ currentPageTitle }}
+                      {{ currentPageTitle }}
               </h1>
-            </div>
+                  </div>
 
             <!-- Content area with enhanced spacing -->
             <div 
@@ -61,11 +61,11 @@
               :delay="800"
               class="content-area"
             >
-              <router-view 
-                :traderAttributes="traderAttributes"
-                :iconColor="deepBlueColor"
-                @update:canProgress="handleProgress"
-              />
+                  <router-view 
+                    :traderAttributes="traderAttributes"
+                    :iconColor="deepBlueColor"
+                    @update:canProgress="handleProgress"
+                  />
             </div>
 
             <!-- Enhanced navigation -->
@@ -91,15 +91,15 @@
                 :disabled="shouldDisableNext"
                 class="nav-btn nav-btn-primary"
                 :class="{ 'disabled': shouldDisableNext }"
-              >
-                Next
+            >
+              Next
                 <ChevronRight :size="20" />
               </button>
             </div>
           </div>
-        </v-col>
-      </v-row>
-    </v-container>
+      </v-col>
+    </v-row>
+  </v-container>
   </div>
 </template>
 

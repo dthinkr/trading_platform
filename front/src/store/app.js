@@ -20,8 +20,8 @@ export const useTraderStore = defineStore("trader", {
       shares: 0,
       cash: 0,
       initial_shares: 0,
-      pnl: 0,
-      vwap: 0,
+    pnl: 0,
+    vwap: 0,
       sum_dinv: 0,
     },
     
@@ -504,17 +504,17 @@ export const useTraderStore = defineStore("trader", {
     
     // Delegate authentication operations
     async login(email, password) {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
       return userCredential.user.is_admin;
     },
     
     async register(email, password) {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       return userCredential.user.is_admin;
     },
     
     async logout() {
-      await signOut(auth);
+        await signOut(auth);
       useAuthStore().logout();
     },
     

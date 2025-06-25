@@ -16,9 +16,6 @@ import { useTraderStore } from "@/store/app";
 import { storeToRefs } from "pinia";
 import { Chart as HighchartsChart } from "highcharts-vue";
 import Highcharts from 'highcharts';
-import AnnotationsModule from 'highcharts/modules/annotations';
-
-AnnotationsModule(Highcharts);
 
 const { chartData, midPoint } = storeToRefs(useTraderStore());
 

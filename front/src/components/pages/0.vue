@@ -24,7 +24,7 @@
       <div class="consent-content prose prose-slate max-w-none">
         <div class="project-info">
           <h3>Project Title: Information Dissemination in Electronic Financial Markets</h3>
-          
+              
           <div class="info-grid">
             <div class="info-item">
               <Building2 :size="20" />
@@ -55,7 +55,7 @@
         <div class="content-sections">
           <section class="content-section">
             <h4><Info :size="20" /> Introduction</h4>
-            <p>Royal Holloway, University of London supports the practise of protecting human participants in research. This form provides you with important information about taking part in this study. Your participation in this study is entirely voluntary, and you have the right to withdraw at any time during the experimental session without penalty or negative consequences. If you choose to withdraw during the experimental session, any data collected from you will be deleted and not included in the final analysis. However, you will not be able to withdraw your consent after the study is completed, and the payment has been issued.</p>
+              <p>Royal Holloway, University of London supports the practise of protecting human participants in research. This form provides you with important information about taking part in this study. Your participation in this study is entirely voluntary, and you have the right to withdraw at any time during the experimental session without penalty or negative consequences. If you choose to withdraw during the experimental session, any data collected from you will be deleted and not included in the final analysis. However, you will not be able to withdraw your consent after the study is completed, and the payment has been issued.</p>
           </section>
 
           <section class="content-section highlight-section">
@@ -70,12 +70,12 @@
 
           <section class="content-section">
             <h4><Database :size="20" /> Data Collection</h4>
-            <p>During this study, we will collect data from you only related to your buy or sell decision orders. At the end of the study, you will be asked to complete a short survey about your overall experience with our platform. Additionally, the Prolific platform will provide some basic demographic characteristics such as age, gender and education. All data will be anonymized and labelled using only your Unique Prolific ID.</p>
+              <p>During this study, we will collect data from you only related to your buy or sell decision orders. At the end of the study, you will be asked to complete a short survey about your overall experience with our platform. Additionally, the Prolific platform will provide some basic demographic characteristics such as age, gender and education. All data will be anonymized and labelled using only your Unique Prolific ID.</p>
           </section>
-
+              
           <section class="content-section">
             <h4><Lock :size="20" /> Data Protection</h4>
-            <p>This research commits to abide by the Data Protection Act (2018).</p>
+              <p>This research commits to abide by the Data Protection Act (2018).</p>
           </section>
 
           <section class="content-section">
@@ -98,18 +98,18 @@
 
           <section class="content-section">
             <h4><MessageSquare :size="20" /> Contact Information</h4>
-            <p>If you have any question, concerns, or feedback related to this study, please feel free to contact us through the Prolific message box.</p>
+              <p>If you have any question, concerns, or feedback related to this study, please feel free to contact us through the Prolific message box.</p>
           </section>
 
           <section class="content-section consent-section">
             <h4><CheckSquare :size="20" /> Statement of Consent</h4>
             <p><strong>I confirm that:</strong></p>
             <ul class="consent-list">
-              <li>I have read and understood the information provided in this consent form.</li>
-              <li>I have had the opportunity to ask questions and have received satisfactory answers.</li>
-              <li>I voluntarily agree to participate in the study "Information Dissemination in Electronic Financial Markets"</li>
-              <li>I understand that I can withdraw from the study at any time without penalty or negative consequences.</li>
-            </ul>
+                <li>I have read and understood the information provided in this consent form.</li>
+                <li>I have had the opportunity to ask questions and have received satisfactory answers.</li>
+                <li>I voluntarily agree to participate in the study "Information Dissemination in Electronic Financial Markets"</li>
+                <li>I understand that I can withdraw from the study at any time without penalty or negative consequences.</li>
+              </ul>
           </section>
         </div>
       </div>
@@ -124,7 +124,7 @@
       <div class="checkbox-container">
         <input 
           id="consent-checkbox"
-          v-model="consentGiven"
+                v-model="consentGiven"
           @change="updateConsent"
           type="checkbox"
           class="consent-checkbox"
