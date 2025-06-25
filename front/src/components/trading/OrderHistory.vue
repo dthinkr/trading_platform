@@ -7,30 +7,15 @@ const traderStore = useTraderStore();
 const { executedOrders, recentTransactions, traderUuid } = storeToRefs(traderStore);
 
 const filledOrders = computed(() => {
-  // Filter transactions to only include those where the current trader was involved
+  // Only use transactions from market store to avoid double counting
+  // The backend handles inventory updates, so we don't need to mix with executedOrders
   const relevantTransactions = recentTransactions.value.filter(t => {
     const isBidTrader = t.bid_trader_id === traderUuid.value;
     const isAskTrader = t.ask_trader_id === traderUuid.value;
     return isBidTrader || isAskTrader;
   });
 
-  // Get all order IDs that appear in transactions as either order_id or matched_order_id
-  const transactionOrderIds = new Set(
-    relevantTransactions.flatMap(t => [t.order_id, t.matched_order_id, t.bid_order_id, t.ask_order_id]
-      .filter(Boolean))
-  );
-
-  // Filter executed orders to ensure they belong to the current trader
-  // and exclude orders that appear in any transaction order IDs
-  const relevantExecutedOrders = executedOrders.value.filter(order => 
-    order.trader_id === traderUuid.value && !transactionOrderIds.has(order.id)
-  );
-
-  // Combine and remove duplicates
-  const allOrders = [...relevantExecutedOrders, ...relevantTransactions];
-  return Array.from(new Map(
-    allOrders.map(order => [order.id || order.timestamp, order])
-  ).values());
+  return relevantTransactions;
 });
 
 const groupedOrders = computed(() => {
@@ -52,7 +37,9 @@ const groupedOrders = computed(() => {
 
     const group = isBid ? bids : asks;
     const price = order.price || order.transaction_price;
-    const amount = order.amount || 1;
+    // Use transaction_amount for transactions, amount for regular orders, default to 1
+    // FIXME: Temporary 1/2 multiplier to fix double counting issue
+    const amount = (order.transaction_amount || order.amount || 1) / 2;
     const timestamp = new Date(order.timestamp || order.transaction_time).getTime();
 
     if (!group[price]) {
@@ -91,7 +78,9 @@ const tradingSummary = computed(() => {
                   ['BUY', 'BID', 1].includes(order.type || order.order_type));
 
     const price = order.price || order.transaction_price;
-    const amount = order.amount || 1;
+    // Use transaction_amount for transactions, amount for regular orders, default to 1
+    // FIXME: Temporary 1/2 multiplier to fix double counting issue
+    const amount = (order.transaction_amount || order.amount || 1) / 2;
 
     if (isBid) {
       buyCount++;

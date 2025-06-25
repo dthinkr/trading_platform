@@ -84,11 +84,13 @@ const props = defineProps({
 
 const tradingStore = useTraderStore();
 const { sendMessage } = tradingStore;
-const { gameParams, bidData, askData, bestBid, bestAsk } = storeToRefs(tradingStore);
+const { gameParams, bidData, askData } = storeToRefs(tradingStore);
 
 const step = computed(() => gameParams.value.step || 1);
 const hasAskData = computed(() => askData.value.length > 0);
 const hasBidData = computed(() => bidData.value.length > 0);
+const bestBid = computed(() => hasBidData.value ? Math.max(...bidData.value.map(bid => bid.x)) : null);
+const bestAsk = computed(() => hasAskData.value ? Math.min(...askData.value.map(ask => ask.x)) : null);
 
 const orderBookLevels = computed(() => gameParams.value.order_book_levels || 5);
 

@@ -163,17 +163,8 @@ const {
   expectedHumanTraders,
   traderUuid,
   cash,
-  formatDelta,
-  activeOrders,
-  goal,
-  goalProgress,
-  hasGoal,
-  isGoalAchieved,
-  goalType,
-  goalProgressPercentage,
-  goalTypeText,
-  roleDisplay,
-  progressBarColor
+  sum_dinv,
+  activeOrders
 } = storeToRefs(store);
 
 const columns = [
@@ -190,6 +181,25 @@ const columns = [
     { title: "Trading Panel", component: PlaceOrder },
   ],
 ];
+
+const formatDelta = computed(() => {
+  if (sum_dinv.value == undefined) return "";
+  const halfChange = Math.round(sum_dinv.value);
+  return halfChange >= 0 ? "+" + halfChange : halfChange.toString();
+});
+
+// Debug reactive values for PnL display
+const debugDisplayValues = computed(() => {
+  const values = {
+    pnl: pnl.value,
+    initial_shares: initial_shares.value,
+    cash: cash.value,
+    sum_dinv: sum_dinv.value,
+    formatDelta: formatDelta.value
+  };
+  console.log("🎯 DASHBOARD DISPLAY VALUES:", values);
+  return values;
+});
 
 const finalizingDay = () => {
   if (traderUuid.value) {
@@ -233,9 +243,29 @@ onUnmounted(() => {
   // Remove other cleanup code if needed
 });
 
-// Goal-related computed properties are now in the store
+// First, define the basic computed properties
+const goal = computed(() => store.traderAttributes?.goal || 0);
+const goalProgress = computed(() => store.traderAttributes?.goal_progress || 0);
+const hasGoal = computed(() => goal.value !== 0);
 
-// UI-specific computed properties
+// Then define the dependent computed properties
+const isGoalAchieved = computed(() => {
+  if (!hasGoal.value) return false;
+  return Math.abs(goalProgress.value) >= Math.abs(goal.value);
+});
+
+const goalType = computed(() => {
+  if (!hasGoal.value) return 'free';
+  return goal.value > 0 ? 'buy' : 'sell';
+});
+
+const goalProgressPercentage = computed(() => {
+  if (!hasGoal.value) return 0;
+  const targetGoal = Math.abs(goal.value);
+  const currentProgress = Math.abs(goalProgress.value);
+  return Math.min((currentProgress / targetGoal) * 100, 100);
+});
+
 const goalProgressColor = computed(() => {
   if (isGoalAchieved.value) return 'light-green accent-4';
   return goal.value > 0 ? 'blue lighten-1' : 'red lighten-1';
@@ -293,6 +323,30 @@ const userRole = ref('');
 const marketTimeRemaining = ref(null); // Infinite timeout
 const marketTimeoutInterval = ref(null);
 
+// Add these computed properties
+const roleDisplay = computed(() => {
+  if (!hasGoal.value) {
+    return {
+      text: 'SPECULATOR',
+      icon: 'mdi-account-search',
+      color: 'teal'
+    };
+  }
+  // Informed trader with different types
+  if (goal.value > 0) {
+    return {
+      text: 'INFORMED (BUY)',
+      icon: 'mdi-trending-up',
+      color: 'indigo'
+    };
+  }
+  return {
+    text: 'INFORMED (SELL)',
+    icon: 'mdi-trending-down',
+    color: 'deep-purple'
+  };
+});
+
 // Replace the existing roleColor and roleIcon computed properties
 const roleColor = computed(() => roleDisplay.value.color);
 const roleIcon = computed(() => roleDisplay.value.icon);
@@ -312,7 +366,26 @@ watch(marketTimeRemaining, (newValue) => {
   }
 });
 
-// Goal type text and progress bar color are now provided by the store
+const goalTypeText = computed(() => {
+  if (!hasGoal.value) return 'FREE';
+  return goal.value > 0 ? 'BUY' : 'SELL';
+});
+
+const progressBarColor = computed(() => {
+  if (goalProgressPercentage.value === 100) {
+    return 'light-green accent-3';
+  }
+  if (goalProgressPercentage.value > 75) {
+    return 'light-green lighten-1';
+  }
+  if (goalProgressPercentage.value > 50) {
+    return 'amber lighten-1';
+  }
+  if (goalProgressPercentage.value > 25) {
+    return 'orange lighten-1';
+  }
+  return 'deep-orange lighten-1';
+});
 
 // Add this computed property
 const allTradersReady = computed(() => {
