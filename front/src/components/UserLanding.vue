@@ -1,44 +1,106 @@
 <template>
-  <v-container fluid class="fill-height pa-0">
-    <v-row justify="center" align="center" class="fill-height">
-      <v-col cols="12" md="10" lg="8">
-        <v-card class="elevation-4">
-          <v-card-text>
-            <v-container class="pa-0">
-              <v-row no-gutters>
-                <v-col cols="12">
-                  <div class="info-section mb-6">
-                    <h2 class="text-h4 font-weight-bold primary--text">
-                      <v-icon left color="light-blue" large>{{ currentPageIcon }}</v-icon>
-                      {{ currentPageTitle }}
-                    </h2>
-                  </div>
-                </v-col>
-                <v-col cols="12">
-                  <router-view 
-                    :traderAttributes="traderAttributes"
-                    :iconColor="deepBlueColor"
-                    @update:canProgress="handleProgress"
-                  />
-                </v-col>
-              </v-row>
-            </v-container>
-          </v-card-text>
-          <v-card-actions v-if="currentRouteName !== 'consent'">
-            <v-btn @click="prevPage" :disabled="isFirstPage">Previous</v-btn>
-            <v-spacer></v-spacer>
-            <v-btn 
-              @click="nextPage" 
-              v-if="!isLastPage"
-              :disabled="shouldDisableNext"
+  <div class="landing-container">
+    <Toaster position="top-center" theme="light" :visibleToasts="3" />
+    
+    <!-- Modern gradient background -->
+    <div class="gradient-bg"></div>
+    
+    <!-- Floating elements for visual interest -->
+    <div class="floating-elements">
+      <div class="floating-shape floating-shape-1"></div>
+      <div class="floating-shape floating-shape-2"></div>
+      <div class="floating-shape floating-shape-3"></div>
+    </div>
+    
+    <v-container fluid class="fill-height pa-0 relative">
+      <v-row justify="center" align="center" class="fill-height">
+        <v-col cols="12" md="10" lg="8">
+          <div 
+            v-motion-slide-visible-once-bottom
+            :delay="200"
+            class="modern-card"
+          >
+            <!-- Progress indicator -->
+            <div class="progress-indicator">
+              <div class="progress-bar">
+                <div 
+                  class="progress-fill" 
+                  :style="{ width: `${(currentPageIndex + 1) / pages.length * 100}%` }"
+                ></div>
+              </div>
+              <span class="progress-text">
+                {{ currentPageIndex + 1 }} of {{ pages.length }}
+              </span>
+            </div>
+
+            <!-- Header section with enhanced styling -->
+            <div class="modern-header">
+              <div 
+                v-motion-pop-visible-once
+                :delay="400"
+                class="icon-container"
+              >
+                <component 
+                  :is="getCurrentIcon()" 
+                  :size="40" 
+                  class="page-icon"
+                />
+              </div>
+              <h1 
+                v-motion-slide-visible-once-right
+                :delay="600"
+                class="page-title"
+              >
+                {{ currentPageTitle }}
+              </h1>
+            </div>
+
+            <!-- Content area with enhanced spacing -->
+            <div 
+              v-motion-fade-visible-once
+              :delay="800"
+              class="content-area"
             >
-              Next
-            </v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-col>
-    </v-row>
-  </v-container>
+              <router-view 
+                :traderAttributes="traderAttributes"
+                :iconColor="deepBlueColor"
+                @update:canProgress="handleProgress"
+              />
+            </div>
+
+            <!-- Enhanced navigation -->
+            <div 
+              v-if="currentRouteName !== 'consent'"
+              v-motion-slide-visible-once-bottom
+              :delay="1000"
+              class="navigation-area"
+            >
+              <button
+                @click="prevPage" 
+                :disabled="isFirstPage"
+                class="nav-btn nav-btn-secondary"
+                :class="{ 'disabled': isFirstPage }"
+              >
+                <ChevronLeft :size="20" />
+                Previous
+              </button>
+              
+              <button
+                v-if="!isLastPage"
+                @click="nextPage" 
+                :disabled="shouldDisableNext"
+                class="nav-btn nav-btn-primary"
+                :class="{ 'disabled': shouldDisableNext }"
+              >
+                Next
+                <ChevronRight :size="20" />
+              </button>
+            </div>
+          </div>
+        </v-col>
+      </v-row>
+    </v-container>
+  </div>
 </template>
 
 <script setup>
@@ -47,6 +109,18 @@ import { useTraderStore } from "@/store/app";
 import { storeToRefs } from "pinia";
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '@/store/auth';
+import { 
+  ClipboardCheck, 
+  Handshake, 
+  Monitor, 
+  Settings, 
+  DollarSign, 
+  Users, 
+  HelpCircle, 
+  GraduationCap,
+  ChevronLeft,
+  ChevronRight
+} from 'lucide-vue-next';
 
 const router = useRouter();
 const route = useRoute();
@@ -60,15 +134,32 @@ const traderUuid = ref(route.params.traderUuid);
 const marketId = ref(route.params.marketId);
 
 const pages = [
-  { name: 'consent', title: 'Research Participant Consent Form', icon: 'mdi-clipboard-check' },
-  { name: 'welcome', title: 'Welcome', icon: 'mdi-handshake' },
-  { name: 'platform', title: 'Trading Platform', icon: 'mdi-monitor' },
-  { name: 'setup', title: 'Setup', icon: 'mdi-cog' },
-  { name: 'earnings', title: 'Your Earnings', icon: 'mdi-cash' },
-  { name: 'participants', title: 'Other Participants', icon: 'mdi-account-group' },
-  { name: 'questions', title: 'Control Questions', icon: 'mdi-help-circle' },
-  { name: 'practice', title: 'Practice', icon: 'mdi-school' },
+  { name: 'consent', title: 'Research Participant Consent Form', icon: 'ClipboardCheck' },
+  { name: 'welcome', title: 'Welcome', icon: 'Handshake' },
+  { name: 'platform', title: 'Trading Platform', icon: 'Monitor' },
+  { name: 'setup', title: 'Setup', icon: 'Settings' },
+  { name: 'earnings', title: 'Your Earnings', icon: 'DollarSign' },
+  { name: 'participants', title: 'Other Participants', icon: 'Users' },
+  { name: 'questions', title: 'Control Questions', icon: 'HelpCircle' },
+  { name: 'practice', title: 'Practice', icon: 'GraduationCap' },
 ];
+
+// Icon mapping
+const iconComponents = {
+  ClipboardCheck,
+  Handshake,
+  Monitor,
+  Settings,
+  DollarSign,
+  Users,
+  HelpCircle,
+  GraduationCap
+};
+
+const getCurrentIcon = () => {
+  const iconName = pages[currentPageIndex.value]?.icon;
+  return iconComponents[iconName] || ClipboardCheck;
+};
 
 const currentPageIndex = computed(() => {
   return pages.findIndex(page => page.name === route.name);
@@ -76,10 +167,6 @@ const currentPageIndex = computed(() => {
 
 const currentPageTitle = computed(() => {
   return pages[currentPageIndex.value]?.title || '';
-});
-
-const currentPageIcon = computed(() => {
-  return pages[currentPageIndex.value]?.icon || '';
 });
 
 const isFirstPage = computed(() => currentPageIndex.value === 0);
@@ -117,7 +204,6 @@ const handleProgress = (value) => {
   }
 };
 
-// Add this computed property to handle Next button disabled state
 const shouldDisableNext = computed(() => {
   if (currentRouteName.value === 'consent') {
     return !consentGiven.value;
@@ -132,7 +218,6 @@ onMounted(async () => {
       await traderStore.initializeTradingSystemWithPersistentSettings();
       await traderStore.getTraderAttributes(traderUuid.value);
       
-      // Redirect based on whether this is a persisted login or not
       if (!route.name || route.name === 'onboarding') {
         const targetRoute = authStore.isPersisted ? 'practice' : 'consent';
         router.push({ 
@@ -148,126 +233,284 @@ onMounted(async () => {
   }
 });
 
-// Reset canProgressFromQuestions when leaving questions page and mark Prolific users as having completed onboarding
 watch(currentRouteName, (newRoute, oldRoute) => {
   if (oldRoute === 'questions') {
     canProgressFromQuestions.value = false;
   }
   
-  // When a user reaches the practice page, mark them as having completed onboarding if they're a Prolific user
   if (newRoute === 'practice' && authStore.user?.isProlific) {
     const prolificUserId = authStore.user.uid;
     localStorage.setItem(`prolific_onboarded_${prolificUserId}`, 'true');
     console.log('Marked Prolific user as having completed onboarding:', prolificUserId);
-    
-    // Update the store state as well
     authStore.prolificUserHasCompletedOnboarding = true;
   }
 });
 
-// Define colors
 const lightBlueColor = ref('light-blue');
 const deepBlueColor = ref('deep-blue');
 </script>
 
-<style>
-:root {
-  --base-font-size: 14px;
+<style scoped>
+.landing-container {
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
 }
 
-.card-content {
-  font-family: 'Inter', sans-serif;
-  font-size: var(--base-font-size);
-  line-height: 1.6;
-  max-width: 800px;
-  margin: 0 auto;
+.gradient-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, 
+    #667eea 0%, 
+    #764ba2 50%, 
+    #f093fb 100%
+  );
+  opacity: 0.03;
+  z-index: -2;
+}
+
+.floating-elements {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.floating-shape {
+  position: absolute;
+  border-radius: 50%;
+  background: linear-gradient(45deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+  animation: float 20s infinite ease-in-out;
+}
+
+.floating-shape-1 {
+  width: 300px;
+  height: 300px;
+  top: 10%;
+  left: -150px;
+  animation-delay: 0s;
+}
+
+.floating-shape-2 {
+  width: 200px;
+  height: 200px;
+  top: 60%;
+  right: -100px;
+  animation-delay: -7s;
+}
+
+.floating-shape-3 {
+  width: 150px;
+  height: 150px;
+  bottom: 20%;
+  left: 20%;
+  animation-delay: -14s;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  33% { transform: translateY(-30px) rotate(120deg); }
+  66% { transform: translateY(30px) rotate(240deg); }
+}
+
+.modern-card {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 
+    0 20px 25px -5px rgba(0, 0, 0, 0.1),
+    0 10px 10px -5px rgba(0, 0, 0, 0.04);
   padding: 2rem;
-  background-color: #f8f9fa;
-  border-radius: 12px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  position: relative;
+  overflow: hidden;
 }
 
-.content-wrapper {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
+.modern-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #667eea, #764ba2, #f093fb);
+  border-radius: 24px 24px 0 0;
 }
 
-.info-section {
-  background-color: white;
-  padding: 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-}
-
-.info-section h2 {
-  font-size: 1.3rem;
-  font-weight: 600;
-  color: #2c3e50;
-  margin-bottom: 0.75rem;
-  display: flex;
-  align-items: center;
-}
-
-.highlight-box {
+.progress-indicator {
   display: flex;
   align-items: center;
   gap: 1rem;
-  padding: 1rem;
-  border-radius: 8px;
-  font-size: 1rem;
-  line-height: 1.4;
+  margin-bottom: 2rem;
 }
 
-.highlight-box.warning { background-color: #FFF3E0; color: #E65100; }
-.highlight-box.info { background-color: #E3F2FD; color: #1565C0; }
-.highlight-box.success { background-color: #E8F5E9; color: #2E7D32; }
+.progress-bar {
+  flex: 1;
+  height: 6px;
+  background: rgba(102, 126, 234, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
 
-.dynamic-value {
-  display: inline-block;
-  padding: 2px 6px;
-  background-color: rgba(0, 0, 0, 0.05);
-  border-radius: 4px;
-  color: #1976D2;
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea, #764ba2);
+  border-radius: 3px;
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.progress-text {
+  font-size: 0.875rem;
+  color: #64748b;
   font-weight: 500;
+  min-width: fit-content;
 }
 
-.text-h2 { font-size: 2.5em !important; }
-.text-h4 { font-size: 1.75em !important; }
-.text-h6 { font-size: 1.25em !important; }
-
-.v-data-table {
-  background-color: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+.modern-header {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-bottom: 2.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid rgba(102, 126, 234, 0.1);
 }
 
-.v-data-table th {
+.icon-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  border-radius: 20px;
+  box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+}
+
+.page-icon {
+  color: white;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+}
+
+.page-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1e293b;
+  background: linear-gradient(135deg, #1e293b, #475569);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.content-area {
+  margin-bottom: 2.5rem;
+  min-height: 300px;
+}
+
+.navigation-area {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba(102, 126, 234, 0.1);
+}
+
+.nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 12px;
   font-weight: 600;
-  color: #2c3e50;
-  background-color: #f8f9fa;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
 }
 
-.v-data-table td {
-  color: #34495e;
+.nav-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  transition: left 0.6s;
 }
 
-.v-data-table .text-left {
-  text-align: left;
+.nav-btn:hover::before {
+  left: 100%;
 }
 
-/* Add this new style for the deep blue color */
-.deep-blue {
-  color: #1a237e !important; /* This is a deep blue color */
+.nav-btn-primary {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
 }
 
-/* Update this new style for the light blue color */
-.light-blue {
-  color: #03a9f4 !important; /* This is a light blue color */
+.nav-btn-primary:hover:not(.disabled) {
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6);
+  transform: translateY(-2px);
 }
 
-/* Remove or comment out the .light-blue--text class if it's not used elsewhere */
-/* .light-blue--text {
-  color: #03a9f4 !important;
-} */
+.nav-btn-secondary {
+  background: rgba(102, 126, 234, 0.1);
+  color: #475569;
+  border: 1px solid rgba(102, 126, 234, 0.2);
+}
+
+.nav-btn-secondary:hover:not(.disabled) {
+  background: rgba(102, 126, 234, 0.15);
+  transform: translateY(-1px);
+}
+
+.nav-btn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.relative {
+  position: relative;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .modern-card {
+    margin: 1rem;
+    padding: 1.5rem;
+    border-radius: 16px;
+  }
+  
+  .modern-header {
+    flex-direction: column;
+    text-align: center;
+    gap: 1rem;
+  }
+  
+  .page-title {
+    font-size: 1.5rem;
+  }
+  
+  .navigation-area {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .nav-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
 </style>
