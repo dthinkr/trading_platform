@@ -24,55 +24,65 @@
         <v-container fluid class="py-0 fill-height">
           <v-row align="center" no-gutters>
             <v-col cols="auto">
-              <h1 class="text-h5 font-weight-bold primary--text">
-                <v-icon left color="light-blue" large>mdi-chart-line</v-icon>
+              <h1 class="dashboard-title">
+                <TrendingUp :size="28" class="title-icon" />
                 Trading Dashboard
               </h1>
             </v-col>
             <v-spacer></v-spacer>
             <v-col cols="auto" class="d-flex align-center">
-              <!-- Add role chip before other chips -->
-              <v-chip class="mr-2" :color="roleColor" text-color="white">
-                <v-icon left small>{{ roleIcon }}</v-icon>
+              <!-- Modern role chip -->
+              <div class="role-chip-modern" :class="roleColor">
                 {{ roleDisplay.text }}
-              </v-chip>
-              <v-chip v-for="(item, index) in [
-                // { label: 'VWAP', value: formatNumber(vwap), icon: 'mdi-chart-line' },
-                { label: 'PnL', value: pnl, icon: 'mdi-cash-plus' },
-                { label: 'Shares', value: `${initial_shares} ${formatDelta}`, icon: 'mdi-package-variant' },
-                { label: 'Cash', value: cash, icon: 'mdi-cash-multiple' },
-                { label: 'Traders', value: `${currentHumanTraders} / ${expectedHumanTraders}`, icon: 'mdi-account-multiple' }
-              ]" :key="index" class="mr-2" color="grey lighten-4">
-                <v-icon left small color="deep-blue">{{ item.icon }}</v-icon>
-                <span class="black--text">{{ item.label }}: {{ item.value }}</span>
-              </v-chip>
-              <v-chip 
-                v-if="hasGoal" 
-                :color="getGoalMessageClass" 
-                text-color="white" 
-                class="mr-2 goal-chip"
-              >
-                <div class="d-flex align-center">
-                  <v-icon left small>{{ getGoalMessageIcon }}</v-icon>
-                  <span class="goal-type-text mr-2">{{ goalTypeText }}</span>
+              </div>
+              <div class="stats-chips">
+                <div class="stat-chip pnl-chip">
+                  <DollarSign :size="16" class="chip-icon" />
+                  <span class="chip-label">PnL:</span>
+                  <span class="chip-value">{{ pnl }}</span>
                 </div>
-                <v-progress-linear
-                  :value="goalProgressPercentage"
-                  :color="progressBarColor"
-                  height="6"
-                  rounded
-                  striped
-                  class="ml-2"
-                ></v-progress-linear>
-                <span class="progress-text ml-2">{{ Math.abs(goalProgress) }}/{{ Math.abs(goal) }}</span>
-              </v-chip>
-              <v-chip color="deep-blue" text-color="white">
-                <v-icon left small>mdi-clock-outline</v-icon>
+                <div class="stat-chip shares-chip">
+                  <Package :size="16" class="chip-icon" />
+                  <span class="chip-label">Shares:</span>
+                  <span class="chip-value">{{ initial_shares }} {{ formatDelta }}</span>
+                </div>
+                <div class="stat-chip cash-chip">
+                  <Banknote :size="16" class="chip-icon" />
+                  <span class="chip-label">Cash:</span>
+                  <span class="chip-value">{{ cash }}</span>
+                </div>
+                <div class="stat-chip traders-chip">
+                  <Users :size="16" class="chip-icon" />
+                  <span class="chip-label">Traders:</span>
+                  <span class="chip-value">{{ currentHumanTraders }} / {{ expectedHumanTraders }}</span>
+                </div>
+              </div>
+              <div 
+                v-if="hasGoal" 
+                class="goal-chip-modern"
+                :class="getGoalMessageClass"
+              >
+                <div class="goal-content">
+                  <component :is="getGoalIcon()" :size="16" class="goal-icon" />
+                  <span class="goal-type-text">{{ goalTypeText }}</span>
+                </div>
+                <div class="progress-container">
+                  <div class="progress-bar-modern">
+                    <div 
+                      class="progress-fill-modern" 
+                      :style="{ width: `${goalProgressPercentage}%` }"
+                    ></div>
+                  </div>
+                  <span class="progress-text">{{ Math.abs(goalProgress) }}/{{ Math.abs(goal) }}</span>
+                </div>
+              </div>
+              <div class="time-chip">
+                <Clock :size="16" class="chip-icon" />
                 <vue-countdown v-if="remainingTime" :time="remainingTime * 1000" v-slot="{ minutes, seconds }">
                   {{ minutes }}:{{ seconds.toString().padStart(2, '0') }}
                 </vue-countdown>
                 <span v-else>Waiting to start</span>
-              </v-chip>
+              </div>
             </v-col>
           </v-row>
         </v-container>
@@ -115,8 +125,8 @@
                       class="mb-4 tool-card" 
                       :class="{'price-history-card': tool.title === 'Price History'}"
                       elevation="2">
-                <v-card-title class="headline">
-                  <v-icon left color="deep-blue">{{ getToolIcon(tool.title) }}</v-icon>
+                <v-card-title class="tool-title">
+                  <component :is="getToolIconComponent(tool.title)" :size="20" class="tool-icon" />
                   {{ tool.title }}
                 </v-card-title>
                 <v-card-text class="pa-0">
@@ -148,6 +158,24 @@ import { useTraderStore } from "@/store/app";
 import { onMounted, onUnmounted, ref, onBeforeUnmount } from 'vue';
 import { debounce } from 'lodash';
 import axios from '@/api/axios';
+import { 
+  TrendingUp, 
+  TrendingDown, 
+  DollarSign, 
+  Package, 
+  Banknote, 
+  Users, 
+  Clock, 
+  ArrowUp, 
+  ArrowDown, 
+  Search,
+  History,
+  Info,
+  BarChart3,
+  List,
+  LineChart,
+  Calculator
+} from 'lucide-vue-next';
 
 const { formatNumber } = useFormatNumber();
 const router = useRouter();
@@ -306,16 +334,28 @@ watch(isGoalAchieved, (newValue) => {
 });
 
 // Add this function to get icons for each tool
-const getToolIcon = (toolTitle) => {
+const getToolIconComponent = (toolTitle) => {
   switch (toolTitle) {
-    case 'Trades History': return 'mdi-history';
-    case 'Market Info': return 'mdi-information';
-    case 'Buy-Sell Chart': return 'mdi-chart-bar';
-    case 'Passive Orders': return 'mdi-format-list-bulleted';
-    case 'Price History': return 'mdi-chart-line';
-    case 'Trading Panel': return 'mdi-cash-register';
-    default: return 'mdi-help-circle';
+    case 'Trades History': return History;
+    case 'Market Info': return Info;
+    case 'Buy-Sell Chart': return BarChart3;
+    case 'Passive Orders': return List;
+    case 'Price History': return LineChart;
+    case 'Trading Panel': return Calculator;
+    default: return Info;
   }
+};
+
+// Add function for role icons
+const getRoleIcon = () => {
+  if (!hasGoal.value) return Search;
+  return goal.value > 0 ? TrendingUp : TrendingDown;
+};
+
+// Add function for goal icons
+const getGoalIcon = () => {
+  if (!hasGoal.value) return Search;
+  return goal.value > 0 ? ArrowUp : ArrowDown;
 };
 
 // Add these to your existing refs/computed
@@ -454,142 +494,216 @@ const isInitialized = computed(() => {
 <style scoped>
 .trading-dashboard {
   font-family: 'Inter', sans-serif;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+}
+
+.dashboard-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  letter-spacing: -0.025em;
+}
+
+.title-icon {
+  color: #3b82f6;
 }
 
 .v-card {
-  border-radius: 12px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border-radius: 16px;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.05);
 }
 
-.v-card__title {
-  font-size: 1.3rem;
+.tool-title {
+  font-size: 1.1rem;
   font-weight: 600;
-  color: #2c3e50;
-}
-
-.headline {
+  color: #374151;
   display: flex;
   align-items: center;
+  gap: 8px;
+  letter-spacing: -0.025em;
+}
+
+.tool-icon {
+  color: #6366f1;
 }
 
 .tool-card {
   display: flex;
   flex-direction: column;
   background-color: white;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
 }
 
 .tool-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(0,0,0,0.1);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
 .price-history-card {
   flex-grow: 1;
 }
 
-.goal-success {
-  background-color: #4caf50 !important;
+/* Modern chip styles */
+.stats-chips {
+  display: flex;
+  gap: 12px;
+  align-items: center;
 }
 
-.goal-warning {
-  background-color: #ff9800 !important;
-}
-
-.goal-info {
-  background-color: #2196f3 !important;
-}
-
-.deep-blue {
-  color: #1a237e !important;
-}
-
-.light-blue {
-  color: #03a9f4 !important;
-}
-
-.v-chip {
-  font-size: 0.85rem;
-}
-
-.black--text {
-  color: black !important;
-}
-
-/* Add to existing styles */
-.role-chip {
-  font-weight: 500;
-}
-
-.market-timeout {
-  color: #ff5252;
-  font-weight: 500;
-}
-
-.goal-chip {
-  min-width: 150px;
-  height: 32px;
+.stat-chip {
   display: flex;
   align-items: center;
-  padding: 0 12px;
+  gap: 6px;
+  padding: 8px 12px;
+  background: rgba(248, 250, 252, 0.8);
+  border: 1px solid rgba(203, 213, 225, 0.5);
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+  backdrop-filter: blur(8px);
+  transition: all 0.2s ease;
+}
+
+.stat-chip:hover {
+  background: rgba(241, 245, 249, 0.9);
+  border-color: rgba(203, 213, 225, 0.8);
+}
+
+.chip-icon {
+  color: #6b7280;
+}
+
+.chip-label {
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.chip-value {
+  font-weight: 600;
+  color: #111827;
+}
+
+.role-chip-modern {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: white;
+  margin-right: 16px;
+  letter-spacing: 0.025em;
+}
+
+.role-chip-modern.teal {
+  background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%);
+}
+
+.role-chip-modern.indigo {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+}
+
+.role-chip-modern.deep-purple {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+}
+
+.time-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  border-radius: 20px;
+  color: white;
+  font-weight: 600;
+  font-size: 0.875rem;
+  letter-spacing: 0.025em;
+}
+
+/* Goal chip styles */
+.goal-chip-modern {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  color: white;
+  font-weight: 600;
+  font-size: 0.875rem;
+  margin-right: 12px;
+  min-width: 180px;
+}
+
+.goal-content {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.goal-icon {
+  color: white;
 }
 
 .goal-type-text {
+  font-weight: 700;
+  letter-spacing: 0.05em;
   font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  min-width: 35px;
 }
 
-.v-progress-linear {
-  width: 60px;
-  margin: 0;
-  border-radius: 4px;
+.progress-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.progress-bar-modern {
+  flex: 1;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
   overflow: hidden;
+}
+
+.progress-fill-modern {
+  height: 100%;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 6px;
+  transition: width 0.3s ease;
 }
 
 .progress-text {
   font-size: 0.75rem;
-  min-width: 32px;
+  font-weight: 600;
+  min-width: 35px;
   text-align: right;
-  font-weight: 500;
 }
 
-/* Update the background colors */
+/* Goal background colors */
 .success-bg {
-  background-color: #2e7d32 !important; /* Darker green */
+  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
 }
 
 .buy-bg {
-  background-color: #1565c0 !important; /* Darker blue */
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
 }
 
 .sell-bg {
-  background-color: #c62828 !important; /* Darker red */
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
 }
 
-/* Add to your existing styles */
-.v-chip {
-  font-weight: 500;
-  letter-spacing: 0.5px;
-}
-
-/* Role-specific colors */
-.informed-buy {
-  background-color: #3949ab !important; /* Indigo */
-}
-
-.informed-sell {
-  background-color: #673ab7 !important; /* Deep Purple */
-}
-
-.speculator {
-  background-color: #00897b !important; /* Teal */
-}
-
+/* Alert styles */
 .v-alert {
   max-width: 500px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  border-radius: 12px;
+  font-weight: 500;
 }
 </style>
 

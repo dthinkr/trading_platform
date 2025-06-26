@@ -8,12 +8,11 @@ from utils.utils import setup_custom_logger
 
 from .events import (
     EventHandler, TradingEvent, OrderPlacedEvent, OrderCancelledEvent,
-    TraderRegisteredEvent, InventoryReportEvent, TransactionCreatedEvent,
-    OrderBookUpdatedEvent
+    TraderRegisteredEvent, InventoryReportEvent,
 )
 from .services import (
     OrderService, TransactionService, PricingService, TraderService, BroadcastService,
-    OrderResult, CancelResult, TransactionResult
+    OrderResult, CancelResult,
 )
 from .data_models import OrderType
 
