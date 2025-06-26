@@ -19,63 +19,51 @@
 
 ## Key Features (v2.2.0) 🚀
 
-### 🏗️ **Elegant Session-Based Architecture**
-- **Lightweight Session Pools**: Users join fast session pools, not heavy markets
-- **Lazy Market Creation**: Markets created only when trading actually starts  
-- **Zero Resource Waste**: No more zombie markets consuming resources
-- **Simplified State Management**: 57% reduction in complexity (7→3 dictionaries)
+### 🏗️ **Session-Based Architecture**
+- Lightweight session pools with lazy market creation
+- Zero resource waste from zombie markets
+- 57% reduction in state complexity
 
-### 🎭 **Advanced Role-Based Trading System**
-- **Informed Traders**: Buy/Sell specialists with predefined goals
-- **Speculators**: Free trading with flexible strategies
-- **Persistent Roles**: Role assignment maintained across market sessions
-- **Goal-Based Matching**: Automatic trader pairing based on complementary goals
+### 🎭 **Role-Based Trading**
+- Informed traders (buy/sell specialists) 
+- Speculators (flexible strategies)
+- Automatic goal-based trader matching
 
-### 👥 **Intelligent Multi-Trader Markets**
-- **Coordinated Market Starts**: All traders must be ready before trading begins
-- **Real-Time Status Updates**: Live trader count and readiness indicators
-- **Enhanced Waiting Room**: Beautiful interface with session progress tracking
-- **Automatic Market Launching**: Seamless transition from waiting to active trading
+### 👥 **Multi-Trader Markets**
+- Coordinated market starts when all traders ready
+- Real-time status updates and waiting room
+- Seamless session-to-market conversion
 
-### 📊 **Real-Time Market Data & Analytics**
-- **Live Order Book**: Dynamic depth visualization with real-time updates
-- **Interactive Price Charts**: Historical price movement with trade markers
-- **Instant Execution Feedback**: Immediate confirmation of trade executions
-- **Market Summary Dashboard**: Real-time P&L, VWAP, and performance metrics
+### 📊 **Real-Time Data**
+- Live order book and price charts
+- Instant execution feedback
+- Market summary with P&L and VWAP
 
-### 🔒 **Secure & Scalable Infrastructure**
-- **Google-Based Authentication**: Secure login with Gmail integration
-- **WebSocket Communication**: Real-time bidirectional data flow
-- **Comprehensive Error Handling**: Robust message sanitization and validation
-- **Event-Driven Architecture**: Modular design for maintainability and scaling
-
-### 🎯 **Research-Grade Features**
-- **Configurable Market Parameters**: Extensive customization for experimental design
-- **Detailed Logging & Analytics**: Complete audit trail for research analysis
-- **Export Capabilities**: Market data and metrics download for further analysis
-- **Admin Management Panel**: Real-time monitoring and session control
+### 🔒 **Infrastructure**
+- Google authentication
+- WebSocket communication
+- Comprehensive error handling
+- Modular event-driven architecture
 
 ## 🏗️ **How Multi-Trader Markets Work**
 
-The platform uses an elegant **session pool mechanism** that handles multiple human traders in the same market:
+Session pool mechanism handles multiple human traders elegantly:
 
-### **Session Pool Phase (Lightweight & Fast)**
-1. **Users join session pools** instead of heavy markets
-2. **Goal assignment** based on predefined trader slots (e.g., [100, -200, 150])
-3. **Real-time updates** show trader count (e.g., "2 out of 3 traders joined")
-4. **Waiting room interface** provides smooth user experience
+### Session Pool Phase
+1. Users join lightweight session pools (not heavy markets)
+2. Goal assignment based on predefined slots (e.g., [100, -200, 150])
+3. Real-time trader count updates ("2 out of 3 traders joined")
 
-### **Market Creation Phase (On-Demand)**
-1. **All traders ready** triggers automatic market creation
-2. **Heavy infrastructure** (TraderManager, OrderBook) created only when needed
-3. **Human + AI traders** added to complete market ecosystem
-4. **Trading begins** with coordinated start across all participants
+### Market Creation Phase  
+1. All traders ready → automatic market creation
+2. Heavy infrastructure created only when needed
+3. Human + AI traders added, trading begins
 
-### **Key Benefits**
-- ⚡ **Fast user onboarding** - no waiting for heavy market creation
-- 🎯 **Zero resource waste** - markets created only when actually used
-- 🔄 **Automatic role assignment** - balanced market composition
-- 📊 **Seamless scaling** - handles 1 to N traders per market
+### Benefits
+- Fast user onboarding
+- Zero resource waste  
+- Automatic role assignment
+- Seamless scaling
 
 ## Quick Start
 

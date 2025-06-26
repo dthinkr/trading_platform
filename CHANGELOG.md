@@ -7,128 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [2.2.0] - 2024-12-20 🚀 **MAJOR SYSTEMIC REWRITE**
+## [2.2.0] - 2025-06-26 🚀 **MAJOR SYSTEMIC REWRITE**
 
-This release represents a **complete architectural overhaul** of the trading platform, moving from a complex premature market creation system to an elegant session-based architecture. This is not just a feature update—it's a fundamental reimagining of how the platform works.
+Complete architectural overhaul moving from complex premature market creation to elegant session-based architecture.
 
-### 🏗️ **CORE ARCHITECTURAL REVOLUTION**
+### Architecture Changes
+- Replace 356-line `market_handler.py` with 188-line `simple_market_handler.py`
+- New `session_manager.py` with lightweight session pools
+- Markets created only when trading starts (lazy instantiation)
+- Reduce state complexity: 7 → 3 dictionaries
+- Simplify market assignment: 120 → 30 lines
 
-#### **Session-Based Architecture**
-- **REPLACED** 356-line `market_handler.py` with elegant 188-line `simple_market_handler.py`
-- **NEW** `session_manager.py` implementing lightweight session pools
-- **ELIMINATED** premature market creation - markets only created when trading actually starts
-- **REDUCED** state complexity from 7 dictionaries to 3
-- **SIMPLIFIED** market assignment logic from 120 lines to ~30 lines
+### Code Cleanup
+- Move utilities to proper folders: `api/` → `utils/`
+- Remove 5 unused API endpoints (19% reduction)
+- Clean 40+ duplicate imports
+- Delete Rust order book (unused)
+- Remove legacy test files
 
-#### **Event-Driven Trading Platform**
-- **REPLACED** monolithic 558-line `trading_platform.py` with modular event-driven architecture
-- **NEW** `handlers.py` with `MarketOrchestrator` using clean separation of concerns
-- **NEW** `events.py` for structured event handling
-- **NEW** `services.py` for broadcast and communication services
-- **ELIMINATED** God class antipattern in favor of focused components
+### Bug Fixes
+- Fix WebSocket JSON parsing errors with message sanitization
+- Fix Market Summary N/A values and trader lookup
+- Fix session startup and time display flickering
+- Fix ActiveOrders.vue API errors
 
-#### **Frontend State Simplification** 
-- **REMOVED** dependencies on session/market UUIDs - frontend now uses only trader IDs
-- **NEW** session-aware state management with `isWaitingForOthers` support
-- **SIMPLIFIED** API integration with trader-centric endpoints
-- **ENHANCED** WebSocket handling with proper session status management
+### Performance
+- Eliminate zombie markets (zero resource waste)
+- Improve startup times with session pools
+- Better error handling for NaN/Infinity in WebSocket messages
 
-### 🔧 **INFRASTRUCTURE IMPROVEMENTS**
-
-#### **Code Organization & Bloat Removal**
-- **MOVED** `api/logfiles_analysis.py` → `utils/logfiles_analysis.py` 
-- **MOVED** `api/calculate_metrics.py` → `utils/calculate_metrics.py`
-- **REMOVED** 5 unused API endpoints (19% endpoint reduction):
-  - `GET /` (basic root endpoint)
-  - `WEBSOCKET /ws` (unused basic WebSocket)
-  - `GET /trader/{trader_id}` (superseded by `/trader_info/{trader_id}`)
-  - `POST /admin/update_google_form_id`
-  - `GET /admin/refresh_registered_users`
-- **CLEANED** import bloat - removed duplicate and redundant imports throughout codebase
-- **ELIMINATED** Rust order book components (unused)
-- **REMOVED** legacy test files and documentation
-
-#### **WebSocket Communication Overhaul**
-- **NEW** `utils/websocket_utils.py` with comprehensive JSON sanitization
-- **FIXED** "No number after minus sign" JSON parsing errors
-- **STANDARDIZED** WebSocket message formats across all sending points
-- **ENHANCED** error handling for NaN, Infinity, and complex number serialization
-
-#### **Trader System Refactoring**
-- **REFACTORED** `base_trader.py` with explicit message handlers (no more dynamic dispatch)
-- **IMPROVED** message handling architecture with clear handler mapping
-- **ENHANCED** goal tracking and inventory management
-- **SIMPLIFIED** trader lifecycle management
-
-### 🎯 **USER EXPERIENCE ENHANCEMENTS**
-
-#### **Waiting Room & Session Management**
-- **NEW** elegant waiting room with real-time trader count updates
-- **FIXED** session startup issues - markets now properly launch when all traders ready
-- **IMPROVED** session status communication between frontend and backend
-- **ENHANCED** user feedback during waiting and joining phases
-
-#### **Market Summary & Analytics**
-- **FIXED** Market Summary N/A values with proper trader lookup
-- **CORRECTED** log file parsing for new format compatibility
-- **IMPROVED** trader-specific metrics calculation
-- **ENHANCED** real-time data display accuracy
-
-#### **Time Display & UI Polish**
-- **FIXED** time display flickering by standardizing message formats
-- **CORRECTED** countdown timer display consistency
-- **REMOVED** Highcharts accessibility warnings
-- **FIXED** ActiveOrders.vue API endpoint and error handling
-
-### 🚀 **PERFORMANCE & RELIABILITY**
-
-#### **Resource Efficiency**
-- **ELIMINATED** zombie market creation - zero resource waste
-- **OPTIMIZED** memory usage with lazy market instantiation
-- **IMPROVED** startup times with lightweight session pools
-- **REDUCED** backend complexity and maintenance burden
-
-#### **Error Handling & Stability**
-- **COMPREHENSIVE** WebSocket error prevention and message sanitization
-- **IMPROVED** trader lookup and market assignment reliability
-- **ENHANCED** session state management consistency
-- **FIXED** race conditions in session-to-market conversion
-
-### 🧹 **LEGACY CLEANUP**
-
-#### **Removed Components**
-- **DELETED** `back/core/market_handler.py` (356 lines)
-- **DELETED** Rust order book implementation (unused)
-- **DELETED** Legacy test files and documentation
-- **DELETED** Ethics approval documents (moved to proper location)
-- **DELETED** Multiple unused utility scripts
-
-#### **Backward Compatibility**
-- **MAINTAINED** all external API contracts
-- **PRESERVED** frontend component interfaces
-- **ENSURED** seamless migration path
-- **ADDED** compatibility methods in `simple_market_handler.py`
-
-### 📊 **IMPACT METRICS**
-
-- **Lines of Code Reduction**: ~1,000+ lines removed across backend
-- **File Count Reduction**: 20+ files deleted or consolidated  
-- **Endpoint Reduction**: 19% of API endpoints removed
-- **State Complexity**: 57% reduction (7 → 3 dictionaries)
-- **Market Assignment Logic**: 75% reduction (120 → 30 lines)
-- **Import Statements**: 40+ duplicate imports removed
-
-### 🎉 **DEVELOPER EXPERIENCE**
-
-- **SIMPLIFIED** codebase navigation with proper file organization
-- **IMPROVED** code maintainability with modular architecture
-- **ENHANCED** debugging with clearer separation of concerns
-- **REDUCED** cognitive load with elimination of complex state management
-- **STANDARDIZED** message handling patterns throughout system
-
-### 🔄 **MIGRATION NOTES**
-
-This release maintains full backward compatibility for users while completely overhauling the internal architecture. No action required for existing users - all functionality preserved while dramatically improving maintainability and performance.
+### Impact
+- ~1,000+ lines of code removed
+- 20+ files deleted/consolidated
+- Maintained full backward compatibility
 
 ---
 
@@ -166,8 +77,9 @@ To propose changes:
 - [ ] Conversion rate implementation and payoff display (due to missing max profit, both upper and lower bounds, definition)
 - [X] Informed side randomization option
 - [X] End of market page (screenshot attached)
-- ​[X] Adjusted price display so prices are more visible (implemented while the proposed questions re x axis were not clarified)
-- ​[X] Informed option to enable passive orders
+
+- [X] Adjusted price display so prices are more visible (implemented while the proposed questions re x axis were not clarified)
+- [X] Informed option to enable passive orders
 
 ## [2.0.2][2.0.2] - 2024-11-02
 
