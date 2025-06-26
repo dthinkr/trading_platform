@@ -5,11 +5,10 @@ from datetime import timedelta, datetime
 # main imports
 from fastapi import (
     FastAPI, WebSocket, HTTPException, WebSocketDisconnect, 
-    BackgroundTasks, Depends, Request, Response
+    BackgroundTasks, Depends, Request, Response, Query
 )
-
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse, FileResponse
 from fastapi.security import HTTPBasic
 
 # our stuff
@@ -18,33 +17,27 @@ from core.simple_market_handler import SimpleMarketHandler
 from core.data_models import TraderType, TradingParameters, UserRegistration, TraderRole
 from .auth import get_current_user, get_current_admin_user, extract_gmail_username, is_user_registered, is_user_admin, custom_verify_id_token
 from .prolific_auth import extract_prolific_params, validate_prolific_user, authenticate_prolific_user
-from .calculate_metrics import process_log_file, write_to_csv
-from .logfiles_analysis import order_book_contruction, calculate_trader_specific_metrics
+from utils.calculate_metrics import process_log_file, write_to_csv
+from utils.logfiles_analysis import order_book_contruction, calculate_trader_specific_metrics
 from firebase_admin import auth
 from utils.websocket_utils import sanitize_websocket_message
 
 # python stuff we need
 import json
-from pydantic import BaseModel, ValidationError
 import os
 import csv
-from fastapi import HTTPException, Query, BackgroundTasks
-from fastapi.responses import FileResponse
+import zipfile
+from pydantic import BaseModel, ValidationError
 from pathlib import Path
 from typing import Dict, Any, List
-from .google_sheet_auth import update_form_id, get_registered_users
-import zipfile
-from utils import setup_custom_logger
-from datetime import datetime
-from .random_picker import pick_random_element_new
+from .google_sheet_auth import get_registered_users
 
 # init fastapi
 app = FastAPI()
 security = HTTPBasic()
 
 # Global variables
-# Import TradingParameters model
-from core.data_models import TradingParameters
+
 
 # Initialize with default values from TradingParameters
 # Use model_dump() to get a dictionary representation of all parameters
@@ -125,12 +118,7 @@ async def download_parameter_history(current_user: dict = Depends(get_current_ad
         media_type="application/json"
     )
 
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
-    while True:
-        data = await websocket.receive_text()
-        await websocket.send_text(f"Message text was: {data}")
+
 
 @app.post("/user/login")
 async def user_login(request: Request):
@@ -332,18 +320,7 @@ def get_manager_by_trader(trader_id: str):
     manager = market_handler.trader_managers.get(trading_market_id)
     return manager
 
-@app.get("/trader/{trader_id}")
-async def get_trader(trader_id: str, current_user: dict = Depends(get_current_user)):
-    trader_manager = get_manager_by_trader(trader_id)
-    if not trader_manager:
-        raise HTTPException(status_code=404, detail="Trader not found")
-    trader = trader_manager.traders.get(trader_id)
-    if not trader:
-        raise HTTPException(status_code=404, detail="Trader not found")
-    trader_data = trader.get_trader_params_as_dict()
-    data = trader_manager.get_params()
-    data["goal"] = trader_data["goal"]
-    return {"status": "success", "message": "Trader found", "data": data}
+
 
 def get_trader_info_with_market_data(trader_manager: TraderManager, trader_id: str) -> Dict[str, Any]:
     try:
@@ -551,12 +528,7 @@ async def get_trader_market(trader_id: str, request: Request, current_user: dict
     
     return response_data
 
-@app.get("/")
-async def root():
-    return {
-        "status": "trading is active",
-        "comment": "this is only for accessing trading platform mostly via websockets",
-    }
+
 
 async def send_to_frontend(websocket: WebSocket, trader_manager):
     while True:
@@ -929,19 +901,9 @@ async def force_start_session(
     
     return {"status": "success", "message": "Market session started successfully"}
 
-# admin stuff - update the google form id
-@app.post("/admin/update_google_form_id")
-async def update_google_form_id_endpoint(new_form_id: str, current_user: dict = Depends(get_current_admin_user)):
-    params = TradingParameters()
-    params.google_form_id = new_form_id
-    update_form_id(new_form_id)
-    return {"status": "success", "message": "Google Form ID updated successfully"}
 
-# refresh our user list
-@app.get("/admin/refresh_registered_users")
-async def refresh_registered_users(current_user: dict = Depends(get_current_admin_user)):
-    get_registered_users(force_update=True)
-    return {"status": "success", "message": "Registered users refreshed"}
+
+
 
 # keep our user list fresh
 async def periodic_update_registered_users():

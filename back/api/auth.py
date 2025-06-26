@@ -9,9 +9,9 @@ import time
 from .google_sheet_auth import is_user_registered, is_user_admin, update_form_id
 from core.data_models import TradingParameters
 from pytz import timezone
-from datetime import datetime, timedelta
+from datetime import datetime
 import jwt
-from .prolific_auth import extract_prolific_params, validate_prolific_user, authenticate_prolific_user, get_prolific_user_by_trader_id, prolific_tokens
+from .prolific_auth import extract_prolific_params, authenticate_prolific_user, get_prolific_user_by_trader_id, prolific_tokens
 
 # Initialize Firebase Admin SDK using the service account file
 cred = credentials.Certificate('firebase-service-account.json')
