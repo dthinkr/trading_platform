@@ -65,7 +65,7 @@ def setup_custom_logger(name: str) -> logging.Logger:
     return logger
 
 def load_config() -> SimpleNamespace:
-    with open("analysis/config.yaml", "r", encoding="utf-8") as file:
+    with open("config.yaml", "r", encoding="utf-8") as file:
         config_data = yaml.safe_load(file)
     return SimpleNamespace(**config_data)
 
