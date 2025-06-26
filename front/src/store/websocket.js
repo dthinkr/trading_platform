@@ -66,6 +66,13 @@ export const useWebSocketStore = defineStore("websocket", {
       this.ws.onclose = (event) => {
         console.log("WebSocket connection closed:", event.code, event.reason);
         this.isConnected = false;
+        
+        // Don't auto-reconnect for session waiting (code 1000)
+        if (event.code === 1000 && event.reason === "Session waiting") {
+          console.log("Session is waiting for other traders - not reconnecting");
+          return;
+        }
+        
         this.attemptReconnect(traderUuid);
       };
     },

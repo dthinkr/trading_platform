@@ -332,15 +332,14 @@ const closeDialog = () => {
 // Download market metrics function
 const downloadMarketMetrics = async () => {
   try {
-    const market_id = traderInfo.value?.trading_market_id || 'unknown';
-    const response = await axios.get(`${httpUrl}market_metrics?trader_id=${props.traderUuid}&market_id=${market_id}`, {
+    const response = await axios.get(`${httpUrl}market_metrics?trader_id=${props.traderUuid}&market_id=${props.traderUuid}`, {
       responseType: 'blob'
     });
     
     const url = window.URL.createObjectURL(new Blob([response.data]));
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `market_${market_id}_trader_${props.traderUuid}_metrics.csv`);
+    link.setAttribute('download', `trader_${props.traderUuid}_metrics.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -462,10 +461,7 @@ const isLastMarket = computed(() => {
 
 onMounted(() => {
   fetchTraderInfo();
-  // Ensure the trading market data is set in the store
-  if (traderInfo.value && traderInfo.value.trading_market_id) {
-    traderStore.tradingMarketData = { trading_market_uuid: traderInfo.value.trading_market_id };
-  }
+  // No longer need to set trading_market_uuid in store since we use trader-based lookup
 });
 </script>
 

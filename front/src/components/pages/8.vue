@@ -141,7 +141,10 @@ const props = defineProps({
 const isLoading = ref(false);
 
 const marketDuration = computed(() => {
-  return traderStore.traderAttributes?.all_attributes?.params?.trading_day_duration || 'Loading...';
+  // Try to get duration from game params in store first, then from trader attributes
+  return traderStore.gameParams?.trading_day_duration || 
+         traderStore.traderAttributes?.all_attributes?.params?.trading_day_duration || 
+         'Loading...';
 });
 const goalDescription = computed(() => {
   if (!goalMessage.value) return 'You can freely trade in this market. Your goal is to make a profit.';
@@ -149,7 +152,10 @@ const goalDescription = computed(() => {
 });
 const initialShares = computed(() => props.traderAttributes?.shares ?? 'Loading...');
 const initialCash = computed(() => props.traderAttributes?.cash ?? 'Loading...');
-const canStartTrading = computed(() => !!props.traderAttributes?.all_attributes?.params);
+const canStartTrading = computed(() => {
+  // Allow starting if we have basic trader info (regardless of waiting state)
+  return !!props.traderAttributes;
+});
 const startButtonText = computed(() => isLoading.value ? 'Starting...' : 'Start Trading');
 
 const headers = [
@@ -184,25 +190,33 @@ const items = computed(() => {
 
 const startTrading = async () => {
   if (!canStartTrading.value) {
-    console.error('Cannot start trading: parameters are not available');
+    console.error('Cannot start trading: trader not ready');
     return;
   }
 
   isLoading.value = true;
   try {
-    await traderStore.initializeTradingSystemWithPersistentSettings();
-    await traderStore.getTraderAttributes(traderStore.traderUuid);
+    // Call start trading endpoint
     await traderStore.startTradingMarket();
-    router.push({ 
-      name: 'trading', 
-      params: { 
-        traderUuid: traderStore.traderUuid,
-        marketId: route.params.marketId  // Now route is defined
-      } 
-    });
+    
+    // Wait for the transition to complete and check if we should navigate
+    setTimeout(() => {
+      if (!traderStore.isWaitingForOthers) {
+        console.log("Session transitioned to active - navigating to trading");
+        router.push({ 
+          name: 'trading', 
+          params: { 
+            traderUuid: traderStore.traderUuid,
+            marketId: route.params.marketId
+          } 
+        });
+      } else {
+        console.log("Still waiting for other traders");
+      }
+      isLoading.value = false;
+    }, 2000); // Wait 2 seconds for transition
   } catch (error) {
-    console.error('Failed to initialize trading system:', error);
-  } finally {
+    console.error('Failed to start trading:', error);
     isLoading.value = false;
   }
 };

@@ -49,6 +49,10 @@ export const useTraderStore = defineStore("trader", {
     allTradersReady: false,
     readyCount: 0,
     
+    // Session management (new elegant approach)
+    sessionStatus: null,
+    isWaitingForOthers: false,
+    
     // Transaction tracking
     lastMatchedOrders: null,
     
@@ -178,6 +182,14 @@ export const useTraderStore = defineStore("trader", {
         this.gameParams = persistentSettings;
         this.formState = this.gameParams;
         console.log("Game parameters:", this.gameParams); // Debug logging
+        
+        // Handle waiting sessions (simplified approach - no session/market IDs)
+        if (response.data.status === "waiting") {
+          console.log("Trading system in waiting state");
+          this.isWaitingForOthers = response.data.data.isWaitingForOthers || true;
+        } else {
+          this.isWaitingForOthers = response.data.data.isWaitingForOthers || false;
+        }
       } catch (error) {
         throw error;
       }
@@ -202,18 +214,27 @@ export const useTraderStore = defineStore("trader", {
       try {
         const response = await axios.get(`trader_info/${traderId}`);
         
-        if (response.data.status === "success") {
+        // Handle both waiting sessions and active markets
+        if (response.data.status === "success" || response.data.status === "waiting") {
           this.traderAttributes = response.data.data;
           this.traderUuid = traderId;
-          // Initialize traderProgress based on initial filled orders
-          // Ensure filled_orders exists before calculating progress
-          const filledOrders = this.traderAttributes.filled_orders || [];
-          this.traderProgress = this.calculateProgress(filledOrders);
+          
+          // Check if we're in a waiting session (simplified approach)
+          if (response.data.status === "waiting") {
+            console.log("Trader in waiting session");
+            this.isWaitingForOthers = response.data.data.all_attributes?.isWaitingForOthers || true;
+          } else {
+            this.isWaitingForOthers = response.data.data.all_attributes?.isWaitingForOthers || false;
+            // Initialize traderProgress based on initial filled orders (only for active markets)
+            const filledOrders = this.traderAttributes.filled_orders || [];
+            this.traderProgress = this.calculateProgress(filledOrders);
+          }
         } else {
           throw new Error("Failed to fetch trader attributes");
         }
       } catch (error) {
         console.error("Error fetching trader attributes:", error);
+        throw new Error("Failed to fetch trader attributes");
       }
     },
 
@@ -236,21 +257,30 @@ export const useTraderStore = defineStore("trader", {
         // Get the market info to initialize counts properly
         try {
           const response = await axios.get(`trader/${traderUuid}/market`);
-          if (response.data.status === "success") {
+          if (response.data.status === "success" || response.data.status === "waiting") {
             const marketData = response.data.data;
             console.log("Market data received:", marketData);
             
-            // Update market data and counts
-            this.tradingMarketData = {
-              trading_market_uuid: marketData.trading_market_uuid,
-              ...marketData
-            };
+            // Update market data (no longer includes trading_market_uuid)
+            this.tradingMarketData = marketData;
             
-            // Set initial counts based on predefined_goals length
-            this.$patch({
-              currentHumanTraders: marketData.human_traders.length,
-              expectedHumanTraders: marketData.game_params.predefined_goals.length
-            });
+            // Handle waiting vs active states differently
+            if (response.data.status === "waiting") {
+              console.log("Market in waiting state");
+              // Set minimal counts for waiting state
+              this.$patch({
+                currentHumanTraders: 1,  // Default minimal values
+                expectedHumanTraders: marketData.game_params?.num_human_traders || 1,
+                isWaitingForOthers: marketData.isWaitingForOthers || true
+              });
+            } else {
+              // Set initial counts based on actual market data
+              this.$patch({
+                currentHumanTraders: marketData.human_traders.length,
+                expectedHumanTraders: marketData.game_params.predefined_goals.length,
+                isWaitingForOthers: marketData.isWaitingForOthers || false
+              });
+            }
           }
         } catch (error) {
           console.error("Error fetching market data:", error);
@@ -264,6 +294,13 @@ export const useTraderStore = defineStore("trader", {
     },
     
     handle_update(data) {
+      // Handle session waiting status (simplified approach)
+      if (data.type === "session_waiting") {
+        console.log("Received session waiting status:", data.data);
+        this.isWaitingForOthers = data.data.isWaitingForOthers || true;
+        return;
+      }
+
       // Handle trader count updates
       if (data.type === "trader_count_update") {
         console.log("Received trader count update:", data.data);
@@ -562,8 +599,8 @@ export const useTraderStore = defineStore("trader", {
     },
 
     async fetchMarketMetrics() {
-      if (!this.traderUuid || !this.tradingMarketData.trading_market_uuid) {
-        console.error('Trader ID or Market ID is missing');
+      if (!this.traderUuid) {
+        console.error('Trader ID is missing');
         return;
       }
 
@@ -571,7 +608,7 @@ export const useTraderStore = defineStore("trader", {
         const response = await axios.get('/market_metrics', {
           params: {
             trader_id: this.traderUuid,
-            market_id: this.tradingMarketData.trading_market_uuid
+            market_id: this.traderUuid  // Use trader ID since backend can resolve internally
           },
           responseType: 'blob',
         });
@@ -584,7 +621,7 @@ export const useTraderStore = defineStore("trader", {
         const a = document.createElement('a');
         a.style.display = 'none';
         a.href = url;
-        a.download = `market_${this.tradingMarketData.trading_market_uuid}_trader_${this.traderUuid}_metrics.csv`;
+        a.download = `trader_${this.traderUuid}_metrics.csv`;
         
         document.body.appendChild(a);
         a.click();
@@ -639,8 +676,31 @@ export const useTraderStore = defineStore("trader", {
       try {
         const response = await axios.post(`${import.meta.env.VITE_HTTP_URL}trading/start`);
         if (response.data.status === "success") {
-          // You might want to update some state here, e.g.:
-          // this.isTradingStarted = true;
+          console.log("Trading start response:", response.data);
+          
+          // If all traders are ready, the session should transition to active
+          if (response.data.all_ready) {
+            console.log("All traders ready - transitioning to active state");
+            
+            // Update waiting state immediately
+            this.isWaitingForOthers = false;
+            
+            // Wait a moment for backend to complete setup, then refresh trader attributes
+            setTimeout(async () => {
+              try {
+                await this.getTraderAttributes(this.traderUuid);
+                
+                // Reconnect WebSocket since the session is now active
+                const wsStore = useWebSocketStore();
+                if (!wsStore.ws || wsStore.ws.readyState !== WebSocket.OPEN) {
+                  console.log("Reconnecting WebSocket for active session");
+                  await this.initializeWebSocket();
+                }
+              } catch (error) {
+                console.error("Error transitioning to active state:", error);
+              }
+            }, 1000); // 1 second delay to allow backend to complete setup
+          }
         }
       } catch (error) {
         console.error('Error starting trading market:', error);

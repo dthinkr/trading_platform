@@ -38,7 +38,7 @@
               <Users :size="20" />
               <div>
                 <strong>Researchers:</strong>
-                <span>Prof. Alessio Sancetta, Prof. Francesco Feri, Prof. Michael Naef, Dr. Wenbin Wei, Dr. Mariol Jonuzaj</span>
+                <span>Prof. Alessio Sancetta, Prof. Francesco Feri, Prof. Michael Naef, Dr. Wenbin Wu, Dr. Mariol Jonuzaj</span>
               </div>
             </div>
             
