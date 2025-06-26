@@ -15,6 +15,7 @@ from .services import (
     OrderService, TransactionService, PricingService, TraderService, BroadcastService,
     OrderResult, CancelResult, TransactionResult
 )
+from .data_models import OrderType
 
 logger = setup_custom_logger(__name__)
 
@@ -300,7 +301,6 @@ class MarketOrchestrator:
         
         # Subscribe handlers to events
         from .events import OrderPlacedEvent, OrderCancelledEvent, TraderRegisteredEvent, InventoryReportEvent
-        from .data_models import OrderType
         self.message_bus.subscribe(OrderPlacedEvent, order_handler)
         self.message_bus.subscribe(OrderCancelledEvent, cancel_handler)
         self.message_bus.subscribe(TraderRegisteredEvent, registration_handler)

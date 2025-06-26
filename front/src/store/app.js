@@ -444,9 +444,8 @@ export const useTraderStore = defineStore("trader", {
         // This avoids double processing the same transaction.
 
         // Show notification for relevant trades
-        useUIStore().showSnackbar(
-          `Trade executed: ${matched_orders.transaction_amount} @ ${transaction_price}`,
-          'success'
+        useUIStore().showMessage(
+          `Trade executed: ${matched_orders.transaction_amount} @ ${transaction_price}`
         );
       }
 

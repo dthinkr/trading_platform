@@ -399,6 +399,9 @@ async function fetchTraderInfo() {
 }
 
 const formatValue = (value, format) => {
+  if (value === undefined || value === null) {
+    return 'N/A';
+  }
   if (format === 'currency' && typeof value === 'number') {
     return value.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
   } else if (format === 'gbp' && typeof value === 'number') {

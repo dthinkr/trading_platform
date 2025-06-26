@@ -270,16 +270,25 @@ class BroadcastService:
         if not self.websockets:
             return
         
+        # Sanitize message to ensure JSON compatibility
+        from utils.websocket_utils import sanitize_websocket_message
+        sanitized_message = sanitize_websocket_message(message)
+        
+        # The sanitization function already ensures JSON compatibility
+        
         disconnected = set()
         for websocket in self.websockets.copy():
             try:
-                await websocket.send_json(message)
-            except Exception:
+                await websocket.send_json(sanitized_message)
+            except Exception as e:
+                print(f"Error sending WebSocket message: {e}")
                 disconnected.add(websocket)
         
         # Remove disconnected WebSockets
         for websocket in disconnected:
             self.websockets.discard(websocket)
+    
+
     
     async def send_to_traders(self, message: Dict[str, Any], trader_list: Optional[List[str]] = None):
         """Send message to specific traders or all traders."""

@@ -31,6 +31,9 @@ const chartOptions = reactive({
     marginTop: 10,
     marginBottom: 30
   },
+  accessibility: {
+    enabled: false
+  },
   title: {
     text: null
   },

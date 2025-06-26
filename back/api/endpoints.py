@@ -21,6 +21,7 @@ from .prolific_auth import extract_prolific_params, validate_prolific_user, auth
 from .calculate_metrics import process_log_file, write_to_csv
 from .logfiles_analysis import order_book_contruction, calculate_trader_specific_metrics
 from firebase_admin import auth
+from utils.websocket_utils import sanitize_websocket_message
 
 # python stuff we need
 import json
@@ -441,22 +442,29 @@ async def get_trader_info(trader_id: str):
         log_file_path = os.path.join("logs", f"{internal_session_id}_trading.log")
 
         try:
-            order_book_metrics = order_book_contruction(log_file_path)
-            trader_specific_metrics = order_book_metrics.get(f"'{trader_id}'", {})
-            general_metrics = {k: v for k, v in order_book_metrics.items() if k != f"'{trader_id}'"}
+            # Check if log file exists before processing
+            if os.path.exists(log_file_path):
+                order_book_metrics = order_book_contruction(log_file_path)
+                trader_specific_metrics = order_book_metrics.get(trader_id, {})
+                general_metrics = {k: v for k, v in order_book_metrics.items() if k != trader_id}
 
-            if trader_specific_metrics:
-                trader_specific_metrics = calculate_trader_specific_metrics(
-                    trader_specific_metrics, 
-                    general_metrics, 
-                    trader_data['cash'], 
-                    trader_data['shares']
-                )
+                if trader_specific_metrics:
+                    trader_goal = trader_data.get('goal', 0)  # Get trader goal from trader data
+                    trader_specific_metrics = calculate_trader_specific_metrics(
+                        trader_specific_metrics, 
+                        general_metrics, 
+                        trader_goal
+                    )
+                else:
+                    trader_specific_metrics = {}
             else:
+                print(f"Log file not found: {log_file_path}")
+                order_book_metrics = {}
                 trader_specific_metrics = {}
 
         except Exception as e:
             print(f"Error processing metrics for trader {trader_id}: {str(e)}")
+            print(f"Log file path: {log_file_path}")
             order_book_metrics = {}
             trader_specific_metrics = {}
 
@@ -558,18 +566,22 @@ async def send_to_frontend(websocket: WebSocket, trader_manager):
             "data": {
                 "current_time": trading_market.current_time.isoformat(),
                 "is_trading_started": trading_market.trading_started,
-                "remaining_time": (
+                "remaining_time": max(0, (
                     trading_market.start_time
                     + timedelta(minutes=trading_market.duration)
                     - trading_market.current_time
-                ).total_seconds()
+                ).total_seconds())
                 if trading_market.trading_started
                 else None,
                 "current_human_traders": len(trader_manager.human_traders),
                 "expected_human_traders": len(trader_manager.params.predefined_goals),
             },
         }
-        await websocket.send_json(time_update)
+        try:
+            sanitized_update = sanitize_websocket_message(time_update)
+            await websocket.send_json(sanitized_update)
+        except Exception as e:
+            print(f"Error sending time update: {e}")
         await asyncio.sleep(1)
 
 async def receive_from_frontend(websocket: WebSocket, trader):
@@ -662,7 +674,8 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
                     "isWaitingForOthers": True
                 }
             }
-            await websocket.send_json(waiting_message)
+            sanitized_waiting = sanitize_websocket_message(waiting_message)
+            await websocket.send_json(sanitized_waiting)
             await websocket.close(code=1000, reason="Session waiting")
             return
         
@@ -691,7 +704,8 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
                 "market_id": internal_session_id
             }
         }
-        await websocket.send_json(initial_count)
+        sanitized_count = sanitize_websocket_message(initial_count)
+        await websocket.send_json(sanitized_count)
         
         await trader.connect_to_socket(websocket)
         
@@ -1034,7 +1048,8 @@ async def broadcast_trader_count(market_id: str):
     for trader in trader_manager.human_traders:
         if hasattr(trader, 'websocket') and trader.websocket:
             try:
-                await trader.websocket.send_json(count_message)
+                sanitized_count_message = sanitize_websocket_message(count_message)
+                await trader.websocket.send_json(sanitized_count_message)
             except Exception:
                 pass
 

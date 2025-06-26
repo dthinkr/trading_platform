@@ -86,6 +86,7 @@
 import { computed, onMounted, watch } from 'vue';
 import { useTraderStore } from "@/store/app";
 import { storeToRefs } from "pinia";
+import axios from 'axios';
 
 const props = defineProps({
   isGoalAchieved: {
@@ -101,21 +102,14 @@ const { activeOrders, traderUuid } = storeToRefs(traderStore);
 onMounted(async () => {
   try {
     // Get trader market info which includes active orders
-    const response = await fetch(`/api/trader/${traderUuid.value}/market`, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      }
-    });
+    const response = await axios.get(`/trader/${traderUuid.value}/market`);
     
-    if (response.ok) {
-      const data = await response.json();
-      if (data.status === "success") {
-        // Update store with active orders from backend
-        const traderOrders = data.data.game_params.active_orders || [];
-        activeOrders.value = traderOrders.filter(order => 
-          order.trader_id === traderUuid.value
-        );
-      }
+    if (response.data.status === "success") {
+      // Update store with active orders from backend
+      const traderOrders = response.data.data.game_params?.active_orders || [];
+      activeOrders.value = traderOrders.filter(order => 
+        order.trader_id === traderUuid.value
+      );
     }
   } catch (error) {
     console.error('Error fetching active orders:', error);

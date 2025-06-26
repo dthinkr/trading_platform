@@ -95,7 +95,10 @@ class HumanTrader(BaseTrader):
                 "filled_orders": self.filled_orders,
                 "placed_orders": self.placed_orders,
             }
-            await self.websocket.send_json(message)
+            # Import sanitization function
+            from utils.websocket_utils import sanitize_websocket_message
+            sanitized_message = sanitize_websocket_message(message)
+            await self.websocket.send_json(sanitized_message)
         except WebSocketDisconnect:
             self.socket_status = False
             # Unregister websocket from trading platform

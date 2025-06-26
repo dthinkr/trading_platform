@@ -133,7 +133,7 @@ class TradingPlatform:
                 time_update = {
                     "type": "time_update",
                     "data": {
-                        "remainingTime": remaining_time_seconds,
+                        "remaining_time": remaining_time_seconds,  # Changed from remainingTime to remaining_time for consistency
                         "dayOver": remaining_time_seconds <= 0,
                         "current_time": current_time.isoformat(),
                         "is_trading_started": self.trading_started

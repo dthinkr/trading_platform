@@ -24,75 +24,57 @@ def logfile_to_message(logfile_name):
     
     with open(log_file_path, 'r') as log_file:
         for line in log_file:
-            timestamp_str, level, msg = line.split(" - ", 2)
-            msg_type, msg_content = msg.split(": ", 1)
-    
-            if msg_type == 'ADD_ORDER':
-                
-                amount_key = "'amount': "
-                start_index = msg_content.index(amount_key) + len(amount_key)
-                end_index = msg_content.index(',', start_index)
-                amount_str = msg_content[start_index:end_index].strip()  # Extract and strip whitespace
-                amount = float(amount_str)
-                
-                price_key = "'price': "
-                start_index = msg_content.index(price_key) + len(price_key)
-                end_index = msg_content.index(',', start_index)
-                price_str = msg_content[start_index:end_index].strip()  # Extract and strip whitespace
-                price = float(price_str)
-                
-                direction_key = "<OrderType."
-                start_index = msg_content.index(direction_key) + len(direction_key)
-                end_index = msg_content.index(':', start_index)
-                direction_str = msg_content[start_index:end_index].strip()  # Extract and strip whitespace
-                direction = (direction_str)
-                
-                trader_key = "'trader_id': "
-                start_index = msg_content.index(trader_key) + len(trader_key)
-                end_index = msg_content.index(',', start_index)
-                trader_str = msg_content[start_index:end_index].strip()  # Extract and strip whitespace
-                trader_type = (trader_str)
-                
-                price_save.append(price)
-                amount_save.append(amount)
-                direction_save.append(direction)
-                trader_save.append(trader_type)
-                timestamp_save.append(timestamp_str)
-                type_save.append(msg_type)
-    
-            if msg_type == 'CANCEL_ORDER':
-                
-                amount_key = "'amount': "
-                start_index = msg_content.index(amount_key) + len(amount_key)
-                end_index = msg_content.index(',', start_index)
-                amount_str = msg_content[start_index:end_index].strip()  # Extract and strip whitespace
-                amount = float(amount_str)
-                
-                price_key = "'price': "
-                start_index = msg_content.index(price_key) + len(price_key)
-                end_index = msg_content.index(',', start_index)
-                price_str = msg_content[start_index:end_index].strip()  # Extract and strip whitespace
-                price = float(price_str)
-                
-                
-                direction_key = "'order_type': "
-                start_index = msg_content.index(direction_key) + len(direction_key)
-                end_index = msg_content.index('}', start_index)
-                direction_str = msg_content[start_index:end_index].strip()  # Extract and strip whitespace
-                direction = 'BID' if float(direction_str) == 1 else 'ASK'
-                
-                trader_key = "'trader_id': "
-                start_index = msg_content.index(trader_key) + len(trader_key)
-                end_index = msg_content.index(',', start_index)
-                trader_str = msg_content[start_index:end_index].strip()  # Extract and strip whitespace
-                trader_type = (trader_str)
-            
-                price_save.append(price)
-                amount_save.append(amount)
-                direction_save.append(direction)
-                trader_save.append(trader_type)
-                timestamp_save.append(timestamp_str)
-                type_save.append(msg_type)
+            try:
+                timestamp_str, level, msg = line.split(" - ", 2)
+                msg_type, msg_content = msg.split(": ", 1)
+        
+                if msg_type == 'ADD_ORDER':
+                    
+                    amount_key = "'amount': "
+                    start_index = msg_content.index(amount_key) + len(amount_key)
+                    end_index = msg_content.index(',', start_index)
+                    amount_str = msg_content[start_index:end_index].strip()  # Extract and strip whitespace
+                    amount = float(amount_str)
+                    
+                    price_key = "'price': "
+                    start_index = msg_content.index(price_key) + len(price_key)
+                    end_index = msg_content.index(',', start_index)
+                    price_str = msg_content[start_index:end_index].strip()  # Extract and strip whitespace
+                    price = float(price_str)
+                    
+                    direction_key = "<OrderType."
+                    start_index = msg_content.index(direction_key) + len(direction_key)
+                    end_index = msg_content.index(':', start_index)
+                    direction_str = msg_content[start_index:end_index].strip()  # Extract and strip whitespace
+                    direction = (direction_str)
+                    
+                    trader_key = "'trader_id': '"
+                    start_index = msg_content.index(trader_key) + len(trader_key)
+                    end_index = msg_content.index("'", start_index)
+                    trader_str = msg_content[start_index:end_index].strip()  # Extract and strip whitespace
+                    trader_type = (trader_str)
+                    
+                    price_save.append(price)
+                    amount_save.append(amount)
+                    direction_save.append(direction)
+                    trader_save.append(trader_type)
+                    timestamp_save.append(timestamp_str)
+                    type_save.append(msg_type)
+        
+                elif msg_type == 'CANCEL_ORDER':
+                    # CANCEL_ORDER format: {'order_id': 'NOISE_1_16', 'trader_id': 'NOISE_1'}
+                    # We need to skip CANCEL_ORDER entries since they don't have price/amount
+                    # and the current analysis code expects them. For now, we'll skip them.
+                    continue
+                    
+                elif msg_type == 'MATCHED_ORDER':
+                    # We might want to process these in the future, but skip for now
+                    continue
+                    
+            except (ValueError, IndexError) as e:
+                # Skip lines that don't match expected format
+                print(f"Warning: Could not parse line: {line.strip()}")
+                continue
                 
     df = pd.DataFrame({'Timestamp': timestamp_save,
                   'Price': price_save,
