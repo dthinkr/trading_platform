@@ -17,7 +17,7 @@
   <a href="https://github.com/dthinkr/trading_platform/blob/master/LICENSE"><img src="https://img.shields.io/github/license/dthinkr/trading_platform?color=2b9348" alt="License Badge"/></a>
 </p>
 
-## Key Features (v2.0.0) 🚀
+## Key Features (v2.2.0) 🚀
 
 ### 🏗️ **Elegant Session-Based Architecture**
 - **Lightweight Session Pools**: Users join fast session pools, not heavy markets

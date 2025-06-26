@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [2.0.0] - 2024-12-20 🚀 **MAJOR SYSTEMIC REWRITE**
+## [2.2.0] - 2024-12-20 🚀 **MAJOR SYSTEMIC REWRITE**
 
 This release represents a **complete architectural overhaul** of the trading platform, moving from a complex premature market creation system to an elegant session-based architecture. This is not just a feature update—it's a fundamental reimagining of how the platform works.
 
