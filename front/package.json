@@ -2,11 +2,11 @@
   "name": "london_trader_front",
   "version": "0.0.0",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
-    "lint": "eslint . --fix --ignore-path .gitignore",
-    "prod": "node --no-warnings ./node_modules/.bin/vite --mode production"
+    "dev": "vite --config config/vite.config.mjs",
+    "build": "vite build --config config/vite.config.mjs",
+    "preview": "vite preview --config config/vite.config.mjs",
+    "lint": "eslint . --config config/eslint.config.js --fix --ignore-path .gitignore",
+    "prod": "node --no-warnings ./node_modules/.bin/vite --config config/vite.config.mjs --mode production"
   },
   "dependencies": {
     "@chenfengyuan/vue-countdown": "2",

@@ -11,7 +11,7 @@ services:
       - ./front:/app
       - /app/node_modules
       - ./.env:/app/.env:ro
-      - ./front/firebase.json:/app/firebase.json:ro
+      - ./back/config/firebase/firebase.json:/app/firebase.json:ro
     environment:
       - FIREBASE_TOKEN=${FIREBASE_TOKEN}
       - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
@@ -28,7 +28,7 @@ services:
     volumes:
       - ./back:/app
       - ./.env:/app/.env:ro
-      - ./back/firebase-service-account.json:/app/firebase-service-account.json:ro
+      - ./back/config/auth/firebase-service-account.json:/app/config/auth/firebase-service-account.json:ro
     ports:
       - "8000:8000"
     environment:
@@ -42,7 +42,7 @@ services:
       - FIREBASE_MESSAGING_SENDER_ID=${FIREBASE_MESSAGING_SENDER_ID}
       - FIREBASE_APP_ID=${FIREBASE_APP_ID}
       - FIREBASE_MEASUREMENT_ID=${FIREBASE_MEASUREMENT_ID}
-      - GOOGLE_APPLICATION_CREDENTIALS=/app/firebase-service-account.json
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/config/auth/firebase-service-account.json
 
     networks:
       - app-network

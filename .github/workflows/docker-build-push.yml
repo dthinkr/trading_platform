@@ -12,11 +12,11 @@ jobs:
     
     - name: Create secret files
       run: |
-        echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > ./back/firebase-service-account.json
-        echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > ./firebase-service-account.json
+        mkdir -p ./back/config/auth
+        echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > ./back/config/auth/firebase-service-account.json
         echo '${{ secrets.ENV_FILE }}' > ./.env
         echo '${{ secrets.NGROK_YML }}' > ./docker/ngrok.yml
-        echo '${{ secrets.FIREBASE_JSON }}' > ./front/firebase.json
+        echo '${{ secrets.FIREBASE_JSON }}' > ./back/config/firebase/firebase.json
     
     - name: Login to DockerHub
       uses: docker/login-action@v2

@@ -1,10 +1,49 @@
-# Byte-compiled / optimized / DLL files
+# ====================
+# PYTHON & BACKEND
+# ====================
 __pycache__/
-*.py[cod]
-.pytest_cache/
-
-# Virtual environment
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
 venv/
+.venv/
+.env
+.env.local
+
+# ====================
+# AUTHENTICATION & SECRETS
+# ====================
+config/auth/*service-account*.json
+config/auth/*.secrets
+*.key
+*.pem
+
+# ====================
+# LOGS & DATA
+# ====================
+logs/*.log
+logs/*.csv
+*.log
+*.sqlite
+*.db
+
+# ====================
+# DEVELOPMENT
+# ====================
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.cache/
+
+# ====================
+# KEEP CONFIG FILES
+# ====================
+!config/app.yaml
+!config/firebase/firebase.json
+!requirements.txt
 
 # IDE files (e.g., Visual Studio Code)
 .vscode/

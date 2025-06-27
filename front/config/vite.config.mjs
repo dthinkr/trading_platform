@@ -6,6 +6,7 @@ import { fileURLToPath, URL } from 'node:url'
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  envDir: './config/env',  // Load environment files from config/env directory
   plugins: [
     vue(),
     vuetify({ 
@@ -16,13 +17,12 @@ export default defineConfig({
   define: { 'process.env': {} },
   resolve: {
     alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url)),
-      '@components': fileURLToPath(new URL('./src/components', import.meta.url)),
-      '@charts': fileURLToPath(new URL('./src/components/charts', import.meta.url)),
-      '@trading': fileURLToPath(new URL('./src/components/trading', import.meta.url)),
-      '@market': fileURLToPath(new URL('./src/components/market', import.meta.url)),
-      '@assets': fileURLToPath(new URL('./src/assets', import.meta.url)), // New line added
-
+      '@': fileURLToPath(new URL('../src', import.meta.url)),
+      '@components': fileURLToPath(new URL('../src/components', import.meta.url)),
+      '@charts': fileURLToPath(new URL('../src/components/charts', import.meta.url)),
+      '@trading': fileURLToPath(new URL('../src/components/trading', import.meta.url)),
+      '@market': fileURLToPath(new URL('../src/components/market', import.meta.url)),
+      '@assets': fileURLToPath(new URL('../src/assets', import.meta.url)),
     },
     extensions: [
       '.js',

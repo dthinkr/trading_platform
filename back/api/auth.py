@@ -14,7 +14,7 @@ import jwt
 from .prolific_auth import extract_prolific_params, authenticate_prolific_user, get_prolific_user_by_trader_id, prolific_tokens
 
 # Initialize Firebase Admin SDK using the service account file
-cred = credentials.Certificate('firebase-service-account.json')
+cred = credentials.Certificate('config/auth/firebase-service-account.json')
 firebase_admin.initialize_app(cred)
 
 security = HTTPBearer()

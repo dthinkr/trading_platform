@@ -1,14 +1,62 @@
-ngrok.yml
-trading_platform
-appmap.log
-*.json
-*.yml
-*.env
-*.yaml
-!.github/workflows/docker-build-push.yml
-.secrets
+# ====================
+# ENVIRONMENT & SECRETS
+# ====================
+.env
+.env.local
+.env.*.local
+*.secrets
+.secrets/
+*service-account*.json
+
+# ====================
+# BUILD & RUNTIME
+# ====================
 *.gz
-/ssh
+*.log
+appmap.log
+trading_platform
+
+# ====================
+# DEPLOYMENT & INFRASTRUCTURE
+# ====================
+# Docker secrets
+docker/ngrok.yml
+/ssh/
 ssh/
-# Firebase cache files
+
+# Firebase
 front/.firebase/
+firebase-debug.log
+
+# ====================
+# DEVELOPMENT TOOLS
+# ====================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ====================
+# ALLOWED CONFIG FILES
+# ====================
+# Keep important config files
+!package.json
+!package-lock.json
+!yarn.lock
+!.github/workflows/*.yml
+!.github/workflows/*.yaml
+!docker-compose.yml
+!docker-compose.*.yml
+!back/config/app.yaml
+!front/config/**/*.json
+!front/config/**/*.yml
+!front/config/**/*.yaml
+!back/config/firebase/firebase.json
+
+# ====================
+# OS & TEMP FILES
+# ====================
+.DS_Store
+Thumbs.db
+*.tmp

@@ -1,22 +1,55 @@
-.DS_Store
-node_modules
-/dist
+# ====================
+# BUILD OUTPUT
+# ====================
+node_modules/
+/dist/
+/build/
 
-# local env files
-.env.local
-.env.*.local
+# ====================
+# ENVIRONMENT FILES
+# ====================
+config/env/.env
+config/env/.env.local
+config/env/.env.*.local
 
-# Log files
+# ====================
+# LOG FILES
+# ====================
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+lerna-debug.log*
 
-# Editor directories and files
-.idea
-.vscode
+# ====================
+# FIREBASE & DEPLOYMENT
+# ====================
+.firebase/
+firebase-debug.log
+
+# ====================
+# EDITOR & IDE
+# ====================
+.vscode/
+.idea/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+
+# ====================
+# OS FILES
+# ====================
+.DS_Store
+Thumbs.db
+
+# ====================
+# KEEP CONFIG FILES
+# ====================
+!config/**/*.json
+!config/**/*.yml
+!config/**/*.yaml
+!*.config.js
+!vite.config.mjs
+!eslint.config.js

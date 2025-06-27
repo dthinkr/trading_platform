@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from core.data_models import TradingParameters
 
 # Set up credentials
-SERVICE_ACCOUNT_FILE = 'google-service-account.json'
+SERVICE_ACCOUNT_FILE = 'config/auth/google-service-account.json'
 SCOPES = [
     'https://www.googleapis.com/auth/forms.responses.readonly',
     'https://www.googleapis.com/auth/forms',

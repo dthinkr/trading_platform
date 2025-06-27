@@ -24,12 +24,11 @@ def logfile_to_message(logfile_name):
     
     with open(log_file_path, 'r') as log_file:
         for line in log_file:
-            try:
-                timestamp_str, level, msg = line.split(" - ", 2)
-                msg_type, msg_content = msg.split(": ", 1)
-        
-                if msg_type == 'ADD_ORDER':
-                    
+            timestamp_str, level, msg = line.split(" - ", 2)
+            msg_type, msg_content = msg.split(": ", 1)
+    
+            if msg_type == 'ADD_ORDER':
+                try:
                     amount_key = "'amount': "
                     start_index = msg_content.index(amount_key) + len(amount_key)
                     end_index = msg_content.index(',', start_index)
@@ -42,15 +41,21 @@ def logfile_to_message(logfile_name):
                     price_str = msg_content[start_index:end_index].strip()  # Extract and strip whitespace
                     price = float(price_str)
                     
-                    direction_key = "<OrderType."
-                    start_index = msg_content.index(direction_key) + len(direction_key)
-                    end_index = msg_content.index(':', start_index)
-                    direction_str = msg_content[start_index:end_index].strip()  # Extract and strip whitespace
-                    direction = (direction_str)
+                    # Handle different order_type formats
+                    if "<OrderType." in msg_content:
+                        # Old format: <OrderType.BID: 1> or newer format <OrderType.BID: 1>
+                        direction_key = "<OrderType."
+                        start_index = msg_content.index(direction_key) + len(direction_key)
+                        end_index = msg_content.index(':', start_index)
+                        direction_str = msg_content[start_index:end_index].strip()  # Extract and strip whitespace
+                        direction = direction_str
+                    else:
+                        # Fallback - shouldn't happen but just in case
+                        direction = 'UNKNOWN'
                     
-                    trader_key = "'trader_id': '"
+                    trader_key = "'trader_id': "
                     start_index = msg_content.index(trader_key) + len(trader_key)
-                    end_index = msg_content.index("'", start_index)
+                    end_index = msg_content.index(',', start_index)
                     trader_str = msg_content[start_index:end_index].strip()  # Extract and strip whitespace
                     trader_type = (trader_str)
                     
@@ -60,48 +65,44 @@ def logfile_to_message(logfile_name):
                     trader_save.append(trader_type)
                     timestamp_save.append(timestamp_str)
                     type_save.append(msg_type)
-        
-                elif msg_type == 'CANCEL_ORDER':
-                    # CANCEL_ORDER now contains complete order details, same format as ADD_ORDER
-                    amount_key = "'amount': "
-                    start_index = msg_content.index(amount_key) + len(amount_key)
-                    end_index = msg_content.index(',', start_index)
-                    amount_str = msg_content[start_index:end_index].strip()
-                    amount = float(amount_str)
-                    
-                    price_key = "'price': "
-                    start_index = msg_content.index(price_key) + len(price_key)
-                    end_index = msg_content.index(',', start_index)
-                    price_str = msg_content[start_index:end_index].strip()
-                    price = float(price_str)
-                    
-                    direction_key = "<OrderType."
-                    start_index = msg_content.index(direction_key) + len(direction_key)
-                    end_index = msg_content.index(':', start_index)
-                    direction_str = msg_content[start_index:end_index].strip()
-                    direction = (direction_str)
-                    
-                    trader_key = "'trader_id': '"
-                    start_index = msg_content.index(trader_key) + len(trader_key)
-                    end_index = msg_content.index("'", start_index)
-                    trader_str = msg_content[start_index:end_index].strip()
-                    trader_type = (trader_str)
-                    
-                    price_save.append(price)
-                    amount_save.append(amount)
-                    direction_save.append(direction)
-                    trader_save.append(trader_type)
-                    timestamp_save.append(timestamp_str)
-                    type_save.append(msg_type)
-                    
-                elif msg_type == 'MATCHED_ORDER':
-                    # We might want to process these in the future, but skip for now
+                except Exception as e:
+                    # Skip malformed ADD_ORDER entries with debug info
+                    print(f"Warning: Skipping malformed ADD_ORDER entry: {e}")
                     continue
-                    
-            except (ValueError, IndexError) as e:
-                # Skip lines that don't match expected format
-                print(f"Warning: Could not parse line: {line.strip()}")
-                continue
+    
+            if msg_type == 'CANCEL_ORDER':
+                
+                amount_key = "'amount': "
+                start_index = msg_content.index(amount_key) + len(amount_key)
+                end_index = msg_content.index(',', start_index)
+                amount_str = msg_content[start_index:end_index].strip()  # Extract and strip whitespace
+                amount = float(amount_str)
+                
+                price_key = "'price': "
+                start_index = msg_content.index(price_key) + len(price_key)
+                end_index = msg_content.index(',', start_index)
+                price_str = msg_content[start_index:end_index].strip()  # Extract and strip whitespace
+                price = float(price_str)
+                
+                
+                direction_key = "'order_type': "
+                start_index = msg_content.index(direction_key) + len(direction_key)
+                end_index = msg_content.index('}', start_index)
+                direction_str = msg_content[start_index:end_index].strip()  # Extract and strip whitespace
+                direction = 'BID' if float(direction_str) == 1 else 'ASK'
+                
+                trader_key = "'trader_id': "
+                start_index = msg_content.index(trader_key) + len(trader_key)
+                end_index = msg_content.index(',', start_index)
+                trader_str = msg_content[start_index:end_index].strip()  # Extract and strip whitespace
+                trader_type = (trader_str)
+            
+                price_save.append(price)
+                amount_save.append(amount)
+                direction_save.append(direction)
+                trader_save.append(trader_type)
+                timestamp_save.append(timestamp_str)
+                type_save.append(msg_type)
                 
     df = pd.DataFrame({'Timestamp': timestamp_save,
                   'Price': price_save,
@@ -150,8 +151,10 @@ def get_order_to_cancel(orders,trader,price):
 
     if orders_at_price:
         order_to_cancel = max(orders_at_price, key=lambda order: order['Timestamp'])
-   
-    return order_to_cancel       
+        return order_to_cancel
+    else:
+        # No order found at the specified price for this trader
+        return None
     
 def order_book_contruction(logfile_name):
     message_df, all_metrics = process_logfile(logfile_name)
@@ -239,12 +242,18 @@ def process_logfile(logfile_name):
         elif order_type == 'CANCEL_ORDER':
             if direction == 'BID':
                 order_to_cancel = get_order_to_cancel(orders['BIDS'], trader, price)
-                orders['BIDS'].remove(order_to_cancel)
-                total_cancellations +=1
+                if order_to_cancel:
+                    orders['BIDS'].remove(order_to_cancel)
+                    total_cancellations +=1
+                else:
+                    print(f"Warning: Could not find BID order to cancel for trader {trader} at price {price}")
             else:
                 order_to_cancel = get_order_to_cancel(orders['ASKS'], trader, price)
-                orders['ASKS'].remove(order_to_cancel)
-                total_cancellations +=1
+                if order_to_cancel:
+                    orders['ASKS'].remove(order_to_cancel)
+                    total_cancellations +=1
+                else:
+                    print(f"Warning: Could not find ASK order to cancel for trader {trader} at price {price}")
         
         
         best_bid_price = max((order['Price'] for order in orders['BIDS']), default=None)

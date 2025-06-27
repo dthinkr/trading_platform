@@ -422,8 +422,10 @@ async def get_trader_info(trader_id: str):
             # Check if log file exists before processing
             if os.path.exists(log_file_path):
                 order_book_metrics = order_book_contruction(log_file_path)
-                trader_specific_metrics = order_book_metrics.get(trader_id, {})
-                general_metrics = {k: v for k, v in order_book_metrics.items() if k != trader_id}
+                # The log parsing preserves quotes in trader IDs, so we need to look for quoted version
+                quoted_trader_id = f"'{trader_id}'"
+                trader_specific_metrics = order_book_metrics.get(quoted_trader_id, {})
+                general_metrics = {k: v for k, v in order_book_metrics.items() if k != quoted_trader_id}
 
                 if trader_specific_metrics:
                     trader_goal = trader_data.get('goal', 0)  # Get trader goal from trader data
