@@ -6,12 +6,12 @@
 
 ## Treatments
 
-| # | Informed player | Type of order to execute | Level of information |
-|---|-----------------|--------------------------|----------------------|
-| 5 | human           | Buy                      | Low                  |
-| 6 | human           | Buy                      | High                 |
-| 7 | human           | Sell                     | Low                  |
-| 8 | human           | Sell                     | High                 |
+| #   | Informed player | Type of order to execute | Level of information |
+| --- | --------------- | ------------------------ | -------------------- |
+| 5   | human           | Buy                      | Low                  |
+| 6   | human           | Buy                      | High                 |
+| 7   | human           | Sell                     | Low                  |
+| 8   | human           | Sell                     | High                 |
 
 ## Instructions to Include in the Software
 
@@ -43,7 +43,7 @@ You can improve the existing orders by:
 
 You can also place orders that do not improve the best current order. For example if there is already an order to buy a share for 10 you can place an additional order to buy a share at 9.
 
-*[Add a screenshot with arrows and a bubble to show where one can see the current prices and how to place a bid or ask.]*
+_[Add a screenshot with arrows and a bubble to show where one can see the current prices and how to place a bid or ask.]_
 
 ### Page 3: Setup
 
@@ -58,13 +58,13 @@ All trading will be in terms of Liras and the length of each market will be # mi
 If you do not achieve the objective within the time limit of the market the trading platform will automatically execute the following additional trades:
 
 - If your task is to sell # shares: At the end of the market the trading platform will automatically sell each unsold share (if any) at a price equal to half of the average best bid and ask price (mid-price) at the end of each market. Loosely speaking half of the market price at the end of the market.
-  - Market earnings = revenue from sales (incl. automatically sold shares) – (Number of shares) * (mid-price at the beginning of the market)
+  - Market earnings = revenue from sales (incl. automatically sold shares) – (Number of shares) \* (mid-price at the beginning of the market)
   - The market price might drop below the mid-price at the beginning of the market. If that happens each sale of a share will make a loss. However selling the shares is still in your interest as keeping them would create an even more significant loss. To cover your losses you will given # Liras at the beginning of each market.
 
 ### Page 5: Your Earnings (Buying)
 
 - If your task is to buy # shares: At the end of the market the trading platform will automatically buy each unpurchased share (if any) at a price equal to one and a half (1.5) of the average best bid and ask price (mid-price) at the end of each market. Loosely speaking one and a half (1.5) of the market price at the end of the market.
-  - Market earnings = (Number of shares) * (mid-price at the beginning of the market) – total expense of purchases (incl. automatically bought shares)
+  - Market earnings = (Number of shares) \* (mid-price at the beginning of the market) – total expense of purchases (incl. automatically bought shares)
   - The market price might rise above the mid-price at the beginning of the market. If that happens each purchase of a share will make a loss. However buying the shares is still in your interest as not buying them would create an even more significant loss. To cover your losses you will given # Liras at the beginning of each market.
 
 At the end of the study you will be awarded earnings from one randomly selected market. Your earnings in the chosen market are converted into GBP and paid to you. The conversion rate is X Liras = 1 GBP.

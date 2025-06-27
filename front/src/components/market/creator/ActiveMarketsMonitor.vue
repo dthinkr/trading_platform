@@ -4,7 +4,7 @@
       <v-icon left color="deep-blue">mdi-monitor-dashboard</v-icon>
       Active Markets Monitor
     </v-card-title>
-    
+
     <v-card-text>
       <v-data-table
         :headers="[
@@ -12,7 +12,7 @@
           { text: 'Status', value: 'status', class: 'custom-header' },
           { text: 'Members', value: 'member_ids', class: 'custom-header' },
           { text: 'Started At', value: 'started_at', class: 'custom-header' },
-          { text: 'Actions', value: 'actions', class: 'custom-header', sortable: false }
+          { text: 'Actions', value: 'actions', class: 'custom-header', sortable: false },
         ]"
         :items="activeSessions"
         :items-per-page="5"
@@ -20,30 +20,17 @@
         dense
       >
         <template v-slot:item.status="{ item }">
-          <v-chip
-            :color="getStatusColor(item.status)"
-            small
-            label
-          >
+          <v-chip :color="getStatusColor(item.status)" small label>
             {{ item.status }}
           </v-chip>
         </template>
-        
+
         <template v-slot:item.member_ids="{ item }">
           <div class="d-flex align-center">
-            <v-chip
-              small
-              class="mr-2"
-              :color="item.member_ids?.length ? 'info' : 'grey'"
-              label
-            >
+            <v-chip small class="mr-2" :color="item.member_ids?.length ? 'info' : 'grey'" label>
               {{ item.member_ids?.length || 0 }}
             </v-chip>
-            <v-menu
-              offset-y
-              :close-on-content-click="false"
-              max-width="300"
-            >
+            <v-menu offset-y :close-on-content-click="false" max-width="300">
               <template v-slot:activator="{ on, attrs }">
                 <v-btn
                   x-small
@@ -62,11 +49,7 @@
                   Session Members
                 </v-card-title>
                 <v-list dense class="py-2">
-                  <v-list-item
-                    v-for="member in item.member_ids"
-                    :key="member"
-                    class="px-4"
-                  >
+                  <v-list-item v-for="member in item.member_ids" :key="member" class="px-4">
                     <v-list-item-icon class="mr-2">
                       <v-icon small color="grey darken-1">mdi-account</v-icon>
                     </v-list-item-icon>
@@ -82,19 +65,13 @@
                 </v-list>
                 <v-card-actions class="py-2 px-4 grey lighten-4">
                   <v-spacer></v-spacer>
-                  <v-btn
-                    x-small
-                    text
-                    @click="$root.$emit('click:outside')"
-                  >
-                    Close
-                  </v-btn>
+                  <v-btn x-small text @click="$root.$emit('click:outside')"> Close </v-btn>
                 </v-card-actions>
               </v-card>
             </v-menu>
           </div>
         </template>
-        
+
         <template v-slot:item.started_at="{ item }">
           {{ item.started_at ? new Date(item.started_at).toLocaleString() : 'Not started' }}
         </template>
@@ -117,72 +94,72 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
-import axios from '@/api/axios';
-import { useTraderStore } from "@/store/app";
+import { ref, onMounted, onUnmounted } from 'vue'
+import axios from '@/api/axios'
+import { useTraderStore } from '@/store/app'
 
-const traderStore = useTraderStore();
-const activeSessions = ref([]);
-let sessionPollingInterval;
+const traderStore = useTraderStore()
+const activeSessions = ref([])
+let sessionPollingInterval
 
 const fetchActiveSessions = async () => {
   try {
-    const response = await axios.get(`${import.meta.env.VITE_HTTP_URL}sessions`);
-    activeSessions.value = response.data;
+    const response = await axios.get(`${import.meta.env.VITE_HTTP_URL}sessions`)
+    activeSessions.value = response.data
   } catch (error) {
-    console.error("Failed to fetch sessions:", error);
+    console.error('Failed to fetch sessions:', error)
   }
-};
+}
 
 const forceStartSession = async (marketId) => {
   try {
-    await axios.post(`${import.meta.env.VITE_HTTP_URL}sessions/${marketId}/force-start`);
+    await axios.post(`${import.meta.env.VITE_HTTP_URL}sessions/${marketId}/force-start`)
     traderStore.showSnackbar({
       text: 'Session started successfully',
-      color: 'success'
-    });
-    await fetchActiveSessions();
+      color: 'success',
+    })
+    await fetchActiveSessions()
   } catch (error) {
     traderStore.showSnackbar({
       text: error.response?.data?.detail || 'Error starting session',
-      color: 'error'
-    });
+      color: 'error',
+    })
   }
-};
+}
 
 const formatMemberName = (email) => {
-  if (!email) return '';
+  if (!email) return ''
   // Remove the 'HUMAN_' prefix if it exists
-  const cleanEmail = email.replace('HUMAN_', '');
+  const cleanEmail = email.replace('HUMAN_', '')
   // Extract the username part before @gmail.com
-  const username = cleanEmail.split('@')[0];
+  const username = cleanEmail.split('@')[0]
   // Capitalize first letter of each word and replace underscores/dots with spaces
   return username
     .split(/[._]/)
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ');
-};
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ')
+}
 
 const getStatusColor = (status) => {
   const colors = {
-    'pending': 'warning',
-    'active': 'success',
-    'completed': 'grey'
-  };
-  return colors[status] || 'grey';
-};
+    pending: 'warning',
+    active: 'success',
+    completed: 'grey',
+  }
+  return colors[status] || 'grey'
+}
 
 onMounted(() => {
-  fetchActiveSessions();
+  fetchActiveSessions()
   // Poll for session updates every 5 seconds
-  sessionPollingInterval = setInterval(fetchActiveSessions, 5000);
-});
+  sessionPollingInterval = setInterval(fetchActiveSessions, 5000)
+})
 
 onUnmounted(() => {
   if (sessionPollingInterval) {
-    clearInterval(sessionPollingInterval);
+    clearInterval(sessionPollingInterval)
   }
-});
+})
 </script>
 
 <style scoped>

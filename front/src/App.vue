@@ -1,13 +1,14 @@
 <template>
   <v-app>
     <v-main class="fill-height gradient-background">
-      <router-view></router-view> <!-- This will render the matched component -->
+      <router-view></router-view>
+      <!-- This will render the matched component -->
     </v-main>
   </v-app>
 </template>
 
 <script setup>
-const testValue = import.meta.env.VITE_TEST;
+const testValue = import.meta.env.VITE_TEST
 </script>
 
 <style>

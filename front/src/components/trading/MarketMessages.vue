@@ -2,12 +2,18 @@
   <v-card height="100%" elevation="3" class="market-info-card">
     <v-card-text class="market-info-content" ref="messageContainer">
       <v-list>
-        <v-list-item v-for="(item, index) in extraParams" :key="item.var_name" class="market-info-item">
+        <v-list-item
+          v-for="(item, index) in extraParams"
+          :key="item.var_name"
+          class="market-info-item"
+        >
           <v-list-item-title class="info-title">
             {{ item.display_name }}
             <v-tooltip location="bottom" :text="item.explanation" max-width="300">
               <template v-slot:activator="{ props }">
-                <v-icon x-small v-bind="props" color="grey lighten-1">mdi-information-outline</v-icon>
+                <v-icon x-small v-bind="props" color="grey lighten-1"
+                  >mdi-information-outline</v-icon
+                >
               </template>
             </v-tooltip>
           </v-list-item-title>
@@ -21,37 +27,37 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from "vue";
-import { storeToRefs } from "pinia";
-import { useTraderStore } from "@/store/app";
+import { ref, onMounted, computed } from 'vue'
+import { storeToRefs } from 'pinia'
+import { useTraderStore } from '@/store/app'
 
-const { extraParams } = storeToRefs(useTraderStore());
+const { extraParams } = storeToRefs(useTraderStore())
 
 const formatValue = (value) => {
   if (typeof value === 'number') {
-    return value.toLocaleString('en-US', { 
-      minimumFractionDigits: 2, 
-      maximumFractionDigits: 2 
-    });
+    return value.toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })
   }
-  return value;
-};
+  return value
+}
 
 const getValueColor = (value) => {
   if (typeof value === 'number') {
-    return value > 0 ? 'green--text' : value < 0 ? 'red--text' : '';
+    return value > 0 ? 'green--text' : value < 0 ? 'red--text' : ''
   }
-  return '';
-};
+  return ''
+}
 
 onMounted(() => {
   // Any necessary setup
-});
+})
 </script>
 
 <style scoped>
 .market-info-card {
-  background-color: #FFFFFF;
+  background-color: #ffffff;
   font-family: 'Inter', sans-serif;
 }
 

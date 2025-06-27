@@ -12,15 +12,11 @@
         <!-- Introduction Card -->
         <v-col cols="12">
           <v-hover v-slot="{ isHovering, props }">
-            <v-card
-              v-bind="props"
-              :elevation="isHovering ? 8 : 2"
-              class="info-card"
-            >
+            <v-card v-bind="props" :elevation="isHovering ? 8 : 2" class="info-card">
               <v-card-text>
                 <p class="text-body-1">
-                  In this study, we investigate decision-making in financial markets. 
-                  The following are the instructions for this study. Please follow them carefully.
+                  In this study, we investigate decision-making in financial markets. The following
+                  are the instructions for this study. Please follow them carefully.
                 </p>
               </v-card-text>
             </v-card>
@@ -42,9 +38,8 @@
                   <span class="text-h6">Earnings</span>
                 </div>
                 <p class="text-body-1">
-                  You can earn considerable money depending on your decisions.
-                  Your earnings will be transferred to your Prolific account. 
-                  The transfer may take a few working days.
+                  You can earn considerable money depending on your decisions. Your earnings will be
+                  transferred to your Prolific account. The transfer may take a few working days.
                 </p>
               </v-card-text>
             </v-card>
@@ -54,20 +49,16 @@
         <!-- Overview Card -->
         <v-col cols="12" md="6">
           <v-hover v-slot="{ isHovering, props }">
-            <v-card
-              v-bind="props"
-              :elevation="isHovering ? 8 : 2"
-              class="info-card"
-            >
+            <v-card v-bind="props" :elevation="isHovering ? 8 : 2" class="info-card">
               <v-card-text>
                 <div class="d-flex align-center mb-4">
                   <v-icon size="28" color="primary" class="mr-2">mdi-information</v-icon>
                   <span class="text-h6">Study Overview</span>
                 </div>
                 <p class="text-body-1">
-                  You will participate in markets where you can earn money by trading. 
-                  Each market will last <span class="highlight-text">{{ marketDuration }} minutes</span> 
-                  and you will participate in <span class="highlight-text">{{ numMarkets }} markets</span>.
+                  You will participate in markets where you can earn money by trading. Each market
+                  will last <span class="highlight-text">{{ marketDuration }} minutes</span> and you
+                  will participate in <span class="highlight-text">{{ numMarkets }} markets</span>.
                 </p>
               </v-card-text>
             </v-card>
@@ -77,11 +68,7 @@
         <!-- Rules Card -->
         <v-col cols="12">
           <v-hover v-slot="{ isHovering, props }">
-            <v-card
-              v-bind="props"
-              :elevation="isHovering ? 8 : 2"
-              class="info-card"
-            >
+            <v-card v-bind="props" :elevation="isHovering ? 8 : 2" class="info-card">
               <v-card-text>
                 <div class="d-flex align-center mb-4">
                   <v-icon size="28" color="primary" class="mr-2">mdi-clipboard-list</v-icon>
@@ -91,7 +78,10 @@
                   <li>All your remaining shares and money are converted to pounds sterling</li>
                   <li>You earn this amount from that market</li>
                   <li>A new market starts</li>
-                  <li>You cannot use your earnings from the previous market to trade in the following markets</li>
+                  <li>
+                    You cannot use your earnings from the previous market to trade in the following
+                    markets
+                  </li>
                 </ul>
               </v-card-text>
             </v-card>
@@ -103,18 +93,18 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
-import { useTraderStore } from "@/store/app";
+import { computed } from 'vue'
+import { useTraderStore } from '@/store/app'
 
-const traderStore = useTraderStore();
+const traderStore = useTraderStore()
 
 const marketDuration = computed(() => {
-  return traderStore.traderAttributes?.all_attributes?.params?.trading_day_duration || 0;
-});
+  return traderStore.traderAttributes?.all_attributes?.params?.trading_day_duration || 0
+})
 
 const numMarkets = computed(() => {
-  return traderStore.traderAttributes?.all_attributes?.params?.max_markets_per_human || 0;
-});
+  return traderStore.traderAttributes?.all_attributes?.params?.max_markets_per_human || 0
+})
 </script>
 
 <style scoped>
@@ -130,7 +120,7 @@ const numMarkets = computed(() => {
 }
 
 .gradient-text {
-  background: linear-gradient(45deg, #2196F3, #4CAF50);
+  background: linear-gradient(45deg, #2196f3, #4caf50);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   font-weight: bold;
@@ -142,9 +132,15 @@ const numMarkets = computed(() => {
 }
 
 @keyframes pulse {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.1); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 .info-card {
@@ -154,11 +150,11 @@ const numMarkets = computed(() => {
 }
 
 .success-gradient {
-  background: linear-gradient(135deg, #4CAF5011, #81C78411) !important;
+  background: linear-gradient(135deg, #4caf5011, #81c78411) !important;
 }
 
 .highlight-text {
-  color: #1976D2;
+  color: #1976d2;
   font-weight: 600;
   font-size: 1.1rem;
 }
@@ -175,8 +171,8 @@ const numMarkets = computed(() => {
 }
 
 .rules-list li::before {
-  content: "•";
-  color: #1976D2;
+  content: '•';
+  color: #1976d2;
   font-weight: bold;
   position: absolute;
   left: 0;

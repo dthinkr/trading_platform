@@ -23,8 +23,8 @@
                   <span class="text-h6">Time Limit Not Met</span>
                 </div>
                 <p class="text-body-1">
-                  If you do not achieve the objective within the time limit of the market, 
-                  the trading platform will automatically execute additional trades.
+                  If you do not achieve the objective within the time limit of the market, the
+                  trading platform will automatically execute additional trades.
                 </p>
               </v-card-text>
             </v-card>
@@ -34,29 +34,21 @@
         <!-- Trading Objective Card -->
         <v-col cols="12">
           <v-hover v-slot="{ isHovering, props }">
-            <v-card
-              v-bind="props"
-              :elevation="isHovering ? 8 : 2"
-              class="info-card"
-            >
+            <v-card v-bind="props" :elevation="isHovering ? 8 : 2" class="info-card">
               <v-card-text>
                 <div class="d-flex align-center mb-4">
                   <v-icon size="28" :color="iconColor" class="mr-2">mdi-target</v-icon>
                   <span class="text-h6">Trading Objective</span>
                 </div>
-                <p class="text-body-1" style="color: blue;">{{ goalDescription }}</p>
+                <p class="text-body-1" style="color: blue">{{ goalDescription }}</p>
 
                 <v-expand-transition>
                   <div v-if="goalStatus !== 'noGoal' && goalStatus !== 'unknown'" class="mt-4">
-                    <v-alert
-                      color="info"
-                      variant="tonal"
-                      border="start"
-                      class="mb-4"
-                    >
-                      At the end of the market, the trading platform will automatically 
-                      {{ tradeAction.toLowerCase() }} each {{ tradeAction === 'Selling' ? 'unsold' : 'unbought' }} 
-                      share at {{ autoTradeMultiplier }} the average best bid and ask price.
+                    <v-alert color="info" variant="tonal" border="start" class="mb-4">
+                      At the end of the market, the trading platform will automatically
+                      {{ tradeAction.toLowerCase() }} each
+                      {{ tradeAction === 'Selling' ? 'unsold' : 'unbought' }} share at
+                      {{ autoTradeMultiplier }} the average best bid and ask price.
                     </v-alert>
                   </div>
                 </v-expand-transition>
@@ -80,18 +72,23 @@
                 </div>
                 <div class="earnings-formula pa-4 rounded-lg">
                   <div class="formula-title text-h6 mb-2">Market earnings =</div>
-                  <div v-if="goalStatus === 'noGoal' || goalStatus === 'unknown'" class="formula-content">
+                  <div
+                    v-if="goalStatus === 'noGoal' || goalStatus === 'unknown'"
+                    class="formula-content"
+                  >
                     Net profit or loss from all trades
                   </div>
                   <div v-else-if="goalStatus === 'selling'" class="formula-content">
-                    Revenue from sales <span class="formula-note">(incl. automatically sold shares)</span>
-                    <br>− <span class="formula-highlight">(Number of shares)</span> × 
+                    Revenue from sales
+                    <span class="formula-note">(incl. automatically sold shares)</span> <br />−
+                    <span class="formula-highlight">(Number of shares)</span> ×
                     <span class="formula-highlight">(Mid-price at the beginning)</span>
                   </div>
                   <div v-else class="formula-content">
-                    <span class="formula-highlight">(Number of shares)</span> × 
+                    <span class="formula-highlight">(Number of shares)</span> ×
                     <span class="formula-highlight">(Mid-price at the beginning)</span>
-                    <br>− Cost of purchases <span class="formula-note">(incl. automatically bought shares)</span>
+                    <br />− Cost of purchases
+                    <span class="formula-note">(incl. automatically bought shares)</span>
                   </div>
                 </div>
               </v-card-text>
@@ -102,28 +99,30 @@
         <!-- Trading Dynamics Card -->
         <v-col cols="12" md="6">
           <v-hover v-slot="{ isHovering, props }">
-            <v-card
-              v-bind="props"
-              :elevation="isHovering ? 8 : 2"
-              class="info-card info-gradient"
-            >
+            <v-card v-bind="props" :elevation="isHovering ? 8 : 2" class="info-card info-gradient">
               <v-card-text>
                 <div class="d-flex align-center mb-4">
                   <v-icon size="28" color="info" class="mr-2">
-                    {{ goalStatus === 'noGoal' ? 'mdi-chart-line' : 
-                      (tradeAction === 'Selling' ? 'mdi-arrow-down-bold' : 'mdi-arrow-up-bold') }}
+                    {{
+                      goalStatus === 'noGoal'
+                        ? 'mdi-chart-line'
+                        : tradeAction === 'Selling'
+                          ? 'mdi-arrow-down-bold'
+                          : 'mdi-arrow-up-bold'
+                    }}
                   </v-icon>
                   <span class="text-h6">
                     {{ goalStatus === 'noGoal' ? 'Market Dynamics' : 'Trading Objective' }}
                   </span>
                 </div>
                 <p class="text-body-1" v-if="goalStatus === 'noGoal' || goalStatus === 'unknown'">
-                  The market price may fluctuate above or below the mid-price at the beginning of the market. 
-                  These fluctuations can lead to potential gains or losses on your trades.
+                  The market price may fluctuate above or below the mid-price at the beginning of
+                  the market. These fluctuations can lead to potential gains or losses on your
+                  trades.
                 </p>
                 <template v-else>
                   <p class="text-body-1">
-                    Your task is to {{ tradeAction.toLowerCase() }} 
+                    Your task is to {{ tradeAction.toLowerCase() }}
                     <span class="highlight-text">{{ Math.abs(numShares) }} shares</span>.
                   </p>
                 </template>
@@ -135,11 +134,7 @@
         <!-- Initial Resources Card -->
         <v-col cols="12" md="6">
           <v-hover v-slot="{ isHovering, props }">
-            <v-card
-              v-bind="props"
-              :elevation="isHovering ? 8 : 2"
-              class="info-card"
-            >
+            <v-card v-bind="props" :elevation="isHovering ? 8 : 2" class="info-card">
               <v-card-text>
                 <div class="d-flex align-center mb-4">
                   <v-icon size="28" :color="iconColor" class="mr-2">mdi-wallet</v-icon>
@@ -147,11 +142,13 @@
                 </div>
                 <p class="text-body-1">
                   <span v-if="goalStatus === 'noGoal'">
-                    You will be given <span class="highlight-text">{{ initialLiras }} Liras</span> 
-                    and <span class="highlight-text">{{ numShares }} shares</span>.
+                    You will be given
+                    <span class="highlight-text">{{ initialLiras }} Liras</span> and
+                    <span class="highlight-text">{{ numShares }} shares</span>.
                   </span>
                   <span v-else-if="tradeAction === 'Selling'">
-                    You will be given <span class="highlight-text">{{ Math.abs(numShares) }} shares</span>.
+                    You will be given
+                    <span class="highlight-text">{{ Math.abs(numShares) }} shares</span>.
                   </span>
                   <span v-else>
                     You will be given <span class="highlight-text">{{ initialLiras }} Liras</span>.
@@ -165,27 +162,25 @@
         <!-- Final Earnings Card -->
         <v-col cols="12">
           <v-hover v-slot="{ isHovering, props }">
-            <v-card
-              v-bind="props"
-              :elevation="isHovering ? 8 : 2"
-              class="info-card"
-            >
+            <v-card v-bind="props" :elevation="isHovering ? 8 : 2" class="info-card">
               <v-card-text>
                 <div class="d-flex align-center mb-4">
                   <v-icon size="28" :color="iconColor" class="mr-2">mdi-cash-multiple</v-icon>
                   <span class="text-h6">Final Earnings</span>
                 </div>
                 <p class="text-body-1">
-                  At the end of the study, you will be awarded earnings from one randomly selected market.
-                  Your earnings will be converted at a rate of 
-                  <span class="highlight-text">{{ conversionRate }} Liras = 1 GBP</span>. 
-                  <br><br>
-                  The minimum earning is your participation fee, which is <span style="color: #1976D2;font-weight: 600;font-size: 1.1rem;">5 GBP</span>. 
-                  <br><br>
-                  For each market, your earnings will be capped at <span style="color: #1976D2;font-weight: 600;font-size: 1.1rem;">10 GBP</span>.
-                  <br><br>
-                  Thus, from each market you can earn up to <span style="color: #1976D2;font-weight: 600;font-size: 1.1rem;">15 GBP</span>.
-             
+                  At the end of the study, you will be awarded earnings from one randomly selected
+                  market. Your earnings will be converted at a rate of
+                  <span class="highlight-text">{{ conversionRate }} Liras = 1 GBP</span>.
+                  <br /><br />
+                  The minimum earning is your participation fee, which is
+                  <span style="color: #1976d2; font-weight: 600; font-size: 1.1rem">5 GBP</span>.
+                  <br /><br />
+                  For each market, your earnings will be capped at
+                  <span style="color: #1976d2; font-weight: 600; font-size: 1.1rem">10 GBP</span>.
+                  <br /><br />
+                  Thus, from each market you can earn up to
+                  <span style="color: #1976d2; font-weight: 600; font-size: 1.1rem">15 GBP</span>.
                 </p>
               </v-card-text>
             </v-card>
@@ -197,44 +192,49 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
-import { useTraderStore } from "@/store/app";
-import { storeToRefs } from "pinia";
+import { computed } from 'vue'
+import { useTraderStore } from '@/store/app'
+import { storeToRefs } from 'pinia'
 
 const props = defineProps({
   traderAttributes: Object,
-  iconColor: String
-});
+  iconColor: String,
+})
 
-const traderStore = useTraderStore();
-const { goalMessage } = storeToRefs(traderStore);
+const traderStore = useTraderStore()
+const { goalMessage } = storeToRefs(traderStore)
 
-const numShares = computed(() => props.traderAttributes?.shares ?? '#');
-const initialLiras = computed(() => props.traderAttributes?.cash ?? '#');
-const conversionRate = computed(() => props.traderAttributes?.all_attributes?.params?.conversion_rate || 'X');
+const numShares = computed(() => props.traderAttributes?.shares ?? '#')
+const initialLiras = computed(() => props.traderAttributes?.cash ?? '#')
+const conversionRate = computed(
+  () => props.traderAttributes?.all_attributes?.params?.conversion_rate || 'X'
+)
 
 const goalStatus = computed(() => {
-  if (props.traderAttributes?.shares === undefined) return 'unknown';
-  if (props.traderAttributes?.shares === props.traderAttributes?.initial_shares) return 'noGoal';
-  return props.traderAttributes?.shares < props.traderAttributes?.initial_shares ? 'selling' : 'buying';
-});
+  if (props.traderAttributes?.shares === undefined) return 'unknown'
+  if (props.traderAttributes?.shares === props.traderAttributes?.initial_shares) return 'noGoal'
+  return props.traderAttributes?.shares < props.traderAttributes?.initial_shares
+    ? 'selling'
+    : 'buying'
+})
 
 const tradeAction = computed(() => {
-  if (goalStatus.value === 'selling') return 'Selling';
-  if (goalStatus.value === 'buying') return 'Buying';
-  return 'Trading';
-});
+  if (goalStatus.value === 'selling') return 'Selling'
+  if (goalStatus.value === 'buying') return 'Buying'
+  return 'Trading'
+})
 
 const autoTradeMultiplier = computed(() => {
-  if (goalStatus.value === 'selling') return '½×';
-  if (goalStatus.value === 'buying') return '1.5×';
-  return '';
-});
+  if (goalStatus.value === 'selling') return '½×'
+  if (goalStatus.value === 'buying') return '1.5×'
+  return ''
+})
 
 const goalDescription = computed(() => {
-  if (!goalMessage.value) return 'You can freely trade in this market. Your goal is to make a profit.';
-  return goalMessage.value.text;
-});
+  if (!goalMessage.value)
+    return 'You can freely trade in this market. Your goal is to make a profit.'
+  return goalMessage.value.text
+})
 </script>
 
 <style scoped>
@@ -250,7 +250,7 @@ const goalDescription = computed(() => {
 }
 
 .gradient-text {
-  background: linear-gradient(45deg, #2196F3, #4CAF50);
+  background: linear-gradient(45deg, #2196f3, #4caf50);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   font-weight: bold;
@@ -262,9 +262,15 @@ const goalDescription = computed(() => {
 }
 
 @keyframes pulse {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.1); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 .info-card {
@@ -274,30 +280,30 @@ const goalDescription = computed(() => {
 }
 
 .success-gradient {
-  background: linear-gradient(135deg, #4CAF5011, #81C78411) !important;
+  background: linear-gradient(135deg, #4caf5011, #81c78411) !important;
 }
 
 .info-gradient {
-  background: linear-gradient(135deg, #2196F311, #64B5F611) !important;
+  background: linear-gradient(135deg, #2196f311, #64b5f611) !important;
 }
 
 .warning-gradient {
-  background: linear-gradient(135deg, #FFA00011, #FFD54F11) !important;
+  background: linear-gradient(135deg, #ffa00011, #ffd54f11) !important;
 }
 
 .highlight-text {
-  color: #1976D2;
+  color: #1976d2;
   font-weight: 600;
   font-size: 1.1rem;
 }
 
 .earnings-formula {
-  background: rgba(255,255,255,0.5);
-  border: 1px solid rgba(0,0,0,0.1);
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 .formula-title {
-  color: #1976D2;
+  color: #1976d2;
 }
 
 .formula-content {
@@ -306,7 +312,7 @@ const goalDescription = computed(() => {
 }
 
 .formula-highlight {
-  color: #1976D2;
+  color: #1976d2;
   font-weight: 500;
 }
 

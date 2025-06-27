@@ -12,30 +12,24 @@
         <!-- Main Info Card -->
         <v-col cols="12">
           <v-hover v-slot="{ isHovering, props }">
-            <v-card
-              v-bind="props"
-              :elevation="isHovering ? 8 : 2"
-              class="info-card"
-            >
+            <v-card v-bind="props" :elevation="isHovering ? 8 : 2" class="info-card">
               <v-card-text>
                 <div class="d-flex align-center mb-4">
                   <v-icon size="28" :color="iconColor" class="mr-2">mdi-robot</v-icon>
                   <span class="text-h6">Artificial Traders</span>
                 </div>
                 <p class="text-body-1">
-                  The other participants in the market are all artificial (algorithmic) traders, i.e., non-human.
+                  The other participants in the market are all artificial (algorithmic) traders,
+                  i.e., non-human.
                 </p>
-                <v-alert
-                  color="info"
-                  variant="tonal"
-                  border="start"
-                  class="mt-4"
-                >
+                <v-alert color="info" variant="tonal" border="start" class="mt-4">
                   All artificial traders have no objective in terms of earnings.
-                  <br><br>
-                  However, they may have tasks such as buying or selling a specific number of shares, or both.
-                  <br><br>
-                  For example, their trading activity can significantly shift the price either upward or downward.
+                  <br /><br />
+                  However, they may have tasks such as buying or selling a specific number of
+                  shares, or both.
+                  <br /><br />
+                  For example, their trading activity can significantly shift the price either
+                  upward or downward.
                 </v-alert>
               </v-card-text>
             </v-card>
@@ -107,31 +101,23 @@
         <!-- Next Steps Card -->
         <v-col cols="12">
           <v-hover v-slot="{ isHovering, props }">
-            <v-card
-              v-bind="props"
-              :elevation="isHovering ? 8 : 2"
-              class="info-card"
-            >
+            <v-card v-bind="props" :elevation="isHovering ? 8 : 2" class="info-card">
               <v-card-text>
                 <div class="d-flex align-center mb-4">
                   <v-icon size="28" :color="iconColor" class="mr-2">mdi-school</v-icon>
                   <span class="text-h6">Next Steps</span>
                 </div>
                 <v-timeline density="compact" align="start">
-                  <v-timeline-item
-                    dot-color="success"
-                    icon="mdi-checkbox-marked-circle"
-                  >
+                  <v-timeline-item dot-color="success" icon="mdi-checkbox-marked-circle">
                     <div class="text-subtitle-1 font-weight-bold">Control Questions</div>
                     <div class="text-body-2">You will answer some control questions</div>
                   </v-timeline-item>
-                  
-                  <v-timeline-item
-                    dot-color="info"
-                    icon="mdi-play-circle"
-                  >
+
+                  <v-timeline-item dot-color="info" icon="mdi-play-circle">
                     <div class="text-subtitle-1 font-weight-bold">Market</div>
-                    <div class="text-body-2">You will start trading to familiarize yourself with the trading platform</div>
+                    <div class="text-body-2">
+                      You will start trading to familiarize yourself with the trading platform
+                    </div>
                   </v-timeline-item>
                 </v-timeline>
               </v-card-text>
@@ -145,8 +131,8 @@
 
 <script setup>
 const props = defineProps({
-  iconColor: String
-});
+  iconColor: String,
+})
 </script>
 
 <style scoped>
@@ -162,7 +148,7 @@ const props = defineProps({
 }
 
 .gradient-text {
-  background: linear-gradient(45deg, #2196F3, #4CAF50);
+  background: linear-gradient(45deg, #2196f3, #4caf50);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   font-weight: bold;
@@ -174,9 +160,15 @@ const props = defineProps({
 }
 
 @keyframes pulse {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.1); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 .info-card {
@@ -186,15 +178,15 @@ const props = defineProps({
 }
 
 .success-gradient {
-  background: linear-gradient(135deg, #4CAF5011, #81C78411) !important;
+  background: linear-gradient(135deg, #4caf5011, #81c78411) !important;
 }
 
 .info-gradient {
-  background: linear-gradient(135deg, #2196F311, #64B5F611) !important;
+  background: linear-gradient(135deg, #2196f311, #64b5f611) !important;
 }
 
 .warning-gradient {
-  background: linear-gradient(135deg, #FFA00011, #FFD54F11) !important;
+  background: linear-gradient(135deg, #ffa00011, #ffd54f11) !important;
 }
 
 @media (max-width: 960px) {

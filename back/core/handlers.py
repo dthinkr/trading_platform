@@ -125,8 +125,8 @@ class CancelHandler(EventHandler):
             result: CancelResult = await self.order_service.cancel_order(event.order_id)
             
             if result.success:
-                # Log cancellation
-                self.trading_logger.info(f"CANCEL_ORDER: {{'order_id': '{event.order_id}', 'trader_id': '{event.trader_id}'}}")
+                # Log cancellation with complete order details
+                self.trading_logger.info(f"CANCEL_ORDER: {result.order}")
                 
                 # Broadcast update
                 message = await self.broadcast_service.create_broadcast_message(

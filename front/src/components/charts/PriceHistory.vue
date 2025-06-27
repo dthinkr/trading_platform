@@ -7,41 +7,43 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from "vue";
-import { useTraderStore } from "@/store/app";
-import { storeToRefs } from "pinia";
-import { Chart, registerables } from 'chart.js';
-import 'chartjs-adapter-date-fns';
+import { ref, onMounted, watch } from 'vue'
+import { useTraderStore } from '@/store/app'
+import { storeToRefs } from 'pinia'
+import { Chart, registerables } from 'chart.js'
+import 'chartjs-adapter-date-fns'
 
 // Register Chart.js components
-Chart.register(...registerables);
+Chart.register(...registerables)
 
-const traderStore = useTraderStore();
-const { history } = storeToRefs(traderStore);
-const chartCanvas = ref(null);
-let priceChart = null;
+const traderStore = useTraderStore()
+const { history } = storeToRefs(traderStore)
+const chartCanvas = ref(null)
+let priceChart = null
 
 const createChart = (data) => {
   if (priceChart) {
-    priceChart.destroy();
+    priceChart.destroy()
   }
 
-  const ctx = chartCanvas.value.getContext('2d');
-  
+  const ctx = chartCanvas.value.getContext('2d')
+
   priceChart = new Chart(ctx, {
     type: 'line',
     data: {
-      datasets: [{
-        label: 'Price',
-        data: data,
-        borderColor: '#2196F3',
-        borderWidth: 3,
-        pointRadius: 4,
-        pointBackgroundColor: '#2196F3',
-        pointBorderColor: '#2196F3',
-        tension: 0,
-        fill: false
-      }]
+      datasets: [
+        {
+          label: 'Price',
+          data: data,
+          borderColor: '#2196F3',
+          borderWidth: 3,
+          pointRadius: 4,
+          pointBackgroundColor: '#2196F3',
+          pointBorderColor: '#2196F3',
+          tension: 0,
+          fill: false,
+        },
+      ],
     },
     options: {
       responsive: true,
@@ -53,7 +55,7 @@ const createChart = (data) => {
       },
       plugins: {
         legend: {
-          display: false
+          display: false,
         },
         tooltip: {
           enabled: true,
@@ -67,18 +69,18 @@ const createChart = (data) => {
           titleFont: {
             size: 16,
             family: "'Inter', sans-serif",
-            weight: 'normal'
+            weight: 'normal',
           },
           bodyFont: {
             size: 16,
             family: "'Inter', sans-serif",
-            weight: 'bold'
+            weight: 'bold',
           },
           callbacks: {
             title: () => '',
-            label: (context) => `Price: $${Math.round(context.raw.y)}`
-          }
-        }
+            label: (context) => `Price: $${Math.round(context.raw.y)}`,
+          },
+        },
       },
       scales: {
         x: {
@@ -86,48 +88,50 @@ const createChart = (data) => {
           time: {
             unit: 'second',
             displayFormats: {
-              second: 'mm:ss'
-            }
+              second: 'mm:ss',
+            },
           },
           grid: {
-            display: false
+            display: false,
           },
           ticks: {
             font: {
               size: 12,
-              family: "'Inter', sans-serif"
+              family: "'Inter', sans-serif",
             },
-            color: '#666'
-          }
+            color: '#666',
+          },
         },
         y: {
           position: 'left',
           grid: {
-            display: false
+            display: false,
           },
           ticks: {
             font: {
               size: 12,
-              family: "'Inter', sans-serif"
+              family: "'Inter', sans-serif",
             },
             color: '#666',
             callback: (value) => `${Math.round(value)}`,
             maxTicksLimit: 8,
             precision: 0,
-            stepSize: Math.ceil((Math.max(...data.map(d => d.y)) - Math.min(...data.map(d => d.y))) / 8)
+            stepSize: Math.ceil(
+              (Math.max(...data.map((d) => d.y)) - Math.min(...data.map((d) => d.y))) / 8
+            ),
           },
           beginAtZero: false,
-          grace: '5%'
-        }
+          grace: '5%',
+        },
       },
       elements: {
         point: {
-          hoverRadius: 6
-        }
-      }
-    }
-  });
-};
+          hoverRadius: 6,
+        },
+      },
+    },
+  })
+}
 
 watch(
   history,
@@ -135,35 +139,35 @@ watch(
     if (newHistory && newHistory.length && chartCanvas.value) {
       const data = newHistory.map((item) => ({
         x: new Date(item.timestamp),
-        y: Math.round(item.price)
-      }));
-      
+        y: Math.round(item.price),
+      }))
+
       if (priceChart) {
-        priceChart.data.datasets[0].data = data;
-        priceChart.update('none');
+        priceChart.data.datasets[0].data = data
+        priceChart.update('none')
       } else {
-        createChart(data);
+        createChart(data)
       }
     }
   },
   { deep: true }
-);
+)
 
 onMounted(() => {
   if (history.value && history.value.length) {
     const data = history.value.map((item) => ({
       x: new Date(item.timestamp),
-      y: Math.round(item.price)
-    }));
-    createChart(data);
+      y: Math.round(item.price),
+    }))
+    createChart(data)
   }
-});
+})
 </script>
 
 <style scoped>
 .history-chart-container {
   width: 100%;
-  background-color: #FFFFFF;
+  background-color: #ffffff;
   overflow: hidden;
   font-family: 'Inter', sans-serif;
 }

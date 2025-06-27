@@ -62,10 +62,37 @@ def logfile_to_message(logfile_name):
                     type_save.append(msg_type)
         
                 elif msg_type == 'CANCEL_ORDER':
-                    # CANCEL_ORDER format: {'order_id': 'NOISE_1_16', 'trader_id': 'NOISE_1'}
-                    # We need to skip CANCEL_ORDER entries since they don't have price/amount
-                    # and the current analysis code expects them. For now, we'll skip them.
-                    continue
+                    # CANCEL_ORDER now contains complete order details, same format as ADD_ORDER
+                    amount_key = "'amount': "
+                    start_index = msg_content.index(amount_key) + len(amount_key)
+                    end_index = msg_content.index(',', start_index)
+                    amount_str = msg_content[start_index:end_index].strip()
+                    amount = float(amount_str)
+                    
+                    price_key = "'price': "
+                    start_index = msg_content.index(price_key) + len(price_key)
+                    end_index = msg_content.index(',', start_index)
+                    price_str = msg_content[start_index:end_index].strip()
+                    price = float(price_str)
+                    
+                    direction_key = "<OrderType."
+                    start_index = msg_content.index(direction_key) + len(direction_key)
+                    end_index = msg_content.index(':', start_index)
+                    direction_str = msg_content[start_index:end_index].strip()
+                    direction = (direction_str)
+                    
+                    trader_key = "'trader_id': '"
+                    start_index = msg_content.index(trader_key) + len(trader_key)
+                    end_index = msg_content.index("'", start_index)
+                    trader_str = msg_content[start_index:end_index].strip()
+                    trader_type = (trader_str)
+                    
+                    price_save.append(price)
+                    amount_save.append(amount)
+                    direction_save.append(direction)
+                    trader_save.append(trader_type)
+                    timestamp_save.append(timestamp_str)
+                    type_save.append(msg_type)
                     
                 elif msg_type == 'MATCHED_ORDER':
                     # We might want to process these in the future, but skip for now

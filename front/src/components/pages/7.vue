@@ -19,19 +19,24 @@
 
     <v-container class="questions-grid">
       <v-row>
-        <v-col v-for="(question, index) in questions" 
-               :key="index" 
-               cols="12" 
-               :md="questions.length <= 2 ? 12 : 6"
-               class="question-col">
+        <v-col
+          v-for="(question, index) in questions"
+          :key="index"
+          cols="12"
+          :md="questions.length <= 2 ? 12 : 6"
+          class="question-col"
+        >
           <v-hover v-slot="{ isHovering, props }">
             <v-card
               v-bind="props"
               :elevation="isHovering ? 8 : 2"
-              :class="['question-card', {
-                'correct': question.isCorrect,
-                'incorrect': question.showFeedback && !question.isCorrect
-              }]"
+              :class="[
+                'question-card',
+                {
+                  correct: question.isCorrect,
+                  incorrect: question.showFeedback && !question.isCorrect,
+                },
+              ]"
               :color="getCardColor(question)"
               transition="scale-transition"
             >
@@ -39,7 +44,7 @@
                 <v-card-text>
                   <div class="question-number">#{{ index + 1 }}</div>
                   <div class="question-text">{{ question.text }}</div>
-                  
+
                   <v-fade-transition group>
                     <v-radio-group
                       v-model="question.userAnswer"
@@ -81,128 +86,119 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, computed, watch, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 
 const props = defineProps({
-  iconColor: String
-});
+  iconColor: String,
+})
 
-const router = useRouter();
+const router = useRouter()
 
 const questions = ref([
   {
-    text: "If you have a certain buying or selling goal, can you both buy and sell shares in the same market?",
-    options: ["Yes", "No"],
-    correctAnswer: "No",
-    explanation: "You can only buy OR sell shares in a given market, not both.",
+    text: 'If you have a certain buying or selling goal, can you both buy and sell shares in the same market?',
+    options: ['Yes', 'No'],
+    correctAnswer: 'No',
+    explanation: 'You can only buy OR sell shares in a given market, not both.',
     userAnswer: null,
     isCorrect: false,
-    showFeedback: false
+    showFeedback: false,
   },
   {
-    text: "What happens when you place a passive order?",
+    text: 'What happens when you place a passive order?',
     options: [
-      "It executes immediately",
-      "You must wait for someone to accept it",
-      "It gets automatically cancelled"
+      'It executes immediately',
+      'You must wait for someone to accept it',
+      'It gets automatically cancelled',
     ],
-    correctAnswer: "You must wait for someone to accept it",
-    explanation: "Passive orders wait in the order book until another trader accepts them.",
+    correctAnswer: 'You must wait for someone to accept it',
+    explanation: 'Passive orders wait in the order book until another trader accepts them.',
     userAnswer: null,
     isCorrect: false,
-    showFeedback: false
+    showFeedback: false,
   },
   {
-    text: "How many shares can you trade in a single order?",
-    options: [
-      "As many as you want",
-      "Only one share per order",
-      "Maximum of 10 shares"
-    ],
-    correctAnswer: "Only one share per order",
-    explanation: "Each order is for one share only. If you want to trade multiple shares, you need to place multiple orders.",
+    text: 'How many shares can you trade in a single order?',
+    options: ['As many as you want', 'Only one share per order', 'Maximum of 10 shares'],
+    correctAnswer: 'Only one share per order',
+    explanation:
+      'Each order is for one share only. If you want to trade multiple shares, you need to place multiple orders.',
     userAnswer: null,
     isCorrect: false,
-    showFeedback: false
+    showFeedback: false,
   },
   {
     text: "What happens if you don't complete your trading objective within the time limit?",
     options: [
-      "Nothing happens",
-      "The system automatically completes the trades for you",
-      "You lose all your earnings"
+      'Nothing happens',
+      'The system automatically completes the trades for you',
+      'You lose all your earnings',
     ],
-    correctAnswer: "The system automatically completes the trades for you",
-    explanation: "The trading platform will automatically execute any remaining required trades at the end of the market.",
+    correctAnswer: 'The system automatically completes the trades for you',
+    explanation:
+      'The trading platform will automatically execute any remaining required trades at the end of the market.',
     userAnswer: null,
     isCorrect: false,
-    showFeedback: false
+    showFeedback: false,
   },
   {
-    text: "What are the other market participants?",
-    options: [
-      "Human Participants",
-      "Artificial (Algorithmic) Agents",
-      "Both"
-    ],
-    correctAnswer: "Artificial (Algorithmic) Agents",
-    explanation: "In this experimental session, you will play only with artificial agents.",
+    text: 'What are the other market participants?',
+    options: ['Human Participants', 'Artificial (Algorithmic) Agents', 'Both'],
+    correctAnswer: 'Artificial (Algorithmic) Agents',
+    explanation: 'In this experimental session, you will play only with artificial agents.',
     userAnswer: null,
     isCorrect: false,
-    showFeedback: false
+    showFeedback: false,
   },
   {
-    text: "What is the impact on the market price if one of the aritificial agents sells a large number of shares?",
-    options: [
-      "Mid-Price increases",
-      "Mid-Price decreases",
-      "Mid-Price remains constant"
-    ],
-    correctAnswer: "Mid-Price decreases",
-    explanation: "In this scenario, the price of the new best buy offer will decrease, and consequently, the mid-price will also decrease.",
+    text: 'What is the impact on the market price if one of the aritificial agents sells a large number of shares?',
+    options: ['Mid-Price increases', 'Mid-Price decreases', 'Mid-Price remains constant'],
+    correctAnswer: 'Mid-Price decreases',
+    explanation:
+      'In this scenario, the price of the new best buy offer will decrease, and consequently, the mid-price will also decrease.',
     userAnswer: null,
     isCorrect: false,
-    showFeedback: false
-  }
-]);
+    showFeedback: false,
+  },
+])
 
 const correctCount = computed(() => {
-  return questions.value.filter(q => q.isCorrect).length;
-});
+  return questions.value.filter((q) => q.isCorrect).length
+})
 
 const allQuestionsAnsweredCorrectly = computed(() => {
-  return questions.value.every(q => q.isCorrect);
-});
+  return questions.value.every((q) => q.isCorrect)
+})
 
-const emit = defineEmits(['update:canProgress']);
+const emit = defineEmits(['update:canProgress'])
 
 watch(allQuestionsAnsweredCorrectly, (newValue) => {
-  emit('update:canProgress', newValue);
-});
+  emit('update:canProgress', newValue)
+})
 
 onMounted(() => {
-  emit('update:canProgress', false);
-});
+  emit('update:canProgress', false)
+})
 
 const checkAnswer = (index) => {
-  const question = questions.value[index];
-  question.showFeedback = true;
-  question.isCorrect = question.userAnswer === question.correctAnswer;
-  emit('update:canProgress', allQuestionsAnsweredCorrectly.value);
-};
+  const question = questions.value[index]
+  question.showFeedback = true
+  question.isCorrect = question.userAnswer === question.correctAnswer
+  emit('update:canProgress', allQuestionsAnsweredCorrectly.value)
+}
 
 const getRadioColor = (question, option) => {
-  if (!question.showFeedback) return 'primary';
-  if (option === question.correctAnswer) return 'success';
-  if (option === question.userAnswer && !question.isCorrect) return 'error';
-  return 'grey';
-};
+  if (!question.showFeedback) return 'primary'
+  if (option === question.correctAnswer) return 'success'
+  if (option === question.userAnswer && !question.isCorrect) return 'error'
+  return 'grey'
+}
 
 const getCardColor = (question) => {
-  if (!question.showFeedback) return 'surface';
-  return question.isCorrect ? 'success-lighten-4' : 'error-lighten-4';
-};
+  if (!question.showFeedback) return 'surface'
+  return question.isCorrect ? 'success-lighten-4' : 'error-lighten-4'
+}
 </script>
 
 <style scoped>
@@ -219,7 +215,7 @@ const getCardColor = (question) => {
 }
 
 .gradient-text {
-  background: linear-gradient(45deg, #2196F3, #4CAF50);
+  background: linear-gradient(45deg, #2196f3, #4caf50);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   font-weight: bold;
@@ -231,9 +227,15 @@ const getCardColor = (question) => {
 }
 
 @keyframes pulse {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.1); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 .progress-indicator {
@@ -259,7 +261,7 @@ const getCardColor = (question) => {
   position: absolute;
   top: 1rem;
   right: 1rem;
-  background: rgba(0,0,0,0.1);
+  background: rgba(0, 0, 0, 0.1);
   padding: 0.3rem 0.8rem;
   border-radius: 1rem;
   font-weight: bold;
@@ -302,7 +304,7 @@ const getCardColor = (question) => {
   .questions-container {
     padding: 1rem;
   }
-  
+
   .question-text {
     font-size: 1rem;
   }

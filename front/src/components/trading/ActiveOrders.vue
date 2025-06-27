@@ -7,7 +7,11 @@
       <div v-else class="orders-columns">
         <div class="orders-column bid-column">
           <div class="order-levels-container">
-            <div v-for="[price, level] in sortedOrderLevels.buy" :key="price" class="order-level bid">
+            <div
+              v-for="[price, level] in sortedOrderLevels.buy"
+              :key="price"
+              class="order-level bid"
+            >
               <div class="order-header">
                 <span class="order-type">BUY</span>
                 <div class="price">{{ formatPrice(price) }}</div>
@@ -37,13 +41,22 @@
                   </v-btn>
                 </div>
               </div>
-              <v-progress-linear :value="level.amount / maxAmount * 100" color="success" height="2" class="amount-progress"></v-progress-linear>
+              <v-progress-linear
+                :value="(level.amount / maxAmount) * 100"
+                color="success"
+                height="2"
+                class="amount-progress"
+              ></v-progress-linear>
             </div>
           </div>
         </div>
         <div class="orders-column ask-column">
           <div class="order-levels-container">
-            <div v-for="[price, level] in sortedOrderLevels.sell" :key="price" class="order-level ask">
+            <div
+              v-for="[price, level] in sortedOrderLevels.sell"
+              :key="price"
+              class="order-level ask"
+            >
               <div class="order-header">
                 <span class="order-type">SELL</span>
                 <div class="price">{{ formatPrice(price) }}</div>
@@ -73,7 +86,12 @@
                   </v-btn>
                 </div>
               </div>
-              <v-progress-linear :value="level.amount / maxAmount * 100" color="error" height="2" class="amount-progress"></v-progress-linear>
+              <v-progress-linear
+                :value="(level.amount / maxAmount) * 100"
+                color="error"
+                height="2"
+                class="amount-progress"
+              ></v-progress-linear>
             </div>
           </div>
         </div>
@@ -83,101 +101,105 @@
 </template>
 
 <script setup>
-import { computed, onMounted, watch } from 'vue';
-import { useTraderStore } from "@/store/app";
-import { storeToRefs } from "pinia";
-import axios from 'axios';
+import { computed, onMounted, watch } from 'vue'
+import { useTraderStore } from '@/store/app'
+import { storeToRefs } from 'pinia'
+import axios from 'axios'
 
 const props = defineProps({
   isGoalAchieved: {
     type: Boolean,
-    default: false
-  }
-});
+    default: false,
+  },
+})
 
-const traderStore = useTraderStore();
-const { activeOrders, traderUuid } = storeToRefs(traderStore);
+const traderStore = useTraderStore()
+const { activeOrders, traderUuid } = storeToRefs(traderStore)
 
 // Initialize active orders from backend on component mount
 onMounted(async () => {
   try {
     // Get trader market info which includes active orders
-    const response = await axios.get(`/trader/${traderUuid.value}/market`);
-    
-    if (response.data.status === "success") {
+    const response = await axios.get(`/trader/${traderUuid.value}/market`)
+
+    if (response.data.status === 'success') {
       // Update store with active orders from backend
-      const traderOrders = response.data.data.game_params?.active_orders || [];
-      activeOrders.value = traderOrders.filter(order => 
-        order.trader_id === traderUuid.value
-      );
+      const traderOrders = response.data.data.game_params?.active_orders || []
+      activeOrders.value = traderOrders.filter((order) => order.trader_id === traderUuid.value)
     }
   } catch (error) {
-    console.error('Error fetching active orders:', error);
+    console.error('Error fetching active orders:', error)
   }
-});
+})
 
 // Watch for changes in active orders and save them
-watch(activeOrders, (newOrders) => {
-  saveActiveOrders(newOrders);
-}, { deep: true });
+watch(
+  activeOrders,
+  (newOrders) => {
+    saveActiveOrders(newOrders)
+  },
+  { deep: true }
+)
 
 const sortedOrderLevels = computed(() => {
-  const orders = activeOrders.value;
-  const levels = { buy: {}, sell: {} };
-  
-  orders.forEach(order => {
-    const type = order.order_type === 1 ? 'buy' : 'sell';
-    const price = order.price.toString();
+  const orders = activeOrders.value
+  const levels = { buy: {}, sell: {} }
+
+  orders.forEach((order) => {
+    const type = order.order_type === 1 ? 'buy' : 'sell'
+    const price = order.price.toString()
     if (!levels[type][price]) {
-      levels[type][price] = { type: order.order_type, amount: 0 };
+      levels[type][price] = { type: order.order_type, amount: 0 }
     }
-    levels[type][price].amount += order.amount;
-  });
+    levels[type][price].amount += order.amount
+  })
 
   return {
     buy: Object.entries(levels.buy).sort(([a], [b]) => Number(b) - Number(a)),
-    sell: Object.entries(levels.sell).sort(([a], [b]) => Number(a) - Number(b))
-  };
-});
+    sell: Object.entries(levels.sell).sort(([a], [b]) => Number(a) - Number(b)),
+  }
+})
 
 const maxAmount = computed(() => {
   const allAmounts = [
     ...Object.values(sortedOrderLevels.value.buy).map(([, level]) => level.amount),
-    ...Object.values(sortedOrderLevels.value.sell).map(([, level]) => level.amount)
-  ];
-  return Math.max(...allAmounts, 1);
-});
+    ...Object.values(sortedOrderLevels.value.sell).map(([, level]) => level.amount),
+  ]
+  return Math.max(...allAmounts, 1)
+})
 
 function formatPrice(price) {
-  return Math.round(price).toString(); // Changed to round the price
+  return Math.round(price).toString() // Changed to round the price
 }
 
 function addOrder(type, price) {
   if (!props.isGoalAchieved) {
-    traderStore.addOrder({ order_type: type, price: Number(price), amount: 1 });
+    traderStore.addOrder({ order_type: type, price: Number(price), amount: 1 })
   }
 }
 
 function cancelOrder(type, price) {
   if (!props.isGoalAchieved) {
-    const orderToCancel = activeOrders.value.find(order => order.order_type === type && order.price === Number(price));
+    const orderToCancel = activeOrders.value.find(
+      (order) => order.order_type === type && order.price === Number(price)
+    )
     if (orderToCancel) {
-      traderStore.cancelOrder(orderToCancel.id);
+      traderStore.cancelOrder(orderToCancel.id)
     }
   }
 }
 
 // Save active orders to localStorage
 const saveActiveOrders = (orders) => {
-  localStorage.setItem(`activeOrders_${traderUuid.value}`, JSON.stringify(orders));
-};
+  localStorage.setItem(`activeOrders_${traderUuid.value}`, JSON.stringify(orders))
+}
 </script>
 
 <style scoped>
 .my-orders-card {
   display: flex;
   flex-direction: column;
-  background-color: #FFFFFF;
+  background-color: #ffffff;
   font-family: 'Inter', sans-serif;
 }
 

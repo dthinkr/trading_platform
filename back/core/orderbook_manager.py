@@ -1,8 +1,6 @@
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional, Union
 from core.data_models import Order, OrderStatus, OrderType
 from sortedcontainers import SortedDict
-from core.data_models import OrderStatus, OrderType
-from typing import Dict, List, Tuple, Optional, Union
 
 class OrderBookManager:
     def __init__(self):
@@ -33,6 +31,9 @@ class OrderBookManager:
 
     def cancel_order(self, order_id: str) -> bool:
         return self.order_book.cancel_order(order_id)
+
+    def cancel_order_with_details(self, order_id: str) -> Tuple[Optional[Dict], bool]:
+        return self.order_book.cancel_order_with_details(order_id)
 
     def clear_orders(self) -> List[Tuple[Dict, Dict, float]]:
         return self.order_book.clear_orders()
@@ -127,6 +128,38 @@ class OrderBook:
 
         del self.all_orders[order_id]
         return True
+
+    def cancel_order_with_details(self, order_id: str) -> Tuple[Optional[Dict], bool]:
+        order = self.all_orders.get(order_id)
+
+        if not order:
+            return None, False
+
+        # Make a copy of the order before removing it
+        order_copy = order.copy()
+        
+        price = order["price"]
+        order_type = order["order_type"]
+
+        if order_type == OrderType.BID.value:
+            if price in self.bids and order in self.bids[price]:
+                self.bids[price].remove(order)
+                if not self.bids[price]:
+                    del self.bids[price]
+            else:
+                return order_copy, False
+        elif order_type == OrderType.ASK.value:
+            if price in self.asks and order in self.asks[price]:
+                self.asks[price].remove(order)
+                if not self.asks[price]:
+                    del self.asks[price]
+            else:
+                return order_copy, False
+        else:
+            return order_copy, False
+
+        del self.all_orders[order_id]
+        return order_copy, True
 
     def get_spread(self) -> Tuple[Optional[float], Optional[float]]:
         if self.asks and self.bids:

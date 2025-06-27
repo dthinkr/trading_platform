@@ -1,110 +1,113 @@
 <script setup>
-import { computed } from "vue";
-import { useTraderStore } from "@/store/app";
-import { storeToRefs } from "pinia";
+import { computed } from 'vue'
+import { useTraderStore } from '@/store/app'
+import { storeToRefs } from 'pinia'
 
-const traderStore = useTraderStore();
-const { executedOrders, recentTransactions, traderUuid } = storeToRefs(traderStore);
+const traderStore = useTraderStore()
+const { executedOrders, recentTransactions, traderUuid } = storeToRefs(traderStore)
 
 const filledOrders = computed(() => {
   // Only use transactions from market store to avoid double counting
   // The backend handles inventory updates, so we don't need to mix with executedOrders
-  const relevantTransactions = recentTransactions.value.filter(t => {
-    const isBidTrader = t.bid_trader_id === traderUuid.value;
-    const isAskTrader = t.ask_trader_id === traderUuid.value;
-    return isBidTrader || isAskTrader;
-  });
+  const relevantTransactions = recentTransactions.value.filter((t) => {
+    const isBidTrader = t.bid_trader_id === traderUuid.value
+    const isAskTrader = t.ask_trader_id === traderUuid.value
+    return isBidTrader || isAskTrader
+  })
 
-  return relevantTransactions;
-});
+  return relevantTransactions
+})
 
 const groupedOrders = computed(() => {
-  const bids = {};
-  const asks = {};
+  const bids = {}
+  const asks = {}
 
-  filledOrders.value.forEach(order => {
+  filledOrders.value.forEach((order) => {
     // Determine if this is a bid or ask for the current trader
-    const isBid = (order.bid_trader_id === traderUuid.value) || 
-                 (order.trader_id === traderUuid.value && 
-                  ['BUY', 'BID', 1].includes(order.type || order.order_type));
-                  
-    const isAsk = (order.ask_trader_id === traderUuid.value) || 
-                 (order.trader_id === traderUuid.value && 
-                  ['SELL', 'ASK', -1].includes(order.type || order.order_type));
+    const isBid =
+      order.bid_trader_id === traderUuid.value ||
+      (order.trader_id === traderUuid.value &&
+        ['BUY', 'BID', 1].includes(order.type || order.order_type))
+
+    const isAsk =
+      order.ask_trader_id === traderUuid.value ||
+      (order.trader_id === traderUuid.value &&
+        ['SELL', 'ASK', -1].includes(order.type || order.order_type))
 
     // Skip if not the current trader's order
-    if (!isBid && !isAsk) return;
+    if (!isBid && !isAsk) return
 
-    const group = isBid ? bids : asks;
-    const price = order.price || order.transaction_price;
+    const group = isBid ? bids : asks
+    const price = order.price || order.transaction_price
     // Use transaction_amount for transactions, amount for regular orders, default to 1
     // FIXME: Temporary 1/2 multiplier to fix double counting issue
-    const amount = (order.transaction_amount || order.amount || 1) / 2;
-    const timestamp = new Date(order.timestamp || order.transaction_time).getTime();
+    const amount = (order.transaction_amount || order.amount || 1) / 2
+    const timestamp = new Date(order.timestamp || order.transaction_time).getTime()
 
     if (!group[price]) {
-      group[price] = { 
-        price, 
-        amount, 
-        latestTime: timestamp
-      };
+      group[price] = {
+        price,
+        amount,
+        latestTime: timestamp,
+      }
     } else {
-      group[price].amount += amount;
+      group[price].amount += amount
       if (timestamp > group[price].latestTime) {
-        group[price].latestTime = timestamp;
+        group[price].latestTime = timestamp
       }
     }
-  });
+  })
 
-  const sortByTimeDesc = (a, b) => b.latestTime - a.latestTime;
+  const sortByTimeDesc = (a, b) => b.latestTime - a.latestTime
 
   return {
     bids: Object.values(bids).sort(sortByTimeDesc),
-    asks: Object.values(asks).sort(sortByTimeDesc)
-  };
-});
+    asks: Object.values(asks).sort(sortByTimeDesc),
+  }
+})
 
 const tradingSummary = computed(() => {
-  let buyCount = 0;
-  let sellCount = 0;
-  let buyVolume = 0;
-  let sellVolume = 0;
-  let buyValue = 0;
-  let sellValue = 0;
+  let buyCount = 0
+  let sellCount = 0
+  let buyVolume = 0
+  let sellVolume = 0
+  let buyValue = 0
+  let sellValue = 0
 
-  filledOrders.value.forEach(order => {
-    const isBid = (order.bid_trader_id === traderUuid.value) || 
-                 (order.trader_id === traderUuid.value && 
-                  ['BUY', 'BID', 1].includes(order.type || order.order_type));
+  filledOrders.value.forEach((order) => {
+    const isBid =
+      order.bid_trader_id === traderUuid.value ||
+      (order.trader_id === traderUuid.value &&
+        ['BUY', 'BID', 1].includes(order.type || order.order_type))
 
-    const price = order.price || order.transaction_price;
+    const price = order.price || order.transaction_price
     // Use transaction_amount for transactions, amount for regular orders, default to 1
     // FIXME: Temporary 1/2 multiplier to fix double counting issue
-    const amount = (order.transaction_amount || order.amount || 1) / 2;
+    const amount = (order.transaction_amount || order.amount || 1) / 2
 
     if (isBid) {
-      buyCount++;
-      buyVolume += amount;
-      buyValue += price * amount;
+      buyCount++
+      buyVolume += amount
+      buyValue += price * amount
     } else {
-      sellCount++;
-      sellVolume += amount;
-      sellValue += price * amount;
+      sellCount++
+      sellVolume += amount
+      sellValue += price * amount
     }
-  });
+  })
 
   return {
     buyCount,
     sellCount,
     buyVWAP: buyVolume > 0 ? (buyValue / buyVolume).toFixed(2) : 0,
     sellVWAP: sellVolume > 0 ? (sellValue / sellVolume).toFixed(2) : 0,
-  };
-});
+  }
+})
 
 const formatTime = (timestamp) => {
-  const date = new Date(timestamp);
-  return date.toLocaleTimeString();
-};
+  const date = new Date(timestamp)
+  return date.toLocaleTimeString()
+}
 </script>
 
 <template>
@@ -130,8 +133,11 @@ const formatTime = (timestamp) => {
       <div v-if="groupedOrders.bids.length || groupedOrders.asks.length" class="order-columns">
         <div class="order-column">
           <TransitionGroup name="order-change">
-            <div v-for="order in groupedOrders.bids" :key="order.price" 
-                 class="order-item bid elevation-1">
+            <div
+              v-for="order in groupedOrders.bids"
+              :key="order.price"
+              class="order-item bid elevation-1"
+            >
               <div class="price-amount">
                 <span class="price">{{ Math.round(order.price) }}</span>
                 <span class="amount">{{ order.amount }} shares</span>
@@ -145,8 +151,11 @@ const formatTime = (timestamp) => {
         </div>
         <div class="order-column">
           <TransitionGroup name="order-change">
-            <div v-for="order in groupedOrders.asks" :key="order.price" 
-                 class="order-item ask elevation-1">
+            <div
+              v-for="order in groupedOrders.asks"
+              :key="order.price"
+              class="order-item ask elevation-1"
+            >
               <div class="price-amount">
                 <span class="price">{{ Math.round(order.price) }}</span>
                 <span class="amount">{{ order.amount }} shares</span>
@@ -169,7 +178,7 @@ const formatTime = (timestamp) => {
 
 <style scoped>
 .order-history-card {
-  background-color: #FFFFFF;
+  background-color: #ffffff;
   font-family: 'Inter', sans-serif;
 }
 
@@ -178,7 +187,8 @@ const formatTime = (timestamp) => {
   padding: 6px;
 }
 
-.vwap-display, .count-display {
+.vwap-display,
+.count-display {
   display: flex;
   justify-content: center;
   align-items: center;
@@ -202,7 +212,8 @@ const formatTime = (timestamp) => {
   font-size: 0.8rem;
 } */
 
-.vwap-item, .count-item {
+.vwap-item,
+.count-item {
   font-weight: 500;
 }
 
@@ -210,12 +221,14 @@ const formatTime = (timestamp) => {
   color: #999;
 } */
 
-.vwap-item.buy, .count-item.buy {
-  color: #1976D2;
+.vwap-item.buy,
+.count-item.buy {
+  color: #1976d2;
 }
 
-.vwap-item.sell, .count-item.sell {
-  color: #D32F2F;
+.vwap-item.sell,
+.count-item.sell {
+  color: #d32f2f;
 }
 
 .order-history-container {
@@ -250,12 +263,12 @@ const formatTime = (timestamp) => {
 }
 
 .order-item.bid {
-  border-left: 3px solid #2196F3;
+  border-left: 3px solid #2196f3;
   background-color: #f3f8fe;
 }
 
 .order-item.ask {
-  border-left: 3px solid #F44336;
+  border-left: 3px solid #f44336;
   background-color: #fef3f3;
 }
 

@@ -1,30 +1,20 @@
 <template>
   <div class="consent-page">
     <!-- Animated header -->
-    <div 
-      v-motion-slide-visible-once-bottom
-      :delay="200"
-      class="page-header"
-    >
+    <div v-motion-slide-visible-once-bottom :delay="200" class="page-header">
       <div class="icon-wrapper">
         <ClipboardCheck :size="32" class="header-icon" />
       </div>
       <h2 class="header-title">Research Participant Consent Form</h2>
-      <p class="header-subtitle">
-        Please read this information carefully before proceeding
-      </p>
+      <p class="header-subtitle">Please read this information carefully before proceeding</p>
     </div>
 
     <!-- Content with smooth animations -->
-    <div 
-      v-motion-fade-visible-once
-      :delay="400"
-      class="content-container"
-    >
+    <div v-motion-fade-visible-once :delay="400" class="content-container">
       <div class="consent-content prose prose-slate max-w-none">
         <div class="project-info">
           <h3>Project Title: Information Dissemination in Electronic Financial Markets</h3>
-              
+
           <div class="info-grid">
             <div class="info-item">
               <Building2 :size="20" />
@@ -33,15 +23,18 @@
                 <span>Royal Holloway, University of London -- Department of Economics</span>
               </div>
             </div>
-            
+
             <div class="info-item">
               <Users :size="20" />
               <div>
                 <strong>Researchers:</strong>
-                <span>Prof. Alessio Sancetta, Prof. Francesco Feri, Prof. Michael Naef, Dr. Wenbin Wu, Dr. Mariol Jonuzaj</span>
+                <span
+                  >Prof. Alessio Sancetta, Prof. Francesco Feri, Prof. Michael Naef, Dr. Wenbin Wu,
+                  Dr. Mariol Jonuzaj</span
+                >
               </div>
             </div>
-            
+
             <div class="info-item">
               <CreditCard :size="20" />
               <div>
@@ -55,76 +48,153 @@
         <div class="content-sections">
           <section class="content-section">
             <h4><Info :size="20" /> Introduction</h4>
-              <p>Royal Holloway, University of London supports the practise of protecting human participants in research. This form provides you with important information about taking part in this study. Your participation in this study is entirely voluntary, and you have the right to withdraw at any time during the experimental session without penalty or negative consequences. If you choose to withdraw during the experimental session, any data collected from you will be deleted and not included in the final analysis. However, you will not be able to withdraw your consent after the study is completed, and the payment has been issued.</p>
+            <p>
+              Royal Holloway, University of London supports the practise of protecting human
+              participants in research. This form provides you with important information about
+              taking part in this study. Your participation in this study is entirely voluntary, and
+              you have the right to withdraw at any time during the experimental session without
+              penalty or negative consequences. If you choose to withdraw during the experimental
+              session, any data collected from you will be deleted and not included in the final
+              analysis. However, you will not be able to withdraw your consent after the study is
+              completed, and the payment has been issued.
+            </p>
           </section>
 
           <section class="content-section highlight-section">
             <h4><Target :size="20" /> Summary</h4>
-            <p>The purpose of this study is to investigate the interaction between human and machines (AI agents) in electronic financial markets. In this study, we will ask you to participate in various experimental financial markets where you will be able to make decisions regarding buying or selling a virtual financial asset (not a real asset). This study will take approximately <strong>30 minutes</strong> to complete. Taking part in this study is a great opportunity to learn how electronic financial markets operate, and you will also have the chance to earn financial profits depending on your performance.</p>
+            <p>
+              The purpose of this study is to investigate the interaction between human and machines
+              (AI agents) in electronic financial markets. In this study, we will ask you to
+              participate in various experimental financial markets where you will be able to make
+              decisions regarding buying or selling a virtual financial asset (not a real asset).
+              This study will take approximately <strong>30 minutes</strong> to complete. Taking
+              part in this study is a great opportunity to learn how electronic financial markets
+              operate, and you will also have the chance to earn financial profits depending on your
+              performance.
+            </p>
           </section>
 
           <section class="content-section">
             <h4><Shield :size="20" /> Ethical Approval</h4>
-            <p>This study has received ethics approval from Royal Holloway, University of London's Research Ethics Committee, with the approval ID of <strong>713</strong>.</p>
+            <p>
+              This study has received ethics approval from Royal Holloway, University of London's
+              Research Ethics Committee, with the approval ID of <strong>713</strong>.
+            </p>
           </section>
 
           <section class="content-section">
             <h4><Database :size="20" /> Data Collection</h4>
-              <p>During this study, we will collect data from you only related to your buy or sell decision orders. At the end of the study, you will be asked to complete a short survey about your overall experience with our platform. Additionally, the Prolific platform will provide some basic demographic characteristics such as age, gender and education. All data will be anonymized and labelled using only your Unique Prolific ID.</p>
+            <p>
+              During this study, we will collect data from you only related to your buy or sell
+              decision orders. At the end of the study, you will be asked to complete a short survey
+              about your overall experience with our platform. Additionally, the Prolific platform
+              will provide some basic demographic characteristics such as age, gender and education.
+              All data will be anonymized and labelled using only your Unique Prolific ID.
+            </p>
           </section>
-              
+
           <section class="content-section">
             <h4><Lock :size="20" /> Data Protection</h4>
-              <p>This research commits to abide by the Data Protection Act (2018).</p>
+            <p>This research commits to abide by the Data Protection Act (2018).</p>
           </section>
 
           <section class="content-section">
             <h4><FileText :size="20" /> General Data Protection Regulation Statement</h4>
             <div class="gdpr-content">
-              <p>Important General Data Protection Regulation information (GDPR). Royal Holloway, University of London is the sponsor for this study and is based in the UK. We will be using information from you in order to undertake this study and will act as the data controller for this study. This means that we are responsible for looking after your information and using it properly. Any data you provide during the completion of the study will be stored securely on hosted on servers within the European Economic Area'. Royal Holloway is designated as a public authority and in accordance with the Royal Holloway and Bedford New College Act 1985 and the Statutes which govern the College, we conduct research for the public benefit and in the public interest.</p>
-              
-              <p>Royal Holloway has put in place appropriate technical and organisational security measures to prevent your personal data from being accidentally lost, used or accessed in any unauthorised way or altered or disclosed. Royal Holloway has also put in place procedures to deal with any suspected personal data security breach and will notify you and any applicable regulator of a suspected breach where legally required to do so.</p>
-              
-              <p>To safeguard your rights, we will use the minimum personally-identifiable information possible (i.e., the email address you provide us). The lead researcher will keep your contact details confidential and will use this information only as required (i.e., to provide a summary of the study results if requested and/or for the prize draw).</p>
-              
-              <p>You can find out more about your rights under the GDPR and Data Protection Act 2018 by visiting <a href="https://www.royalholloway.ac.uk/about-us/more/governance-and-strategy/data-protection/" target="_blank" class="external-link">https://www.royalholloway.ac.uk/about-us/more/governance-and-strategy/data-protection/</a> and if you wish to exercise your rights, please contact <a href="mailto:dataprotection@royalholloway.ac.uk" class="external-link">dataprotection@royalholloway.ac.uk</a></p>
+              <p>
+                Important General Data Protection Regulation information (GDPR). Royal Holloway,
+                University of London is the sponsor for this study and is based in the UK. We will
+                be using information from you in order to undertake this study and will act as the
+                data controller for this study. This means that we are responsible for looking after
+                your information and using it properly. Any data you provide during the completion
+                of the study will be stored securely on hosted on servers within the European
+                Economic Area'. Royal Holloway is designated as a public authority and in accordance
+                with the Royal Holloway and Bedford New College Act 1985 and the Statutes which
+                govern the College, we conduct research for the public benefit and in the public
+                interest.
+              </p>
+
+              <p>
+                Royal Holloway has put in place appropriate technical and organisational security
+                measures to prevent your personal data from being accidentally lost, used or
+                accessed in any unauthorised way or altered or disclosed. Royal Holloway has also
+                put in place procedures to deal with any suspected personal data security breach and
+                will notify you and any applicable regulator of a suspected breach where legally
+                required to do so.
+              </p>
+
+              <p>
+                To safeguard your rights, we will use the minimum personally-identifiable
+                information possible (i.e., the email address you provide us). The lead researcher
+                will keep your contact details confidential and will use this information only as
+                required (i.e., to provide a summary of the study results if requested and/or for
+                the prize draw).
+              </p>
+
+              <p>
+                You can find out more about your rights under the GDPR and Data Protection Act 2018
+                by visiting
+                <a
+                  href="https://www.royalholloway.ac.uk/about-us/more/governance-and-strategy/data-protection/"
+                  target="_blank"
+                  class="external-link"
+                  >https://www.royalholloway.ac.uk/about-us/more/governance-and-strategy/data-protection/</a
+                >
+                and if you wish to exercise your rights, please contact
+                <a href="mailto:dataprotection@royalholloway.ac.uk" class="external-link"
+                  >dataprotection@royalholloway.ac.uk</a
+                >
+              </p>
             </div>
           </section>
 
           <section class="content-section earnings-section">
             <h4><DollarSign :size="20" /> Compensation</h4>
-            <p>For your time and effort, you will receive compensation through the Prolific platform payment. You will receive a participation fee of <strong>£5 GBP</strong>, and additional compensation will be provided based on your performance. This is subject to completing the entire study and submitting the completion code displayed at the end of the study to the prolific platform.</p>
+            <p>
+              For your time and effort, you will receive compensation through the Prolific platform
+              payment. You will receive a participation fee of <strong>£5 GBP</strong>, and
+              additional compensation will be provided based on your performance. This is subject to
+              completing the entire study and submitting the completion code displayed at the end of
+              the study to the prolific platform.
+            </p>
           </section>
 
           <section class="content-section">
             <h4><MessageSquare :size="20" /> Contact Information</h4>
-              <p>If you have any question, concerns, or feedback related to this study, please feel free to contact us through the Prolific message box.</p>
+            <p>
+              If you have any question, concerns, or feedback related to this study, please feel
+              free to contact us through the Prolific message box.
+            </p>
           </section>
 
           <section class="content-section consent-section">
             <h4><CheckSquare :size="20" /> Statement of Consent</h4>
             <p><strong>I confirm that:</strong></p>
             <ul class="consent-list">
-                <li>I have read and understood the information provided in this consent form.</li>
-                <li>I have had the opportunity to ask questions and have received satisfactory answers.</li>
-                <li>I voluntarily agree to participate in the study "Information Dissemination in Electronic Financial Markets"</li>
-                <li>I understand that I can withdraw from the study at any time without penalty or negative consequences.</li>
-              </ul>
+              <li>I have read and understood the information provided in this consent form.</li>
+              <li>
+                I have had the opportunity to ask questions and have received satisfactory answers.
+              </li>
+              <li>
+                I voluntarily agree to participate in the study "Information Dissemination in
+                Electronic Financial Markets"
+              </li>
+              <li>
+                I understand that I can withdraw from the study at any time without penalty or
+                negative consequences.
+              </li>
+            </ul>
           </section>
         </div>
       </div>
     </div>
 
     <!-- Consent checkbox and button -->
-    <div 
-      v-motion-slide-visible-once-bottom
-      :delay="600"
-      class="consent-footer"
-    >
+    <div v-motion-slide-visible-once-bottom :delay="600" class="consent-footer">
       <div class="checkbox-container">
-        <input 
+        <input
           id="consent-checkbox"
-                v-model="consentGiven"
+          v-model="consentGiven"
           @change="updateConsent"
           type="checkbox"
           class="consent-checkbox"
@@ -136,12 +206,12 @@
           <span>I consent to participate in this research study</span>
         </label>
       </div>
-      
+
       <button
         @click="submitConsent"
         :disabled="!consentGiven"
         class="consent-btn"
-        :class="{ 'disabled': !consentGiven }"
+        :class="{ disabled: !consentGiven }"
       >
         <span v-if="!consentGiven">Please review and consent above</span>
         <span v-else>
@@ -154,114 +224,114 @@
 </template>
 
 <script setup>
-import { ref, defineEmits } from 'vue';
-import { useRouter } from 'vue-router';
-import { useTraderStore } from "@/store/app";
-import { useAuthStore } from "@/store/auth";
-import axios from '@/api/axios';
-import { 
-  ClipboardCheck, 
-  Building2, 
-  Users, 
-  CreditCard, 
-  Info, 
-  Target, 
-  Shield, 
-  Database, 
-  Lock, 
-  FileText, 
-  DollarSign, 
-  MessageSquare, 
-  CheckSquare, 
-  Check, 
-  ArrowRight 
-} from 'lucide-vue-next';
+import { ref, defineEmits } from 'vue'
+import { useRouter } from 'vue-router'
+import { useTraderStore } from '@/store/app'
+import { useAuthStore } from '@/store/auth'
+import axios from '@/api/axios'
+import {
+  ClipboardCheck,
+  Building2,
+  Users,
+  CreditCard,
+  Info,
+  Target,
+  Shield,
+  Database,
+  Lock,
+  FileText,
+  DollarSign,
+  MessageSquare,
+  CheckSquare,
+  Check,
+  ArrowRight,
+} from 'lucide-vue-next'
 
-const router = useRouter();
-const traderStore = useTraderStore();
-const authStore = useAuthStore();
-const consentGiven = ref(false);
+const router = useRouter()
+const traderStore = useTraderStore()
+const authStore = useAuthStore()
+const consentGiven = ref(false)
 
-const emit = defineEmits(['update:canProgress']);
+const emit = defineEmits(['update:canProgress'])
 
 const updateConsent = (event) => {
-  const value = event.target.checked;
-  emit('update:canProgress', value);
-};
+  const value = event.target.checked
+  emit('update:canProgress', value)
+}
 
 const submitConsent = async () => {
-  if (!consentGiven.value) return;
+  if (!consentGiven.value) return
 
   try {
-    const traderId = traderStore.traderId;
-    const marketId = traderStore.marketId;
-    const traderUuid = traderStore.traderId;
-    
-    console.log('Trader info:', { traderId, marketId, traderUuid });
-    console.log('Auth store state:', { 
+    const traderId = traderStore.traderId
+    const marketId = traderStore.marketId
+    const traderUuid = traderStore.traderId
+
+    console.log('Trader info:', { traderId, marketId, traderUuid })
+    console.log('Auth store state:', {
       isAuthenticated: authStore.isAuthenticated,
       user: authStore.user,
-      prolificId: authStore.prolificId
-    });
-    
-    const isProlificUser = !!authStore.prolificId;
-    
-    let userId = '';
-    let userType = '';
-    
+      prolificId: authStore.prolificId,
+    })
+
+    const isProlificUser = !!authStore.prolificId
+
+    let userId = ''
+    let userType = ''
+
     if (isProlificUser) {
-      userId = authStore.prolificId;
-      userType = 'prolific';
+      userId = authStore.prolificId
+      userType = 'prolific'
     } else if (authStore.user?.email) {
-      const email = authStore.user.email;
-      userId = email.split('@')[0];
-      userType = 'google';
+      const email = authStore.user.email
+      userId = email.split('@')[0]
+      userType = 'google'
     } else if (authStore.user?.uid) {
-      userId = authStore.user.uid;
-      userType = 'google';
+      userId = authStore.user.uid
+      userType = 'google'
     }
-    
-    console.log('User identification:', { userId, userType, isProlificUser });
-    
+
+    console.log('User identification:', { userId, userType, isProlificUser })
+
     try {
       const requestData = {
         trader_id: traderId,
         user_id: userId || '',
         user_type: userType || '',
         prolific_id: authStore.prolificId || '',
-        consent_given: true
-      };
-      
-      console.log('Trying debug endpoint first:', requestData);
-      const debugResponse = await axios.post('/consent/debug', requestData);
-      console.log('Debug endpoint response:', debugResponse.data);
-      
-      console.log('Sending consent data to backend:', requestData);
-      const response = await axios.post('/consent/save', requestData);
-      console.log(`Consent data saved for user:`, response.data);
+        consent_given: true,
+      }
+
+      console.log('Trying debug endpoint first:', requestData)
+      const debugResponse = await axios.post('/consent/debug', requestData)
+      console.log('Debug endpoint response:', debugResponse.data)
+
+      console.log('Sending consent data to backend:', requestData)
+      const response = await axios.post('/consent/save', requestData)
+      console.log(`Consent data saved for user:`, response.data)
     } catch (submitError) {
-      console.error('Error submitting consent:', submitError);
+      console.error('Error submitting consent:', submitError)
       if (submitError.response) {
-        console.error('Response data:', submitError.response.data);
-        console.error('Response status:', submitError.response.status);
-        console.error('Response headers:', submitError.response.headers);
+        console.error('Response data:', submitError.response.data)
+        console.error('Response status:', submitError.response.status)
+        console.error('Response headers:', submitError.response.headers)
       }
     }
-    
-    router.push(`/onboarding/${marketId}/${traderUuid}/welcome`);
+
+    router.push(`/onboarding/${marketId}/${traderUuid}/welcome`)
   } catch (error) {
-    console.error('Error handling consent:', error);
+    console.error('Error handling consent:', error)
     if (error.response) {
-      console.error('Response data:', error.response.data);
-      console.error('Response status:', error.response.status);
-      console.error('Response headers:', error.response.headers);
+      console.error('Response data:', error.response.data)
+      console.error('Response status:', error.response.status)
+      console.error('Response headers:', error.response.headers)
     } else if (error.request) {
-      console.error('Request error:', error.request);
+      console.error('Request error:', error.request)
     } else {
-      console.error('Error message:', error.message);
+      console.error('Error message:', error.message)
     }
   }
-};
+}
 </script>
 
 <style scoped>
@@ -310,7 +380,7 @@ const submitConsent = async () => {
   background: white;
   border-radius: 16px;
   padding: 2rem;
-  box-shadow: 
+  box-shadow:
     0 4px 6px -1px rgba(0, 0, 0, 0.1),
     0 2px 4px -1px rgba(0, 0, 0, 0.06);
   border: 1px solid rgba(102, 126, 234, 0.1);
@@ -448,7 +518,7 @@ const submitConsent = async () => {
 }
 
 .consent-list li::before {
-  content: "✓";
+  content: '✓';
   color: #10b981;
   font-weight: bold;
   flex-shrink: 0;
@@ -470,7 +540,7 @@ const submitConsent = async () => {
   background: white;
   border-radius: 16px;
   padding: 2rem;
-  box-shadow: 
+  box-shadow:
     0 4px 6px -1px rgba(0, 0, 0, 0.1),
     0 2px 4px -1px rgba(0, 0, 0, 0.06);
   border: 1px solid rgba(102, 126, 234, 0.1);
@@ -557,19 +627,19 @@ const submitConsent = async () => {
   .consent-page {
     padding: 0 0.5rem;
   }
-  
+
   .content-container {
     padding: 1.5rem;
   }
-  
+
   .content-section {
     padding: 1rem;
   }
-  
+
   .checkbox-label {
     text-align: left;
   }
-  
+
   .consent-btn {
     width: 100%;
   }

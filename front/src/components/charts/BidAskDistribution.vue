@@ -11,31 +11,31 @@
 </template>
 
 <script setup>
-import { reactive, watchEffect } from "vue";
-import { useTraderStore } from "@/store/app";
-import { storeToRefs } from "pinia";
-import { Chart as HighchartsChart } from "highcharts-vue";
-import Highcharts from 'highcharts';
+import { reactive, watchEffect } from 'vue'
+import { useTraderStore } from '@/store/app'
+import { storeToRefs } from 'pinia'
+import { Chart as HighchartsChart } from 'highcharts-vue'
+import Highcharts from 'highcharts'
 
-const { chartData, midPoint } = storeToRefs(useTraderStore());
+const { chartData, midPoint } = storeToRefs(useTraderStore())
 
 const chartOptions = reactive({
   chart: {
-    type: "column",
+    type: 'column',
     animation: false,
     backgroundColor: '#FFFFFF',
     style: {
-      fontFamily: 'Inter, sans-serif'
+      fontFamily: 'Inter, sans-serif',
     },
     height: 250,
     marginTop: 10,
-    marginBottom: 30
+    marginBottom: 30,
   },
   accessibility: {
-    enabled: false
+    enabled: false,
   },
   title: {
-    text: null
+    text: null,
   },
   xAxis: {
     allowDecimals: false,
@@ -44,32 +44,32 @@ const chartOptions = reactive({
     maxPadding: 0.1,
     labels: {
       formatter: function () {
-        return this.value.toString();
+        return this.value.toString()
       },
       style: {
         color: '#666',
-        fontSize: '10px'
-      }
+        fontSize: '10px',
+      },
     },
     lineColor: '#ccd6eb',
-    tickColor: '#ccd6eb'
+    tickColor: '#ccd6eb',
   },
   yAxis: {
     title: null,
     labels: {
-      format: "{value:.0f}",
+      format: '{value:.0f}',
       style: {
         color: '#666',
-        fontSize: '10px'
-      }
+        fontSize: '10px',
+      },
     },
-    gridLineColor: '#e6e6e6'
+    gridLineColor: '#e6e6e6',
   },
   credits: {
-    enabled: false
+    enabled: false,
   },
   legend: {
-    enabled: false
+    enabled: false,
   },
   tooltip: {
     shared: true,
@@ -78,12 +78,13 @@ const chartOptions = reactive({
     shadow: true,
     useHTML: true,
     headerFormat: '<table><tr><th colspan="2">{point.key:.2f}</th></tr>',
-    pointFormat: '<tr><td style="color: {series.color}">{series.name}: </td>' +
+    pointFormat:
+      '<tr><td style="color: {series.color}">{series.name}: </td>' +
       '<td style="text-align: right"><b>{point.y:.0f}</b></td></tr>',
     footerFormat: '</table>',
     style: {
-      fontSize: '12px'
-    }
+      fontSize: '12px',
+    },
   },
   plotOptions: {
     column: {
@@ -91,36 +92,39 @@ const chartOptions = reactive({
       pointPadding: 0.01,
       groupPadding: 0,
       borderWidth: 1,
-      grouping: false
-    }
+      grouping: false,
+    },
   },
-  series: chartData.value
-});
+  series: chartData.value,
+})
 
 watchEffect(() => {
-  chartOptions.series = chartData.value.map(series => ({
+  chartOptions.series = chartData.value.map((series) => ({
     ...series,
     pointPlacement: 0,
-    color: series.name === "Bids" ? 'rgba(33, 150, 243, 0.8)' : 'rgba(244, 67, 54, 0.8)',
-    borderColor: series.name === "Bids" ? 'rgba(25, 118, 210, 1)' : 'rgba(211, 47, 47, 1)'
-  }));
+    color: series.name === 'Bids' ? 'rgba(33, 150, 243, 0.8)' : 'rgba(244, 67, 54, 0.8)',
+    borderColor: series.name === 'Bids' ? 'rgba(25, 118, 210, 1)' : 'rgba(211, 47, 47, 1)',
+  }))
 
-  chartOptions.xAxis.plotBands = [{
-    from: -Infinity,
-    to: midPoint.value,
-    color: 'rgba(33, 150, 243, 0.1)'
-  }, {
-    from: midPoint.value,
-    to: Infinity,
-    color: 'rgba(244, 67, 54, 0.1)'
-  }];
-});
+  chartOptions.xAxis.plotBands = [
+    {
+      from: -Infinity,
+      to: midPoint.value,
+      color: 'rgba(33, 150, 243, 0.1)',
+    },
+    {
+      from: midPoint.value,
+      to: Infinity,
+      color: 'rgba(244, 67, 54, 0.1)',
+    },
+  ]
+})
 </script>
 
 <style scoped>
 .bid-ask-chart-container {
   width: 100%;
-  background-color: #FFFFFF;
+  background-color: #ffffff;
   font-family: 'Inter', sans-serif;
 }
 

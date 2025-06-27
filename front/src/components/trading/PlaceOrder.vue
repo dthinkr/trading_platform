@@ -10,28 +10,28 @@
           No Buy Orders
           <div v-if="bestAsk !== null">Best Ask Price: {{ formatPrice(bestAsk) }}</div>
         </div>
-        <div 
-          v-for="(price, index) in buyPrices" 
-          :key="'buy-' + index" 
+        <div
+          v-for="(price, index) in buyPrices"
+          :key="'buy-' + index"
           class="order-item bid"
-          :class="{ 'best-price': price === bestAsk, 'locked': !canBuy }"
+          :class="{ 'best-price': price === bestAsk, locked: !canBuy }"
         >
           <div class="order-content">
             <span class="order-type">BUY</span>
             <div class="price">{{ formatPrice(price) }}</div>
             <v-icon v-if="price === bestAsk" color="primary" small>mdi-star</v-icon>
           </div>
-          <v-btn 
-            @click="sendOrder('BUY', price)" 
-            :disabled="isBuyButtonDisabled || isGoalAchieved || !canBuy" 
-            color="primary" 
+          <v-btn
+            @click="sendOrder('BUY', price)"
+            :disabled="isBuyButtonDisabled || isGoalAchieved || !canBuy"
+            color="primary"
             small
           >
             Buy
           </v-btn>
         </div>
       </div>
-      
+
       <div class="order-column sell-column">
         <h3 class="order-type-title">
           <v-icon left color="error">mdi-arrow-down-bold</v-icon>
@@ -41,21 +41,21 @@
           No Sell Orders
           <div v-if="bestBid !== null">Best Bid Price: {{ formatPrice(bestBid) }}</div>
         </div>
-        <div 
-          v-for="(price, index) in sellPrices" 
-          :key="'sell-' + index" 
+        <div
+          v-for="(price, index) in sellPrices"
+          :key="'sell-' + index"
           class="order-item ask"
-          :class="{ 'best-price': price === bestBid, 'locked': !canSell }"
+          :class="{ 'best-price': price === bestBid, locked: !canSell }"
         >
           <div class="order-content">
             <span class="order-type">SELL</span>
             <div class="price">{{ formatPrice(price) }}</div>
             <v-icon v-if="price === bestBid" color="error" small>mdi-star</v-icon>
           </div>
-          <v-btn 
-            @click="sendOrder('SELL', price)" 
-            :disabled="isSellButtonDisabled || isGoalAchieved || !canSell" 
-            color="error" 
+          <v-btn
+            @click="sendOrder('SELL', price)"
+            :disabled="isSellButtonDisabled || isGoalAchieved || !canSell"
+            color="error"
             small
           >
             Sell
@@ -67,40 +67,47 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted, onUnmounted } from "vue";
-import { useTraderStore } from "@/store/app";
-import { storeToRefs } from "pinia";
+import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { useTraderStore } from '@/store/app'
+import { storeToRefs } from 'pinia'
 
 const props = defineProps({
   isGoalAchieved: {
     type: Boolean,
-    default: false
+    default: false,
   },
   goalType: {
     type: String,
-    default: 'free'
-  }
-});
+    default: 'free',
+  },
+})
 
-const tradingStore = useTraderStore();
-const { sendMessage } = tradingStore;
-const { gameParams, bidData, askData } = storeToRefs(tradingStore);
+const tradingStore = useTraderStore()
+const { sendMessage } = tradingStore
+const { gameParams, bidData, askData } = storeToRefs(tradingStore)
 
-const step = computed(() => gameParams.value.step || 1);
-const hasAskData = computed(() => askData.value.length > 0);
-const hasBidData = computed(() => bidData.value.length > 0);
-const bestBid = computed(() => hasBidData.value ? Math.max(...bidData.value.map(bid => bid.x)) : null);
-const bestAsk = computed(() => hasAskData.value ? Math.min(...askData.value.map(ask => ask.x)) : null);
+const step = computed(() => gameParams.value.step || 1)
+const hasAskData = computed(() => askData.value.length > 0)
+const hasBidData = computed(() => bidData.value.length > 0)
+const bestBid = computed(() =>
+  hasBidData.value ? Math.max(...bidData.value.map((bid) => bid.x)) : null
+)
+const bestAsk = computed(() =>
+  hasAskData.value ? Math.min(...askData.value.map((ask) => ask.x)) : null
+)
 
-const orderBookLevels = computed(() => gameParams.value.order_book_levels || 5);
+const orderBookLevels = computed(() => gameParams.value.order_book_levels || 5)
 
 const buyPrices = computed(() => {
-  if (bestAsk.value === null || !orderBookLevels.value){
-   return Array.from({ length: orderBookLevels.value }, (_, i) => bestBid.value + step.value*1 - step.value * i);
-  }else {
-    return Array.from({ length: orderBookLevels.value }, (_, i) => bestAsk.value - step.value * i);
+  if (bestAsk.value === null || !orderBookLevels.value) {
+    return Array.from(
+      { length: orderBookLevels.value },
+      (_, i) => bestBid.value + step.value * 1 - step.value * i
+    )
+  } else {
+    return Array.from({ length: orderBookLevels.value }, (_, i) => bestAsk.value - step.value * i)
   }
-});
+})
 
 // const buyPrices = computed(() => {
 //   if (bestAsk.value === null || !orderBookLevels.value) return [];
@@ -113,71 +120,79 @@ const buyPrices = computed(() => {
 // });
 
 const sellPrices = computed(() => {
-  if (bestBid.value === null || !orderBookLevels.value){
-   return Array.from({ length: orderBookLevels.value }, (_, i) => bestAsk.value - step.value*1 + step.value * i);
-  }else {
-    return Array.from({ length: orderBookLevels.value }, (_, i) => bestBid.value + step.value * i);
+  if (bestBid.value === null || !orderBookLevels.value) {
+    return Array.from(
+      { length: orderBookLevels.value },
+      (_, i) => bestAsk.value - step.value * 1 + step.value * i
+    )
+  } else {
+    return Array.from({ length: orderBookLevels.value }, (_, i) => bestBid.value + step.value * i)
   }
-});
+})
 
 // const isBuyButtonDisabled = computed(() => !hasAskData.value);
 const isBuyButtonDisabled = computed(() => {
-  return false;  // Always keep Buy button enabled
-});
+  return false // Always keep Buy button enabled
+})
 //const isSellButtonDisabled = computed(() => !hasBidData.value);
 const isSellButtonDisabled = computed(() => {
-  return false;  // Always keep Buy button enabled
-});
+  return false // Always keep Buy button enabled
+})
 
-const isMobile = ref(false);
+const isMobile = ref(false)
 
-const canBuy = computed(() => props.goalType === 'buy' || props.goalType === 'free');
-const canSell = computed(() => props.goalType === 'sell' || props.goalType === 'free');
+const canBuy = computed(() => props.goalType === 'buy' || props.goalType === 'free')
+const canSell = computed(() => props.goalType === 'sell' || props.goalType === 'free')
 
 function sendOrder(orderType, price) {
-  if (!props.isGoalAchieved && ((orderType === 'BUY' && canBuy.value) || (orderType === 'SELL' && canSell.value))) {
+  if (
+    !props.isGoalAchieved &&
+    ((orderType === 'BUY' && canBuy.value) || (orderType === 'SELL' && canSell.value))
+  ) {
     const newOrder = {
       id: Date.now().toString(),
       order_type: orderType,
       price: price,
       amount: 1, // You may want to adjust this or add an input for amount
-      status: 'pending'
-    };
-    tradingStore.addOrder(newOrder);
+      status: 'pending',
+    }
+    tradingStore.addOrder(newOrder)
   }
 }
 
 function getButtonColor(price, orderType) {
-  if (orderType === "buy") {
-    return price === bestAsk.value ? "primary" : "grey lighten-3";
-  } else if (orderType === "sell") {
-    return price === bestBid.value ? "error" : "grey lighten-3";
+  if (orderType === 'buy') {
+    return price === bestAsk.value ? 'primary' : 'grey lighten-3'
+  } else if (orderType === 'sell') {
+    return price === bestBid.value ? 'error' : 'grey lighten-3'
   }
 }
 
 function formatPrice(price) {
-  return Math.round(price).toString();
+  return Math.round(price).toString()
 }
 
 function checkMobile() {
-  isMobile.value = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  isMobile.value = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+    navigator.userAgent
+  )
 }
 
 onMounted(() => {
-  checkMobile();
-  window.addEventListener('resize', checkMobile);
-});
+  checkMobile()
+  window.addEventListener('resize', checkMobile)
+})
 
 onUnmounted(() => {
-  window.removeEventListener('resize', checkMobile);
-});
+  window.removeEventListener('resize', checkMobile)
+})
 </script>
 
 <style scoped>
 .trading-panel {
   display: flex;
   flex-direction: column;
-  background-color: #FFFFFF;
+  background-color: #ffffff;
   font-family: 'Inter', sans-serif;
 }
 

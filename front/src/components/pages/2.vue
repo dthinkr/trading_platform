@@ -12,25 +12,24 @@
         <!-- Introduction Card -->
         <v-col cols="12">
           <v-hover v-slot="{ isHovering, props }">
-            <v-card
-              v-bind="props"
-              :elevation="isHovering ? 8 : 2"
-              class="info-card"
-            >
+            <v-card v-bind="props" :elevation="isHovering ? 8 : 2" class="info-card">
               <v-card-text>
                 <div class="d-flex align-center mb-4">
                   <v-icon size="28" :color="iconColor" class="mr-2">mdi-monitor</v-icon>
                   <span class="text-h6">What is the Trading Platform?</span>
                 </div>
                 <p class="text-body-1">
-                  The trading platform is software that allows participants to trade with one another. 
-                  It displays relevant information about the demand and supply of an asset (e.g. a share). 
-                  What you see on the trading platform is common knowledge, meaning all other participants can see it.
-                  <br><br>
-                  This trading platform closely replicates real financial exchange platforms, where participants trade under a double auction setting.
-                  In particular, a double auction trading mechanism allows buyers to submit bids (buy offers) and sellers to submit asks (sell offers) simultaneously. 
-                  The platform matches buyers and sellers based on price and quantity.
-                  <br><br>
+                  The trading platform is software that allows participants to trade with one
+                  another. It displays relevant information about the demand and supply of an asset
+                  (e.g. a share). What you see on the trading platform is common knowledge, meaning
+                  all other participants can see it.
+                  <br /><br />
+                  This trading platform closely replicates real financial exchange platforms, where
+                  participants trade under a double auction setting. In particular, a double auction
+                  trading mechanism allows buyers to submit bids (buy offers) and sellers to submit
+                  asks (sell offers) simultaneously. The platform matches buyers and sellers based
+                  on price and quantity.
+                  <br /><br />
                   Please take some time to carefully read the next slides.
                 </p>
               </v-card-text>
@@ -52,8 +51,9 @@
                   <span class="text-h6">Direct Orders</span>
                 </div>
                 <p class="text-body-1">
-                  You can directly accept an existing price to sell or buy, such as an order from another participant. 
-                  In this case, the trade is immediately executed at the best bid or ask respectively.
+                  You can directly accept an existing price to sell or buy, such as an order from
+                  another participant. In this case, the trade is immediately executed at the best
+                  bid or ask respectively.
                 </p>
               </v-card-text>
             </v-card>
@@ -62,19 +62,15 @@
 
         <v-col cols="12" md="6">
           <v-hover v-slot="{ isHovering, props }">
-            <v-card
-              v-bind="props"
-              :elevation="isHovering ? 8 : 2"
-              class="info-card info-gradient"
-            >
+            <v-card v-bind="props" :elevation="isHovering ? 8 : 2" class="info-card info-gradient">
               <v-card-text>
                 <div class="d-flex align-center mb-4">
                   <v-icon size="28" color="info" class="mr-2">mdi-clock</v-icon>
                   <span class="text-h6">Passive Orders</span>
                 </div>
                 <p class="text-body-1">
-                  You can place orders to sell or buy that are not immediately executed. 
-                  This means you have to wait for someone to accept them.
+                  You can place orders to sell or buy that are not immediately executed. This means
+                  you have to wait for someone to accept them.
                 </p>
               </v-card-text>
             </v-card>
@@ -84,11 +80,7 @@
         <!-- Improving Orders -->
         <v-col cols="12">
           <v-hover v-slot="{ isHovering, props }">
-            <v-card
-              v-bind="props"
-              :elevation="isHovering ? 8 : 2"
-              class="info-card"
-            >
+            <v-card v-bind="props" :elevation="isHovering ? 8 : 2" class="info-card">
               <v-card-text>
                 <div class="d-flex align-center mb-4">
                   <v-icon size="28" :color="iconColor" class="mr-2">mdi-trending-up</v-icon>
@@ -115,11 +107,7 @@
 
         <v-col cols="12">
           <v-hover v-slot="{ isHovering, props }">
-            <v-card
-              v-bind="props"
-              :elevation="isHovering ? 8 : 2"
-              class="info-card"
-            >
+            <v-card v-bind="props" :elevation="isHovering ? 8 : 2" class="info-card">
               <v-card-text>
                 <div class="d-flex align-center mb-4">
                   <v-icon size="28" color="primary" class="mr-2">mdi-play-circle</v-icon>
@@ -142,11 +130,7 @@
 
         <v-col cols="12">
           <v-hover v-slot="{ isHovering, props }">
-            <v-card
-              v-bind="props"
-              :elevation="isHovering ? 8 : 2"
-              class="info-card"
-            >
+            <v-card v-bind="props" :elevation="isHovering ? 8 : 2" class="info-card">
               <v-card-text>
                 <div class="d-flex align-center mb-4">
                   <v-icon size="28" color="primary" class="mr-2">mdi-play-circle</v-icon>
@@ -166,11 +150,7 @@
 
         <v-col cols="12">
           <v-hover v-slot="{ isHovering, props }">
-            <v-card
-              v-bind="props"
-              :elevation="isHovering ? 8 : 2"
-              class="info-card"
-            >
+            <v-card v-bind="props" :elevation="isHovering ? 8 : 2" class="info-card">
               <v-card-text>
                 <div class="d-flex align-center mb-4">
                   <v-icon size="28" color="primary" class="mr-2">mdi-play-circle</v-icon>
@@ -190,11 +170,7 @@
 
         <v-col cols="12">
           <v-hover v-slot="{ isHovering, props }">
-            <v-card
-              v-bind="props"
-              :elevation="isHovering ? 8 : 2"
-              class="info-card"
-            >
+            <v-card v-bind="props" :elevation="isHovering ? 8 : 2" class="info-card">
               <v-card-text>
                 <div class="d-flex align-center mb-4">
                   <v-icon size="28" color="primary" class="mr-2">mdi-play-circle</v-icon>
@@ -214,11 +190,7 @@
 
         <v-col cols="12">
           <v-hover v-slot="{ isHovering, props }">
-            <v-card
-              v-bind="props"
-              :elevation="isHovering ? 8 : 2"
-              class="info-card"
-            >
+            <v-card v-bind="props" :elevation="isHovering ? 8 : 2" class="info-card">
               <v-card-text>
                 <div class="d-flex align-center mb-4">
                   <v-icon size="28" color="primary" class="mr-2">mdi-play-circle</v-icon>
@@ -238,11 +210,7 @@
 
         <v-col cols="12">
           <v-hover v-slot="{ isHovering, props }">
-            <v-card
-              v-bind="props"
-              :elevation="isHovering ? 8 : 2"
-              class="info-card"
-            >
+            <v-card v-bind="props" :elevation="isHovering ? 8 : 2" class="info-card">
               <v-card-text>
                 <div class="d-flex align-center mb-4">
                   <v-icon size="28" color="primary" class="mr-2">mdi-play-circle</v-icon>
@@ -262,11 +230,7 @@
 
         <v-col cols="12">
           <v-hover v-slot="{ isHovering, props }">
-            <v-card
-              v-bind="props"
-              :elevation="isHovering ? 8 : 2"
-              class="info-card"
-            >
+            <v-card v-bind="props" :elevation="isHovering ? 8 : 2" class="info-card">
               <v-card-text>
                 <div class="d-flex align-center mb-4">
                   <v-icon size="28" color="primary" class="mr-2">mdi-play-circle</v-icon>
@@ -286,11 +250,7 @@
 
         <v-col cols="12">
           <v-hover v-slot="{ isHovering, props }">
-            <v-card
-              v-bind="props"
-              :elevation="isHovering ? 8 : 2"
-              class="info-card"
-            >
+            <v-card v-bind="props" :elevation="isHovering ? 8 : 2" class="info-card">
               <v-card-text>
                 <div class="d-flex align-center mb-4">
                   <v-icon size="28" color="primary" class="mr-2">mdi-play-circle</v-icon>
@@ -307,7 +267,7 @@
             </v-card>
           </v-hover>
         </v-col>
-        
+
         <!-- Demo Section -->
         <!-- <v-col cols="12">
           <v-hover v-slot="{ isHovering, props }">
@@ -341,19 +301,19 @@
 </template>
 
 <script setup>
-import demoGif from '@/assets/demo.gif';
-import Screenshot_2 from '@/assets/Screenshot_2.png';
-import Screenshot_1 from '@/assets/Screenshot_1.png';
-import Screenshot_3 from '@/assets/Screenshot_3.png';
-import Screenshot_4 from '@/assets/Screenshot_4.png';
-import Screenshot_5 from '@/assets/Screenshot_5.png';
-import Screenshot_6 from '@/assets/Screenshot_6.png';
-import Screenshot_7 from '@/assets/Screenshot_7.png';
-import Screenshot_8 from '@/assets/Screenshot_8.png';
+import demoGif from '@/assets/demo.gif'
+import Screenshot_2 from '@/assets/Screenshot_2.png'
+import Screenshot_1 from '@/assets/Screenshot_1.png'
+import Screenshot_3 from '@/assets/Screenshot_3.png'
+import Screenshot_4 from '@/assets/Screenshot_4.png'
+import Screenshot_5 from '@/assets/Screenshot_5.png'
+import Screenshot_6 from '@/assets/Screenshot_6.png'
+import Screenshot_7 from '@/assets/Screenshot_7.png'
+import Screenshot_8 from '@/assets/Screenshot_8.png'
 
 const props = defineProps({
-  iconColor: String
-});
+  iconColor: String,
+})
 </script>
 
 <style scoped>
@@ -369,7 +329,7 @@ const props = defineProps({
 }
 
 .gradient-text {
-  background: linear-gradient(45deg, #2196F3, #4CAF50);
+  background: linear-gradient(45deg, #2196f3, #4caf50);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   font-weight: bold;
@@ -381,9 +341,15 @@ const props = defineProps({
 }
 
 @keyframes pulse {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.1); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 .info-card {
@@ -393,11 +359,11 @@ const props = defineProps({
 }
 
 .success-gradient {
-  background: linear-gradient(135deg, #4CAF5011, #81C78411) !important;
+  background: linear-gradient(135deg, #4caf5011, #81c78411) !important;
 }
 
 .info-gradient {
-  background: linear-gradient(135deg, #2196F311, #64B5F611) !important;
+  background: linear-gradient(135deg, #2196f311, #64b5f611) !important;
 }
 
 .improvement-list {
@@ -411,7 +377,7 @@ const props = defineProps({
 }
 
 .improvement-list .v-list-item:hover {
-  background: rgba(0,0,0,0.03);
+  background: rgba(0, 0, 0, 0.03);
   transform: translateX(5px);
 }
 

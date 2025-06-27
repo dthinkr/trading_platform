@@ -12,11 +12,7 @@
         <!-- Duration Card -->
         <v-col cols="12" md="6">
           <v-hover v-slot="{ isHovering, props }">
-            <v-card
-              v-bind="props"
-              :elevation="isHovering ? 8 : 2"
-              class="info-card"
-            >
+            <v-card v-bind="props" :elevation="isHovering ? 8 : 2" class="info-card">
               <v-card-text>
                 <div class="d-flex align-center mb-4">
                   <v-icon size="28" :color="iconColor" class="mr-2">mdi-clock-outline</v-icon>
@@ -33,11 +29,7 @@
         <!-- Progress Card -->
         <v-col cols="12" md="6">
           <v-hover v-slot="{ isHovering, props }">
-            <v-card
-              v-bind="props"
-              :elevation="isHovering ? 8 : 2"
-              class="info-card"
-            >
+            <v-card v-bind="props" :elevation="isHovering ? 8 : 2" class="info-card">
               <v-card-text>
                 <div class="d-flex align-center mb-4">
                   <v-icon size="28" :color="iconColor" class="mr-2">mdi-progress-check</v-icon>
@@ -67,11 +59,7 @@
         <!-- Parameters Table Card -->
         <v-col cols="12">
           <v-hover v-slot="{ isHovering, props }">
-            <v-card
-              v-bind="props"
-              :elevation="isHovering ? 8 : 2"
-              class="info-card"
-            >
+            <v-card v-bind="props" :elevation="isHovering ? 8 : 2" class="info-card">
               <v-card-text>
                 <div class="d-flex align-center mb-4">
                   <v-icon size="28" :color="iconColor" class="mr-2">mdi-table</v-icon>
@@ -120,145 +108,151 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue';
-import { useTraderStore } from "@/store/app";
-import { storeToRefs } from "pinia";
-import { useRouter, useRoute } from 'vue-router';
-import { useAuthStore } from "@/store/auth";
-import { auth } from "@/firebaseConfig";
+import { computed, ref } from 'vue'
+import { useTraderStore } from '@/store/app'
+import { storeToRefs } from 'pinia'
+import { useRouter, useRoute } from 'vue-router'
+import { useAuthStore } from '@/store/auth'
+import { auth } from '@/firebaseConfig'
 
-const router = useRouter();
-const route = useRoute();
+const router = useRouter()
+const route = useRoute()
 
-const traderStore = useTraderStore();
-const { goalMessage } = storeToRefs(traderStore);
+const traderStore = useTraderStore()
+const { goalMessage } = storeToRefs(traderStore)
 
 const props = defineProps({
   traderAttributes: Object,
-  iconColor: String
-});
+  iconColor: String,
+})
 
-const isLoading = ref(false);
+const isLoading = ref(false)
 
 const marketDuration = computed(() => {
   // Try to get duration from game params in store first, then from trader attributes
-  return traderStore.gameParams?.trading_day_duration || 
-         traderStore.traderAttributes?.all_attributes?.params?.trading_day_duration || 
-         'Loading...';
-});
+  return (
+    traderStore.gameParams?.trading_day_duration ||
+    traderStore.traderAttributes?.all_attributes?.params?.trading_day_duration ||
+    'Loading...'
+  )
+})
 const goalDescription = computed(() => {
-  if (!goalMessage.value) return 'You can freely trade in this market. Your goal is to make a profit.';
-  return goalMessage.value.text;
-});
-const initialShares = computed(() => props.traderAttributes?.shares ?? 'Loading...');
-const initialCash = computed(() => props.traderAttributes?.cash ?? 'Loading...');
+  if (!goalMessage.value)
+    return 'You can freely trade in this market. Your goal is to make a profit.'
+  return goalMessage.value.text
+})
+const initialShares = computed(() => props.traderAttributes?.shares ?? 'Loading...')
+const initialCash = computed(() => props.traderAttributes?.cash ?? 'Loading...')
 const canStartTrading = computed(() => {
   // Allow starting if we have basic trader info (regardless of waiting state)
-  return !!props.traderAttributes;
-});
-const startButtonText = computed(() => isLoading.value ? 'Starting...' : 'Start Trading');
+  return !!props.traderAttributes
+})
+const startButtonText = computed(() => (isLoading.value ? 'Starting...' : 'Start Trading'))
 
 const headers = [
   { text: 'Parameter', value: 'parameter', align: 'left' },
   { text: 'Value', value: 'value', align: 'left' },
-];
+]
 
 const items = computed(() => {
   const baseItems = [
     { parameter: 'Goal', value: goalDescription.value },
     { parameter: 'Initial Shares', value: initialShares.value },
-    { parameter: 'Initial Cash', value: initialCash.value ? `${initialCash.value} Liras` : 'Loading...' },
-  ];
+    {
+      parameter: 'Initial Cash',
+      value: initialCash.value ? `${initialCash.value} Liras` : 'Loading...',
+    },
+  ]
 
   // If the goal is free trading, we don't need to show additional parameters
   if (goalDescription.value.toLowerCase().includes('freely trade')) {
-    return baseItems;
+    return baseItems
   }
 
   // For buying or selling goals, add more specific information
-  const goalValue = props.traderAttributes?.goal;
+  const goalValue = props.traderAttributes?.goal
   if (goalValue !== undefined && goalValue !== null) {
     if (goalValue > 0) {
-      baseItems.push({ parameter: 'Shares to Buy', value: goalValue });
+      baseItems.push({ parameter: 'Shares to Buy', value: goalValue })
     } else if (goalValue < 0) {
-      baseItems.push({ parameter: 'Shares to Sell', value: Math.abs(goalValue) });
+      baseItems.push({ parameter: 'Shares to Sell', value: Math.abs(goalValue) })
     }
   }
 
-  return baseItems;
-});
+  return baseItems
+})
 
 const startTrading = async () => {
   if (!canStartTrading.value) {
-    console.error('Cannot start trading: trader not ready');
-    return;
+    console.error('Cannot start trading: trader not ready')
+    return
   }
 
-  isLoading.value = true;
+  isLoading.value = true
   try {
     // Call start trading endpoint
-    await traderStore.startTradingMarket();
-    
+    await traderStore.startTradingMarket()
+
     // Wait for the transition to complete and check if we should navigate
     setTimeout(() => {
       if (!traderStore.isWaitingForOthers) {
-        console.log("Session transitioned to active - navigating to trading");
-        router.push({ 
-          name: 'trading', 
-          params: { 
+        console.log('Session transitioned to active - navigating to trading')
+        router.push({
+          name: 'trading',
+          params: {
             traderUuid: traderStore.traderUuid,
-            marketId: route.params.marketId
-          } 
-        });
+            marketId: route.params.marketId,
+          },
+        })
       } else {
-        console.log("Still waiting for other traders");
+        console.log('Still waiting for other traders')
       }
-      isLoading.value = false;
-    }, 2000); // Wait 2 seconds for transition
+      isLoading.value = false
+    }, 2000) // Wait 2 seconds for transition
   } catch (error) {
-    console.error('Failed to start trading:', error);
-    isLoading.value = false;
+    console.error('Failed to start trading:', error)
+    isLoading.value = false
   }
-};
+}
 
-const authStore = useAuthStore();
+const authStore = useAuthStore()
 
 const handleLogout = async () => {
   try {
     // Sign out from Firebase
-    await auth.signOut();
+    await auth.signOut()
     // Clear auth store state
-    authStore.logout();
+    authStore.logout()
     // Clear trader store state
-    traderStore.$reset();
+    traderStore.$reset()
     // Redirect to registration page
-    router.push('/');
+    router.push('/')
   } catch (error) {
-    console.error('Logout failed:', error);
+    console.error('Logout failed:', error)
   }
-};
+}
 
 const currentMarket = computed(() => {
-  return props.traderAttributes?.all_attributes?.historical_markets_count || 0;
-});
+  return props.traderAttributes?.all_attributes?.historical_markets_count || 0
+})
 
 const maxMarketsPerHuman = computed(() => {
-  return props.traderAttributes?.all_attributes?.params?.max_markets_per_human || 4;
-});
+  return props.traderAttributes?.all_attributes?.params?.max_markets_per_human || 4
+})
 
 const isAdmin = computed(() => {
-  return props.traderAttributes?.all_attributes?.is_admin || false;
-});
+  return props.traderAttributes?.all_attributes?.is_admin || false
+})
 
 const remainingMarkets = computed(() => {
-  if (isAdmin.value) return '∞';
-  return maxMarketsPerHuman.value - currentMarket.value;
-});
+  if (isAdmin.value) return '∞'
+  return maxMarketsPerHuman.value - currentMarket.value
+})
 
 const marketProgress = computed(() => {
-  if (isAdmin.value) return 100;
-  return (currentMarket.value / maxMarketsPerHuman.value) * 100;
-});
+  if (isAdmin.value) return 100
+  return (currentMarket.value / maxMarketsPerHuman.value) * 100
+})
 </script>
 
 <style scoped>
@@ -274,7 +268,7 @@ const marketProgress = computed(() => {
 }
 
 .gradient-text {
-  background: linear-gradient(45deg, #2196F3, #4CAF50);
+  background: linear-gradient(45deg, #2196f3, #4caf50);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   font-weight: bold;
@@ -286,9 +280,15 @@ const marketProgress = computed(() => {
 }
 
 @keyframes pulse {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.1); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 .info-card {
@@ -298,7 +298,7 @@ const marketProgress = computed(() => {
 }
 
 .highlight-text {
-  color: #1976D2;
+  color: #1976d2;
   font-weight: 600;
   font-size: 1.1rem;
 }
@@ -316,7 +316,7 @@ const marketProgress = computed(() => {
   font-weight: 600;
   text-transform: none;
   letter-spacing: 0.5px;
-  background: linear-gradient(45deg, #2196F3, #4CAF50) !important;
+  background: linear-gradient(45deg, #2196f3, #4caf50) !important;
   color: white !important;
   transition: all 0.3s ease;
 }

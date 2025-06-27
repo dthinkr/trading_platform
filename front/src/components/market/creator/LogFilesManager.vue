@@ -5,9 +5,9 @@
       Log Files
     </v-card-title>
     <v-card-text class="pa-2">
-      <v-btn 
-        color="primary" 
-        @click="downloadAllFiles" 
+      <v-btn
+        color="primary"
+        @click="downloadAllFiles"
         block
         elevation="2"
         class="mb-2 custom-btn download-all-btn"
@@ -17,9 +17,9 @@
         Download All Files
       </v-btn>
 
-      <v-btn 
-        color="secondary" 
-        @click="downloadParameterHistory" 
+      <v-btn
+        color="secondary"
+        @click="downloadParameterHistory"
         block
         elevation="2"
         class="mb-2 custom-btn"
@@ -29,9 +29,9 @@
         Download Parameter History
       </v-btn>
 
-      <v-btn 
-        color="info" 
-        @click="downloadQuestionnaireResponses" 
+      <v-btn
+        color="info"
+        @click="downloadQuestionnaireResponses"
         block
         elevation="2"
         class="mb-2 custom-btn"
@@ -41,9 +41,9 @@
         Download Questionnaire Responses
       </v-btn>
 
-      <v-btn 
-        color="success" 
-        @click="downloadConsentData" 
+      <v-btn
+        color="success"
+        @click="downloadConsentData"
         block
         elevation="2"
         class="mb-2 custom-btn"
@@ -52,11 +52,11 @@
         <v-icon left large>mdi-clipboard-check</v-icon>
         Download Consent Data
       </v-btn>
-      
+
       <v-data-table
         :headers="[
           { text: 'File Name', value: 'name', class: 'custom-header' },
-          { text: 'Actions', value: 'actions', sortable: false, class: 'custom-header' }
+          { text: 'Actions', value: 'actions', sortable: false, class: 'custom-header' },
         ]"
         :items="logFiles"
         :items-per-page="5"
@@ -73,14 +73,16 @@
         </template>
       </v-data-table>
     </v-card-text>
-    
+
     <v-dialog v-model="showDeleteDialog" max-width="300px">
       <v-card>
         <v-card-title class="headline">Confirm Delete</v-card-title>
         <v-card-text>Are you sure you want to delete this file?</v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn color="grey darken-1" text @click="showDeleteDialog = false" class="custom-btn">Cancel</v-btn>
+          <v-btn color="grey darken-1" text @click="showDeleteDialog = false" class="custom-btn"
+            >Cancel</v-btn
+          >
           <v-btn color="error" text @click="deleteFile" class="custom-btn">Delete</v-btn>
         </v-card-actions>
       </v-card>
@@ -89,128 +91,132 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
-import axios from '@/api/axios';
-import { saveAs } from 'file-saver';
-import JSZip from 'jszip';
+import { ref, onMounted } from 'vue'
+import axios from '@/api/axios'
+import { saveAs } from 'file-saver'
+import JSZip from 'jszip'
 
-const logFiles = ref([]);
-const showDeleteDialog = ref(false);
-const fileToDelete = ref(null);
+const logFiles = ref([])
+const showDeleteDialog = ref(false)
+const fileToDelete = ref(null)
 
 const fetchLogFiles = async () => {
   try {
-    const response = await axios.get(`${import.meta.env.VITE_HTTP_URL}files`);
-    logFiles.value = response.data.files;
+    const response = await axios.get(`${import.meta.env.VITE_HTTP_URL}files`)
+    logFiles.value = response.data.files
   } catch (error) {
-    console.error("Failed to fetch log files:", error);
+    console.error('Failed to fetch log files:', error)
   }
-};
+}
 
 const downloadFile = async (fileName) => {
   try {
-    const response = await axios.get(`${import.meta.env.VITE_HTTP_URL}files/${fileName}`, { responseType: 'blob' });
-    const url = window.URL.createObjectURL(new Blob([response.data]));
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', fileName);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const response = await axios.get(`${import.meta.env.VITE_HTTP_URL}files/${fileName}`, {
+      responseType: 'blob',
+    })
+    const url = window.URL.createObjectURL(new Blob([response.data]))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', fileName)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
   } catch (error) {
-    console.error("Error downloading file:", error);
+    console.error('Error downloading file:', error)
   }
-};
+}
 
 const confirmDeleteFile = (fileName) => {
-  fileToDelete.value = fileName;
-  showDeleteDialog.value = true;
-};
+  fileToDelete.value = fileName
+  showDeleteDialog.value = true
+}
 
 const deleteFile = async () => {
   try {
-    await axios.delete(`${import.meta.env.VITE_HTTP_URL}files/${fileToDelete.value}`);
-    logFiles.value = logFiles.value.filter(file => file.name !== fileToDelete.value);
-    showDeleteDialog.value = false;
-    fileToDelete.value = null;
+    await axios.delete(`${import.meta.env.VITE_HTTP_URL}files/${fileToDelete.value}`)
+    logFiles.value = logFiles.value.filter((file) => file.name !== fileToDelete.value)
+    showDeleteDialog.value = false
+    fileToDelete.value = null
   } catch (error) {
-    console.error("Error deleting file:", error);
+    console.error('Error deleting file:', error)
   }
-};
+}
 
 const downloadAllFiles = async () => {
   try {
-    const zip = new JSZip();
-    
+    const zip = new JSZip()
+
     for (const file of logFiles.value) {
-      const response = await axios.get(`${import.meta.env.VITE_HTTP_URL}files/${file.name}`, { responseType: 'blob' });
-      zip.file(file.name, response.data);
+      const response = await axios.get(`${import.meta.env.VITE_HTTP_URL}files/${file.name}`, {
+        responseType: 'blob',
+      })
+      zip.file(file.name, response.data)
     }
-    
-    const content = await zip.generateAsync({ type: "blob" });
-    saveAs(content, "all_log_files.zip");
+
+    const content = await zip.generateAsync({ type: 'blob' })
+    saveAs(content, 'all_log_files.zip')
   } catch (error) {
-    console.error("Error downloading all files:", error);
+    console.error('Error downloading all files:', error)
   }
-};
+}
 
 const downloadParameterHistory = async () => {
   try {
     const response = await axios.get(
-      `${import.meta.env.VITE_HTTP_URL}admin/download_parameter_history`, 
+      `${import.meta.env.VITE_HTTP_URL}admin/download_parameter_history`,
       { responseType: 'blob' }
-    );
-    const url = window.URL.createObjectURL(new Blob([response.data]));
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', 'parameter_history.json');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    )
+    const url = window.URL.createObjectURL(new Blob([response.data]))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', 'parameter_history.json')
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
   } catch (error) {
-    console.error("Error downloading parameter history:", error);
+    console.error('Error downloading parameter history:', error)
   }
-};
+}
 
 const downloadQuestionnaireResponses = async () => {
   try {
     const response = await axios.get(
-      `${import.meta.env.VITE_HTTP_URL}admin/download_questionnaire_responses`, 
+      `${import.meta.env.VITE_HTTP_URL}admin/download_questionnaire_responses`,
       { responseType: 'blob' }
-    );
-    const url = window.URL.createObjectURL(new Blob([response.data]));
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', 'questionnaire_responses.csv');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    )
+    const url = window.URL.createObjectURL(new Blob([response.data]))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', 'questionnaire_responses.csv')
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
   } catch (error) {
-    console.error("Error downloading questionnaire responses:", error);
+    console.error('Error downloading questionnaire responses:', error)
   }
-};
+}
 
 const downloadConsentData = async () => {
   try {
     const response = await axios.get(
-      `${import.meta.env.VITE_HTTP_URL}admin/download-consent-data`, 
+      `${import.meta.env.VITE_HTTP_URL}admin/download-consent-data`,
       { responseType: 'blob' }
-    );
-    const url = window.URL.createObjectURL(new Blob([response.data]));
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', 'consent_data.csv');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    )
+    const url = window.URL.createObjectURL(new Blob([response.data]))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', 'consent_data.csv')
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
   } catch (error) {
-    console.error("Error downloading consent data:", error);
+    console.error('Error downloading consent data:', error)
   }
-};
+}
 
 onMounted(() => {
-  fetchLogFiles();
-});
+  fetchLogFiles()
+})
 </script>
 
 <style scoped>

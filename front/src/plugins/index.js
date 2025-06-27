@@ -11,12 +11,8 @@ import router from '../router'
 import { createPinia } from 'pinia'
 import { MotionPlugin } from '@vueuse/motion'
 
-export function registerPlugins (app) {
+export function registerPlugins(app) {
   loadFonts()
-  
-  app
-    .use(vuetify)
-    .use(router)
-    .use(createPinia())
-    .use(MotionPlugin)
+
+  app.use(vuetify).use(router).use(createPinia()).use(MotionPlugin)
 }

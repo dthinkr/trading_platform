@@ -7,17 +7,10 @@
         type="error"
         closable
         class="ma-4"
-        style="position: fixed; top: 0; left: 50%; transform: translateX(-50%); z-index: 1000;"
+        style="position: fixed; top: 0; left: 50%; transform: translateX(-50%); z-index: 1000"
       >
         Connection error. Please refresh the page.
-        <v-btn
-          color="white"
-          variant="text"
-          class="ml-4"
-          @click="refreshPage"
-        >
-          Refresh Now
-        </v-btn>
+        <v-btn color="white" variant="text" class="ml-4" @click="refreshPage"> Refresh Now </v-btn>
       </v-alert>
 
       <v-app-bar app elevation="2" color="white">
@@ -54,31 +47,35 @@
                 <div class="stat-chip traders-chip">
                   <Users :size="16" class="chip-icon" />
                   <span class="chip-label">Traders:</span>
-                  <span class="chip-value">{{ currentHumanTraders }} / {{ expectedHumanTraders }}</span>
+                  <span class="chip-value"
+                    >{{ currentHumanTraders }} / {{ expectedHumanTraders }}</span
+                  >
                 </div>
               </div>
-              <div 
-                v-if="hasGoal" 
-                class="goal-chip-modern"
-                :class="getGoalMessageClass"
-              >
+              <div v-if="hasGoal" class="goal-chip-modern" :class="getGoalMessageClass">
                 <div class="goal-content">
                   <component :is="getGoalIcon()" :size="16" class="goal-icon" />
                   <span class="goal-type-text">{{ goalTypeText }}</span>
                 </div>
                 <div class="progress-container">
                   <div class="progress-bar-modern">
-                    <div 
-                      class="progress-fill-modern" 
+                    <div
+                      class="progress-fill-modern"
                       :style="{ width: `${goalProgressPercentage}%` }"
                     ></div>
                   </div>
-                  <span class="progress-text">{{ Math.abs(goalProgress) }}/{{ Math.abs(goal) }}</span>
+                  <span class="progress-text"
+                    >{{ Math.abs(goalProgress) }}/{{ Math.abs(goal) }}</span
+                  >
                 </div>
               </div>
               <div class="time-chip">
                 <Clock :size="16" class="chip-icon" />
-                <vue-countdown v-if="remainingTime" :time="remainingTime * 1000" v-slot="{ minutes, seconds }">
+                <vue-countdown
+                  v-if="remainingTime"
+                  :time="remainingTime * 1000"
+                  v-slot="{ minutes, seconds }"
+                >
                   {{ minutes }}:{{ seconds.toString().padStart(2, '0') }}
                 </vue-countdown>
                 <span v-else>Waiting to start</span>
@@ -91,7 +88,7 @@
       <v-main class="grey lighten-4">
         <v-container fluid class="pa-4">
           <!-- Modified waiting screen -->
-          <v-row v-if="!isTradingStarted" justify="center" align="center" style="height: 80vh;">
+          <v-row v-if="!isTradingStarted" justify="center" align="center" style="height: 80vh">
             <v-col cols="12" md="6" class="text-center">
               <v-card elevation="2" class="pa-6">
                 <v-card-title class="text-h4 mb-4">Waiting for Traders</v-card-title>
@@ -100,7 +97,7 @@
                     {{ currentHumanTraders }} out of {{ expectedHumanTraders }} traders have joined
                   </p>
                   <p class="subtitle-1 mb-4">
-                    Your Role: 
+                    Your Role:
                     <v-chip :color="roleColor" text-color="white" small>
                       <v-icon left small>{{ roleIcon }}</v-icon>
                       {{ roleDisplay.text }}
@@ -120,17 +117,31 @@
               </v-card>
             </v-col>
           </v-row>
-          <v-row v-else>            <v-col v-for="(columnTools, colIndex) in columns" :key="colIndex" :cols="12" :md="colIndex === 0 ? 2 : 5" class="d-flex flex-column">
-              <v-card v-for="(tool, toolIndex) in columnTools" :key="toolIndex" 
-                      class="mb-4 tool-card" 
-                      :class="{'price-history-card': tool.title === 'Price History'}"
-                      elevation="2">
+          <v-row v-else>
+            <v-col
+              v-for="(columnTools, colIndex) in columns"
+              :key="colIndex"
+              :cols="12"
+              :md="colIndex === 0 ? 2 : 5"
+              class="d-flex flex-column"
+            >
+              <v-card
+                v-for="(tool, toolIndex) in columnTools"
+                :key="toolIndex"
+                class="mb-4 tool-card"
+                :class="{ 'price-history-card': tool.title === 'Price History' }"
+                elevation="2"
+              >
                 <v-card-title class="tool-title">
                   <component :is="getToolIconComponent(tool.title)" :size="20" class="tool-icon" />
                   {{ tool.title }}
                 </v-card-title>
                 <v-card-text class="pa-0">
-                  <component :is="tool.component" :isGoalAchieved="isGoalAchieved" :goalType="goalType" />
+                  <component
+                    :is="tool.component"
+                    :isGoalAchieved="isGoalAchieved"
+                    :goalType="goalType"
+                  />
                 </v-card-text>
               </v-card>
             </v-col>
@@ -141,80 +152,80 @@
   </div>
 </template>
 
-<script setup>  
-import BidAskDistribution from "@charts/BidAskDistribution.vue";
-import PriceHistory from "@charts/PriceHistory.vue";
-import PlaceOrder from "@trading/PlaceOrder.vue";
-import OrderHistory from "@trading/OrderHistory.vue";
-import ActiveOrders from "@trading/ActiveOrders.vue";
-import MarketMessages from "@trading/MarketMessages.vue";
+<script setup>
+import BidAskDistribution from '@charts/BidAskDistribution.vue'
+import PriceHistory from '@charts/PriceHistory.vue'
+import PlaceOrder from '@trading/PlaceOrder.vue'
+import OrderHistory from '@trading/OrderHistory.vue'
+import ActiveOrders from '@trading/ActiveOrders.vue'
+import MarketMessages from '@trading/MarketMessages.vue'
 
-import { computed, watch } from "vue";
-import { useRouter } from "vue-router";
-import { useFormatNumber } from "@/composables/utils";
-import { storeToRefs } from "pinia";
-import { useTraderStore } from "@/store/app";
+import { computed, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { useFormatNumber } from '@/composables/utils'
+import { storeToRefs } from 'pinia'
+import { useTraderStore } from '@/store/app'
 
-import { onMounted, onUnmounted, ref, onBeforeUnmount } from 'vue';
-import { debounce } from 'lodash';
-import axios from '@/api/axios';
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  DollarSign, 
-  Package, 
-  Banknote, 
-  Users, 
-  Clock, 
-  ArrowUp, 
-  ArrowDown, 
+import { onMounted, onUnmounted, ref, onBeforeUnmount } from 'vue'
+import { debounce } from 'lodash'
+import axios from '@/api/axios'
+import {
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
+  Package,
+  Banknote,
+  Users,
+  Clock,
+  ArrowUp,
+  ArrowDown,
   Search,
   History,
   Info,
   BarChart3,
   List,
   LineChart,
-  Calculator
-} from 'lucide-vue-next';
+  Calculator,
+} from 'lucide-vue-next'
 
-const { formatNumber } = useFormatNumber();
-const router = useRouter();
-const store = useTraderStore();
-const { 
-  goalMessage, 
-  initial_shares, 
-  pnl, 
-  vwap, 
-  remainingTime, 
+const { formatNumber } = useFormatNumber()
+const router = useRouter()
+const store = useTraderStore()
+const {
+  goalMessage,
+  initial_shares,
+  pnl,
+  vwap,
+  remainingTime,
   isTradingStarted,
   currentHumanTraders,
   expectedHumanTraders,
   traderUuid,
   cash,
   sum_dinv,
-  activeOrders
-} = storeToRefs(store);
+  activeOrders,
+} = storeToRefs(store)
 
 const columns = [
   [
-    { title: "Trades History", component: OrderHistory },
-    { title: "Market Info", component: MarketMessages },
+    { title: 'Trades History', component: OrderHistory },
+    { title: 'Market Info', component: MarketMessages },
   ],
   [
-    { title: "Buy-Sell Chart", component: BidAskDistribution },
-    { title: "Passive Orders", component: ActiveOrders },
+    { title: 'Buy-Sell Chart', component: BidAskDistribution },
+    { title: 'Passive Orders', component: ActiveOrders },
   ],
   [
-    { title: "Price History", component: PriceHistory },
-    { title: "Trading Panel", component: PlaceOrder },
+    { title: 'Price History', component: PriceHistory },
+    { title: 'Trading Panel', component: PlaceOrder },
   ],
-];
+]
 
 const formatDelta = computed(() => {
-  if (sum_dinv.value == undefined) return "";
-  const halfChange = Math.round(sum_dinv.value);
-  return halfChange >= 0 ? "+" + halfChange : halfChange.toString();
-});
+  if (sum_dinv.value == undefined) return ''
+  const halfChange = Math.round(sum_dinv.value)
+  return halfChange >= 0 ? '+' + halfChange : halfChange.toString()
+})
 
 // Debug reactive values for PnL display
 const debugDisplayValues = computed(() => {
@@ -223,145 +234,152 @@ const debugDisplayValues = computed(() => {
     initial_shares: initial_shares.value,
     cash: cash.value,
     sum_dinv: sum_dinv.value,
-    formatDelta: formatDelta.value
-  };
-  console.log("🎯 DASHBOARD DISPLAY VALUES:", values);
-  return values;
-});
+    formatDelta: formatDelta.value,
+  }
+  console.log('🎯 DASHBOARD DISPLAY VALUES:', values)
+  return values
+})
 
 const finalizingDay = () => {
   if (traderUuid.value) {
-    router.push({ name: "summary", params: { traderUuid: traderUuid.value } });
+    router.push({ name: 'summary', params: { traderUuid: traderUuid.value } })
   } else {
-    console.error('No trader UUID found');
-    router.push({ name: "Register" });
+    console.error('No trader UUID found')
+    router.push({ name: 'Register' })
   }
-};
+}
 
 watch(remainingTime, (newValue) => {
   if (newValue !== null && newValue <= 0 && isTradingStarted.value) {
-    finalizingDay();
+    finalizingDay()
   }
-});
+})
 
 // Remove the calculateZoom function and replace with a fixed value
-const zoomLevel = ref(0.95);  // Fixed 90% zoom
+const zoomLevel = ref(0.95) // Fixed 90% zoom
 
 onMounted(async () => {
   // Apply zoom only once, using CSS transform instead of zoom
-  document.body.style.transform = 'scale(0.95)';
-  document.body.style.transformOrigin = 'top left';
+  document.body.style.transform = 'scale(0.95)'
+  document.body.style.transformOrigin = 'top left'
   // Remove the zoom property as it can cause flickering in some browsers
   // document.body.style.zoom = zoomLevel.value;
-  
+
   // Set default user role
-  userRole.value = 'trader';
+  userRole.value = 'trader'
 
   // Start market timeout countdown if not started
   if (!isTradingStarted.value) {
     marketTimeoutInterval.value = setInterval(() => {
       if (marketTimeRemaining.value > 0) {
-        marketTimeRemaining.value--;
+        marketTimeRemaining.value--
       }
-    }, 1000);
+    }, 1000)
   }
-});
+})
 
 onUnmounted(() => {
   // Remove other cleanup code if needed
-});
+})
 
 // First, define the basic computed properties
-const goal = computed(() => store.traderAttributes?.goal || 0);
-const goalProgress = computed(() => store.traderAttributes?.goal_progress || 0);
-const hasGoal = computed(() => goal.value !== 0);
+const goal = computed(() => store.traderAttributes?.goal || 0)
+const goalProgress = computed(() => store.traderAttributes?.goal_progress || 0)
+const hasGoal = computed(() => goal.value !== 0)
 
 // Then define the dependent computed properties
 const isGoalAchieved = computed(() => {
-  if (!hasGoal.value) return false;
-  return Math.abs(goalProgress.value) >= Math.abs(goal.value);
-});
+  if (!hasGoal.value) return false
+  return Math.abs(goalProgress.value) >= Math.abs(goal.value)
+})
 
 const goalType = computed(() => {
-  if (!hasGoal.value) return 'free';
-  return goal.value > 0 ? 'buy' : 'sell';
-});
+  if (!hasGoal.value) return 'free'
+  return goal.value > 0 ? 'buy' : 'sell'
+})
 
 const goalProgressPercentage = computed(() => {
-  if (!hasGoal.value) return 0;
-  const targetGoal = Math.abs(goal.value);
-  const currentProgress = Math.abs(goalProgress.value);
-  return Math.min((currentProgress / targetGoal) * 100, 100);
-});
+  if (!hasGoal.value) return 0
+  const targetGoal = Math.abs(goal.value)
+  const currentProgress = Math.abs(goalProgress.value)
+  return Math.min((currentProgress / targetGoal) * 100, 100)
+})
 
 const goalProgressColor = computed(() => {
-  if (isGoalAchieved.value) return 'light-green accent-4';
-  return goal.value > 0 ? 'blue lighten-1' : 'red lighten-1';
-});
+  if (isGoalAchieved.value) return 'light-green accent-4'
+  return goal.value > 0 ? 'blue lighten-1' : 'red lighten-1'
+})
 
 const getGoalMessageClass = computed(() => {
-  if (isGoalAchieved.value) return 'success-bg';
-  return goal.value > 0 ? 'buy-bg' : 'sell-bg';
-});
+  if (isGoalAchieved.value) return 'success-bg'
+  return goal.value > 0 ? 'buy-bg' : 'sell-bg'
+})
 
 const getGoalMessageIcon = computed(() => {
-  if (!hasGoal.value) return 'mdi-information';
-  return goal.value > 0 ? 'mdi-arrow-up-bold' : 'mdi-arrow-down-bold';
-});
+  if (!hasGoal.value) return 'mdi-information'
+  return goal.value > 0 ? 'mdi-arrow-up-bold' : 'mdi-arrow-down-bold'
+})
 
 const displayGoalMessage = computed(() => {
   if (!goalMessage.value) {
     return {
       type: 'info',
-      text: 'You can freely trade. Your goal is to profit from the market.'
-    };
+      text: 'You can freely trade. Your goal is to profit from the market.',
+    }
   }
-  return goalMessage.value;
-});
+  return goalMessage.value
+})
 
 // Add this function to cancel all active orders
 const cancelAllActiveOrders = () => {
-  activeOrders.value.forEach(order => {
-    store.cancelOrder(order.id);
-  });
-};
+  activeOrders.value.forEach((order) => {
+    store.cancelOrder(order.id)
+  })
+}
 
 // Watch for changes in isGoalAchieved
 watch(isGoalAchieved, (newValue) => {
   if (newValue) {
-    cancelAllActiveOrders();
+    cancelAllActiveOrders()
   }
-});
+})
 
 // Add this function to get icons for each tool
 const getToolIconComponent = (toolTitle) => {
   switch (toolTitle) {
-    case 'Trades History': return History;
-    case 'Market Info': return Info;
-    case 'Buy-Sell Chart': return BarChart3;
-    case 'Passive Orders': return List;
-    case 'Price History': return LineChart;
-    case 'Trading Panel': return Calculator;
-    default: return Info;
+    case 'Trades History':
+      return History
+    case 'Market Info':
+      return Info
+    case 'Buy-Sell Chart':
+      return BarChart3
+    case 'Passive Orders':
+      return List
+    case 'Price History':
+      return LineChart
+    case 'Trading Panel':
+      return Calculator
+    default:
+      return Info
   }
-};
+}
 
 // Add function for role icons
 const getRoleIcon = () => {
-  if (!hasGoal.value) return Search;
-  return goal.value > 0 ? TrendingUp : TrendingDown;
-};
+  if (!hasGoal.value) return Search
+  return goal.value > 0 ? TrendingUp : TrendingDown
+}
 
 // Add function for goal icons
 const getGoalIcon = () => {
-  if (!hasGoal.value) return Search;
-  return goal.value > 0 ? ArrowUp : ArrowDown;
-};
+  if (!hasGoal.value) return Search
+  return goal.value > 0 ? ArrowUp : ArrowDown
+}
 
 // Add these to your existing refs/computed
-const userRole = ref('');
-const marketTimeRemaining = ref(null); // Infinite timeout
-const marketTimeoutInterval = ref(null);
+const userRole = ref('')
+const marketTimeRemaining = ref(null) // Infinite timeout
+const marketTimeoutInterval = ref(null)
 
 // Add these computed properties
 const roleDisplay = computed(() => {
@@ -369,126 +387,139 @@ const roleDisplay = computed(() => {
     return {
       text: 'SPECULATOR',
       icon: 'mdi-account-search',
-      color: 'teal'
-    };
+      color: 'teal',
+    }
   }
   // Informed trader with different types
   if (goal.value > 0) {
     return {
       text: 'INFORMED (BUY)',
       icon: 'mdi-trending-up',
-      color: 'indigo'
-    };
+      color: 'indigo',
+    }
   }
   return {
     text: 'INFORMED (SELL)',
     icon: 'mdi-trending-down',
-    color: 'deep-purple'
-  };
-});
+    color: 'deep-purple',
+  }
+})
 
 // Replace the existing roleColor and roleIcon computed properties
-const roleColor = computed(() => roleDisplay.value.color);
-const roleIcon = computed(() => roleDisplay.value.icon);
+const roleColor = computed(() => roleDisplay.value.color)
+const roleIcon = computed(() => roleDisplay.value.icon)
 
 // Add watcher for trading started
 watch(isTradingStarted, (newValue) => {
   if (newValue && marketTimeoutInterval.value) {
-    clearInterval(marketTimeoutInterval.value);
-    marketTimeRemaining.value = 0;
+    clearInterval(marketTimeoutInterval.value)
+    marketTimeRemaining.value = 0
   }
-});
+})
 
 // Add handler for market timeout
 watch(marketTimeRemaining, (newValue) => {
   if (newValue === 0 && !isTradingStarted.value) {
-    router.push({ name: 'Register', query: { error: 'Market timed out - not enough traders joined' } });
+    router.push({
+      name: 'Register',
+      query: { error: 'Market timed out - not enough traders joined' },
+    })
   }
-});
+})
 
 const goalTypeText = computed(() => {
-  if (!hasGoal.value) return 'FREE';
-  return goal.value > 0 ? 'BUY' : 'SELL';
-});
+  if (!hasGoal.value) return 'FREE'
+  return goal.value > 0 ? 'BUY' : 'SELL'
+})
 
 const progressBarColor = computed(() => {
   if (goalProgressPercentage.value === 100) {
-    return 'light-green accent-3';
+    return 'light-green accent-3'
   }
   if (goalProgressPercentage.value > 75) {
-    return 'light-green lighten-1';
+    return 'light-green lighten-1'
   }
   if (goalProgressPercentage.value > 50) {
-    return 'amber lighten-1';
+    return 'amber lighten-1'
   }
   if (goalProgressPercentage.value > 25) {
-    return 'orange lighten-1';
+    return 'orange lighten-1'
   }
-  return 'deep-orange lighten-1';
-});
+  return 'deep-orange lighten-1'
+})
 
 // Add this computed property
 const allTradersReady = computed(() => {
   // This should be updated based on the WebSocket status updates
   // You'll need to track this in your store
-  return store.allTradersReady;
-});
+  return store.allTradersReady
+})
 
 // Add this computed property
 const readyCount = computed(() => {
-  return store.readyCount || 0;
-});
+  return store.readyCount || 0
+})
 
 // Add a computed property to track trader count changes
 const traderCountDisplay = computed(() => {
-  return `${currentHumanTraders.value} / ${expectedHumanTraders.value}`;
-});
+  return `${currentHumanTraders.value} / ${expectedHumanTraders.value}`
+})
 
 // Add a watcher to log changes (for debugging)
-watch([currentHumanTraders, expectedHumanTraders], ([newCurrent, newExpected], [oldCurrent, oldExpected]) => {
-  console.log(`Trader count updated: ${oldCurrent}/${oldExpected} -> ${newCurrent}/${newExpected}`);
-});
+watch(
+  [currentHumanTraders, expectedHumanTraders],
+  ([newCurrent, newExpected], [oldCurrent, oldExpected]) => {
+    console.log(
+      `Trader count updated: ${oldCurrent}/${oldExpected} -> ${newCurrent}/${newExpected}`
+    )
+  }
+)
 
 // Add to your existing imports
 //import { ref } from 'vue';
 
-
 // Add these refs
-const showErrorAlert = ref(false);
+const showErrorAlert = ref(false)
 
 // Add this method
 const refreshPage = () => {
-  window.location.reload();
-};
+  window.location.reload()
+}
 
 // Modify your store watch or WebSocket handler to include error handling
-watch(() => store.ws, (newWs) => {
-  if (newWs) {
-    const debouncedHandler = debounce((event) => {
-      try {
-        if (typeof event.data === 'string' && 
-            (event.data.startsWith('<!DOCTYPE') || event.data.startsWith('<html'))) {
-          showErrorAlert.value = true;
-          return;
+watch(
+  () => store.ws,
+  (newWs) => {
+    if (newWs) {
+      const debouncedHandler = debounce((event) => {
+        try {
+          if (
+            typeof event.data === 'string' &&
+            (event.data.startsWith('<!DOCTYPE') || event.data.startsWith('<html'))
+          ) {
+            showErrorAlert.value = true
+            return
+          }
+          const data = JSON.parse(event.data)
+          // Your normal message handling...
+        } catch (error) {
+          if (error.message.includes("Unexpected token '<'")) {
+            showErrorAlert.value = true
+          }
+          console.error('WebSocket message error:', error)
         }
-        const data = JSON.parse(event.data);
-        // Your normal message handling...
-      } catch (error) {
-        if (error.message.includes("Unexpected token '<'")) {
-          showErrorAlert.value = true;
-        }
-        console.error("WebSocket message error:", error);
-      }
-    }, 16); // Debounce to roughly one frame (60fps)
+      }, 16) // Debounce to roughly one frame (60fps)
 
-    newWs.addEventListener('message', debouncedHandler);
-  }
-}, { immediate: true });
+      newWs.addEventListener('message', debouncedHandler)
+    }
+  },
+  { immediate: true }
+)
 
 // Add this computed property
 const isInitialized = computed(() => {
-  return Boolean(traderUuid.value && store.traderAttributes);
-});
+  return Boolean(traderUuid.value && store.traderAttributes)
+})
 </script>
 
 <style scoped>
@@ -513,7 +544,9 @@ const isInitialized = computed(() => {
 
 .v-card {
   border-radius: 16px;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  box-shadow:
+    0 1px 3px 0 rgba(0, 0, 0, 0.1),
+    0 1px 2px 0 rgba(0, 0, 0, 0.06);
   border: 1px solid rgba(0, 0, 0, 0.05);
 }
 
@@ -540,7 +573,9 @@ const isInitialized = computed(() => {
 
 .tool-card:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
 .price-history-card {
@@ -701,15 +736,10 @@ const isInitialized = computed(() => {
 /* Alert styles */
 .v-alert {
   max-width: 500px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
   border-radius: 12px;
   font-weight: 500;
 }
 </style>
-
-
-
-
-
-
-

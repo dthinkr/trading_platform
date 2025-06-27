@@ -29,6 +29,7 @@ class CancelResult:
     """Result of order cancellation."""
     success: bool
     order_id: str
+    order: Optional[Dict[str, Any]] = None
     reason: Optional[str] = None
 
 
@@ -99,14 +100,15 @@ class OrderService:
     
     async def cancel_order(self, order_id: str) -> CancelResult:
         """Cancel an order."""
-        success = self.order_book.cancel_order(order_id)
+        order, success = self.order_book.cancel_order_with_details(order_id)
         
         if success:
-            return CancelResult(success=True, order_id=order_id)
+            return CancelResult(success=True, order_id=order_id, order=order)
         else:
             return CancelResult(
                 success=False, 
                 order_id=order_id, 
+                order=order,
                 reason="Order not found or cancellation failed"
             )
 

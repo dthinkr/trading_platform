@@ -4,23 +4,24 @@
       <v-icon left color="deep-blue">mdi-cog-outline</v-icon>
       Trading Market Configuration
     </v-card-title>
-    
+
     <v-card-subtitle class="py-2">
-      <v-chip
-        small
-        outlined
-        color="error"
-        class="mr-2"
-      >
+      <v-chip small outlined color="error" class="mr-2">
         <v-icon left small color="error">mdi-information-outline</v-icon>
         Highlighted fields in red indicate treatment values that differ from defaults
       </v-chip>
     </v-card-subtitle>
-    
+
     <v-card-text>
       <v-form>
         <div class="parameter-grid">
-          <v-card v-for="(group, hint) in groupedFields" :key="hint" outlined class="parameter-card" :class="{ 'parameter-card-large': group.length > 4 }">
+          <v-card
+            v-for="(group, hint) in groupedFields"
+            :key="hint"
+            outlined
+            class="parameter-card"
+            :class="{ 'parameter-card-large': group.length > 4 }"
+          >
             <v-card-title class="subtitle-1 py-2 px-3 grey lighten-4">
               <v-icon left color="deep-blue" small>mdi-label-outline</v-icon>
               {{ hint.replace('_', ' ') }}
@@ -58,12 +59,12 @@
         </div>
       </v-form>
     </v-card-text>
-    
+
     <v-card-actions>
       <v-spacer></v-spacer>
-      <v-btn 
-        color="primary" 
-        @click="saveSettings" 
+      <v-btn
+        color="primary"
+        @click="saveSettings"
         :disabled="!serverActive"
         small
         elevation="2"
@@ -77,129 +78,130 @@
 </template>
 
 <script setup>
-import { ref, computed, defineProps, defineEmits } from 'vue';
-import axios from '@/api/axios';
-import { debounce } from 'lodash';
+import { ref, computed, defineProps, defineEmits } from 'vue'
+import axios from '@/api/axios'
+import { debounce } from 'lodash'
 
 const props = defineProps({
   formState: {
     type: Object,
-    required: true
+    required: true,
   },
   formFields: {
     type: Array,
-    required: true
+    required: true,
   },
   serverActive: {
     type: Boolean,
-    required: true
-  }
-});
+    required: true,
+  },
+})
 
-const emit = defineEmits(['update:formState']);
+const emit = defineEmits(['update:formState'])
 
 const groupedFields = computed(() => {
-  const groups = {};
+  const groups = {}
   props.formFields.forEach((field) => {
-    const hint = field.hint || 'other';
+    const hint = field.hint || 'other'
     if (!groups[hint]) {
-      groups[hint] = [];
+      groups[hint] = []
     }
-    groups[hint].push(field);
-  });
-  return groups;
-});
+    groups[hint].push(field)
+  })
+  return groups
+})
 
 const getFieldType = (field) => {
-  if (!field || !field.type) return 'text';
-  return ['number', 'integer'].includes(field.type) ? 'number' : 'text';
-};
+  if (!field || !field.type) return 'text'
+  return ['number', 'integer'].includes(field.type) ? 'number' : 'text'
+}
 
 const isArrayField = (field) => {
-  return field.type === 'array';
-};
+  return field.type === 'array'
+}
 
 const handleArrayInput = (fieldName, value) => {
   if (fieldName === 'predefined_goals') {
     if (value === '') {
-      props.formState[fieldName] = [];
+      props.formState[fieldName] = []
     } else if (Array.isArray(value)) {
-      props.formState[fieldName] = value.map(v => parseInt(v));
+      props.formState[fieldName] = value.map((v) => parseInt(v))
     } else {
       // Convert string input to array of numbers
-      props.formState[fieldName] = value.split(',')
-        .map(v => parseInt(v.trim()))
-        .filter(n => !isNaN(n));
+      props.formState[fieldName] = value
+        .split(',')
+        .map((v) => parseInt(v.trim()))
+        .filter((n) => !isNaN(n))
     }
-    console.log(`Updated ${fieldName}:`, props.formState[fieldName]); // Debug log
+    console.log(`Updated ${fieldName}:`, props.formState[fieldName]) // Debug log
   } else {
     // Handle other array fields
-    props.formState[fieldName] = value === '' ? [] : value.split(',').map(item => item.trim());
+    props.formState[fieldName] = value === '' ? [] : value.split(',').map((item) => item.trim())
   }
-  updatePersistentSettings();
-};
+  updatePersistentSettings()
+}
 
 const debouncedUpdate = debounce(async (settings) => {
   try {
     // Create a clean copy of the settings
-    const cleanSettings = { ...settings };
-    
+    const cleanSettings = { ...settings }
+
     // Ensure throttle settings are properly formatted
     if (cleanSettings.throttle_settings) {
       Object.entries(cleanSettings.throttle_settings).forEach(([trader, config]) => {
         cleanSettings.throttle_settings[trader] = {
           order_throttle_ms: parseInt(config.order_throttle_ms) || 0,
-          max_orders_per_window: parseInt(config.max_orders_per_window) || 1
-        };
-      });
+          max_orders_per_window: parseInt(config.max_orders_per_window) || 1,
+        }
+      })
     }
-    
+
     await axios.post(`${import.meta.env.VITE_HTTP_URL}admin/update_persistent_settings`, {
-      settings: cleanSettings
-    });
+      settings: cleanSettings,
+    })
   } catch (error) {
-    console.error("Failed to update persistent settings:", error);
-    throw error;
+    console.error('Failed to update persistent settings:', error)
+    throw error
   }
-}, 500);
+}, 500)
 
 const updatePersistentSettings = () => {
-  emit('update:formState', props.formState);
-  debouncedUpdate(props.formState);
-};
+  emit('update:formState', props.formState)
+  debouncedUpdate(props.formState)
+}
 
 const saveSettings = async () => {
   try {
-    await updatePersistentSettings();
-    
-    await axios.post(`${import.meta.env.VITE_HTTP_URL}admin/reset_state`);
-    
-    console.log("Settings saved and state reset successfully");
+    await updatePersistentSettings()
+
+    await axios.post(`${import.meta.env.VITE_HTTP_URL}admin/reset_state`)
+
+    console.log('Settings saved and state reset successfully')
   } catch (error) {
-    console.error("Error saving settings:", error);
+    console.error('Error saving settings:', error)
   }
-};
+}
 
 const getFieldStyle = (fieldName) => {
-  const defaultValue = props.formFields.find(f => f.name === fieldName)?.default;
-  const currentValue = props.formState[fieldName];
-  
+  const defaultValue = props.formFields.find((f) => f.name === fieldName)?.default
+  const currentValue = props.formState[fieldName]
+
   // Check if the values are different, handling different types
   const isDifferent = (() => {
     // Handle array type fields
     if (Array.isArray(defaultValue) || Array.isArray(currentValue)) {
-      return JSON.stringify(defaultValue) !== JSON.stringify(currentValue);
+      return JSON.stringify(defaultValue) !== JSON.stringify(currentValue)
     }
     // Handle number type fields
     if (typeof defaultValue === 'number' || typeof currentValue === 'number') {
-      return Number(defaultValue) !== Number(currentValue);
+      return Number(defaultValue) !== Number(currentValue)
     }
     // Handle other types
-    return defaultValue !== currentValue;
-  })();
+    return defaultValue !== currentValue
+  })()
 
-  return isDifferent ? 'treatment-value' : '';
-};
+  return isDifferent ? 'treatment-value' : ''
+}
 </script>
 
 <style scoped>
@@ -219,7 +221,7 @@ const getFieldStyle = (fieldName) => {
 
 .parameter-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .parameter-card-large {

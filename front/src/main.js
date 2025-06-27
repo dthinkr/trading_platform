@@ -1,9 +1,9 @@
 import { createApp } from 'vue'
 import App from './App.vue'
 import { registerPlugins } from '@/plugins'
-import VueApexCharts from "vue3-apexcharts"
+import VueApexCharts from 'vue3-apexcharts'
 import VueCountdown from '@chenfengyuan/vue-countdown'
-import { auth } from "./firebaseConfig.js"
+import { auth } from './firebaseConfig.js'
 import './global.css'
 import '@mdi/font/css/materialdesignicons.css'
 import { Toaster } from 'vue-sonner'

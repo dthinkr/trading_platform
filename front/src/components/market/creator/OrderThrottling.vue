@@ -9,7 +9,7 @@
         :headers="[
           { text: 'Trader Type', value: 'type' },
           { text: 'Throttle (ms)', value: 'throttle' },
-          { text: 'Max Orders', value: 'maxOrders' }
+          { text: 'Max Orders', value: 'maxOrders' },
         ]"
         :items="traderTypes"
         hide-default-footer
@@ -48,37 +48,45 @@
 </template>
 
 <script setup>
-import { ref, defineProps, defineEmits, computed, watch } from 'vue';
+import { ref, defineProps, defineEmits, computed, watch } from 'vue'
 
 const props = defineProps({
   formState: {
     type: Object,
-    required: true
-  }
-});
+    required: true,
+  },
+})
 
-const emit = defineEmits(['update:formState']);
+const emit = defineEmits(['update:formState'])
 
-const traderTypes = ['HUMAN', 'NOISE', 'INFORMED', 'MARKET_MAKER', 'INITIAL_ORDER_BOOK', 'SIMPLE_ORDER'];
+const traderTypes = [
+  'HUMAN',
+  'NOISE',
+  'INFORMED',
+  'MARKET_MAKER',
+  'INITIAL_ORDER_BOOK',
+  'SIMPLE_ORDER',
+]
 
 const throttleSettings = computed({
-  get: () => props.formState.throttle_settings || {
-    HUMAN: { order_throttle_ms: 1000, max_orders_per_window: 2 },
-    NOISE: { order_throttle_ms: 0, max_orders_per_window: 1 },
-    INFORMED: { order_throttle_ms: 0, max_orders_per_window: 1 },
-    MARKET_MAKER: { order_throttle_ms: 0, max_orders_per_window: 1 },
-    INITIAL_ORDER_BOOK: { order_throttle_ms: 0, max_orders_per_window: 1 },
-    SIMPLE_ORDER: { order_throttle_ms: 0, max_orders_per_window: 1 }
-  },
+  get: () =>
+    props.formState.throttle_settings || {
+      HUMAN: { order_throttle_ms: 1000, max_orders_per_window: 2 },
+      NOISE: { order_throttle_ms: 0, max_orders_per_window: 1 },
+      INFORMED: { order_throttle_ms: 0, max_orders_per_window: 1 },
+      MARKET_MAKER: { order_throttle_ms: 0, max_orders_per_window: 1 },
+      INITIAL_ORDER_BOOK: { order_throttle_ms: 0, max_orders_per_window: 1 },
+      SIMPLE_ORDER: { order_throttle_ms: 0, max_orders_per_window: 1 },
+    },
   set: (val) => {
-    const newFormState = { ...props.formState, throttle_settings: val };
-    emit('update:formState', newFormState);
-  }
-});
+    const newFormState = { ...props.formState, throttle_settings: val }
+    emit('update:formState', newFormState)
+  },
+})
 
 const updateSettings = () => {
-  throttleSettings.value = { ...throttleSettings.value };
-};
+  throttleSettings.value = { ...throttleSettings.value }
+}
 </script>
 
 <style scoped>
