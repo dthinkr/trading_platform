@@ -1,9 +1,11 @@
 <template>
   <v-card height="100%" elevation="3" class="trading-panel">
-    <!-- Sleep notification -->
-    <div v-if="isNoiseTraderSleeping" class="sleep-notification">
-      <v-icon color="orange" small class="mr-1">mdi-sleep</v-icon>
-      Trading paused: Noise trader is sleeping
+    <!-- Floating sleep notification -->
+    <div v-if="isNoiseTraderSleeping" class="sleep-notification-overlay">
+      <div class="sleep-notification">
+        <v-icon color="orange" small class="mr-1">mdi-sleep</v-icon>
+        Trading paused: Noise trader is sleeping
+      </div>
     </div>
     <div class="orders-container">
       <div class="order-column buy-column">
@@ -204,6 +206,7 @@ onUnmounted(() => {
 
 <style scoped>
 .trading-panel {
+  position: relative; /* Enable absolute positioning for children */
   display: flex;
   flex-direction: column;
   background-color: #ffffff;
@@ -273,16 +276,28 @@ onUnmounted(() => {
   opacity: 0.5;
 }
 
+.sleep-notification-overlay {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  z-index: 1000;
+  pointer-events: none; /* Allow clicks to pass through */
+}
+
 .sleep-notification {
-  background-color: #fff3cd;
+  background-color: rgba(255, 243, 205, 0.95);
   border: 1px solid #ffeaa7;
   color: #856404;
   padding: 8px 12px;
-  margin: 8px;
   border-radius: 4px;
   display: flex;
   align-items: center;
+  justify-content: center;
   font-size: 12px;
   font-weight: 500;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(2px);
+  pointer-events: auto; /* Re-enable pointer events for the notification itself */
 }
 </style>

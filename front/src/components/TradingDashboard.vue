@@ -13,8 +13,8 @@
         <v-btn color="white" variant="text" class="ml-4" @click="refreshPage"> Refresh Now </v-btn>
       </v-alert>
 
-      <v-app-bar app elevation="2" color="white">
-        <v-container fluid class="py-0 fill-height">
+      <v-app-bar app elevation="2" color="white" height="auto" class="dynamic-header">
+        <v-container fluid class="py-2">
           <v-row align="center" no-gutters>
             <v-col cols="auto">
               <h1 class="dashboard-title">
@@ -23,7 +23,7 @@
               </h1>
             </v-col>
             <v-spacer></v-spacer>
-            <v-col cols="auto" class="d-flex align-center">
+            <v-col cols="auto" class="dashboard-stats">
               <!-- Modern role chip -->
               <div class="role-chip-modern" :class="roleColor">
                 {{ roleDisplay.text }}
@@ -85,7 +85,7 @@
         </v-container>
       </v-app-bar>
 
-      <v-main class="grey lighten-4">
+      <v-main class="grey lighten-4 dynamic-main">
         <v-container fluid class="pa-4">
           <!-- Modified waiting screen -->
           <v-row v-if="!isTradingStarted" justify="center" align="center" style="height: 80vh">
@@ -160,13 +160,11 @@ import OrderHistory from '@trading/OrderHistory.vue'
 import ActiveOrders from '@trading/ActiveOrders.vue'
 import MarketMessages from '@trading/MarketMessages.vue'
 
-import { computed, watch } from 'vue'
+import { computed, watch, ref, nextTick, onMounted, onUnmounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { useFormatNumber } from '@/composables/utils'
 import { storeToRefs } from 'pinia'
 import { useTraderStore } from '@/store/app'
-
-import { onMounted, onUnmounted, ref, onBeforeUnmount } from 'vue'
 import { debounce } from 'lodash'
 import axios from '@/api/axios'
 import {
@@ -520,6 +518,25 @@ watch(
 const isInitialized = computed(() => {
   return Boolean(traderUuid.value && store.traderAttributes)
 })
+
+// Dynamic header height adjustment
+onMounted(() => {
+  const adjustMainContent = () => {
+    const header = document.querySelector('.dynamic-header')
+    const main = document.querySelector('.dynamic-main')
+    if (header && main) {
+      const headerHeight = header.offsetHeight
+      main.style.paddingTop = `${headerHeight}px`
+    }
+  }
+  
+  adjustMainContent()
+  window.addEventListener('resize', adjustMainContent)
+  
+  onUnmounted(() => {
+    window.removeEventListener('resize', adjustMainContent)
+  })
+})
 </script>
 
 <style scoped>
@@ -582,10 +599,19 @@ const isInitialized = computed(() => {
   flex-grow: 1;
 }
 
+/* Dashboard stats responsive layout */
+.dashboard-stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
 /* Modern chip styles */
 .stats-chips {
   display: flex;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
   align-items: center;
 }
 
@@ -731,6 +757,27 @@ const isInitialized = computed(() => {
 
 .sell-bg {
   background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+}
+
+/* Dynamic header styles */
+.dynamic-header {
+  min-height: 64px !important;
+  height: auto !important;
+}
+
+.dynamic-header .v-toolbar__content {
+  height: auto !important;
+  padding: 8px 0 !important;
+}
+
+/* Dynamic main content adjustment */
+.dynamic-main {
+  padding-top: 0 !important;
+  margin-top: 0 !important;
+}
+
+.v-application--is-ltr .v-main {
+  padding-top: 0 !important;
 }
 
 /* Alert styles */
