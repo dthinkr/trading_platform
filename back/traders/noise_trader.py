@@ -2,14 +2,14 @@ import asyncio
 import random
 import numpy as np
 from core.data_models import OrderType, TraderType, ActionType
-from .base_trader import BaseTrader
+from .base_trader import BaseTrader, PausingTrader
 import math
 import sys
 import traceback
 from datetime import datetime, timedelta
 
 
-class NoiseTrader(BaseTrader):
+class NoiseTrader(PausingTrader):
     def __init__(self, id: str, params: dict):
         super().__init__(trader_type=TraderType.NOISE, id=id)
         self.params = params
@@ -200,6 +200,9 @@ class NoiseTrader(BaseTrader):
     async def run(self) -> None:
         while not self._stop_requested.is_set():
             try:
+                # Check for sleep before acting
+                await self.maybe_sleep()
+                
                 await self.act()
                 await asyncio.sleep(self.calculate_cooling_interval())
             except asyncio.CancelledError:

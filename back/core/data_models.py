@@ -120,6 +120,18 @@ class TradingParameters(BaseModel):
         title="Bid Order Probability",
         description="noise_parameter",
     )
+    sleep_duration: float = Field(
+        default=0,
+        title="Sleep Duration (seconds)",
+        description="noise_parameter",
+        ge=0,
+    )
+    sleep_interval: float = Field(
+        default=60,
+        title="Sleep Interval (seconds)",
+        description="noise_parameter",
+        gt=0,
+    )
 
     # informed trader settings
     informed_trade_intensity: float = Field(

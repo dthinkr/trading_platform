@@ -321,6 +321,15 @@ export const useTraderStore = defineStore('trader', {
         return
       }
 
+      // Handle trader status updates (sleep/wake)
+      if (data.type === 'trader_status_update') {
+        console.log('Received trader status update:', data)
+        useMarketStore().updateExtraParams({
+          noise_trader_status: data.trader_status
+        })
+        return
+      }
+
       const {
         order_book,
         history,

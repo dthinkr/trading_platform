@@ -1,5 +1,10 @@
 <template>
   <v-card height="100%" elevation="3" class="trading-panel">
+    <!-- Sleep notification -->
+    <div v-if="isNoiseTraderSleeping" class="sleep-notification">
+      <v-icon color="orange" small class="mr-1">mdi-sleep</v-icon>
+      Trading paused: Noise trader is sleeping
+    </div>
     <div class="orders-container">
       <div class="order-column buy-column">
         <h3 class="order-type-title">
@@ -23,7 +28,7 @@
           </div>
           <v-btn
             @click="sendOrder('BUY', price)"
-            :disabled="isBuyButtonDisabled || isGoalAchieved || !canBuy"
+            :disabled="isBuyButtonDisabled || isGoalAchieved || !canBuy || isNoiseTraderSleeping"
             color="primary"
             small
           >
@@ -54,7 +59,7 @@
           </div>
           <v-btn
             @click="sendOrder('SELL', price)"
-            :disabled="isSellButtonDisabled || isGoalAchieved || !canSell"
+            :disabled="isSellButtonDisabled || isGoalAchieved || !canSell || isNoiseTraderSleeping"
             color="error"
             small
           >
@@ -69,6 +74,7 @@
 <script setup>
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useTraderStore } from '@/store/app'
+import { useMarketStore } from '@/store/market'
 import { storeToRefs } from 'pinia'
 
 const props = defineProps({
@@ -83,8 +89,10 @@ const props = defineProps({
 })
 
 const tradingStore = useTraderStore()
+const marketStore = useMarketStore()
 const { sendMessage } = tradingStore
 const { gameParams, bidData, askData } = storeToRefs(tradingStore)
+const { extraParams } = storeToRefs(marketStore)
 
 const step = computed(() => gameParams.value.step || 1)
 const hasAskData = computed(() => askData.value.length > 0)
@@ -143,6 +151,12 @@ const isMobile = ref(false)
 
 const canBuy = computed(() => props.goalType === 'buy' || props.goalType === 'free')
 const canSell = computed(() => props.goalType === 'sell' || props.goalType === 'free')
+
+// Check if noise trader is sleeping
+const isNoiseTraderSleeping = computed(() => {
+  const noiseTraderParam = extraParams.value.find(param => param.var_name === 'noise_trader_status')
+  return noiseTraderParam?.value === 'sleeping'
+})
 
 function sendOrder(orderType, price) {
   if (
@@ -257,5 +271,18 @@ onUnmounted(() => {
 
 .locked {
   opacity: 0.5;
+}
+
+.sleep-notification {
+  background-color: #fff3cd;
+  border: 1px solid #ffeaa7;
+  color: #856404;
+  padding: 8px 12px;
+  margin: 8px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 500;
 }
 </style>

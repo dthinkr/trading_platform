@@ -217,6 +217,25 @@ class InventoryHandler(EventHandler):
         return {}
 
 
+class StatusHandler(EventHandler):
+    """Handles trader status update events."""
+    
+    def __init__(self, broadcast_service):
+        self.broadcast_service = broadcast_service
+    
+    async def handle(self, event) -> Optional[Dict[str, Any]]:
+        """Handle trader status update."""
+        
+        # Broadcast status update to all clients
+        await self.broadcast_service.broadcast_to_websockets({
+            "type": "trader_status_update",
+            "trader_id": event.trader_id,
+            "trader_status": event.trader_status,
+        })
+        
+        return {"status": "broadcast_sent"}
+
+
 class LoggingMiddleware:
     """Middleware for logging all events."""
     
@@ -298,12 +317,15 @@ class MarketOrchestrator:
             self.transaction_service, self.market_id
         )
         
+        status_handler = StatusHandler(self.broadcast_service)
+        
         # Subscribe handlers to events
-        from .events import OrderPlacedEvent, OrderCancelledEvent, TraderRegisteredEvent, InventoryReportEvent
+        from .events import OrderPlacedEvent, OrderCancelledEvent, TraderRegisteredEvent, InventoryReportEvent, StatusUpdateEvent
         self.message_bus.subscribe(OrderPlacedEvent, order_handler)
         self.message_bus.subscribe(OrderCancelledEvent, cancel_handler)
         self.message_bus.subscribe(TraderRegisteredEvent, registration_handler)
         self.message_bus.subscribe(InventoryReportEvent, inventory_handler)
+        self.message_bus.subscribe(StatusUpdateEvent, status_handler)
         
         # Add logging middleware
         self.message_bus.add_middleware(LoggingMiddleware(self.trading_logger))

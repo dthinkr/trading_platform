@@ -52,6 +52,12 @@ export const useMarketStore = defineStore('market', {
         explanation: 'Midprice between the best bid and best ask prices',
         value: null,
       },
+      {
+        var_name: 'noise_trader_status',
+        display_name: 'Noise Trader Status',
+        explanation: 'Current status of the noise trader (active or sleeping)',
+        value: 'active',
+      },
     ],
     currentPrice: null,
     lastTransactionPrice: null,

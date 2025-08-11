@@ -99,6 +99,16 @@ class TradingStoppedEvent(TradingEvent):
         super().__init__()
 
 
+@dataclass
+class StatusUpdateEvent(TradingEvent):
+    """Event emitted when trader status changes."""
+    trader_id: str
+    trader_status: str
+    
+    def __post_init__(self):
+        super().__init__()
+
+
 # Event handler interface
 class EventHandler(ABC):
     """Base class for event handlers."""
@@ -195,6 +205,14 @@ class MessageRouter:
                     trader_id=message.get("trader_id"),
                     shares=message.get("shares", 0),
                     cash=message.get("cash", 0)
+                )
+                responses = await self.bus.publish(event)
+                return self._merge_responses(responses, {"status": "processed"})
+            
+            elif action_type == "status_update":
+                event = StatusUpdateEvent(
+                    trader_id=message.get("trader_id"),
+                    trader_status=message.get("trader_status", "active")
                 )
                 responses = await self.bus.publish(event)
                 return self._merge_responses(responses, {"status": "processed"})

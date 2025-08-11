@@ -382,6 +382,61 @@ class BaseTrader:
         pass
 
 
+class PausingTrader(BaseTrader):
+    """Trader with sleep/pause functionality for research studies."""
+    
+    def __init__(self, trader_type: TraderType, id: str, cash=0, shares=0):
+        super().__init__(trader_type, id, cash, shares)
+        self.sleep_duration = 0
+        self.sleep_interval = 60
+        self.last_sleep_time = 0
+        self.total_sleep_time = 0
+
+    async def initialize(self):
+        """Initialize with sleep parameters from params."""
+        await super().initialize()
+        if hasattr(self, 'params'):
+            self.sleep_duration = self.params.get('sleep_duration', 0)
+            self.sleep_interval = self.params.get('sleep_interval', 60)
+
+    async def maybe_sleep(self):
+        """Check if it's time to sleep and handle sleep/wake status updates."""
+        if self.sleep_duration <= 0 or self.sleep_interval <= 0:
+            return
+            
+        current_time = asyncio.get_event_loop().time()
+        raw_elapsed = current_time - self.start_time
+        
+        if raw_elapsed - self.last_sleep_time >= self.sleep_interval:
+            self.last_sleep_time = raw_elapsed
+            
+            # Send sleep status
+            await self._send_status_update("sleeping")
+            
+            # Sleep
+            sleep_start = asyncio.get_event_loop().time()
+            await asyncio.sleep(self.sleep_duration)
+            self.total_sleep_time += asyncio.get_event_loop().time() - sleep_start
+            
+            # Send wake status
+            await self._send_status_update("active")
+
+    async def _send_status_update(self, status: str):
+        """Send trader status update to the platform."""
+        if hasattr(self, 'trading_market') and self.trading_market:
+            await self.trading_market.handle_trader_message({
+                "action": "status_update",
+                "trader_id": self.id,
+                "trader_status": status,
+                "is_status_update": True
+            })
+
+    def get_effective_elapsed_time(self) -> float:
+        """Get elapsed time excluding sleep periods."""
+        raw_elapsed = super().get_elapsed_time()
+        return max(0, raw_elapsed - self.total_sleep_time)
+
+
 # Backward compatibility - can be removed after migration
 BaseTrader.handle_closure = BaseTrader.on_closure
 BaseTrader.handle_stop_trading = BaseTrader.on_stop_trading

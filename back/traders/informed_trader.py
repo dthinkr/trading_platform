@@ -4,10 +4,10 @@ import traceback
 from typing import List, Dict, Union
 
 from core.data_models import OrderType, TraderType, TradeDirection
-from .base_trader import BaseTrader
+from .base_trader import BaseTrader, PausingTrader
 
 
-class InformedTrader(BaseTrader):
+class InformedTrader(PausingTrader):
     def __init__(
         self,
         id: str,
