@@ -29,35 +29,69 @@ def logfile_to_message(logfile_name):
     
             if msg_type == 'ADD_ORDER':
                 try:
-                    amount_key = "'amount': "
-                    start_index = msg_content.index(amount_key) + len(amount_key)
-                    end_index = msg_content.index(',', start_index)
-                    amount_str = msg_content[start_index:end_index].strip()  # Extract and strip whitespace
-                    amount = float(amount_str)
+                    # Use ast.literal_eval to safely parse the dictionary string
+                    import ast
                     
-                    price_key = "'price': "
-                    start_index = msg_content.index(price_key) + len(price_key)
-                    end_index = msg_content.index(',', start_index)
-                    price_str = msg_content[start_index:end_index].strip()  # Extract and strip whitespace
-                    price = float(price_str)
+                    # Extract the dictionary part from the message
+                    dict_start = msg_content.find('{')
+                    dict_end = msg_content.rfind('}') + 1
+                    dict_str = msg_content[dict_start:dict_end]
                     
-                    # Handle different order_type formats
-                    if "<OrderType." in msg_content:
-                        # Old format: <OrderType.BID: 1> or newer format <OrderType.BID: 1>
-                        direction_key = "<OrderType."
-                        start_index = msg_content.index(direction_key) + len(direction_key)
-                        end_index = msg_content.index(':', start_index)
-                        direction_str = msg_content[start_index:end_index].strip()  # Extract and strip whitespace
-                        direction = direction_str
+                    # Replace problematic enum representations with simple values
+                    dict_str = dict_str.replace('<OrderType.BID: 1>', '1')
+                    dict_str = dict_str.replace('<OrderType.ASK: -1>', '-1')
+                    dict_str = dict_str.replace('<OrderStatus.BUFFERED: \'buffered\'>', '\'buffered\'')
+                    dict_str = dict_str.replace('<OrderStatus.ACTIVE: \'active\'>', '\'active\'')
+                    
+                    # Remove datetime objects - we'll use timestamp strings instead
+                    import re
+                    dict_str = re.sub(r'datetime\.datetime\([^)]+\)', 'None', dict_str)
+                    
+                    try:
+                        parsed_dict = ast.literal_eval(dict_str)
+                        amount = float(parsed_dict.get('amount', 0))
+                        price = float(parsed_dict.get('price', 0))
+                    except (ValueError, SyntaxError):
+                        # Fallback to old string parsing method
+                        amount_key = "'amount': "
+                        start_index = msg_content.index(amount_key) + len(amount_key)
+                        end_index = msg_content.index(',', start_index)
+                        amount_str = msg_content[start_index:end_index].strip()
+                        amount = float(amount_str)
+                        
+                        price_key = "'price': "
+                        start_index = msg_content.index(price_key) + len(price_key)
+                        end_index = msg_content.index(',', start_index)
+                        price_str = msg_content[start_index:end_index].strip()
+                        price = float(price_str)
+                    
+                    # Get direction and trader from parsed dict if available, otherwise use string parsing
+                    if 'parsed_dict' in locals():
+                        order_type_val = parsed_dict.get('order_type', 1)
+                        if order_type_val == 1 or order_type_val == '1':
+                            direction = 'BID'
+                        elif order_type_val == -1 or order_type_val == '-1':
+                            direction = 'ASK'
+                        else:
+                            direction = 'BID'  # Default
+                        
+                        trader_type = str(parsed_dict.get('trader_id', 'UNKNOWN')).strip('\'"')
                     else:
-                        # Fallback - shouldn't happen but just in case
-                        direction = 'UNKNOWN'
-                    
-                    trader_key = "'trader_id': "
-                    start_index = msg_content.index(trader_key) + len(trader_key)
-                    end_index = msg_content.index(',', start_index)
-                    trader_str = msg_content[start_index:end_index].strip()  # Extract and strip whitespace
-                    trader_type = (trader_str)
+                        # Fallback string parsing
+                        if "<OrderType." in msg_content:
+                            direction_key = "<OrderType."
+                            start_index = msg_content.index(direction_key) + len(direction_key)
+                            end_index = msg_content.index(':', start_index)
+                            direction_str = msg_content[start_index:end_index].strip()
+                            direction = direction_str
+                        else:
+                            direction = 'UNKNOWN'
+                        
+                        trader_key = "'trader_id': "
+                        start_index = msg_content.index(trader_key) + len(trader_key)
+                        end_index = msg_content.index(',', start_index)
+                        trader_str = msg_content[start_index:end_index].strip()
+                        trader_type = trader_str.strip('\'"')
                     
                     price_save.append(price)
                     amount_save.append(amount)
