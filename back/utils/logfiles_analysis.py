@@ -51,18 +51,22 @@ def logfile_to_message(logfile_name):
                         parsed_dict = ast.literal_eval(dict_str)
                         amount = float(parsed_dict.get('amount', 0))
                         price = float(parsed_dict.get('price', 0))
-                    except (ValueError, SyntaxError):
+                    except (ValueError, SyntaxError) as e:
+                        print(f"Failed to parse with ast.literal_eval: {e}")
+                        print(f"Attempting to parse: {dict_str[:200]}...")
                         # Fallback to old string parsing method
                         amount_key = "'amount': "
                         start_index = msg_content.index(amount_key) + len(amount_key)
                         end_index = msg_content.index(',', start_index)
                         amount_str = msg_content[start_index:end_index].strip()
+                        print(f"Extracting amount: '{amount_str}'")
                         amount = float(amount_str)
                         
                         price_key = "'price': "
                         start_index = msg_content.index(price_key) + len(price_key)
                         end_index = msg_content.index(',', start_index)
                         price_str = msg_content[start_index:end_index].strip()
+                        print(f"Extracting price: '{price_str}'")
                         price = float(price_str)
                     
                     # Get direction and trader from parsed dict if available, otherwise use string parsing
@@ -105,38 +109,117 @@ def logfile_to_message(logfile_name):
                     continue
     
             if msg_type == 'CANCEL_ORDER':
+                try:
+                    # Use the same improved parsing as ADD_ORDER
+                    import ast
+                    
+                    # Extract the dictionary part from the message
+                    dict_start = msg_content.find('{')
+                    dict_end = msg_content.rfind('}') + 1
+                    dict_str = msg_content[dict_start:dict_end]
+                    
+                    # Replace problematic enum representations with simple values
+                    dict_str = dict_str.replace('<OrderType.BID: 1>', '1')
+                    dict_str = dict_str.replace('<OrderType.ASK: -1>', '-1')
+                    dict_str = dict_str.replace('<OrderStatus.BUFFERED: \'buffered\'>', '\'buffered\'')
+                    dict_str = dict_str.replace('<OrderStatus.ACTIVE: \'active\'>', '\'active\'')
+                    dict_str = dict_str.replace('<OrderStatus.CANCELLED: \'cancelled\'>', '\'cancelled\'')
+                    
+                    # Remove datetime objects
+                    import re
+                    dict_str = re.sub(r'datetime\.datetime\([^)]+\)', 'None', dict_str)
+                    
+                    try:
+                        parsed_dict = ast.literal_eval(dict_str)
+                        amount = float(parsed_dict.get('amount', 0))
+                        price = float(parsed_dict.get('price', 0))
+                        
+                        # Get direction from parsed dict
+                        order_type_val = parsed_dict.get('order_type', 1)
+                        if order_type_val == 1 or order_type_val == '1':
+                            direction = 'BID'
+                        elif order_type_val == -1 or order_type_val == '-1':
+                            direction = 'ASK'
+                        else:
+                            direction = 'BID'  # Default
+                        
+                        trader_type = str(parsed_dict.get('trader_id', 'UNKNOWN')).strip('\'"')
+                        
+                    except (ValueError, SyntaxError) as e:
+                        print(f"Failed to parse CANCEL_ORDER with ast.literal_eval: {e}")
+                        # Fallback to safer string parsing
+                        amount_key = "'amount': "
+                        start_index = msg_content.index(amount_key) + len(amount_key)
+                        end_index = msg_content.index(',', start_index)
+                        amount_str = msg_content[start_index:end_index].strip()
+                        amount = float(amount_str)
+                        
+                        price_key = "'price': "
+                        start_index = msg_content.index(price_key) + len(price_key)
+                        end_index = msg_content.index(',', start_index)
+                        price_str = msg_content[start_index:end_index].strip()
+                        price = float(price_str)
+                        
+                        # Fix the direction parsing to be safer
+                        if "<OrderType.BID" in msg_content:
+                            direction = 'BID'
+                        elif "<OrderType.ASK" in msg_content:
+                            direction = 'ASK'
+                        else:
+                            direction = 'BID'  # Default
+                        
+                        trader_key = "'trader_id': "
+                        start_index = msg_content.index(trader_key) + len(trader_key)
+                        end_index = msg_content.index(',', start_index)
+                        trader_str = msg_content[start_index:end_index].strip()
+                        trader_type = trader_str.strip('\'"')
                 
-                amount_key = "'amount': "
-                start_index = msg_content.index(amount_key) + len(amount_key)
-                end_index = msg_content.index(',', start_index)
-                amount_str = msg_content[start_index:end_index].strip()  # Extract and strip whitespace
-                amount = float(amount_str)
-                
-                price_key = "'price': "
-                start_index = msg_content.index(price_key) + len(price_key)
-                end_index = msg_content.index(',', start_index)
-                price_str = msg_content[start_index:end_index].strip()  # Extract and strip whitespace
-                price = float(price_str)
-                
-                
-                direction_key = "'order_type': "
-                start_index = msg_content.index(direction_key) + len(direction_key)
-                end_index = msg_content.index('}', start_index)
-                direction_str = msg_content[start_index:end_index].strip()  # Extract and strip whitespace
-                direction = 'BID' if float(direction_str) == 1 else 'ASK'
-                
-                trader_key = "'trader_id': "
-                start_index = msg_content.index(trader_key) + len(trader_key)
-                end_index = msg_content.index(',', start_index)
-                trader_str = msg_content[start_index:end_index].strip()  # Extract and strip whitespace
-                trader_type = (trader_str)
-            
+                except Exception as e:
+                    print(f"Error parsing CANCEL_ORDER: {e}")
+                    continue  # Skip this line
+                    
                 price_save.append(price)
                 amount_save.append(amount)
                 direction_save.append(direction)
                 trader_save.append(trader_type)
                 timestamp_save.append(timestamp_str)
                 type_save.append(msg_type)
+            
+            elif msg_type == 'MATCHED_ORDER':
+                try:
+                    # MATCHED_ORDER has simpler format: {'bid_order_id': 'X', 'ask_order_id': 'Y', 'transaction_price': 100.0, 'amount': 1.0}
+                    import ast
+                    
+                    dict_start = msg_content.find('{')
+                    dict_end = msg_content.rfind('}') + 1
+                    dict_str = msg_content[dict_start:dict_end]
+                    
+                    parsed_dict = ast.literal_eval(dict_str)
+                    amount = float(parsed_dict.get('amount', 0))
+                    price = float(parsed_dict.get('transaction_price', 0))
+                    
+                    # For matched orders, we can extract trader info from the order IDs
+                    bid_order_id = parsed_dict.get('bid_order_id', '')
+                    ask_order_id = parsed_dict.get('ask_order_id', '')
+                    
+                    # We'll record this as a transaction, using the bid trader as the primary trader
+                    if '_' in bid_order_id:
+                        trader_type = bid_order_id.split('_')[0]
+                    else:
+                        trader_type = 'UNKNOWN'
+                    
+                    direction = 'MATCHED'  # Special type for matched orders
+                    
+                    price_save.append(price)
+                    amount_save.append(amount)
+                    direction_save.append(direction)
+                    trader_save.append(trader_type)
+                    timestamp_save.append(timestamp_str)
+                    type_save.append(msg_type)
+                    
+                except Exception as e:
+                    print(f"Error parsing MATCHED_ORDER: {e}")
+                    continue  # Skip this line
                 
     df = pd.DataFrame({'Timestamp': timestamp_save,
                   'Price': price_save,
