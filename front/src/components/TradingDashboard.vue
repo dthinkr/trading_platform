@@ -523,14 +523,24 @@ const isInitialized = computed(() => {
 onMounted(() => {
   const adjustMainContent = () => {
     const header = document.querySelector('.dynamic-header')
-    const main = document.querySelector('.dynamic-main')
-    if (header && main) {
+    const vApp = document.querySelector('.v-application')
+    if (header && vApp) {
       const headerHeight = header.offsetHeight
-      main.style.paddingTop = `${headerHeight}px`
+      vApp.style.setProperty('--v-layout-top', `${headerHeight}px`)
+      const main = document.querySelector('.v-main')
+      if (main) {
+        main.style.paddingTop = `${headerHeight}px`
+      }
     }
   }
   
-  adjustMainContent()
+  // Use nextTick to ensure DOM is ready
+  nextTick(() => {
+    adjustMainContent()
+    // Also adjust after a short delay to catch any layout changes
+    setTimeout(adjustMainContent, 100)
+  })
+  
   window.addEventListener('resize', adjustMainContent)
   
   onUnmounted(() => {
@@ -772,12 +782,13 @@ onMounted(() => {
 
 /* Dynamic main content adjustment */
 .dynamic-main {
-  padding-top: 0 !important;
-  margin-top: 0 !important;
+  padding-top: 64px !important;
+  transition: padding-top 0.2s ease;
 }
 
-.v-application--is-ltr .v-main {
-  padding-top: 0 !important;
+.v-application .v-main {
+  padding-top: 64px !important;
+  transition: padding-top 0.2s ease;
 }
 
 /* Alert styles */

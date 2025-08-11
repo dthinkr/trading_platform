@@ -274,17 +274,21 @@ def get_order_to_cancel(orders,trader,price):
         return None
     
 def order_book_contruction(logfile_name):
+    print(f"[DEBUG] Starting order_book_contruction for: {logfile_name}")
     message_df, all_metrics = process_logfile(logfile_name)
+    print(f"[DEBUG] Processed logfile, found trader metrics for: {list(all_metrics.keys())}")
     return all_metrics
     
 def process_logfile(logfile_name):
     message_df = logfile_to_message(logfile_name)
     all_traders = list(np.unique(message_df.Trader))
+    print(f"[DEBUG] Found traders in logfile: {all_traders}")
     
     trades_by_human = {}
 
     for trader in all_traders:
         if 'HUMAN' in trader:
+            print(f"[DEBUG] Adding human trader: {trader}")
             trades_by_human[trader] = []
                 
     orders = {'BIDS': [],'ASKS': []}

@@ -421,20 +421,35 @@ async def get_trader_info(trader_id: str):
         try:
             # Check if log file exists before processing
             if os.path.exists(log_file_path):
+                print(f"[DEBUG] Processing log file: {log_file_path}")
+                print(f"[DEBUG] Looking for trader_id: {trader_id}")
+                
                 order_book_metrics = order_book_contruction(log_file_path)
+                print(f"[DEBUG] Order book metrics keys: {list(order_book_metrics.keys())}")
+                
                 # The log parsing preserves quotes in trader IDs, so we need to look for quoted version
                 quoted_trader_id = f"'{trader_id}'"
+                print(f"[DEBUG] Looking for quoted_trader_id: {quoted_trader_id}")
+                
                 trader_specific_metrics = order_book_metrics.get(quoted_trader_id, {})
+                print(f"[DEBUG] Found trader_specific_metrics: {bool(trader_specific_metrics)}")
+                if trader_specific_metrics:
+                    print(f"[DEBUG] Trader metrics keys: {list(trader_specific_metrics.keys())}")
+                
                 general_metrics = {k: v for k, v in order_book_metrics.items() if k != quoted_trader_id}
+                print(f"[DEBUG] General metrics keys: {list(general_metrics.keys())}")
 
                 if trader_specific_metrics:
                     trader_goal = trader_data.get('goal', 0)  # Get trader goal from trader data
+                    print(f"[DEBUG] Trader goal: {trader_goal}")
                     trader_specific_metrics = calculate_trader_specific_metrics(
                         trader_specific_metrics, 
                         general_metrics, 
                         trader_goal
                     )
+                    print(f"[DEBUG] Calculated trader_specific_metrics: {trader_specific_metrics}")
                 else:
+                    print(f"[DEBUG] No trader-specific metrics found")
                     trader_specific_metrics = {}
             else:
                 print(f"Log file not found: {log_file_path}")
