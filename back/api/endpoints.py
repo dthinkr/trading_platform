@@ -427,16 +427,22 @@ async def get_trader_info(trader_id: str):
                 order_book_metrics = order_book_contruction(log_file_path)
                 print(f"[DEBUG] Order book metrics keys: {list(order_book_metrics.keys())}")
                 
-                # The log parsing preserves quotes in trader IDs, so we need to look for quoted version
+                # Try both with and without quotes for trader ID lookup
                 quoted_trader_id = f"'{trader_id}'"
                 print(f"[DEBUG] Looking for quoted_trader_id: {quoted_trader_id}")
+                print(f"[DEBUG] Also looking for unquoted trader_id: {trader_id}")
                 
+                # First try with quotes (old format), then without quotes (new format)
                 trader_specific_metrics = order_book_metrics.get(quoted_trader_id, {})
+                if not trader_specific_metrics:
+                    trader_specific_metrics = order_book_metrics.get(trader_id, {})
                 print(f"[DEBUG] Found trader_specific_metrics: {bool(trader_specific_metrics)}")
                 if trader_specific_metrics:
                     print(f"[DEBUG] Trader metrics keys: {list(trader_specific_metrics.keys())}")
                 
-                general_metrics = {k: v for k, v in order_book_metrics.items() if k != quoted_trader_id}
+                # Exclude both quoted and unquoted trader IDs from general metrics
+                trader_keys_to_exclude = {quoted_trader_id, trader_id}
+                general_metrics = {k: v for k, v in order_book_metrics.items() if k not in trader_keys_to_exclude}
                 print(f"[DEBUG] General metrics keys: {list(general_metrics.keys())}")
 
                 if trader_specific_metrics:
