@@ -334,6 +334,7 @@ class InformedTrader(PausingTrader):
     async def run(self) -> None:
         while not self._stop_requested.is_set():
             try:
+                await self.maybe_sleep()
                 await self.check()
                 await asyncio.sleep(self.next_sleep_time)
             except asyncio.CancelledError:
