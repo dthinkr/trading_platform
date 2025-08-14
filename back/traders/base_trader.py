@@ -421,6 +421,22 @@ class PausingTrader(BaseTrader):
             # Send wake status
             await self._send_status_update("active")
 
+    def is_algo_sleeping(self):
+        """Check if algo traders are currently sleeping."""
+        if self.sleep_duration <= 0 or self.sleep_interval <= 0:
+            return False
+            
+        current_time = asyncio.get_event_loop().time()
+        raw_elapsed = current_time - self.start_time
+        
+        # Calculate if we're in a sleep period
+        time_since_last_interval = raw_elapsed % self.sleep_interval
+        return time_since_last_interval < self.sleep_duration
+
+    def should_human_be_paused(self):
+        """Human should be paused when algos are active (not sleeping)."""
+        return not self.is_algo_sleeping()
+
     async def _send_status_update(self, status: str):
         """Send trader status update to the platform."""
         if hasattr(self, 'trading_market') and self.trading_market:

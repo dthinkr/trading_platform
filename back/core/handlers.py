@@ -226,11 +226,17 @@ class StatusHandler(EventHandler):
     async def handle(self, event) -> Optional[Dict[str, Any]]:
         """Handle trader status update."""
         
+        # Determine parameter name based on trader type
+        trader_type = getattr(event, 'trader_type', 'noise')
+        param_name = f"{trader_type}_trader_status"
+        
         # Broadcast status update to all clients
         await self.broadcast_service.broadcast_to_websockets({
             "type": "trader_status_update",
             "trader_id": event.trader_id,
             "trader_status": event.trader_status,
+            "trader_type": trader_type,
+            "param_name": param_name,
         })
         
         return {"status": "broadcast_sent"}

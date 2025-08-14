@@ -324,8 +324,9 @@ export const useTraderStore = defineStore('trader', {
       // Handle trader status updates (sleep/wake)
       if (data.type === 'trader_status_update') {
         console.log('Received trader status update:', data)
+        const paramName = data.param_name || `${data.trader_type}_trader_status`
         useMarketStore().updateExtraParams({
-          noise_trader_status: data.trader_status
+          [paramName]: data.trader_status
         })
         return
       }

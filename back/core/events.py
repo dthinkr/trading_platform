@@ -104,6 +104,7 @@ class StatusUpdateEvent(TradingEvent):
     """Event emitted when trader status changes."""
     trader_id: str
     trader_status: str
+    trader_type: str = "noise"
     
     def __post_init__(self):
         super().__init__()
@@ -212,7 +213,8 @@ class MessageRouter:
             elif action_type == "status_update":
                 event = StatusUpdateEvent(
                     trader_id=message.get("trader_id"),
-                    trader_status=message.get("trader_status", "active")
+                    trader_status=message.get("trader_status", "active"),
+                    trader_type=message.get("trader_type", "noise")
                 )
                 responses = await self.bus.publish(event)
                 return self._merge_responses(responses, {"status": "processed"})

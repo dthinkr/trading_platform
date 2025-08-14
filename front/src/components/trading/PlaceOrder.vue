@@ -1,10 +1,10 @@
 <template>
   <v-card height="100%" elevation="3" class="trading-panel">
-    <!-- Floating sleep notification -->
-    <div v-if="isNoiseTraderSleeping" class="sleep-notification-overlay">
-      <div class="sleep-notification">
-        <v-icon color="orange" small class="mr-1">mdi-sleep</v-icon>
-        Trading paused: Noise trader is sleeping
+    <!-- Show pause notification overlapping headers -->
+    <div v-if="isHumanTraderPaused" class="pause-overlay">
+      <div class="pause-banner">
+        <v-icon color="orange" small class="mr-1">mdi-pause</v-icon>
+        Trading PAUSED - Buttons disabled
       </div>
     </div>
     <div class="orders-container">
@@ -21,7 +21,11 @@
           v-for="(price, index) in buyPrices"
           :key="'buy-' + index"
           class="order-item bid"
-          :class="{ 'best-price': price === bestAsk, locked: !canBuy }"
+          :class="{ 
+            'best-price': price === bestAsk, 
+            'locked': !canBuy,
+            'paused': isHumanTraderPaused
+          }"
         >
           <div class="order-content">
             <span class="order-type">BUY</span>
@@ -30,8 +34,8 @@
           </div>
           <v-btn
             @click="sendOrder('BUY', price)"
-            :disabled="isBuyButtonDisabled || isGoalAchieved || !canBuy || isNoiseTraderSleeping"
-            color="primary"
+            :disabled="isBuyButtonDisabled || isGoalAchieved || !canBuy || isHumanTraderPaused"
+            :color="isHumanTraderPaused ? 'grey' : 'primary'"
             small
           >
             Buy
@@ -52,7 +56,11 @@
           v-for="(price, index) in sellPrices"
           :key="'sell-' + index"
           class="order-item ask"
-          :class="{ 'best-price': price === bestBid, locked: !canSell }"
+          :class="{ 
+            'best-price': price === bestBid, 
+            'locked': !canSell,
+            'paused': isHumanTraderPaused
+          }"
         >
           <div class="order-content">
             <span class="order-type">SELL</span>
@@ -61,8 +69,8 @@
           </div>
           <v-btn
             @click="sendOrder('SELL', price)"
-            :disabled="isSellButtonDisabled || isGoalAchieved || !canSell || isNoiseTraderSleeping"
-            color="error"
+            :disabled="isSellButtonDisabled || isGoalAchieved || !canSell || isHumanTraderPaused"
+            :color="isHumanTraderPaused ? 'grey' : 'error'"
             small
           >
             Sell
@@ -160,16 +168,43 @@ const isNoiseTraderSleeping = computed(() => {
   return noiseTraderParam?.value === 'sleeping'
 })
 
+// Check if human trader is paused (when algos are active)
+const isHumanTraderPaused = computed(() => {
+  const humanTraderParam = extraParams.value.find(param => param.var_name === 'human_trader_status')
+  const noiseTraderParam = extraParams.value.find(param => param.var_name === 'noise_trader_status')
+  
+  // If human trader status exists, use it
+  if (humanTraderParam) {
+    return humanTraderParam.value === 'paused'
+  }
+  
+  // Fallback: if noise trader is active (not sleeping), human should be paused
+  if (noiseTraderParam) {
+    const isNoiseSleeping = noiseTraderParam.value === 'sleeping'
+    return !isNoiseSleeping
+  }
+  
+  return false
+})
+
+// Check if pausing system is active (status parameters have actual values)
+const isPausingSystemActive = computed(() => {
+  const noiseTraderParam = extraParams.value.find(param => param.var_name === 'noise_trader_status')
+  const humanTraderParam = extraParams.value.find(param => param.var_name === 'human_trader_status')
+  return (noiseTraderParam && noiseTraderParam.value) || (humanTraderParam && humanTraderParam.value)
+})
+
 function sendOrder(orderType, price) {
   if (
     !props.isGoalAchieved &&
+    !isHumanTraderPaused.value &&
     ((orderType === 'BUY' && canBuy.value) || (orderType === 'SELL' && canSell.value))
   ) {
     const newOrder = {
       id: Date.now().toString(),
       order_type: orderType,
       price: price,
-      amount: 1, // You may want to adjust this or add an input for amount
+      amount: 1,
       status: 'pending',
     }
     tradingStore.addOrder(newOrder)
@@ -206,11 +241,35 @@ onUnmounted(() => {
 
 <style scoped>
 .trading-panel {
-  position: relative; /* Enable absolute positioning for children */
+  position: relative;
   display: flex;
   flex-direction: column;
   background-color: #ffffff;
   font-family: 'Inter', sans-serif;
+}
+
+.pause-overlay {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.pause-banner {
+  background-color: #f8d7da;
+  border: 2px solid #dc3545;
+  color: #721c24;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+  pointer-events: auto;
 }
 
 .orders-container {
@@ -276,13 +335,20 @@ onUnmounted(() => {
   opacity: 0.5;
 }
 
+.paused {
+  opacity: 0.3;
+  background-color: #f5f5f5 !important;
+  border: 1px dashed #ccc;
+  pointer-events: none;
+}
+
 .sleep-notification-overlay {
   position: absolute;
-  top: 8px;
+  top: -8px;
   left: 8px;
   right: 8px;
   z-index: 1000;
-  pointer-events: none; /* Allow clicks to pass through */
+  pointer-events: none;
 }
 
 .sleep-notification {
@@ -298,6 +364,22 @@ onUnmounted(() => {
   font-weight: 500;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   backdrop-filter: blur(2px);
-  pointer-events: auto; /* Re-enable pointer events for the notification itself */
+  pointer-events: auto;
+}
+
+.sleep-notification.active {
+  background-color: rgba(212, 237, 218, 0.95);
+  border: 1px solid #c3e6cb;
+  color: #155724;
+}
+
+.sleep-notification.paused {
+  background-color: #f8d7da;
+  border: 2px solid #dc3545;
+  color: #721c24;
+  font-weight: 700;
+  font-size: 13px;
+  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+  z-index: 1001;
 }
 </style>

@@ -1,4 +1,4 @@
-from .base_trader import BaseTrader
+from .base_trader import BaseTrader, PausingTrader
 from starlette.websockets import WebSocketDisconnect, WebSocketState
 import random
 import json
@@ -9,7 +9,7 @@ import traceback
 
 logger = setup_custom_logger(__name__)
 
-class HumanTrader(BaseTrader):
+class HumanTrader(PausingTrader):
 
     def __init__(self, id, cash=0, shares=0, goal=0, role=None, trading_market=None, params=None, gmail_username=None):
         super().__init__(TraderType.HUMAN, id, cash, shares)
@@ -36,6 +36,9 @@ class HumanTrader(BaseTrader):
         """Handle messages from the trading platform and send individual trader data."""
         # Call parent class to handle the basic message processing
         await super().on_message_from_system(data)
+        
+        # Check and send human trader pause status
+        await self.update_human_pause_status()
         
         # Always send updated individual trader data to the frontend
         # This ensures PnL, shares, cash calculations are sent in real-time
@@ -122,11 +125,35 @@ class HumanTrader(BaseTrader):
         except json.JSONDecodeError:
             logger.critical(f"Error decoding message: {message}")
 
+    async def update_human_pause_status(self):
+        """Update human trader pause status based on algo sleep state."""
+        # Only send status updates if sleep parameters are configured
+        if (hasattr(self, 'sleep_duration') and self.sleep_duration > 0 and 
+            hasattr(self, 'should_human_be_paused')):
+            is_paused = self.should_human_be_paused()
+            status = "paused" if is_paused else "active"
+            
+            if hasattr(self, 'trading_market') and self.trading_market:
+                await self.trading_market.handle_trader_message({
+                    "action": "status_update",
+                    "trader_id": self.id,
+                    "trader_status": status,
+                    "trader_type": "human",
+                    "is_status_update": True
+                })
+
     async def handle_add_order(self, data):
+        # Only check pause status if sleep parameters are configured
+        if (hasattr(self, 'sleep_duration') and self.sleep_duration > 0 and 
+            hasattr(self, 'should_human_be_paused') and self.should_human_be_paused()):
+            logger.info(f"Human trader {self.id} order blocked - algos are active")
+            return
+            
         order_type = data.get("type")
         price = data.get("price")
         amount = data.get("amount", 1)
         
+        logger.info(f"Human trader {self.id} placing order: {order_type} {amount}@{price}")
         await self.post_new_order(amount, price, order_type)
 
     async def handle_cancel_order(self, data):
