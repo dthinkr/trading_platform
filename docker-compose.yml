@@ -2,23 +2,20 @@ x-logging: &default-logging
   driver: "none"
 
 services:
-  front:
+  front-deploy:
     image: venvoo/trading_platform:front
     build:
       context: ./front
       dockerfile: ../docker/Dockerfile.front
     volumes:
-      - ./front:/app
-      - /app/node_modules
       - ./.env:/app/.env:ro
-      - ./back/config/firebase/firebase.json:/app/firebase.json:ro
     environment:
       - FIREBASE_TOKEN=${FIREBASE_TOKEN}
       - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
-    ports:
-      - "5001:5000"
-      - "9005:9005"
     command: sh -c "chmod +x ./firebase-dev.sh && ./firebase-dev.sh"
+    restart: "no"
+    depends_on:
+      - back
 
   back:
     image: venvoo/trading_platform:back
@@ -26,15 +23,12 @@ services:
       context: ./back
       dockerfile: ../docker/Dockerfile.back
     volumes:
-      - ./back:/app
       - ./.env:/app/.env:ro
-      - ./back/config/auth/firebase-service-account.json:/app/config/auth/firebase-service-account.json:ro
     ports:
       - "8000:8000"
     environment:
       - PORT=8000
-
-      - ROOT_PATH=/api
+      - ROOT_PATH=
       - FIREBASE_API_KEY=${FIREBASE_API_KEY}
       - FIREBASE_AUTH_DOMAIN=${FIREBASE_AUTH_DOMAIN}
       - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
@@ -52,61 +46,14 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  nginx:
-    image: nginx:latest
-    ports:
-      - "80:80"
-    volumes:
-      - ./docker/nginx.conf:/etc/nginx/nginx.conf:ro
-    depends_on:
-      - back
-    networks:
-      - app-network
-    restart: always
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  ngrok:
-    image: ngrok/ngrok:latest
-    command: 
-      - "start"
-      - "--all"
-      - "--config"
-      - "/etc/ngrok.yml"
-    volumes:
-      - ./docker/ngrok.yml:/etc/ngrok.yml:ro
-    ports:
-      - "4040:4040"
-    depends_on:
-      - nginx
-    networks:
-      - app-network
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
 
 
 
-  watchtower:
-    image: containrrr/watchtower
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      - DOCKER_USERNAME=${DOCKER_USERNAME}
-      - DOCKER_PASSWORD=${DOCKER_PASSWORD}
-      - WATCHTOWER_POLL_INTERVAL=1800
-    command: --interval 1800 --debug
-    restart: unless-stopped
-    networks:
-      - app-network
 
-volumes:
+
+volumes: {}
 
 networks:
   app-network:
     driver: bridge
+

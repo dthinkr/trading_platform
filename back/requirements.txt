@@ -1,6 +1,6 @@
-
 fastapi
 firebase_admin
+google-api-python-client
 matplotlib
 numpy
 pandas
@@ -14,4 +14,3 @@ sortedcontainers
 starlette
 termcolor
 uvicorn
-

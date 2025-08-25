@@ -19,4 +19,5 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 # Copy application files
 COPY . .
 
-CMD ["uvicorn", "api.endpoints:app", "--host", "0.0.0.0", "--port", "8000", "--root-path", "/trading_api"]
+ENV PYTHONPATH=/app
+CMD python -m uvicorn api.endpoints:app --host 0.0.0.0 --port 8000 --root-path ${ROOT_PATH:-/api}

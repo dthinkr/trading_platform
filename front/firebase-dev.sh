@@ -1,23 +1,18 @@
-#!/bin/bash
+#!/bin/sh
 set -e
 
 echo "Firebase Project ID: $FIREBASE_PROJECT_ID"
 echo "Using Firebase Token (first 10 characters): ${FIREBASE_TOKEN:0:10}..."
 
-# Start the development server
-yarn prod &
-
-# Function to build and deploy
-build_and_deploy() {
-  echo "Building and deploying..."
-  yarn build
-  firebase deploy --only hosting --token "$FIREBASE_TOKEN"
+# Function to deploy (build already done in Docker image)
+deploy_to_firebase() {
+  echo "Deploying pre-built app to Firebase..."
+  echo "Deploying to Firebase hosting..."
+  firebase deploy --only hosting --token "$FIREBASE_TOKEN" --project "$FIREBASE_PROJECT_ID"
 }
 
-# Initial build and deploy
-build_and_deploy
+# Deploy to Firebase
+deploy_to_firebase
 
-# Watch for changes and redeploy
-while inotifywait -e modify,create,delete,move -r ./src; do
-  build_and_deploy
-done
+echo "Frontend deployed to Firebase hosting successfully!"
+echo "The frontend is now live on Firebase hosting and can connect to the backend API."
