@@ -178,6 +178,11 @@ const isHumanTraderPaused = computed(() => {
     return humanTraderParam.value === 'paused'
   }
   
+  // If no pausing system is active (no status updates from backend), humans should be active
+  if (!isPausingSystemActive.value) {
+    return false
+  }
+  
   // Fallback: if noise trader is active (not sleeping), human should be paused
   if (noiseTraderParam) {
     const isNoiseSleeping = noiseTraderParam.value === 'sleeping'
@@ -187,11 +192,14 @@ const isHumanTraderPaused = computed(() => {
   return false
 })
 
-// Check if pausing system is active (status parameters have actual values)
+// Check if pausing system is active (backend is sending status updates)
 const isPausingSystemActive = computed(() => {
   const noiseTraderParam = extraParams.value.find(param => param.var_name === 'noise_trader_status')
   const humanTraderParam = extraParams.value.find(param => param.var_name === 'human_trader_status')
-  return (noiseTraderParam && noiseTraderParam.value) || (humanTraderParam && humanTraderParam.value)
+  // Only consider pausing active if we've received actual status updates from backend
+  // (i.e., values are not null and not the default)
+  return (noiseTraderParam && noiseTraderParam.value !== null) || 
+         (humanTraderParam && humanTraderParam.value !== null)
 })
 
 function sendOrder(orderType, price) {

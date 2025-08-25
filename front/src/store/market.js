@@ -56,7 +56,7 @@ export const useMarketStore = defineStore('market', {
         var_name: 'noise_trader_status',
         display_name: 'Noise Trader Status',
         explanation: 'Current status of the noise trader (active or sleeping)',
-        value: 'active',
+        value: null,
       },
     ],
     currentPrice: null,

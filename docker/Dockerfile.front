@@ -1,22 +1,41 @@
-FROM node:20.12.2
+# Multi-stage build for optimized size
+FROM node:20.19.0-alpine AS builder
 
 WORKDIR /app
 
-# Copy package.json and yarn.lock first to leverage Docker cache
+# Copy package files
 COPY package.json yarn.lock ./
 
 # Install dependencies
-RUN yarn install
+RUN yarn install --frozen-lockfile --production=false
 
-# Copy all other files
+# Copy source code
 COPY . .
 
-# Install Firebase CLI and inotify-tools
-RUN apt-get update && apt-get install -y inotify-tools
+# Set build environment variables
+ENV VITE_HTTP_URL="https://dthinkr.ngrok.app/"
+ENV VITE_WS_URL="wss://dthinkr.ngrok.app/"
+ENV VITE_PROLIFIC_REDIRECT_URL="https://app.prolific.com/submissions/complete?cc=C11I8OGE"
+
+# Build the app
+RUN yarn build
+
+# Production stage - much smaller
+FROM node:20.19.0-alpine AS production
+
+WORKDIR /app
+
+# Install only firebase-tools globally (much smaller than full dev environment)
 RUN npm install -g firebase-tools
 
-# Make the firebase-dev.sh script executable
+# Copy built assets and necessary files
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/firebase.json ./
+COPY --from=builder /app/.firebaserc ./
+COPY --from=builder /app/firebase-dev.sh ./
+
+# Make script executable
 RUN chmod +x firebase-dev.sh
 
-# Serve the app
-CMD ["./firebase-dev.sh"]
+# Use the deploy script
+CMD ["/bin/sh", "./firebase-dev.sh"]
