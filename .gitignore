@@ -59,4 +59,5 @@ firebase-debug.log
 # ====================
 .DS_Store
 Thumbs.db
-*.tmp
+*.tmpngrok-config/
+docker/ngrok.yml

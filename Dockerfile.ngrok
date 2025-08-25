@@ -1,0 +1,7 @@
+FROM alpine:latest
+RUN apk add --no-cache wget unzip && \
+    wget -O ngrok.zip https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-linux-amd64.zip && \
+    unzip ngrok.zip && \
+    chmod +x ngrok && \
+    mv ngrok /usr/local/bin/
+ENTRYPOINT ["/usr/local/bin/ngrok"]
