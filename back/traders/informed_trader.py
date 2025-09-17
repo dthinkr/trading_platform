@@ -211,15 +211,15 @@ class InformedTrader(PausingTrader):
         # are less than the number of passive orders at the top levels
 
         remaining_trades = max(self.goal - self.number_trades,0)
-        total_passive_to_be_all_levels = self.informed_order_book_cancel * self.num_passive_to_keep   
+        total_passive_are_all_levels =  sum(order['amount'] for order in self.orders)   
 
-        if remaining_trades < total_passive_to_be_all_levels:
-            num_trades_to_cancel = total_passive_to_be_all_levels - remaining_trades
+        if remaining_trades < total_passive_are_all_levels:
+            num_orders_to_cancel = int(total_passive_are_all_levels - remaining_trades)
             if order_side == OrderType.BID:
                 sorted_orders = sorted(self.orders,
                         key=lambda x: (
                             x["price"],-datetime.strptime(x["timestamp"], "%Y-%m-%d %H:%M:%S.%f").timestamp()))
-                orders_to_cancel = sorted_orders[:num_trades_to_cancel]
+                orders_to_cancel = sorted_orders[:num_orders_to_cancel]
                 for order in orders_to_cancel:
                     order_id = order['id']
                     await self.send_cancel_order_request(order_id)
@@ -227,7 +227,7 @@ class InformedTrader(PausingTrader):
                 sorted_orders = sorted(self.orders,
                         key=lambda x: (
                             -x["price"],-datetime.strptime(x["timestamp"], "%Y-%m-%d %H:%M:%S.%f").timestamp()))
-                orders_to_cancel = sorted_orders[:num_trades_to_cancel]
+                orders_to_cancel = sorted_orders[:num_orders_to_cancel]
                 for order in orders_to_cancel:
                     order_id = order['id']
                     await self.send_cancel_order_request(order_id)
