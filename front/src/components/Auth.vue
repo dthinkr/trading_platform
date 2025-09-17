@@ -6,6 +6,14 @@
           <v-card-text class="text-center">
             <img :src="logo" alt="Trading Logo" class="trading-logo mb-4" />
             <h1 class="text-h4 font-weight-bold mb-2">Trade</h1>
+            
+            <!-- 🚀 AUTO-DEPLOYMENT TEST MESSAGE -->
+            <v-alert type="success" variant="tonal" class="mb-4">
+              <v-icon start icon="mdi-rocket-launch"></v-icon>
+              <strong>🎉 Auto-Deployment Working!</strong> 
+              <br>
+              <small>This message confirms GitHub Actions deployed successfully at {{ new Date().toLocaleString() }}</small>
+            </v-alert>
 
             <!-- Loading indicator for Prolific authentication -->
             <div v-if="isProlificUser && isLoading" class="text-center my-6">
