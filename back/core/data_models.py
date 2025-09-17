@@ -82,7 +82,7 @@ class TradingParameters(BaseModel):
         ge=0,
     )
     trading_day_duration: float = Field(
-        default=0.5,
+        default=3,
         title="Trading Day Duration",
         description="model_parameter",
         gt=0,
@@ -150,13 +150,13 @@ class TradingParameters(BaseModel):
         description="informed_parameter",
     )
     informed_order_book_levels: int = Field(
-        default=3,
+        default=1,
         title="Informed Order Book Levels",
         description="informed_parameter",
     )
-    informed_order_book_depth: int = Field(
+    informed_order_book_cancel: int = Field(
         default=2,
-        title="Informed Order Book Depth",
+        title="Informed Order Book Cancel",
         description="informed_parameter",
     )
     informed_use_passive_orders: bool = Field(
@@ -170,7 +170,7 @@ class TradingParameters(BaseModel):
         description="informed_parameter",
     )
     informed_share_passive: float = Field(
-        default=0.1,
+        default=0.2,
         title="Share passive orders",
         description="informed_parameter",
     )
@@ -239,7 +239,7 @@ class TradingParameters(BaseModel):
 
     # goal settings
     predefined_goals: List[int] = Field(
-        default=[100],
+        default=[0],
         title="Predefined Goals",
         description="human_parameter",
     )

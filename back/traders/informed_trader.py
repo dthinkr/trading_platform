@@ -2,6 +2,7 @@ import asyncio
 import random
 import traceback
 from typing import List, Dict, Union
+from datetime import datetime
 
 from core.data_models import OrderType, TraderType, TradeDirection
 from .base_trader import BaseTrader, PausingTrader
@@ -18,7 +19,7 @@ class InformedTrader(PausingTrader):
         self.informed_edge = params.get("informed_edge", 2)
         self.params = params
         self.informed_order_book_levels = params.get("informed_order_book_levels", 3)
-        self.informed_order_book_depth = params.get("informed_order_book_depth", 10)
+        self.informed_order_book_cancel = params.get("informed_order_book_cancel", 3)
         self.use_passive_orders = params.get("informed_use_passive_orders", False)
         # Order multiplier to increase trading volume
         self.order_multiplier = 1
@@ -166,7 +167,10 @@ class InformedTrader(PausingTrader):
         return spread
 
     def calculate_sleep_time(self,remaining_time,number_trades,goal):
-        sleep_time = max(0.5,(remaining_time - 5) / (goal - number_trades))
+        if goal <= number_trades:
+            sleep_time = 1000
+        else:
+            sleep_time = max(0.5,(remaining_time - 5) / (goal - number_trades))
         return sleep_time
         
     async def manage_passive_aggresive_orders(self):
@@ -176,30 +180,77 @@ class InformedTrader(PausingTrader):
         trade_direction = self.params["informed_trade_direction"]
         order_side = OrderType.BID if trade_direction == TradeDirection.BUY else OrderType.ASK
         
+        self.number_trades = len(self.filled_orders)
+        print('total goal', self.goal)
+        print('number of trades', self.number_trades)
+
         # Get order placement levels
         #levels = self.order_placement_levels
         #print('order placement levels:',levels)
         
-       
-        # step one cancel orders that they are in level>self.informed_order_book_levels
+        ###################################
+        # step one: cancel orders that
+        # are in level>self.informed_order_book_cancel
+
         if order_side == OrderType.BID:
             top_bid_price = self.get_best_price(OrderType.BID)
             for order in self.orders:
-                if top_bid_price - order['price'] >self.informed_order_book_levels:
+                if top_bid_price - order['price'] >self.informed_order_book_cancel:
                     order_id = order['id']
                     await self.send_cancel_order_request(order_id)
         else:
             top_ask_price = self.get_best_price(OrderType.ASK)
             for order in self.orders:
-                if order['price'] - top_ask_price > self.informed_order_book_levels:
+                if order['price'] - top_ask_price > self.informed_order_book_cancel:
                     order_id = order['id']
                     await self.send_cancel_order_request(order_id)
+
+        ###################################
+        # step two: cancel orders if 
+        # remaining_trades to achieve goal
+        # are less than the number of passive orders at the top levels
+
+        remaining_trades = max(self.goal - self.number_trades,0)
+        total_passive_to_be_all_levels = self.informed_order_book_cancel * self.num_passive_to_keep   
+
+        if remaining_trades < total_passive_to_be_all_levels:
+            num_trades_to_cancel = total_passive_to_be_all_levels - remaining_trades
+            if order_side == OrderType.BID:
+                sorted_orders = sorted(self.orders,
+                        key=lambda x: (
+                            x["price"],-datetime.strptime(x["timestamp"], "%Y-%m-%d %H:%M:%S.%f").timestamp()))
+                orders_to_cancel = sorted_orders[:num_trades_to_cancel]
+                for order in orders_to_cancel:
+                    order_id = order['id']
+                    await self.send_cancel_order_request(order_id)
+            else:
+                sorted_orders = sorted(self.orders,
+                        key=lambda x: (
+                            -x["price"],-datetime.strptime(x["timestamp"], "%Y-%m-%d %H:%M:%S.%f").timestamp()))
+                orders_to_cancel = sorted_orders[:num_trades_to_cancel]
+                for order in orders_to_cancel:
+                    order_id = order['id']
+                    await self.send_cancel_order_request(order_id)
+
         
         # calculate how many passive orders i need to send
-        self.total_number_passive_orders = sum(order['amount'] for order in self.orders)
-        self.number_trades = len(self.filled_orders)
-        print('total goal', self.goal)
-        print('number of trades', self.number_trades)
+        # the number of passive orders should belong to
+        # informed_order_book_levels
+
+        #this calculates how many passive orders already exist 
+        #on top levels
+        if order_side == OrderType.BID:
+            top_bid_price = self.get_best_price(OrderType.BID)
+            prices_to_check = [top_bid_price - i for i in range(self.informed_order_book_levels)]
+            self.total_number_passive_orders = sum(order['price'] in prices_to_check for order in self.orders)
+        else:
+            top_ask_price = self.get_best_price(OrderType.ASK)
+            prices_to_check = [top_ask_price + i for i in range(self.informed_order_book_levels)]
+            self.total_number_passive_orders = sum(order['price'] in prices_to_check for order in self.orders)
+
+
+        print('number of passive orders exist:', self.total_number_passive_orders)
+
         
         if self.total_number_passive_orders < self.num_passive_to_keep:
             remaining_trades = max(self.goal - self.number_trades,0)
@@ -290,7 +341,8 @@ class InformedTrader(PausingTrader):
         remaining_time = self.get_remaining_time()
         self.number_trades = len(self.filled_orders)
         
-        if remaining_time < 5 or (abs(self.goal * self.order_multiplier - self.number_trades) == 0):
+        if remaining_time < 5 or (abs(self.goal * self.order_multiplier - self.number_trades) <= 0):
+            print(f'Informed trader fullfilled goal with {self.number_trades} trades')
             return
 
         trade_direction = self.params["informed_trade_direction"]
