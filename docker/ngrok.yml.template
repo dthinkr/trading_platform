@@ -1,7 +1,0 @@
-version: 2
-authtoken: YOUR_NGROK_AUTHTOKEN_HERE
-tunnels:
-  app:
-    addr: 8000
-    proto: http
-    hostname: dthinkr.ngrok.app

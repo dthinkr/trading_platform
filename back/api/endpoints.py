@@ -391,7 +391,7 @@ async def get_trader_info(trader_id: str):
             'all_attributes': {
                 'historical_markets_count': historical_markets_count,
                 'is_admin': username in ['venvoooo', 'asancetta', 'marjonuzaj', 'fra160756', 'expecon'],
-                'params': {},  # Don't expose session status details
+                'params': persistent_settings,  # Include current trading parameters
                 'isWaitingForOthers': True
             }
         }

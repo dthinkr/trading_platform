@@ -46,6 +46,27 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  ngrok:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.ngrok
+    restart: unless-stopped
+    command: 
+      - "http"
+      - "localhost:8000"
+      - "--hostname"
+      - "dthinkr.ngrok.app"
+      - "--authtoken"
+      - "2j4K90jU5KvNPr1zFNnOes5QnU9_334pieyQKiRBBb6WFpsDp"
+    network_mode: host  # This gives direct localhost access like your working setup
+    depends_on:
+      - back
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 
 
 
