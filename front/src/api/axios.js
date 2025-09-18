@@ -15,7 +15,7 @@ instance.interceptors.request.use(
 
       // Check for Prolific token first
       if (authStore.prolificToken) {
-        console.log('Using Prolific token for authentication')
+        // Using Prolific token for authentication
         config.headers.Authorization = `Prolific ${authStore.prolificToken}`
       }
       // Fall back to Firebase authentication if no Prolific token

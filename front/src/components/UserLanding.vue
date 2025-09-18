@@ -219,7 +219,7 @@ watch(currentRouteName, (newRoute, oldRoute) => {
   if (newRoute === 'practice' && authStore.user?.isProlific) {
     const prolificUserId = authStore.user.uid
     localStorage.setItem(`prolific_onboarded_${prolificUserId}`, 'true')
-    console.log('Marked Prolific user as having completed onboarding:', prolificUserId)
+    // Marked Prolific user as having completed onboarding
     authStore.prolificUserHasCompletedOnboarding = true
   }
 })

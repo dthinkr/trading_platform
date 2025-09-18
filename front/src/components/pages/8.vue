@@ -184,7 +184,6 @@ const items = computed(() => {
 
 const startTrading = async () => {
   if (!canStartTrading.value) {
-    console.error('Cannot start trading: trader not ready')
     return
   }
 
@@ -196,7 +195,6 @@ const startTrading = async () => {
     // Wait for the transition to complete and check if we should navigate
     setTimeout(() => {
       if (!traderStore.isWaitingForOthers) {
-        console.log('Session transitioned to active - navigating to trading')
         router.push({
           name: 'trading',
           params: {
@@ -205,12 +203,11 @@ const startTrading = async () => {
           },
         })
       } else {
-        console.log('Still waiting for other traders')
+        // Still waiting for other traders
       }
       isLoading.value = false
     }, 2000) // Wait 2 seconds for transition
   } catch (error) {
-    console.error('Failed to start trading:', error)
     isLoading.value = false
   }
 }
@@ -228,7 +225,7 @@ const handleLogout = async () => {
     // Redirect to registration page
     router.push('/')
   } catch (error) {
-    console.error('Logout failed:', error)
+    // Logout failed
   }
 }
 

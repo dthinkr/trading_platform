@@ -39,12 +39,11 @@ export const useWebSocketStore = defineStore('websocket', {
                 this.ws.send(token)
               } else {
                 // Fallback if no authentication method is available
-                console.warn('No authentication token available for WebSocket')
                 this.ws.send('no-auth')
               }
             }
           } catch (error) {
-            console.error('Error sending authentication token:', error)
+            // Error sending authentication token
           }
         }, 100) // 100ms delay
       }
@@ -54,22 +53,19 @@ export const useWebSocketStore = defineStore('websocket', {
           const data = JSON.parse(event.data)
           this.handleMessage(data)
         } catch (error) {
-          console.error('Error processing WebSocket message:', error)
+          // Error processing WebSocket message
         }
       }
 
       this.ws.onerror = (error) => {
-        console.error('WebSocket error:', error)
         this.isConnected = false
       }
 
       this.ws.onclose = (event) => {
-        console.log('WebSocket connection closed:', event.code, event.reason)
         this.isConnected = false
 
         // Don't auto-reconnect for session waiting (code 1000)
         if (event.code === 1000 && event.reason === 'Session waiting') {
-          console.log('Session is waiting for other traders - not reconnecting')
           return
         }
 
@@ -79,7 +75,6 @@ export const useWebSocketStore = defineStore('websocket', {
 
     handleMessage(data) {
       // This will be overridden by the main store to route messages
-      console.log('WebSocket message received:', data)
     },
 
     async sendMessage(type, messageData) {
@@ -87,22 +82,18 @@ export const useWebSocketStore = defineStore('websocket', {
         const message = JSON.stringify({ type, data: messageData })
         this.ws.send(message)
       } else {
-        console.warn(`WebSocket is not open. Current state: ${this.ws?.readyState}`)
+        // WebSocket is not open
       }
     },
 
     attemptReconnect(traderUuid) {
       if (this.reconnectAttempts < this.maxReconnectAttempts) {
         this.reconnectAttempts++
-        console.log(
-          `Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`
-        )
-
         setTimeout(() => {
           this.initializeWebSocket(traderUuid)
         }, this.reconnectInterval)
       } else {
-        console.error('Max reconnection attempts reached')
+        // Max reconnection attempts reached
       }
     },
 

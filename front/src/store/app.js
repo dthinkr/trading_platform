@@ -174,11 +174,9 @@ export const useTraderStore = defineStore('trader', {
         this.tradingMarketData = response.data.data
         this.gameParams = persistentSettings
         this.formState = this.gameParams
-        console.log('Game parameters:', this.gameParams) // Debug logging
 
         // Handle waiting sessions (simplified approach - no session/market IDs)
         if (response.data.status === 'waiting') {
-          console.log('Trading system in waiting state')
           this.isWaitingForOthers = response.data.data.isWaitingForOthers || true
         } else {
           this.isWaitingForOthers = response.data.data.isWaitingForOthers || false
@@ -191,7 +189,6 @@ export const useTraderStore = defineStore('trader', {
     async initializeTradingSystemWithPersistentSettings() {
       try {
         const persistentSettings = await this.fetchPersistentSettings()
-        console.log('Persistent settings:', persistentSettings)
         await this.initializeTradingSystem(persistentSettings)
       } catch (error) {
         console.error('Error initializing trading system with persistent settings:', error)
@@ -214,7 +211,6 @@ export const useTraderStore = defineStore('trader', {
 
           // Check if we're in a waiting session (simplified approach)
           if (response.data.status === 'waiting') {
-            console.log('Trader in waiting session')
             this.isWaitingForOthers = response.data.data.all_attributes?.isWaitingForOthers || true
           } else {
             this.isWaitingForOthers = response.data.data.all_attributes?.isWaitingForOthers || false
@@ -244,7 +240,6 @@ export const useTraderStore = defineStore('trader', {
       this.traderUuid = traderUuid
 
       try {
-        console.log('Initializing trader:', traderUuid)
         await this.getTraderAttributes(traderUuid)
 
         // Get the market info to initialize counts properly
@@ -252,14 +247,12 @@ export const useTraderStore = defineStore('trader', {
           const response = await axios.get(`trader/${traderUuid}/market`)
           if (response.data.status === 'success' || response.data.status === 'waiting') {
             const marketData = response.data.data
-            console.log('Market data received:', marketData)
 
             // Update market data (no longer includes trading_market_uuid)
             this.tradingMarketData = marketData
 
             // Handle waiting vs active states differently
             if (response.data.status === 'waiting') {
-              console.log('Market in waiting state')
               // Set minimal counts for waiting state
               this.$patch({
                 currentHumanTraders: 1, // Default minimal values
@@ -289,14 +282,12 @@ export const useTraderStore = defineStore('trader', {
     handle_update(data) {
       // Handle session waiting status (simplified approach)
       if (data.type === 'session_waiting') {
-        console.log('Received session waiting status:', data.data)
         this.isWaitingForOthers = data.data.isWaitingForOthers || true
         return
       }
 
       // Handle trader count updates
       if (data.type === 'trader_count_update') {
-        console.log('Received trader count update:', data.data)
         this.$patch({
           currentHumanTraders: data.data.current_human_traders,
           expectedHumanTraders: data.data.expected_human_traders,
@@ -323,7 +314,6 @@ export const useTraderStore = defineStore('trader', {
 
       // Handle trader status updates (sleep/wake)
       if (data.type === 'trader_status_update') {
-        console.log('Received trader status update:', data)
         const paramName = data.param_name || `${data.trader_type}_trader_status`
         useMarketStore().updateExtraParams({
           [paramName]: data.trader_status
@@ -585,7 +575,7 @@ export const useTraderStore = defineStore('trader', {
 
     // Missing method that's used by WebSocket handler
     confirmTraderId(data) {
-      console.log('Trader ID confirmed:', data)
+      // Trader ID confirmation handled
     },
 
     clearStore() {
@@ -682,12 +672,8 @@ export const useTraderStore = defineStore('trader', {
       try {
         const response = await axios.post(`${import.meta.env.VITE_HTTP_URL}trading/start`)
         if (response.data.status === 'success') {
-          console.log('Trading start response:', response.data)
-
           // If all traders are ready, the session should transition to active
           if (response.data.all_ready) {
-            console.log('All traders ready - transitioning to active state')
-
             // Update waiting state immediately
             this.isWaitingForOthers = false
 
@@ -699,7 +685,6 @@ export const useTraderStore = defineStore('trader', {
                 // Reconnect WebSocket since the session is now active
                 const wsStore = useWebSocketStore()
                 if (!wsStore.ws || wsStore.ws.readyState !== WebSocket.OPEN) {
-                  console.log('Reconnecting WebSocket for active session')
                   await this.initializeWebSocket()
                 }
               } catch (error) {

@@ -52,13 +52,13 @@ export const useAuthStore = defineStore('auth', {
 
     async prolificLogin(prolificParams, credentials = null) {
       if (this.loginInProgress) {
-        console.log('Login already in progress')
+        // Login already in progress
         return
       }
 
       try {
         this.loginInProgress = true
-        console.log('Starting Prolific login with params:', prolificParams)
+        // Starting Prolific login
 
         // Create a pseudo-user object for Prolific users
         const prolificPID = prolificParams.PROLIFIC_PID
@@ -75,12 +75,12 @@ export const useAuthStore = defineStore('auth', {
 
         // Make API call to backend with Prolific parameters in URL
         const url = `/user/login?PROLIFIC_PID=${prolificParams.PROLIFIC_PID}&STUDY_ID=${prolificParams.STUDY_ID}&SESSION_ID=${prolificParams.SESSION_ID}`
-        console.log('Making API call to:', url)
+        // Making API call
 
         // Include credentials if provided
         let requestBody = {}
         if (credentials && credentials.username && credentials.password) {
-          console.log('Including credentials in Prolific login request')
+          // Including credentials in request
           requestBody = {
             username: credentials.username,
             password: credentials.password,
@@ -88,10 +88,10 @@ export const useAuthStore = defineStore('auth', {
         }
 
         const response = await axios.post(url, requestBody)
-        console.log('Prolific login response:', response.data)
+        // Prolific login response received
 
         if (!response.data.data || !response.data.data.trader_id) {
-          console.error('Invalid response format:', response.data)
+          // Invalid response format
           throw new Error('No trader ID received')
         }
 
@@ -104,7 +104,7 @@ export const useAuthStore = defineStore('auth', {
         // Store the Prolific token if available
         if (response.data.data.prolific_token) {
           this.prolificToken = response.data.data.prolific_token
-          console.log('Stored Prolific token for future authentication')
+          // Stored Prolific token
         }
 
         // Check if this user has previously logged in via Prolific
@@ -112,13 +112,9 @@ export const useAuthStore = defineStore('auth', {
         const hasCompletedOnboarding =
           localStorage.getItem(`prolific_onboarded_${prolificUserId}`) === 'true'
         this.prolificUserHasCompletedOnboarding = hasCompletedOnboarding
-        console.log('Prolific user onboarding status:', { hasCompletedOnboarding })
+        // Prolific user onboarding status checked
 
-        console.log('Prolific login successful, user data:', {
-          traderId: this.traderId,
-          marketId: this.marketId,
-          isAdmin: this.isAdmin,
-        })
+        // Prolific login successful
       } catch (error) {
         console.error('Prolific login error:', error)
         this.user = null
@@ -130,7 +126,7 @@ export const useAuthStore = defineStore('auth', {
 
     async login(user, isAutoLogin = false) {
       if (this.loginInProgress) {
-        console.log('Login already in progress')
+        // Login already in progress
         return
       }
 

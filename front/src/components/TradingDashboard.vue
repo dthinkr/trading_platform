@@ -234,7 +234,6 @@ const debugDisplayValues = computed(() => {
     sum_dinv: sum_dinv.value,
     formatDelta: formatDelta.value,
   }
-  console.log('🎯 DASHBOARD DISPLAY VALUES:', values)
   return values
 })
 
@@ -242,7 +241,6 @@ const finalizingDay = () => {
   if (traderUuid.value) {
     router.push({ name: 'summary', params: { traderUuid: traderUuid.value } })
   } else {
-    console.error('No trader UUID found')
     router.push({ name: 'Register' })
   }
 }
@@ -467,9 +465,7 @@ const traderCountDisplay = computed(() => {
 watch(
   [currentHumanTraders, expectedHumanTraders],
   ([newCurrent, newExpected], [oldCurrent, oldExpected]) => {
-    console.log(
-      `Trader count updated: ${oldCurrent}/${oldExpected} -> ${newCurrent}/${newExpected}`
-    )
+    // Trader count updated
   }
 )
 
@@ -504,7 +500,7 @@ watch(
           if (error.message.includes("Unexpected token '<'")) {
             showErrorAlert.value = true
           }
-          console.error('WebSocket message error:', error)
+          // WebSocket message error
         }
       }, 16) // Debounce to roughly one frame (60fps)
 
