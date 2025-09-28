@@ -61,3 +61,7 @@ firebase-debug.log
 Thumbs.db
 *.tmpngrok-config/
 docker/ngrok.yml
+
+
+platform-paper/
+REVIEW.md

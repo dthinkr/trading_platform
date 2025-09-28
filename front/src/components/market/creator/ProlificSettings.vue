@@ -1,38 +1,38 @@
 <template>
-  <v-card elevation="2">
-    <v-card-title class="headline">
-      <v-icon left color="deep-blue">mdi-account-group-outline</v-icon>
+  <v-card elevation="1">
+    <v-card-title class="compact-title">
+      <v-icon left color="deep-blue" size="18">mdi-account-group-outline</v-icon>
       Prolific Settings
     </v-card-title>
-    <v-card-text class="pa-4">
+    <v-card-text class="pa-3">
       <v-form>
         <v-textarea
           v-model="settings.credentials"
           label="Prolific Credentials"
-          outlined
-          dense
+          variant="outlined"
+          density="compact"
           hide-details="auto"
-          class="mb-3"
+          class="mb-2"
           placeholder="username1,password1
 username2,password2
 username3,password3"
           hint="Enter one username,password pair per line. No commas in passwords."
           persistent-hint
-          rows="5"
+          rows="3"
         ></v-textarea>
 
-        <div class="d-flex align-center mb-3">
+        <div class="d-flex align-center mb-2">
           <v-text-field
             v-model="numCredentials"
             label="Number of Credentials"
             type="number"
             min="1"
             max="20"
-            outlined
-            dense
+            variant="outlined"
+            density="compact"
             hide-details
             class="mr-2"
-            style="max-width: 150px"
+            style="max-width: 140px"
           ></v-text-field>
 
           <v-btn
@@ -40,44 +40,47 @@ username3,password3"
             @click="generateCredentials"
             :disabled="generatingCredentials"
             :loading="generatingCredentials"
+            size="small"
           >
-            <v-icon left>mdi-key-variant</v-icon>
+            <v-icon start size="16">mdi-key-variant</v-icon>
             Generate
           </v-btn>
         </div>
 
-        <v-alert v-if="credentialsError" type="error" dense class="mb-3">
+        <v-alert v-if="credentialsError" type="error" density="compact" class="mb-2">
           {{ credentialsError }}
         </v-alert>
 
         <v-text-field
           v-model="settings.studyId"
           label="Prolific Study ID"
-          outlined
-          dense
+          variant="outlined"
+          density="compact"
           hide-details="auto"
-          class="mb-3"
+          class="mb-2"
         ></v-text-field>
 
         <v-text-field
           v-model="settings.redirectUrl"
           label="Prolific Redirect URL"
-          outlined
-          dense
+          variant="outlined"
+          density="compact"
           hide-details="auto"
-          class="mb-3"
+          class="mb-2"
         ></v-text-field>
 
         <v-btn
           color="primary"
           block
           @click="saveSettings"
-          class="mt-3"
+          class="mt-2"
           :loading="saving"
           :disabled="!!credentialsError"
+          size="small"
+          variant="elevated"
         >
-          <v-icon left>mdi-content-save</v-icon>
-          Save Prolific Settings
+          <v-icon start size="16">mdi-content-save</v-icon>
+          Save Settings
         </v-btn>
       </v-form>
     </v-card-text>
@@ -234,11 +237,47 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.headline {
-  font-size: 1.35rem;
-  font-weight: 600;
-  color: #2c3e50;
-  font-family: 'Inter', sans-serif;
+.compact-title {
+  font-size: 0.95rem !important;
+  font-weight: 600 !important;
+  padding: 0.5rem 0.75rem !important;
+  background: rgba(248, 250, 252, 0.8);
+  border-bottom: 1px solid rgba(203, 213, 225, 0.3);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  color: #1e293b !important;
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.5rem;
+  gap: 0.75rem;
+  text-align: center;
+}
+
+.loading-text {
+  color: #666;
+  font-size: 0.85rem;
+  margin-top: 0.25rem;
+}
+
+.success-message {
+  color: #4caf50;
+  font-weight: 500;
+  margin-top: 0.75rem;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.error-message {
+  color: #f44336;
+  font-weight: 500;
+  margin-top: 0.75rem;
+  text-align: center;
+  font-size: 0.9rem;
 }
 
 .deep-blue {

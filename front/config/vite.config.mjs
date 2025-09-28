@@ -10,8 +10,7 @@ export default defineConfig({
   plugins: [
     vue(),
     vuetify({ 
-      autoImport: true,
-      styles: { configFile: 'src/styles/settings.scss' }
+      autoImport: true
     }),
   ],
   define: { 'process.env': {} },
@@ -45,7 +44,8 @@ export default defineConfig({
   css: {
     preprocessorOptions: {
       scss: {
-        additionalData: `@import "@/styles/variables.scss";`
+        // Remove additionalData to avoid conflicts with Vuetify's @use statements
+        // Variables are now properly imported in settings.scss
       }
     }
   },

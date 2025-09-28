@@ -1,43 +1,46 @@
 <template>
-  <v-card elevation="2">
-    <v-card-title class="headline">
-      <v-icon left color="deep-blue">mdi-timer-settings-outline</v-icon>
+  <v-card elevation="1">
+    <v-card-title class="compact-title">
+      <v-icon left color="deep-blue" size="18">mdi-timer-settings-outline</v-icon>
       Order Throttling
     </v-card-title>
     <v-card-text>
       <v-data-table
         :headers="[
-          { text: 'Trader Type', value: 'type' },
-          { text: 'Throttle (ms)', value: 'throttle' },
-          { text: 'Max Orders', value: 'maxOrders' },
+          { title: 'Type', key: 'type' },
+          { title: 'Throttle', key: 'throttle' },
+          { title: 'Max', key: 'maxOrders' },
         ]"
         :items="traderTypes"
+        density="compact"
         hide-default-footer
-        dense
+        class="compact-table"
       >
         <template v-slot:item="{ item }">
           <tr>
-            <td>{{ item }}</td>
-            <td style="width: 200px">
+            <td style="font-size: 0.75rem; font-weight: 500;">{{ item.replace('_', ' ').substring(0, 8) }}</td>
+            <td style="width: 80px">
               <v-text-field
                 v-model.number="throttleSettings[item].order_throttle_ms"
                 type="number"
                 min="0"
-                dense
-                outlined
+                density="compact"
+                variant="outlined"
                 hide-details
                 @input="updateSettings"
+                style="font-size: 0.8rem"
               ></v-text-field>
             </td>
-            <td style="width: 200px">
+            <td style="width: 80px">
               <v-text-field
                 v-model.number="throttleSettings[item].max_orders_per_window"
                 type="number"
                 min="1"
-                dense
-                outlined
+                density="compact"
+                variant="outlined"
                 hide-details
                 @input="updateSettings"
+                style="font-size: 0.8rem"
               ></v-text-field>
             </td>
           </tr>

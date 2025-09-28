@@ -1,46 +1,44 @@
 <template>
-  <v-card elevation="2">
-    <v-card-title class="headline">
-      <v-icon left color="deep-blue">mdi-monitor-dashboard</v-icon>
-      Active Markets Monitor
+  <v-card elevation="1">
+    <v-card-title class="compact-title">
+      <v-icon left color="deep-blue" size="18">mdi-monitor-dashboard</v-icon>
+      Active Markets
     </v-card-title>
 
     <v-card-text>
       <v-data-table
         :headers="[
-          { text: 'Market ID', value: 'market_id', class: 'custom-header' },
-          { text: 'Status', value: 'status', class: 'custom-header' },
-          { text: 'Members', value: 'member_ids', class: 'custom-header' },
-          { text: 'Started At', value: 'started_at', class: 'custom-header' },
-          { text: 'Actions', value: 'actions', class: 'custom-header', sortable: false },
+          { title: 'ID', key: 'market_id' },
+          { title: 'Status', key: 'status' },
+          { title: 'Members', key: 'member_ids' },
         ]"
         :items="activeSessions"
-        :items-per-page="5"
-        class="elevation-1"
-        dense
+        :items-per-page="3"
+        density="compact"
+        class="compact-table"
       >
         <template v-slot:item.status="{ item }">
-          <v-chip :color="getStatusColor(item.status)" small label>
+          <v-chip :color="getStatusColor(item.status)" size="x-small" variant="flat">
             {{ item.status }}
           </v-chip>
         </template>
 
         <template v-slot:item.member_ids="{ item }">
           <div class="d-flex align-center">
-            <v-chip small class="mr-2" :color="item.member_ids?.length ? 'info' : 'grey'" label>
+            <v-chip size="x-small" class="mr-1" :color="item.member_ids?.length ? 'info' : 'grey'" variant="flat">
               {{ item.member_ids?.length || 0 }}
             </v-chip>
             <v-menu offset-y :close-on-content-click="false" max-width="300">
               <template v-slot:activator="{ on, attrs }">
                 <v-btn
-                  x-small
+                  size="x-small"
                   icon
                   v-bind="attrs"
                   v-on="on"
                   :disabled="!item.member_ids?.length"
                   :color="item.member_ids?.length ? 'primary' : undefined"
                 >
-                  <v-icon small>mdi-account-group</v-icon>
+                  <v-icon size="12">mdi-account-group</v-icon>
                 </v-btn>
               </template>
               <v-card class="member-list-card">
@@ -163,6 +161,22 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.compact-title {
+  font-size: 0.95rem !important;
+  font-weight: 600 !important;
+  padding: 0.5rem 0.75rem !important;
+  background: rgba(248, 250, 252, 0.8);
+  border-bottom: 1px solid rgba(203, 213, 225, 0.3);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  color: #1e293b !important;
+}
+
+.compact-table {
+  font-size: 0.85rem;
+}
+
 .custom-header {
   font-weight: 600 !important;
   font-size: 0.81rem !important;

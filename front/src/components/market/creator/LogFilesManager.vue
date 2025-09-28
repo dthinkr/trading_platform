@@ -1,74 +1,77 @@
 <template>
-  <v-card elevation="2">
-    <v-card-title class="headline">
-      <v-icon left color="deep-blue">mdi-file-document-multiple-outline</v-icon>
-      Log Files
+  <v-card elevation="1">
+    <v-card-title class="compact-title">
+      <v-icon left color="deep-blue" size="18">mdi-file-document-multiple-outline</v-icon>
+      Data Export
     </v-card-title>
-    <v-card-text class="pa-2">
+    <v-card-text class="pa-3">
       <v-btn
         color="primary"
         @click="downloadAllFiles"
         block
-        elevation="2"
+        variant="elevated"
         class="mb-2 custom-btn download-all-btn"
-        x-large
+        size="small"
       >
-        <v-icon left large>mdi-download-multiple</v-icon>
+        <v-icon start size="16">mdi-download-multiple</v-icon>
         Download All Files
       </v-btn>
 
-      <v-btn
-        color="secondary"
-        @click="downloadParameterHistory"
-        block
-        elevation="2"
-        class="mb-2 custom-btn"
-        x-large
-      >
-        <v-icon left large>mdi-history</v-icon>
-        Download Parameter History
-      </v-btn>
-
-      <v-btn
-        color="info"
-        @click="downloadQuestionnaireResponses"
-        block
-        elevation="2"
-        class="mb-2 custom-btn"
-        x-large
-      >
-        <v-icon left large>mdi-clipboard-text</v-icon>
-        Download Questionnaire Responses
-      </v-btn>
-
-      <v-btn
-        color="success"
-        @click="downloadConsentData"
-        block
-        elevation="2"
-        class="mb-2 custom-btn"
-        x-large
-      >
-        <v-icon left large>mdi-clipboard-check</v-icon>
-        Download Consent Data
-      </v-btn>
+      <v-row dense class="mb-2">
+        <v-col cols="4">
+          <v-btn
+            color="secondary"
+            @click="downloadParameterHistory"
+            block
+            variant="outlined"
+            class="custom-btn"
+            size="x-small"
+          >
+            <v-icon size="14">mdi-history</v-icon>
+          </v-btn>
+        </v-col>
+        <v-col cols="4">
+          <v-btn
+            color="info"
+            @click="downloadQuestionnaireResponses"
+            block
+            variant="outlined"
+            class="custom-btn"
+            size="x-small"
+          >
+            <v-icon size="14">mdi-clipboard-text</v-icon>
+          </v-btn>
+        </v-col>
+        <v-col cols="4">
+          <v-btn
+            color="success"
+            @click="downloadConsentData"
+            block
+            variant="outlined"
+            class="custom-btn"
+            size="x-small"
+          >
+            <v-icon size="14">mdi-clipboard-check</v-icon>
+          </v-btn>
+        </v-col>
+      </v-row>
 
       <v-data-table
         :headers="[
-          { text: 'File Name', value: 'name', class: 'custom-header' },
-          { text: 'Actions', value: 'actions', sortable: false, class: 'custom-header' },
+          { title: 'File Name', key: 'name' },
+          { title: 'Actions', key: 'actions', sortable: false },
         ]"
         :items="logFiles"
-        :items-per-page="5"
-        class="elevation-1 custom-table"
-        dense
+        :items-per-page="4"
+        density="compact"
+        class="compact-table"
       >
         <template v-slot:item.actions="{ item }">
-          <v-btn icon x-small color="primary" @click="downloadFile(item.name)" class="mr-2">
-            <v-icon small>mdi-download</v-icon>
+          <v-btn icon size="x-small" color="primary" @click="downloadFile(item.name)" class="mr-1" variant="outlined">
+            <v-icon size="14">mdi-download</v-icon>
           </v-btn>
-          <v-btn icon x-small color="error" @click="confirmDeleteFile(item.name)">
-            <v-icon small>mdi-delete</v-icon>
+          <v-btn icon size="x-small" color="error" @click="confirmDeleteFile(item.name)" variant="outlined">
+            <v-icon size="14">mdi-delete</v-icon>
           </v-btn>
         </template>
       </v-data-table>
@@ -76,14 +79,14 @@
 
     <v-dialog v-model="showDeleteDialog" max-width="300px">
       <v-card>
-        <v-card-title class="headline">Confirm Delete</v-card-title>
-        <v-card-text>Are you sure you want to delete this file?</v-card-text>
-        <v-card-actions>
+        <v-card-title class="compact-title">Confirm Delete</v-card-title>
+        <v-card-text class="pa-3">Are you sure you want to delete this file?</v-card-text>
+        <v-card-actions class="pa-3">
           <v-spacer></v-spacer>
-          <v-btn color="grey darken-1" text @click="showDeleteDialog = false" class="custom-btn"
+          <v-btn color="grey" variant="outlined" @click="showDeleteDialog = false" class="custom-btn" size="small"
             >Cancel</v-btn
           >
-          <v-btn color="error" text @click="deleteFile" class="custom-btn">Delete</v-btn>
+          <v-btn color="error" variant="elevated" @click="deleteFile" class="custom-btn ml-2" size="small">Delete</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -220,11 +223,32 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.headline {
-  font-size: 1.35rem;
-  font-weight: 600;
-  color: #2c3e50;
+.compact-title {
+  font-size: 0.95rem !important;
+  font-weight: 600 !important;
+  padding: 0.5rem 0.75rem !important;
+  background: rgba(248, 250, 252, 0.8);
+  border-bottom: 1px solid rgba(203, 213, 225, 0.3);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  color: #1e293b !important;
+}
+
+.compact-table {
+  font-size: 0.85rem;
   font-family: 'Inter', sans-serif;
+}
+
+:deep(.v-data-table-header th) {
+  font-size: 0.8rem !important;
+  padding: 0.5rem !important;
+  font-weight: 600 !important;
+}
+
+:deep(.v-data-table tbody td) {
+  padding: 0.25rem 0.5rem !important;
+  font-size: 0.85rem !important;
 }
 
 .deep-blue {
@@ -238,33 +262,10 @@ onMounted(() => {
   font-family: 'Inter', sans-serif !important;
 }
 
-.custom-table {
-  font-family: 'Inter', sans-serif;
-}
-
-.custom-table :deep(.v-data-table__wrapper) {
-  font-family: 'Inter', sans-serif;
-}
-
-.custom-header {
-  font-weight: 600 !important;
-  font-size: 0.81rem !important;
-  color: #2c3e50 !important;
-}
-
-.v-data-table :deep(td) {
-  padding: 0 7px !important;
-}
-
-.v-data-table :deep(.v-data-table__wrapper > table > tbody > tr > td:last-child) {
-  width: 1%;
-  white-space: nowrap;
-}
-
 .v-btn.v-btn--icon.v-size--x-small {
-  width: 22px;
-  height: 22px;
-  margin: 0 2px;
+  width: 20px;
+  height: 20px;
+  margin: 0 1px;
 }
 
 .v-btn.v-btn--icon.v-size--x-small .v-icon {
@@ -272,13 +273,6 @@ onMounted(() => {
 }
 
 .download-all-btn {
-  font-size: 1.1rem !important;
-  height: 48px !important;
-  margin-bottom: 8px !important;
-}
-
-.download-all-btn .v-icon {
-  font-size: 1.3rem !important;
-  margin-right: 8px !important;
+  font-weight: 600 !important;
 }
 </style>

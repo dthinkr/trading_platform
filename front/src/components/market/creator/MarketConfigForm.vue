@@ -1,20 +1,54 @@
 <template>
-  <v-card elevation="2">
-    <v-card-title class="headline">
-      <v-icon left color="deep-blue">mdi-cog-outline</v-icon>
+  <v-card elevation="1">
+    <v-card-title class="compact-title">
+      <v-icon left color="deep-blue" size="18">mdi-cog-outline</v-icon>
       Trading Market Configuration
     </v-card-title>
-
-    <v-card-subtitle class="py-2">
-      <v-chip small outlined color="error" class="mr-2">
-        <v-icon left small color="error">mdi-information-outline</v-icon>
-        Highlighted fields in red indicate treatment values that differ from defaults
-      </v-chip>
-    </v-card-subtitle>
 
     <v-card-text>
       <v-form>
         <div class="parameter-grid">
+          <!-- Order Throttling Settings -->
+          <v-card outlined class="parameter-card">
+            <v-card-title class="compact-group-title">
+              <v-icon left color="deep-blue" size="16">mdi-timer-settings-outline</v-icon>
+              Order Throttling Settings
+            </v-card-title>
+            <v-card-text class="pa-2">
+              <v-row dense>
+                <template v-for="traderType in traderTypes" :key="traderType">
+                  <v-col cols="6">
+                    <v-text-field
+                      v-model.number="formState.throttle_settings[traderType].order_throttle_ms"
+                      :label="`${formatTraderType(traderType)} Throttle (ms)`"
+                      type="number"
+                      min="0"
+                      density="compact"
+                      variant="outlined"
+                      hide-details="auto"
+                      class="mb-1 compact-input"
+                      @input="updatePersistentSettings"
+                    ></v-text-field>
+                  </v-col>
+                  <v-col cols="6">
+                    <v-text-field
+                      v-model.number="formState.throttle_settings[traderType].max_orders_per_window"
+                      :label="`${formatTraderType(traderType)} Max Orders`"
+                      type="number"
+                      min="1"
+                      density="compact"
+                      variant="outlined"
+                      hide-details="auto"
+                      class="mb-1 compact-input"
+                      @input="updatePersistentSettings"
+                    ></v-text-field>
+                  </v-col>
+                </template>
+              </v-row>
+            </v-card-text>
+          </v-card>
+
+          <!-- Regular Parameter Groups -->
           <v-card
             v-for="(group, hint) in groupedFields"
             :key="hint"
@@ -22,22 +56,22 @@
             class="parameter-card"
             :class="{ 'parameter-card-large': group.length > 4 }"
           >
-            <v-card-title class="subtitle-1 py-2 px-3 grey lighten-4">
-              <v-icon left color="deep-blue" small>mdi-label-outline</v-icon>
+            <v-card-title class="compact-group-title">
+              <v-icon left color="deep-blue" size="16">mdi-label-outline</v-icon>
               {{ hint.replace('_', ' ') }}
             </v-card-title>
-            <v-card-text class="pa-3">
+            <v-card-text class="pa-2">
               <v-row dense>
-                <v-col cols="12" v-for="field in group" :key="field.name">
+                <v-col cols="6" v-for="field in group" :key="field.name">
                   <v-text-field
                     v-if="!isArrayField(field)"
                     :label="field.title || ''"
                     v-model="formState[field.name]"
                     :type="getFieldType(field)"
-                    dense
-                    outlined
+                    density="compact"
+                    variant="outlined"
                     hide-details="auto"
-                    class="mb-2 short-input"
+                    class="mb-1 compact-input"
                     :class="getFieldStyle(field.name)"
                     @input="updatePersistentSettings"
                   ></v-text-field>
@@ -45,10 +79,10 @@
                     v-else
                     :label="field.title || ''"
                     v-model="formState[field.name]"
-                    dense
-                    outlined
+                    density="compact"
+                    variant="outlined"
                     hide-details="auto"
-                    class="mb-2 short-input"
+                    class="mb-1 compact-input"
                     :class="getFieldStyle(field.name)"
                     @input="handleArrayInput(field.name, $event)"
                   ></v-text-field>
@@ -60,17 +94,17 @@
       </v-form>
     </v-card-text>
 
-    <v-card-actions>
+    <v-card-actions class="pa-2">
       <v-spacer></v-spacer>
       <v-btn
         color="primary"
         @click="saveSettings"
         :disabled="!serverActive"
-        small
-        elevation="2"
+        size="small"
+        variant="elevated"
         class="custom-btn"
       >
-        <v-icon left small>mdi-content-save</v-icon>
+        <v-icon start size="16">mdi-content-save</v-icon>
         Save Settings
       </v-btn>
     </v-card-actions>
@@ -99,9 +133,21 @@ const props = defineProps({
 
 const emit = defineEmits(['update:formState'])
 
+// Define trader types for throttling settings
+const traderTypes = ['HUMAN', 'NOISE', 'INFORMED', 'MARKET_MAKER', 'INITIAL_ORDER_BOOK', 'SIMPLE_ORDER']
+
+// Format trader type names for display
+const formatTraderType = (type) => {
+  return type.replace('_', ' ').toLowerCase().split(' ').map(word => 
+    word.charAt(0).toUpperCase() + word.slice(1)
+  ).join(' ').substring(0, 12)
+}
+
 const groupedFields = computed(() => {
   const groups = {}
-  props.formFields.forEach((field) => {
+  // Filter out throttle_settings since we handle it separately
+  const filteredFields = props.formFields.filter(field => field.name !== 'throttle_settings')
+  filteredFields.forEach((field) => {
     const hint = field.hint || 'other'
     if (!groups[hint]) {
       groups[hint] = []
@@ -205,49 +251,100 @@ const getFieldStyle = (fieldName) => {
 </script>
 
 <style scoped>
+.compact-title {
+  font-size: 0.95rem !important;
+  font-weight: 600 !important;
+  padding: 0.5rem 0.75rem !important;
+  background: rgba(248, 250, 252, 0.8);
+  border-bottom: 1px solid rgba(203, 213, 225, 0.3);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  color: #1e293b !important;
+}
+
+.compact-group-title {
+  font-size: 0.8rem !important;
+  font-weight: 500 !important;
+  padding: 0.3rem 0.5rem !important;
+  background: rgba(248, 250, 252, 0.6);
+  border-bottom: 1px solid rgba(203, 213, 225, 0.3);
+  backdrop-filter: blur(4px);
+  color: #374151 !important;
+}
+
 .parameter-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 0.5rem;
   align-items: start;
+  margin-top: 0.5rem;
 }
+
+/* Removed custom throttling styles - now uses standard parameter card styling */
 
 .parameter-card {
   height: 100%;
   display: flex;
   flex-direction: column;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
+  border-radius: 6px !important;
 }
 
 .parameter-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .parameter-card-large {
-  grid-column: span 2;
+  /* No span in single column layout */
 }
 
-.short-input {
+.compact-input {
   max-width: 100%;
   font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
 }
 
 .treatment-value {
-  background-color: rgba(244, 67, 54, 0.05) !important; /* Light red background */
+  background-color: rgba(244, 67, 54, 0.05) !important;
 }
 
-.treatment-value :deep(.v-input__slot) {
-  border: 2px solid #f44336 !important; /* Red border */
+.treatment-value :deep(.v-field) {
+  border: 1px solid #f44336 !important;
 }
 
 .treatment-value :deep(.v-label) {
-  color: #f44336 !important; /* Red label */
-  font-weight: 600;
+  color: #f44336 !important;
+  font-weight: 500;
 }
 
 .treatment-value :deep(input) {
-  color: #f44336 !important; /* Red text */
-  font-weight: 600;
+  color: #f44336 !important;
+  font-weight: 500;
+}
+
+/* Removed data table styles since we're using form fields now */
+
+.custom-btn {
+  text-transform: none !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.5px !important;
+  font-family: 'Inter', sans-serif !important;
+}
+
+@media (max-width: 960px) {
+  .parameter-grid {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .parameter-card-large {
+    grid-column: span 1;
+  }
+  
+  .throttling-card {
+    grid-column: 1;
+  }
 }
 </style>

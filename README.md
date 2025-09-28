@@ -22,7 +22,6 @@
 ### 🏗️ **Session-Based Architecture**
 - Lightweight session pools with lazy market creation
 - Zero resource waste from zombie markets
-- 57% reduction in state complexity
 
 ### 🎭 **Role-Based Trading**
 - Informed traders (buy/sell specialists) 
