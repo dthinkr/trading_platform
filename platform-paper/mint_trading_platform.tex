@@ -20,6 +20,9 @@
 \usepackage{hyperref}
 \usepackage{array}
 \usepackage{longtable}
+\usepackage{subfig}
+\usepackage{graphicx}
+\usepackage{subcaption}
 
 % Definitions of handy macros
 \newcommand{\dataset}{{\cal D}}
@@ -65,16 +68,17 @@
 % Include methodology (related work + platform architecture)
 \input{parts/2_methodology}
 
+\newpage
 % Include results and discussion
 \input{parts/3_results_discussion}
 
 % Include conclusion
 \input{parts/4_conclusion}
 
+\newpage
 % Acknowledgements and Disclosure of Funding
 \acks{
-We thank the experimental economics community for valuable feedback on platform design and implementation. This work was supported by [funding sources to be added]. We acknowledge the contributions of the open-source community and the developers of the underlying technologies that made this platform possible.
-}
+We thank the participants of the 3rd London Behavioural and Experimental Workshop for their valuable feedback on platform design and implementation. We acknowledge the contributions of the open-source community and the developers of the underlying technologies that made this platform possible. The authors acknowledge financial support from the Leverhulme Trust Grant Award PRG-2021-359.}
 
 % Include appendix
 \input{parts/5_appendix}
