@@ -63,5 +63,5 @@ Thumbs.db
 docker/ngrok.yml
 
 
-platform-paper/
+# platform-paper/
 REVIEW.md
