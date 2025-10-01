@@ -20,4 +20,4 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 COPY . .
 
 ENV PYTHONPATH=/app
-CMD python -m uvicorn api.endpoints:app --host 0.0.0.0 --port 8000 --root-path ${ROOT_PATH:-/api}
+CMD python -m uvicorn api.endpoints:app --host 0.0.0.0 --port 8000 --root-path ${ROOT_PATH:-/api} --reload
