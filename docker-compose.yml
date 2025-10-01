@@ -9,12 +9,10 @@ services:
       dockerfile: ../docker/Dockerfile.front
     volumes:
       - ./.env:/app/.env:ro
-      - ./front:/app/source:rw  # Mount source code for rebuilds
-      - ./front/dist:/app/dist:rw  # Persist built files
     environment:
       - FIREBASE_TOKEN=${FIREBASE_TOKEN}
       - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
-    command: sh -c "cd /app/source && yarn install && yarn build && cd /app && chmod +x ./firebase-dev.sh && ./firebase-dev.sh"
+    command: sh -c "chmod +x ./firebase-dev.sh && ./firebase-dev.sh"
     restart: "no"
     depends_on:
       - back
@@ -26,8 +24,6 @@ services:
       dockerfile: ../docker/Dockerfile.back
     volumes:
       - ./.env:/app/.env:ro
-      - ./back:/app:rw  # Mount backend code for live changes
-      - ./logs:/app/logs:rw  # Mount logs directory
     ports:
       - "8000:8000"
     environment:

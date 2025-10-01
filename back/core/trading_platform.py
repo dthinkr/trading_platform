@@ -69,10 +69,8 @@ class TradingPlatform:
     # Lifecycle methods
     async def initialize(self) -> None:
         """Initialize the trading platform."""
-        self.start_time = datetime.now(timezone.utc)
         self.active = True
         self.orchestrator.active = True
-        self.orchestrator.start_time = self.start_time
         
         # Start transaction processor
         self.process_transactions_task = asyncio.create_task(

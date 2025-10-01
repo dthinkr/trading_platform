@@ -690,7 +690,7 @@ export const useTraderStore = defineStore('trader', {
               } catch (error) {
                 console.error('Error transitioning to active state:', error)
               }
-            }, 1000) // 1 second delay to allow backend to complete setup
+            }, 100) // 0.1 second delay to allow backend to complete setup
           }
         }
       } catch (error) {

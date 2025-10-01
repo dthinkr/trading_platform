@@ -206,7 +206,7 @@ const startTrading = async () => {
         // Still waiting for other traders
       }
       isLoading.value = false
-    }, 2000) // Wait 2 seconds for transition
+    }, 200) // Wait 0.2 seconds for transition
   } catch (error) {
     isLoading.value = false
   }
