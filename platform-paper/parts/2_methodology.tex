@@ -46,11 +46,25 @@ Each initial order has a quantity of $q = 1$, which creates balanced market dept
 
 \subsection{Trader Endowments}
 
-The market trades one asset (shares) for cash. We give traders different starting amounts of cash and shares depending on their type and the goals we assigned them in the session pools.
+The market trades one asset (shares) for cash. We give traders different starting amounts of cash and shares depending on their type and the goals we assigned them in the session pools. Table~\ref{tab:endowments} summarizes the initial resource allocation across trader types.
 
-All human participants start with the same amount of cash and shares $(C_0, S_0)$, no matter what their assigned goals $g_i$ are. Their initial portfolio value is $W_0 = C_0 + S_0 \cdot p_0$. By giving everyone the same starting resources, we make sure that success depends on trading strategy, not on having more money or shares to begin with.
+\begin{table}[ht]
+\centering
+\caption{Initial Endowments by Trader Type}
+\label{tab:endowments}
+\begin{tabular}{llll}
+\toprule
+Trader Type & Cash & Shares & Rationale \\
+\midrule
+Human Participants & $C_0$ & $S_0$ & Equal starting conditions regardless of goal $g_i$ \\
+Noise Traders & $\infty$ & $\infty$ & Continuous liquidity provision \\
+Informed (Buyers) & $2g_i \cdot p_0$ & $0$ & Sufficient cash to complete purchases \\
+Informed (Sellers) & $0$ & $g_i$ & Exact shares needed to fulfill goal \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-Computer agents get different starting resources based on what they're supposed to do. Noise traders get unlimited cash and shares $(C = \infty, S = \infty)$ so they can keep trading without running out of money. Informed computer traders get resources that match their goals: buying agents get $(2g_i \cdot p_0, 0)$ which gives them enough cash to complete their purchases, while selling agents get $(0, g_i)$ which gives them exactly the shares they need to sell, where $g_i$ is their target trading amount.
+All human participants start with identical resources $(C_0, S_0)$ regardless of their assigned goals $g_i$, with initial portfolio value $W_0 = C_0 + S_0 \cdot p_0$. This ensures that success depends on trading strategy rather than differential initial endowments. Computer agents receive resources tailored to their market roles: noise traders operate with unlimited resources to maintain continuous market activity, while informed traders receive goal-matched allocations where $g_i$ represents their target trading amount.
 
 \subsection{Price Formation}
 
@@ -132,9 +146,32 @@ The platform gives participants a trading interface to make decisions in the ele
 
 \subsubsection{Dashboard Layout}
 
-The main trading interface has six information panels arranged in three columns, each serving different functions for trading, as shown in Figure~\ref{fig:dashboard}. The layout follows conventions from real financial trading platforms.
+The main trading interface has six information panels arranged in three columns, each serving different functions for trading, as shown in Figure~\ref{fig:dashboard}. The layout follows conventions from real financial trading platforms. Table~\ref{tab:dashboard} summarizes the panel organization and functionality.
 
-The header shows real-time information about each participant's portfolio, including their assigned role based on goal vector $\mathbf{g}$, their current profit and loss $\Pi_{i,t}$, how many shares they own with indicators showing changes, their cash $C_{i,t}$, and how many human traders are currently active versus how many we expected.
+\begin{table}[ht]
+\centering
+\caption{Trading Dashboard Panel Layout}
+\label{tab:dashboard}
+\begin{tabular}{p{0.18\textwidth}p{0.15\textwidth}p{0.55\textwidth}}
+\toprule
+Panel & Location & Key Information and Functionality \\
+\midrule
+Portfolio Header & Top & Role assignment ($\mathbf{g}$), P\&L ($\Pi_{i,t}$), share holdings ($S_{i,t}$) with change indicators, cash ($C_{i,t}$), active trader count, time remaining \\
+\midrule
+Trades History & Left-top & Completed transactions, volume-weighted average prices (VWAP$_{buy}$, VWAP$_{sell}$), executed trade details with timestamps \\
+\midrule
+Market Info & Left-bottom & Current transaction price, bid-ask spread, midpoint $p_{mid,t}$, noise trader status indicators \\
+\midrule
+Buy-Sell Chart & Center-top & Dual-sided bar chart showing bid-ask distribution, spread visualization with shading, real-time order book depth \\
+\midrule
+Passive Orders & Center-bottom & Unfilled limit orders with quantities and prices, management controls (+/- buttons) for order modification and cancellation \\
+\midrule
+Price History & Right-top & Transaction price evolution over time as line chart, trend visualization, market momentum indicators \\
+\midrule
+Trading Panel & Right-bottom & Order placement interface with buy/sell sections, price levels ($P_t^{buy}$, $P_t^{sell}$), execution buttons, role-based restrictions \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \begin{figure}[!htbp]
 \centering
