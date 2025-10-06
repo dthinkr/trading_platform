@@ -31,32 +31,6 @@
           </v-hover>
         </v-col>
 
-        <!-- Trading Objective Card -->
-        <v-col cols="12">
-          <v-hover v-slot="{ isHovering, props }">
-            <v-card v-bind="props" :elevation="isHovering ? 8 : 2" class="info-card">
-              <v-card-text>
-                <div class="d-flex align-center mb-4">
-                  <v-icon size="28" :color="iconColor" class="mr-2">mdi-target</v-icon>
-                  <span class="text-h6">Trading Objective</span>
-                </div>
-                <p class="text-body-1" style="color: blue">{{ goalDescription }}</p>
-
-                <v-expand-transition>
-                  <div v-if="goalStatus !== 'noGoal' && goalStatus !== 'unknown'" class="mt-4">
-                    <v-alert color="info" variant="tonal" border="start" class="mb-4">
-                      At the end of the market, the trading platform will automatically
-                      {{ tradeAction.toLowerCase() }} each
-                      {{ tradeAction === 'Selling' ? 'unsold' : 'unbought' }} share at
-                      {{ autoTradeMultiplier }} the average best bid and ask price.
-                    </v-alert>
-                  </div>
-                </v-expand-transition>
-              </v-card-text>
-            </v-card>
-          </v-hover>
-        </v-col>
-
         <!-- Market Earnings Card -->
         <v-col cols="12">
           <v-hover v-slot="{ isHovering, props }">
@@ -120,10 +94,17 @@
                   the market. These fluctuations can lead to potential gains or losses on your
                   trades.
                 </p>
-                <template v-else>
+                <template v-else-if="hasGoal">
                   <p class="text-body-1">
-                    Your task is to {{ tradeAction.toLowerCase() }}
-                    <span class="highlight-text">{{ Math.abs(numShares) }} shares</span>.
+                    <span v-if="remainingShares !== '' && remainingShares > 0">
+                      You need to {{ tradeVerb }}
+                      <span class="highlight-text">{{ remainingShares }} shares</span> to reach your
+                      goal.
+                    </span>
+                    <span v-else>
+                      Your task is to {{ tradeVerb }}
+                      <span class="highlight-text">{{ targetShares }} shares</span>.
+                    </span>
                   </p>
                 </template>
               </v-card-text>
@@ -205,23 +186,80 @@ const traderStore = useTraderStore()
 const { goalMessage } = storeToRefs(traderStore)
 
 const numShares = computed(() => props.traderAttributes?.shares ?? '#')
+const initialShares = computed(() => props.traderAttributes?.initial_shares ?? '#')
 const initialLiras = computed(() => props.traderAttributes?.cash ?? '#')
 const conversionRate = computed(
   () => props.traderAttributes?.all_attributes?.params?.conversion_rate || 'X'
 )
 
+const normalizeNumeric = (value) => {
+  if (value === null || value === undefined) return 0
+  if (typeof value === 'number') return value
+  if (typeof value === 'string') {
+    const parsed = Number(value)
+    return Number.isNaN(parsed) ? 0 : parsed
+  }
+  return 0
+}
+
+const goalAmount = computed(() => {
+  const paramsGoals = props.traderAttributes?.all_attributes?.params?.predefined_goals
+  const traderId = props.traderAttributes?.id
+
+  if (Array.isArray(paramsGoals) && paramsGoals.length && traderId) {
+    const marketHumanTraders = traderStore.tradingMarketData?.human_traders
+    if (Array.isArray(marketHumanTraders) && marketHumanTraders.length) {
+      const index = marketHumanTraders.findIndex((trader) => trader.id === traderId)
+      if (index !== -1) {
+        return normalizeNumeric(paramsGoals[index])
+      }
+    }
+
+    if (props.traderAttributes?.all_attributes?.params?.trader_index !== undefined) {
+      const index = props.traderAttributes.all_attributes.params.trader_index
+      if (index >= 0 && index < paramsGoals.length) {
+        return normalizeNumeric(paramsGoals[index])
+      }
+    }
+  }
+
+  if (props.traderAttributes?.goal !== undefined) {
+    return normalizeNumeric(props.traderAttributes.goal)
+  }
+
+  return 0
+})
+
+const goalProgress = computed(() => normalizeNumeric(props.traderAttributes?.goal_progress))
+
+const hasGoal = computed(() => !Number.isNaN(goalAmount.value) && goalAmount.value !== 0)
+
 const goalStatus = computed(() => {
-  if (props.traderAttributes?.shares === undefined) return 'unknown'
-  if (props.traderAttributes?.shares === props.traderAttributes?.initial_shares) return 'noGoal'
-  return props.traderAttributes?.shares < props.traderAttributes?.initial_shares
-    ? 'selling'
-    : 'buying'
+  if (!hasGoal.value) return 'noGoal'
+  return goalAmount.value < 0 ? 'selling' : 'buying'
 })
 
 const tradeAction = computed(() => {
-  if (goalStatus.value === 'selling') return 'Selling'
-  if (goalStatus.value === 'buying') return 'Buying'
+  if (goalStatus.value === 'selling' && hasGoal.value) return 'Selling'
+  if (goalStatus.value === 'buying' && hasGoal.value) return 'Buying'
   return 'Trading'
+})
+
+const tradeVerb = computed(() => {
+  if (goalStatus.value === 'selling' && hasGoal.value) return 'sell'
+  if (goalStatus.value === 'buying' && hasGoal.value) return 'buy'
+  return 'trade'
+})
+
+const targetShares = computed(() => {
+  if (!hasGoal.value) return ''
+  return Math.abs(goalAmount.value)
+})
+
+const remainingShares = computed(() => {
+  if (!hasGoal.value) return ''
+  const remaining = goalAmount.value - goalProgress.value
+  return Math.max(Math.abs(remaining), 0)
 })
 
 const autoTradeMultiplier = computed(() => {
@@ -231,9 +269,19 @@ const autoTradeMultiplier = computed(() => {
 })
 
 const goalDescription = computed(() => {
-  if (!goalMessage.value)
-    return 'You can freely trade in this market. Your goal is to make a profit.'
-  return goalMessage.value.text
+  if (goalMessage.value?.text) return goalMessage.value.text
+
+  if (hasGoal.value && remainingShares.value !== '') {
+    const sharesText = `${remainingShares.value} ${remainingShares.value === 1 ? 'share' : 'shares'}`
+    return `You need to ${tradeVerb.value} ${sharesText} to reach your goal.`
+  }
+
+  if (hasGoal.value && targetShares.value) {
+    const sharesText = `${targetShares.value} ${targetShares.value === 1 ? 'share' : 'shares'}`
+    return `Your task is to ${tradeVerb.value} ${sharesText}.`
+  }
+
+  return 'You can freely trade in this market. Your goal is to make a profit.'
 })
 </script>
 
