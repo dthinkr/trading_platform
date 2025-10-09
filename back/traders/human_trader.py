@@ -45,9 +45,13 @@ class HumanTrader(PausingTrader):
         await self.send_message_to_client("BOOK_UPDATED")
 
     async def post_processing_server_message(self, json_message):
-        message_type = json_message.pop("type", None)
+        # Use .get() instead of .pop() to avoid mutating the shared message dict
+        # that is sent to multiple traders
+        message_type = json_message.get("type", None)
         if message_type:
-            await self.send_message_to_client(message_type, **json_message)
+            # Create a copy without 'type' for kwargs
+            message_data = {k: v for k, v in json_message.items() if k != "type"}
+            await self.send_message_to_client(message_type, **message_data)
 
     async def connect_to_socket(self, websocket):
         try:

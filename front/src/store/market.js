@@ -120,7 +120,16 @@ export const useMarketStore = defineStore('market', {
     },
 
     addTransaction(transaction) {
-      this.recentTransactions.push(transaction)
+      // Check for duplicates using bid_order_id and ask_order_id
+      const isDuplicate = this.recentTransactions.some(
+        (t) =>
+          t.bid_order_id === transaction.bid_order_id &&
+          t.ask_order_id === transaction.ask_order_id
+      )
+      
+      if (!isDuplicate) {
+        this.recentTransactions.push(transaction)
+      }
     },
   },
 })

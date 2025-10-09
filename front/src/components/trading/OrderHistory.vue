@@ -40,8 +40,7 @@ const groupedOrders = computed(() => {
     const group = isBid ? bids : asks
     const price = order.price || order.transaction_price
     // Use transaction_amount for transactions, amount for regular orders, default to 1
-    // FIXME: Temporary 1/2 multiplier to fix double counting issue
-    const amount = (order.transaction_amount || order.amount || 1) / 2
+    const amount = order.transaction_amount || order.amount || 1
     const timestamp = new Date(order.timestamp || order.transaction_time).getTime()
 
     if (!group[price]) {
@@ -82,8 +81,7 @@ const tradingSummary = computed(() => {
 
     const price = order.price || order.transaction_price
     // Use transaction_amount for transactions, amount for regular orders, default to 1
-    // FIXME: Temporary 1/2 multiplier to fix double counting issue
-    const amount = (order.transaction_amount || order.amount || 1) / 2
+    const amount = order.transaction_amount || order.amount || 1
 
     if (isBid) {
       buyCount++

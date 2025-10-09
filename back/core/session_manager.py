@@ -23,8 +23,21 @@ logger = setup_custom_logger(__name__)
 
 
 @dataclass
+class RoleSlot:
+    """A role slot in a session - SIMPLER approach."""
+    goal: int
+    role: TraderRole
+    assigned_to: Optional[str] = None  # username who got this slot
+    joined_at: Optional[datetime] = None
+    
+    @property
+    def is_available(self) -> bool:
+        return self.assigned_to is None
+
+
+@dataclass
 class WaitingUser:
-    """Lightweight user waiting to join a market."""
+    """Lightweight user waiting to join a market (kept for compatibility)."""
     username: str
     role: TraderRole
     goal: int
@@ -55,8 +68,9 @@ class SessionManager:
     """
     
     def __init__(self):
-        # Simple state - just 3 dictionaries instead of 7!
-        self.session_pools: Dict[str, List[WaitingUser]] = {}  # session_id -> users waiting
+        # SIMPLER state management with RoleSlot
+        self.session_slots: Dict[str, List[RoleSlot]] = {}     # session_id -> list of RoleSlot
+        self.session_params: Dict[str, TradingParameters] = {} # session_id -> params
         self.active_markets: Dict[str, TraderManager] = {}     # market_id -> actual markets
         self.user_sessions: Dict[str, str] = {}                # username -> session_id
         
@@ -64,9 +78,39 @@ class SessionManager:
         self.user_historical_markets: Dict[str, Set[str]] = {}
         self.user_ready_status: Dict[str, bool] = {}  # username -> ready to start
         
+        # Role persistence: Once a speculator, always a speculator
+        self.permanent_speculators: Set[str] = set()  # SIMPLER: just track who's permanent SPECULATOR
+        
+    # Backward compatibility properties
+    @property
+    def session_pools(self) -> Dict[str, List[WaitingUser]]:
+        """Convert RoleSlot sessions to WaitingUser format for compatibility."""
+        result = {}
+        for session_id, slots in self.session_slots.items():
+            users = []
+            params = self.session_params.get(session_id)
+            for slot in slots:
+                if slot.assigned_to:
+                    users.append(WaitingUser(
+                        username=slot.assigned_to,
+                        role=slot.role,
+                        goal=slot.goal,
+                        joined_at=slot.joined_at or datetime.now(timezone.utc),
+                        session_id=session_id,
+                        params=params or TradingParameters()
+                    ))
+            result[session_id] = users
+        return result
+    
+    @property
+    def user_permanent_roles(self) -> Dict[str, TraderRole]:
+        """Backward compatibility: Convert set to dict format."""
+        return {username: TraderRole.SPECULATOR for username in self.permanent_speculators}
+        
     async def join_session(self, username: str, params: TradingParameters) -> Tuple[str, str, TraderRole, int]:
         """
         User joins a session pool. Fast and lightweight!
+        SIMPLER VERSION: Uses RoleSlot for clearer logic.
         
         Returns: (session_id, trader_id, role, goal)
         """
@@ -75,29 +119,18 @@ class SessionManager:
             raise Exception("Maximum number of allowed markets reached")
         
         # Remove user from any existing session first
-        await self._remove_user_from_current_session(username)
+        await self.remove_user_from_session(username)
         
-        # Find or create appropriate session pool
-        session_id, role, goal = await self._find_or_create_session_pool(username, params)
+        # Find or create appropriate session
+        session_id = self._find_or_create_session(username, params)
         
-        # Create waiting user
-        waiting_user = WaitingUser(
-            username=username,
-            role=role,
-            goal=goal,
-            joined_at=datetime.now(timezone.utc),
-            session_id=session_id,
-            params=params
-        )
+        # Assign user to a slot in that session
+        role, goal = self._assign_user_to_slot(username, session_id, params)
         
-        # Add to session pool
-        if session_id not in self.session_pools:
-            self.session_pools[session_id] = []
-        
-        self.session_pools[session_id].append(waiting_user)
+        # Track user in session
         self.user_sessions[username] = session_id
         
-        trader_id = waiting_user.to_trader_id()
+        trader_id = f"HUMAN_{username}"
         
         logger.info(f"User {username} joined session {session_id} with role {role} and goal {goal}")
         
@@ -214,11 +247,14 @@ class SessionManager:
         if not session_users:
             return {"status": "not_found"}
         
+        # Find this user's info in the session
+        user_info = next((u for u in session_users if u.username == username), None)
+        
         params = session_users[0].params
         required_count = len(params.predefined_goals)
         ready_count = sum(1 for user in session_users if self.user_ready_status.get(user.username, False))
         
-        return {
+        result = {
             "status": SessionStatus.WAITING.value,
             "session_id": session_id,
             "current_users": len(session_users),
@@ -226,6 +262,15 @@ class SessionManager:
             "total_needed": required_count,
             "users": [user.username for user in session_users]
         }
+        
+        # Add user-specific info if found
+        if user_info:
+            result["role"] = user_info.role
+            result["goal"] = user_info.goal
+            result["cash"] = params.initial_cash
+            result["shares"] = params.initial_stocks
+        
+        return result
     
     def get_trader_manager(self, username: str) -> Optional[TraderManager]:
         """Get trader manager for a user (only if market is active)."""
@@ -293,12 +338,14 @@ class SessionManager:
             except Exception as e:
                 logger.error(f"Error cleaning up trader manager: {e}")
         
-        # Clear all state
-        self.session_pools.clear()
+        # Clear all state (using new structures)
+        self.session_slots.clear()
+        self.session_params.clear()
         self.active_markets.clear()
         self.user_sessions.clear()
         self.user_ready_status.clear()
         # Keep user_historical_markets for limit tracking
+        # Keep permanent_speculators for role consistency across sessions
         
         logger.info("Session manager state reset")
     
@@ -315,62 +362,129 @@ class SessionManager:
         historical_count = len(self.user_historical_markets.get(username, set()))
         return historical_count < params.max_markets_per_human
     
-    async def _remove_user_from_current_session(self, username: str):
-        """Remove user from any existing session."""
+    async def remove_user_from_session(self, username: str):
+        """
+        Remove user from any existing session (public method).
+        Used when user logs in/refreshes to start fresh.
+        SIMPLER: Just free up their slot.
+        """
         current_session = self.user_sessions.get(username)
         if not current_session:
             return
         
-        # Remove from session pool
-        if current_session in self.session_pools:
-            self.session_pools[current_session] = [
-                user for user in self.session_pools[current_session] 
-                if user.username != username
-            ]
-            # Clean up empty session pools
-            if not self.session_pools[current_session]:
-                del self.session_pools[current_session]
+        # Free up slot in session (if in waiting room)
+        if current_session in self.session_slots:
+            for slot in self.session_slots[current_session]:
+                if slot.assigned_to == username:
+                    slot.assigned_to = None
+                    slot.joined_at = None
+                    logger.info(f"Freed slot for {username} in session {current_session}")
+            
+            # Clean up empty sessions
+            if all(slot.is_available for slot in self.session_slots[current_session]):
+                del self.session_slots[current_session]
+                if current_session in self.session_params:
+                    del self.session_params[current_session]
+                logger.info(f"Deleted empty session {current_session}")
         
-        # Remove session mapping
+        # Remove from active market (if in active trading session)
+        # Note: This effectively abandons the trading session on refresh
+        if current_session in self.active_markets:
+            logger.info(f"User {username} abandoned active market {current_session} (e.g., via refresh)")
+            # Note: We don't remove the entire market, just the user mapping
+            # The market itself will continue with other traders or finish naturally
+        
+        # Remove session mapping (so user is no longer associated with this session)
         del self.user_sessions[username]
         
         # Remove ready status
         if username in self.user_ready_status:
             del self.user_ready_status[username]
+        
+        logger.info(f"Removed user {username} from session {current_session}")
     
-    async def _find_or_create_session_pool(self, username: str, params: TradingParameters) -> Tuple[str, TraderRole, int]:
+    async def _remove_user_from_current_session(self, username: str):
+        """Remove user from any existing session (internal use)."""
+        await self.remove_user_from_session(username)
+    
+    def _create_session_slots(self, session_id: str, params: TradingParameters):
+        """Create role slots for a new session."""
+        slots = []
+        for goal in params.predefined_goals:
+            role = TraderRole.INFORMED if goal != 0 else TraderRole.SPECULATOR
+            slots.append(RoleSlot(goal=goal, role=role))
+        
+        self.session_slots[session_id] = slots
+        self.session_params[session_id] = params
+        logger.info(f"Created session {session_id} with {len(slots)} slots")
+    
+    def _find_or_create_session(self, username: str, params: TradingParameters) -> str:
         """
-        Find existing session pool or create new one.
-        Much simpler than the original 120-line function!
-        
-        Returns: (session_id, role, goal)
+        Find existing session with space or create new one.
+        SIMPLER: Just check if there's a suitable slot available.
         """
-        required_count = len(params.predefined_goals)
+        is_permanent_speculator = username in self.permanent_speculators
         
-        # Try to find existing session pool with space
-        for session_id, users in self.session_pools.items():
-            if len(users) < required_count:
-                # Assign role based on position in this session
-                position = len(users)
-                goal = params.predefined_goals[position]
-                role = TraderRole.INFORMED if goal != 0 else TraderRole.SPECULATOR
-                
-                # Apply random goal flip if enabled
-                if role == TraderRole.INFORMED and params.allow_random_goals:
-                    import random
-                    goal *= random.choice([-1, 1])
-                
-                return session_id, role, goal
+        # Try existing sessions
+        for session_id, slots in self.session_slots.items():
+            # Check if session has available slots
+            available_slots = [s for s in slots if s.is_available]
+            if not available_slots:
+                continue
+            
+            # If permanent SPECULATOR, check if there's a SPECULATOR slot available
+            if is_permanent_speculator:
+                has_speculator_slot = any(s.role == TraderRole.SPECULATOR for s in available_slots)
+                if has_speculator_slot:
+                    return session_id
+            else:
+                # Non-permanent users can take any available slot
+                return session_id
         
-        # Create new session pool
+        # Create new session
         session_id = f"SESSION_{int(time.time())}"
+        self._create_session_slots(session_id, params)
+        return session_id
+    
+    def _assign_user_to_slot(self, username: str, session_id: str, params: TradingParameters) -> Tuple[TraderRole, int]:
+        """
+        Assign user to an available slot in the session.
+        SIMPLER: Just find first suitable slot and assign it.
         
-        # First user gets first role/goal
-        goal = params.predefined_goals[0]
-        role = TraderRole.INFORMED if goal != 0 else TraderRole.SPECULATOR
+        Returns: (role, goal)
+        """
+        slots = self.session_slots[session_id]
+        is_permanent_speculator = username in self.permanent_speculators
         
-        if role == TraderRole.INFORMED and params.allow_random_goals:
-            import random
-            goal *= random.choice([-1, 1])
+        # Find suitable slot
+        for slot in slots:
+            if not slot.is_available:
+                continue
+            
+            # If user is permanent SPECULATOR, only give SPECULATOR slots
+            if is_permanent_speculator and slot.role != TraderRole.SPECULATOR:
+                continue
+            
+            # Assign this slot
+            goal = slot.goal
+            
+            # Apply random goal flip if enabled (only for INFORMED)
+            if slot.role == TraderRole.INFORMED and params.allow_random_goals:
+                import random
+                goal *= random.choice([-1, 1])
+                # IMPORTANT: Update the slot with the flipped goal!
+                slot.goal = goal
+            
+            # Update slot assignment
+            slot.assigned_to = username
+            slot.joined_at = datetime.now(timezone.utc)
+            
+            # Make SPECULATOR permanent
+            if slot.role == TraderRole.SPECULATOR:
+                self.permanent_speculators.add(username)
+                logger.info(f"User {username} assigned permanent SPECULATOR role")
+            
+            logger.info(f"Assigned {username} to slot with role {slot.role.value} and goal {goal}")
+            return slot.role, goal
         
-        return session_id, role, goal 
+        raise Exception(f"No suitable slot available for {username} in session {session_id}") 

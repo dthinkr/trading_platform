@@ -279,9 +279,11 @@ onUnmounted(() => {
 })
 
 // First, define the basic computed properties
-const goal = computed(() => store.traderAttributes?.goal || 0)
+// Don't default to 0 - let it be undefined until data loads
+const goal = computed(() => store.traderAttributes?.goal)
 const goalProgress = computed(() => store.traderAttributes?.goal_progress || 0)
-const hasGoal = computed(() => goal.value !== 0)
+const hasGoal = computed(() => goal.value !== undefined && goal.value !== 0)
+const goalLoaded = computed(() => goal.value !== undefined)
 
 // Then define the dependent computed properties
 const isGoalAchieved = computed(() => {
@@ -379,6 +381,16 @@ const marketTimeoutInterval = ref(null)
 
 // Add these computed properties
 const roleDisplay = computed(() => {
+  // Don't show anything until goal data is loaded
+  if (!goalLoaded.value) {
+    return {
+      text: 'Loading...',
+      icon: 'mdi-loading',
+      color: 'grey',
+    }
+  }
+  
+  // If goal is 0, user is a SPECULATOR
   if (!hasGoal.value) {
     return {
       text: 'SPECULATOR',
@@ -386,6 +398,7 @@ const roleDisplay = computed(() => {
       color: 'teal',
     }
   }
+  
   // Informed trader with different types
   if (goal.value > 0) {
     return {
@@ -678,6 +691,11 @@ onMounted(() => {
 
 .role-chip-modern.deep-purple {
   background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+}
+
+.role-chip-modern.grey {
+  background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%);
+  opacity: 0.8;
 }
 
 .time-chip {

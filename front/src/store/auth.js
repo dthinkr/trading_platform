@@ -97,7 +97,7 @@ export const useAuthStore = defineStore('auth', {
 
         this.isAdmin = response.data.data.is_admin || false
         this.traderId = response.data.data.trader_id
-        this.marketId = response.data.data.market_id
+        // marketId is no longer assigned at login - will be assigned when user clicks "Start Trading"
         this.lastLoginTime = Date.now()
         this.isPersisted = false
 
@@ -155,7 +155,7 @@ export const useAuthStore = defineStore('auth', {
           this.user = user
           this.isAdmin = response.data.data.is_admin
           this.traderId = response.data.data.trader_id
-          this.marketId = response.data.data.market_id
+          // marketId is no longer assigned at login - will be assigned when user clicks "Start Trading"
           this.lastLoginTime = Date.now()
 
           if (!isAutoLogin) {

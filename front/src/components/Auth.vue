@@ -189,13 +189,13 @@ onMounted(async () => {
     // Regular authentication flow
     await authStore.initializeAuth()
 
-    // If user is already authenticated and has trader/market IDs, auto-navigate
-    if (authStore.isAuthenticated && authStore.traderId && authStore.marketId) {
+    // If user is already authenticated and has trader ID, auto-navigate
+    if (authStore.isAuthenticated && authStore.traderId) {
       router.push({
         name: 'practice',
         params: {
           traderUuid: authStore.traderId,
-          marketId: authStore.marketId,
+          marketId: 'pending', // Market will be assigned when user clicks "Start Trading"
         },
       })
     }
@@ -210,14 +210,17 @@ const signInWithGoogle = async () => {
 
     await authStore.login(user)
 
-    if (authStore.traderId && authStore.marketId) {
+    if (authStore.traderId) {
+      // Market ID will be assigned when user clicks "Start Trading"
+      const marketId = 'pending'
+      
       // Check if this is a persisted login
       if (authStore.isPersisted) {
         router.push({
           name: 'practice', // Go directly to practice page
           params: {
             traderUuid: authStore.traderId,
-            marketId: authStore.marketId,
+            marketId: marketId,
           },
         })
       } else {
@@ -225,7 +228,7 @@ const signInWithGoogle = async () => {
           name: 'consent', // New users start from consent page
           params: {
             traderUuid: authStore.traderId,
-            marketId: authStore.marketId,
+            marketId: marketId,
           },
         })
       }
@@ -286,7 +289,10 @@ const handleProlificCredentialLogin = async () => {
       localStorage.removeItem('prolific_next_market')
     }
 
-    if (authStore.traderId && authStore.marketId) {
+    if (authStore.traderId) {
+      // Market ID will be assigned when user clicks "Start Trading"
+      const marketId = 'pending'
+      
       let targetPage
 
       // Determine where to redirect based on different conditions
@@ -301,13 +307,13 @@ const handleProlificCredentialLogin = async () => {
         targetPage = 'consent'
       }
 
-      const redirectPath = `/onboarding/${authStore.marketId}/${authStore.traderId}/${targetPage}`
+      const redirectPath = `/onboarding/${marketId}/${authStore.traderId}/${targetPage}`
 
       // Use replace instead of push to avoid navigation issues
       router.replace(redirectPath)
     } else {
-      console.error('Missing trader or market ID after Prolific login')
-      errorMessage.value = 'Login successful but missing trader or market assignment'
+      console.error('Missing trader ID after Prolific login')
+      errorMessage.value = 'Login successful but missing trader assignment'
     }
   } catch (error) {
     console.error('Prolific login error:', error)

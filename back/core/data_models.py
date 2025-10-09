@@ -82,7 +82,7 @@ class TradingParameters(BaseModel):
         ge=0,
     )
     trading_day_duration: float = Field(
-        default=3,
+        default=0.5,
         title="Trading Day Duration",
         description="model_parameter",
         gt=0,
@@ -232,14 +232,14 @@ class TradingParameters(BaseModel):
     )
 
     admin_users: List[str] = Field(
-        default=['venvoooo', 'asancetta', 'marjonuzaj', 'fra160756', 'expecon'],
+        default=['venvoooo', 'asancetta', 'marjonuzaj', 'fra160756', 'expecon', 'w.wu'],
         title="Admin Users",
         description="model_parameter",
     )
 
     # goal settings
     predefined_goals: List[int] = Field(
-        default=[0],
+        default=[100, 0],
         title="Predefined Goals",
         description="human_parameter",
     )

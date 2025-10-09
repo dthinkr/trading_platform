@@ -110,7 +110,7 @@ class BaseTrader:
         """Process messages from the trading platform - no more dynamic dispatch."""
         try:
             message_type = data.get("type")
-
+            
             # Update mid price if available
             if data.get("midpoint"):
                 self.update_mid_price(data["midpoint"])
@@ -137,13 +137,16 @@ class BaseTrader:
             if handler:
                 await handler(data)
             else:
-                logger.warning(f"No handler for message type: {message_type}")
+                if message_type and message_type not in ['BOOK_UPDATED', 'time_update']:
+                    logger.warning(f"[{self.id}] No handler for message type: {message_type}")
 
             # Call post-processing hook
             await self.post_processing_server_message(data)
 
         except Exception as e:
-            logger.error(f"Error processing message: {e}")
+            logger.error(f"[{self.id}] Error processing message: {e}")
+            import traceback
+            traceback.print_exc()
 
     async def initialize(self):
         """Initialize the trader."""

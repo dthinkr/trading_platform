@@ -48,6 +48,7 @@ export const useTraderStore = defineStore('trader', {
     // Session management (new elegant approach)
     sessionStatus: null,
     isWaitingForOthers: false,
+    shouldRedirectToTrading: false,
 
     // Transaction tracking
     lastMatchedOrders: null,
@@ -175,9 +176,12 @@ export const useTraderStore = defineStore('trader', {
         this.gameParams = persistentSettings
         this.formState = this.gameParams
 
-        // Handle waiting sessions (simplified approach - no session/market IDs)
+        // Handle different session states
         if (response.data.status === 'waiting') {
           this.isWaitingForOthers = response.data.data.isWaitingForOthers || true
+        } else if (response.data.status === 'not_in_session') {
+          // User hasn't joined a session yet - they're reading instructions
+          this.isWaitingForOthers = false
         } else {
           this.isWaitingForOthers = response.data.data.isWaitingForOthers || false
         }
@@ -204,19 +208,46 @@ export const useTraderStore = defineStore('trader', {
       try {
         const response = await axios.get(`trader_info/${traderId}`)
 
-        // Handle both waiting sessions and active markets
-        if (response.data.status === 'success' || response.data.status === 'waiting') {
-          this.traderAttributes = response.data.data
+        // Handle all session states: not_in_session, waiting, and active
+        if (response.data.status === 'success' || response.data.status === 'waiting' || response.data.status === 'not_in_session') {
+          // IMPORTANT: Merge trader attributes instead of replacing to preserve WebSocket updates
+          // Only update if this is the first fetch OR if transitioning states
+          const newData = response.data.data
+          const isFirstFetch = !this.traderAttributes
+          const stateChanged = response.data.status !== this.sessionStatus
+          
+          if (isFirstFetch || stateChanged) {
+            // Full update on first fetch or state change
+            this.traderAttributes = newData
+            this.sessionStatus = response.data.status
+          } else {
+            // Selective update - preserve real-time WebSocket data
+            // Only update fields that don't come from WebSocket
+            this.traderAttributes = {
+              ...this.traderAttributes,
+              // Update non-realtime fields from endpoint
+              all_attributes: newData.all_attributes,
+              // Preserve real-time fields if they exist, otherwise use endpoint data
+              goal: this.traderAttributes.goal !== undefined ? this.traderAttributes.goal : newData.goal,
+              goal_progress: this.traderAttributes.goal_progress !== undefined ? this.traderAttributes.goal_progress : newData.goal_progress,
+            }
+          }
+          
           this.traderUuid = traderId
 
-          // Check if we're in a waiting session (simplified approach)
+          // Check session state
           if (response.data.status === 'waiting') {
             this.isWaitingForOthers = response.data.data.all_attributes?.isWaitingForOthers || true
+          } else if (response.data.status === 'not_in_session') {
+            // User hasn't joined a session yet - reading instructions
+            this.isWaitingForOthers = false
           } else {
             this.isWaitingForOthers = response.data.data.all_attributes?.isWaitingForOthers || false
-            // Initialize traderProgress based on initial filled orders (only for active markets)
-            const filledOrders = this.traderAttributes.filled_orders || []
-            this.traderProgress = this.calculateProgress(filledOrders)
+            // Initialize traderProgress based on initial filled orders (only for active markets on first fetch)
+            if (isFirstFetch) {
+              const filledOrders = this.traderAttributes.filled_orders || []
+              this.traderProgress = this.calculateProgress(filledOrders)
+            }
           }
         } else {
           throw new Error('Failed to fetch trader attributes')
@@ -245,14 +276,14 @@ export const useTraderStore = defineStore('trader', {
         // Get the market info to initialize counts properly
         try {
           const response = await axios.get(`trader/${traderUuid}/market`)
-          if (response.data.status === 'success' || response.data.status === 'waiting') {
+          if (response.data.status === 'success' || response.data.status === 'waiting' || response.data.status === 'not_in_session') {
             const marketData = response.data.data
 
             // Update market data (no longer includes trading_market_uuid)
             this.tradingMarketData = marketData
 
-            // Handle waiting vs active states differently
-            if (response.data.status === 'waiting') {
+            // Handle different states
+            if (response.data.status === 'waiting' || response.data.status === 'not_in_session') {
               // Set minimal counts for waiting state
               this.$patch({
                 currentHumanTraders: 1, // Default minimal values
@@ -283,6 +314,15 @@ export const useTraderStore = defineStore('trader', {
       // Handle session waiting status (simplified approach)
       if (data.type === 'session_waiting') {
         this.isWaitingForOthers = data.data.isWaitingForOthers || true
+        return
+      }
+
+      // Handle market started notification
+      if (data.type === 'market_started') {
+        console.log('[WebSocket] Market started notification received')
+        this.isWaitingForOthers = false
+        this.isTradingStarted = true
+        this.shouldRedirectToTrading = true  // Flag for component to handle redirect
         return
       }
 
@@ -339,13 +379,16 @@ export const useTraderStore = defineStore('trader', {
         goal_progress,
       } = data
 
-      // Update trader attributes
+      // Update trader attributes - WebSocket has priority over polling
       if (goal !== undefined || goal_progress !== undefined) {
+        if (!this.traderAttributes) {
+          this.traderAttributes = {}
+        }
         this.traderAttributes = {
           ...this.traderAttributes,
-          goal: goal !== undefined ? goal : this.traderAttributes?.goal,
+          goal: goal !== undefined ? goal : this.traderAttributes.goal,
           goal_progress:
-            goal_progress !== undefined ? goal_progress : this.traderAttributes?.goal_progress,
+            goal_progress !== undefined ? goal_progress : this.traderAttributes.goal_progress,
         }
       }
 

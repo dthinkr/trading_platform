@@ -131,29 +131,23 @@ async def user_login(request: Request):
             if prolific_user:
                 # Use Prolific ID as username
                 gmail_username = prolific_user['gmail_username']
-                
-                # Create parameters
-                params = TradingParameters(**(persistent_settings or {}))
-                
-                # Single call to handle all market/role/goal logic
-                market_id, trader_id, role, goal = await market_handler.validate_and_assign_role(
-                    gmail_username, 
-                    params
-                )
+                trader_id = f"HUMAN_{gmail_username}"
                 
                 # Get the Prolific token to return to the client
                 prolific_token = prolific_user.get('prolific_token', '')
                 
                 print(f"Authenticated Prolific user via params: {gmail_username}")
                 
+                # Remove user from any existing session (fresh start on login/refresh)
+                await market_handler.remove_user_from_session(gmail_username)
+                
+                # DON'T assign session at login - wait until they click "Start Trading"
                 return {
                     "status": "success",
-                    "message": "Prolific login successful and trader assigned",
+                    "message": "Prolific login successful",
                     "data": {
                         "trader_id": trader_id,
-                        "market_id": market_id,
-                        "role": role.value,
-                        "goal": goal,
+                        "username": gmail_username,
                         "is_admin": False,
                         "is_prolific": True,
                         "prolific_token": prolific_token  # Include the token for future authentication
@@ -184,25 +178,19 @@ async def user_login(request: Request):
     if not is_user_registered(email, form_id):
         raise HTTPException(status_code=403, detail="User not registered in the study")
     
-    # Create parameters
-    params = TradingParameters(**(persistent_settings or {}))
+    trader_id = f"HUMAN_{gmail_username}"
     
-    # Single call to handle all market/role/goal logic
-    market_id, trader_id, role, goal = await market_handler.validate_and_assign_role(
-        gmail_username, 
-        params
-    )
+    # Remove user from any existing session (fresh start on login/refresh)
+    await market_handler.remove_user_from_session(gmail_username)
     
+    # DON'T assign session at login - wait until they click "Start Trading"
     return {
         "status": "success",
-        "message": "Login successful and trader assigned",
+        "message": "Login successful",
         "data": {
             "username": email,
             "is_admin": is_user_admin(email),
-            "market_id": market_id,
-            "trader_id": trader_id,
-            "role": role,
-            "goal": goal
+            "trader_id": trader_id
         }
     }
 
@@ -263,9 +251,18 @@ async def create_trading_market(background_tasks: BackgroundTasks, request: Requ
     # Check session status using trader ID (simplified approach)
     session_status = market_handler.get_session_status_by_trader_id(trader_id)
     
+    # If user is not in a session yet, return basic info so they can read instructions
     if session_status.get("status") == "not_found":
-        # User needs to login first to join a session
-        raise HTTPException(status_code=404, detail="Please login first to join a trading session")
+        response_data = {
+            "status": "not_in_session",
+            "message": "User not in trading session yet",
+            "data": {
+                "trader_id": trader_id,
+                "num_human_traders": len(merged_params.predefined_goals),
+                "isWaitingForOthers": False
+            }
+        }
+        return response_data
     
     # If user is in waiting session, return minimal waiting info (no session/market IDs)
     if session_status.get("status") == "waiting":
@@ -374,23 +371,58 @@ async def get_trader_info(trader_id: str):
     # Check session status using trader ID (simplified approach)
     session_status = market_handler.get_session_status_by_trader_id(trader_id)
     
+    # If user is not in a session yet, return basic default attributes so they can see page 8
     if session_status.get("status") == "not_found":
-        raise HTTPException(status_code=404, detail="Trader not found")
+        # Get basic info for user not yet in session
+        historical_markets_count = len(market_handler.user_historical_markets.get(username, set()))
+        
+        # Get parameters to determine initial allocations
+        params = TradingParameters(**(persistent_settings or {}))
+        
+        # Create minimal trader data for not-yet-in-session state
+        # DON'T send goal - let it be undefined until assigned
+        trader_data = {
+            'cash': params.initial_cash,
+            'shares': params.initial_stocks,
+            # 'goal': NOT INCLUDED - will be assigned when they join session
+            'id': trader_id,
+            'all_attributes': {
+                'historical_markets_count': historical_markets_count,
+                'is_admin': username in ['venvoooo', 'asancetta', 'marjonuzaj', 'fra160756', 'expecon', 'w.wu'],
+                'params': persistent_settings,
+                'isWaitingForOthers': False  # Not waiting yet - not in session
+            }
+        }
+        
+        return {
+            "status": "not_in_session",
+            "message": "Trader not in session yet - showing default attributes",
+            "data": {
+                **trader_data,
+                "order_book_metrics": {},
+                "trader_specific_metrics": {}
+            }
+        }
     
     # If user is in waiting session, return minimal trader info (no session/market IDs)
     if session_status.get("status") == "waiting":
         # Get basic info for session pool user
         historical_markets_count = len(market_handler.user_historical_markets.get(username, set()))
         
+        # Get actual assigned values from session status
+        assigned_cash = session_status.get("cash", 100000)
+        assigned_shares = session_status.get("shares", 300)
+        assigned_goal = session_status.get("goal", 0)
+        
         # Create minimal trader data for waiting state
         trader_data = {
-            'cash': 100000,  # Default initial cash
-            'shares': 300,   # Default initial shares  
-            'goal': 0,       # Placeholder goal
+            'cash': assigned_cash,
+            'shares': assigned_shares,
+            'goal': assigned_goal,
             'id': trader_id,
             'all_attributes': {
                 'historical_markets_count': historical_markets_count,
-                'is_admin': username in ['venvoooo', 'asancetta', 'marjonuzaj', 'fra160756', 'expecon'],
+                'is_admin': username in ['venvoooo', 'asancetta', 'marjonuzaj', 'fra160756', 'expecon', 'w.wu'],
                 'params': persistent_settings,  # Include current trading parameters
                 'isWaitingForOthers': True
             }
@@ -421,41 +453,28 @@ async def get_trader_info(trader_id: str):
         try:
             # Check if log file exists before processing
             if os.path.exists(log_file_path):
-                print(f"[DEBUG] Processing log file: {log_file_path}")
-                print(f"[DEBUG] Looking for trader_id: {trader_id}")
-                
                 order_book_metrics = order_book_contruction(log_file_path)
-                print(f"[DEBUG] Order book metrics keys: {list(order_book_metrics.keys())}")
                 
                 # Try both with and without quotes for trader ID lookup
                 quoted_trader_id = f"'{trader_id}'"
-                print(f"[DEBUG] Looking for quoted_trader_id: {quoted_trader_id}")
-                print(f"[DEBUG] Also looking for unquoted trader_id: {trader_id}")
                 
                 # First try with quotes (old format), then without quotes (new format)
                 trader_specific_metrics = order_book_metrics.get(quoted_trader_id, {})
                 if not trader_specific_metrics:
                     trader_specific_metrics = order_book_metrics.get(trader_id, {})
-                print(f"[DEBUG] Found trader_specific_metrics: {bool(trader_specific_metrics)}")
-                if trader_specific_metrics:
-                    print(f"[DEBUG] Trader metrics keys: {list(trader_specific_metrics.keys())}")
                 
                 # Exclude both quoted and unquoted trader IDs from general metrics
                 trader_keys_to_exclude = {quoted_trader_id, trader_id}
                 general_metrics = {k: v for k, v in order_book_metrics.items() if k not in trader_keys_to_exclude}
-                print(f"[DEBUG] General metrics keys: {list(general_metrics.keys())}")
 
                 if trader_specific_metrics:
                     trader_goal = trader_data.get('goal', 0)  # Get trader goal from trader data
-                    print(f"[DEBUG] Trader goal: {trader_goal}")
                     trader_specific_metrics = calculate_trader_specific_metrics(
                         trader_specific_metrics, 
                         general_metrics, 
                         trader_goal
                     )
-                    print(f"[DEBUG] Calculated trader_specific_metrics: {trader_specific_metrics}")
                 else:
-                    print(f"[DEBUG] No trader-specific metrics found")
                     trader_specific_metrics = {}
             else:
                 print(f"Log file not found: {log_file_path}")
@@ -502,8 +521,27 @@ async def get_trader_market(trader_id: str, request: Request, current_user: dict
     # Check session status using trader ID (simplified approach)
     session_status = market_handler.get_session_status_by_trader_id(trader_id)
     
+    # If user is not in a session yet (reading instructions), return minimal default info
     if session_status.get("status") == "not_found":
-        raise HTTPException(status_code=404, detail="Please login first to join a trading session")
+        try:
+            params = TradingParameters(**(persistent_settings or {}))
+        except Exception as e:
+            params = TradingParameters()
+        
+        response_data = {
+            "status": "not_in_session",
+            "data": {
+                "traders": [trader_id],
+                "human_traders": [{"id": trader_id}],
+                "game_params": {
+                    "predefined_goals": params.predefined_goals,
+                    "num_human_traders": len(params.predefined_goals),
+                    "trading_day_duration": params.trading_day_duration
+                },
+                "isWaitingForOthers": False  # Not waiting - not in session yet
+            },
+        }
+        return response_data
     
     # If user is in waiting session, return minimal session info (no session/market IDs)
     if session_status.get("status") == "waiting":
@@ -658,9 +696,12 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
             await websocket.close(code=1008, reason="Not in any session")
             return
         
-        # If user is in waiting session, handle gracefully
+        # If user is in waiting session, keep connection open to notify when market starts
         if session_status.get("status") == "waiting":
-            # Send waiting status and close - frontend should show waiting screen
+            # Store WebSocket for this waiting trader
+            session_id = session_status.get("session_id")
+            
+            # Send initial waiting status
             waiting_message = {
                 "type": "session_waiting",
                 "data": {
@@ -671,8 +712,37 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
             }
             sanitized_waiting = sanitize_websocket_message(waiting_message)
             await websocket.send_json(sanitized_waiting)
-            await websocket.close(code=1000, reason="Session waiting")
-            return
+            
+            # Keep connection open and wait for market to start
+            try:
+                while True:
+                    # Check if session has been converted to active market
+                    new_status = market_handler.get_session_status_by_trader_id(trader_id)
+                    
+                    if new_status.get("status") == "active":
+                        # Market started! Notify trader
+                        market_started_message = {
+                            "type": "market_started",
+                            "data": {
+                                "status": "active",
+                                "message": "Market is now active!",
+                                "trading_started": True
+                            }
+                        }
+                        sanitized_started = sanitize_websocket_message(market_started_message)
+                        await websocket.send_json(sanitized_started)
+                        await websocket.close(code=1000, reason="Market started")
+                        return
+                    
+                    # Wait a bit before checking again
+                    await asyncio.sleep(1)
+                    
+            except WebSocketDisconnect:
+                print(f"Trader {trader_id} disconnected from waiting room")
+                return
+            except Exception as e:
+                print(f"Error in waiting room WebSocket for {trader_id}: {str(e)}")
+                return
         
         # If market is active, get the trader manager using trader ID only
         trader_manager = market_handler.get_trader_manager_by_trader_id(trader_id)
@@ -835,8 +905,19 @@ async def start_trading_market(background_tasks: BackgroundTasks, request: Reque
     # Check session status using trader ID (simplified approach)
     session_status = market_handler.get_session_status_by_trader_id(trader_id)
     
+    # If user is not in a session yet, this is when they join!
     if session_status.get("status") == "not_found":
-        raise HTTPException(status_code=404, detail="No session found for user")
+        params = TradingParameters(**(persistent_settings or {}))
+        
+        try:
+            # Join session and get role/goal assignment
+            session_id, trader_id_assigned, role, goal = await market_handler.validate_and_assign_role(
+                gmail_username, 
+                params
+            )
+        except Exception as e:
+            print(f"[ERROR] Failed to assign user to session: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to join session: {str(e)}")
     
     # Mark trader ready and start trading if possible using trader ID only
     all_ready = await market_handler.mark_trader_ready_by_trader_id(trader_id)
@@ -851,7 +932,6 @@ async def start_trading_market(background_tasks: BackgroundTasks, request: Reque
             internal_session_id = market_handler.trader_to_market_lookup.get(trader_id)
             
             # Actually launch the trading session - this was missing!
-            print(f"[DEBUG] Launching trader manager for session {internal_session_id}")
             background_tasks.add_task(trader_manager.launch)
             background_tasks.add_task(broadcast_trader_count, internal_session_id)
     else:

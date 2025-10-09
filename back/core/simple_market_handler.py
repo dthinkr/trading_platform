@@ -185,4 +185,8 @@ class SimpleMarketHandler:
     
     async def force_start_session(self, username: str) -> Tuple[str, TraderManager]:
         """Force start a session (for admin use)."""
-        return await self.session_manager.start_trading_session(username) 
+        return await self.session_manager.start_trading_session(username)
+    
+    async def remove_user_from_session(self, username: str):
+        """Remove user from any existing session (e.g., on login/refresh)."""
+        await self.session_manager.remove_user_from_session(username) 
