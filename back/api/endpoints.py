@@ -87,8 +87,8 @@ async def update_persistent_settings(settings: PersistentSettings):
     from core.parameter_logger import ParameterLogger
     logger = ParameterLogger()
     
-    # Update settings
-    persistent_settings = settings.settings
+    # Merge settings instead of replacing - this preserves fields not explicitly updated
+    persistent_settings.update(settings.settings)
     
     # Log the complete current state
     logger.log_parameter_state(
@@ -947,6 +947,73 @@ async def start_trading_market(background_tasks: BackgroundTasks, request: Reque
         "all_ready": all_ready,
         "message": status_message
     }
+
+# ============================================================================
+# TESTING API - REST endpoints for easy external testing without WebSocket
+# ============================================================================
+
+@app.post("/api/test/place_order")
+async def test_place_order(request: Request):
+    """Place order via REST (bypasses WebSocket). Body: {trader_id, type, price, amount}"""
+    data = await request.json()
+    trader_id = data.get("trader_id")
+    order_type = data.get("type")
+    price = data.get("price")
+    amount = data.get("amount", 1)
+    
+    if not all([trader_id, order_type is not None, price]):
+        raise HTTPException(400, "Missing: trader_id, type, or price")
+    
+    trader_manager = market_handler.get_trader_manager_by_trader_id(trader_id)
+    if not trader_manager:
+        raise HTTPException(404, "Trader not in active session")
+    
+    trader = trader_manager.get_trader(trader_id)
+    if not trader:
+        raise HTTPException(404, "Trader not found")
+    
+    order_id = await trader.post_new_order(amount, price, order_type)
+    return {"status": "success", "order_id": order_id}
+
+
+@app.post("/api/test/cancel_order")
+async def test_cancel_order(request: Request):
+    """Cancel order via REST. Body: {trader_id, order_id}"""
+    data = await request.json()
+    trader_id = data.get("trader_id")
+    order_id = data.get("order_id")
+    
+    if not all([trader_id, order_id]):
+        raise HTTPException(400, "Missing: trader_id or order_id")
+    
+    trader_manager = market_handler.get_trader_manager_by_trader_id(trader_id)
+    if not trader_manager:
+        raise HTTPException(404, "Trader not found")
+    
+    trader = trader_manager.get_trader(trader_id)
+    if not trader:
+        raise HTTPException(404, "Trader not found")
+    
+    await trader.send_cancel_order_request(order_id)
+    return {"status": "success", "order_id": order_id}
+
+
+@app.get("/api/test/session_info/{trader_id}")
+async def test_get_session_info(trader_id: str):
+    """Get session info for a trader (used to find log files)"""
+    session_id = market_handler.trader_to_market_lookup.get(trader_id)
+    if not session_id:
+        raise HTTPException(404, "Trader not in active session")
+    
+    return {
+        "status": "success",
+        "data": {
+            "session_id": session_id,
+            "trader_id": trader_id,
+            "log_file": f"logs/{session_id}_trading.log"
+        }
+    }
+
 
 # Market monitoring endpoint
 @app.get("/sessions")

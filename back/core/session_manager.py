@@ -78,8 +78,12 @@ class SessionManager:
         self.user_historical_markets: Dict[str, Set[str]] = {}
         self.user_ready_status: Dict[str, bool] = {}  # username -> ready to start
         
-        # Role persistence: Once a speculator, always a speculator
-        self.permanent_speculators: Set[str] = set()  # SIMPLER: just track who's permanent SPECULATOR
+        # Role persistence: Once assigned, role and goal magnitude stick
+        self.permanent_speculators: Set[str] = set()  # username -> always SPECULATOR (goal=0)
+        self.permanent_informed_goals: Dict[str, int] = {}  # username -> goal magnitude (e.g., 100)
+        
+        # Concurrency control: Lock for atomic session join operations
+        self._session_join_lock = asyncio.Lock()
         
     # Backward compatibility properties
     @property
@@ -111,6 +115,7 @@ class SessionManager:
         """
         User joins a session pool. Fast and lightweight!
         SIMPLER VERSION: Uses RoleSlot for clearer logic.
+        ATOMIC: Uses lock to prevent race conditions when multiple traders join simultaneously.
         
         Returns: (session_id, trader_id, role, goal)
         """
@@ -121,14 +126,17 @@ class SessionManager:
         # Remove user from any existing session first
         await self.remove_user_from_session(username)
         
-        # Find or create appropriate session
-        session_id = self._find_or_create_session(username, params)
-        
-        # Assign user to a slot in that session
-        role, goal = self._assign_user_to_slot(username, session_id, params)
-        
-        # Track user in session
-        self.user_sessions[username] = session_id
+        # ATOMIC SECTION: Lock to prevent race conditions
+        # Multiple traders arriving simultaneously must join one at a time
+        async with self._session_join_lock:
+            # Find or create appropriate session
+            session_id = self._find_or_create_session(username, params)
+            
+            # Assign user to a slot in that session
+            role, goal = self._assign_user_to_slot(username, session_id, params)
+            
+            # Track user in session
+            self.user_sessions[username] = session_id
         
         trader_id = f"HUMAN_{username}"
         
@@ -193,12 +201,14 @@ class SessionManager:
         
         # NOW create the actual heavy market infrastructure
         logger.info(f"Converting session {session_id} to active market with {len(session_users)} users")
+
         
         # Use parameters from first user (all have same params for this session)
         params = session_users[0].params
         
         # Create the heavy TraderManager (only now!)
-        trader_manager = TraderManager(params)
+        # Use session_id as market_id to ensure uniqueness
+        trader_manager = TraderManager(params, market_id=session_id)
         market_id = trader_manager.trading_market.id
         
         # Add all human traders from the session pool
@@ -217,8 +227,12 @@ class SessionManager:
         # Move from session pool to active market
         self.active_markets[market_id] = trader_manager
         
-        # Clean up session pool
-        del self.session_pools[session_id]
+        # Clean up session pool - use the actual storage, not the property!
+        if session_id in self.session_slots:
+            del self.session_slots[session_id]
+        if session_id in self.session_params:
+            del self.session_params[session_id]
+        
         for user in session_users:
             self.user_sessions[user.username] = market_id  # Update to market_id
         
@@ -409,21 +423,28 @@ class SessionManager:
     
     def _create_session_slots(self, session_id: str, params: TradingParameters):
         """Create role slots for a new session."""
+        import random
+        
+        # Shuffle goals to randomize assignment across sessions
+        goals = params.predefined_goals.copy()
+        random.shuffle(goals)
+        
         slots = []
-        for goal in params.predefined_goals:
+        for goal in goals:
             role = TraderRole.INFORMED if goal != 0 else TraderRole.SPECULATOR
             slots.append(RoleSlot(goal=goal, role=role))
         
         self.session_slots[session_id] = slots
         self.session_params[session_id] = params
-        logger.info(f"Created session {session_id} with {len(slots)} slots")
+        logger.info(f"Created session {session_id} with {len(slots)} slots (shuffled goals: {goals})")
     
     def _find_or_create_session(self, username: str, params: TradingParameters) -> str:
         """
         Find existing session with space or create new one.
-        SIMPLER: Just check if there's a suitable slot available.
+        Respects permanent role assignments.
         """
         is_permanent_speculator = username in self.permanent_speculators
+        permanent_goal_magnitude = self.permanent_informed_goals.get(username)
         
         # Try existing sessions
         for session_id, slots in self.session_slots.items():
@@ -432,29 +453,43 @@ class SessionManager:
             if not available_slots:
                 continue
             
-            # If permanent SPECULATOR, check if there's a SPECULATOR slot available
+            # If permanent SPECULATOR, need a SPECULATOR slot
             if is_permanent_speculator:
                 has_speculator_slot = any(s.role == TraderRole.SPECULATOR for s in available_slots)
                 if has_speculator_slot:
                     return session_id
+            # If permanent INFORMED, need an INFORMED slot with matching goal magnitude
+            elif permanent_goal_magnitude is not None:
+                has_matching_slot = any(
+                    s.role == TraderRole.INFORMED and abs(s.goal) == permanent_goal_magnitude 
+                    for s in available_slots
+                )
+                if has_matching_slot:
+                    return session_id
+            # New user can take any available slot
             else:
-                # Non-permanent users can take any available slot
                 return session_id
         
-        # Create new session
-        session_id = f"SESSION_{int(time.time())}"
+        # Create new session with unique ID
+        import uuid
+        timestamp = int(time.time())
+        unique_suffix = str(uuid.uuid4())[:8]
+        session_id = f"SESSION_{timestamp}_{unique_suffix}"
         self._create_session_slots(session_id, params)
         return session_id
     
     def _assign_user_to_slot(self, username: str, session_id: str, params: TradingParameters) -> Tuple[TraderRole, int]:
         """
         Assign user to an available slot in the session.
-        SIMPLER: Just find first suitable slot and assign it.
+        Respects permanent role and goal magnitude.
         
         Returns: (role, goal)
         """
+        import random
+        
         slots = self.session_slots[session_id]
         is_permanent_speculator = username in self.permanent_speculators
+        permanent_goal_magnitude = self.permanent_informed_goals.get(username)
         
         # Find suitable slot
         for slot in slots:
@@ -462,27 +497,33 @@ class SessionManager:
                 continue
             
             # If user is permanent SPECULATOR, only give SPECULATOR slots
-            if is_permanent_speculator and slot.role != TraderRole.SPECULATOR:
-                continue
+            if is_permanent_speculator:
+                if slot.role != TraderRole.SPECULATOR:
+                    continue
+            # If user is permanent INFORMED, only give INFORMED slots with matching magnitude
+            elif permanent_goal_magnitude is not None:
+                if slot.role != TraderRole.INFORMED or abs(slot.goal) != permanent_goal_magnitude:
+                    continue
             
             # Assign this slot
             goal = slot.goal
             
-            # Apply random goal flip if enabled (only for INFORMED)
+            # For INFORMED traders, randomly flip goal direction if enabled
             if slot.role == TraderRole.INFORMED and params.allow_random_goals:
-                import random
-                goal *= random.choice([-1, 1])
-                # IMPORTANT: Update the slot with the flipped goal!
-                slot.goal = goal
+                goal = abs(goal) * random.choice([-1, 1])
+                slot.goal = goal  # Update slot with flipped goal
             
             # Update slot assignment
             slot.assigned_to = username
             slot.joined_at = datetime.now(timezone.utc)
             
-            # Make SPECULATOR permanent
-            if slot.role == TraderRole.SPECULATOR:
+            # Record permanent role on first assignment
+            if slot.role == TraderRole.SPECULATOR and username not in self.permanent_speculators:
                 self.permanent_speculators.add(username)
-                logger.info(f"User {username} assigned permanent SPECULATOR role")
+                logger.info(f"User {username} assigned permanent SPECULATOR role (goal=0)")
+            elif slot.role == TraderRole.INFORMED and username not in self.permanent_informed_goals:
+                self.permanent_informed_goals[username] = abs(goal)
+                logger.info(f"User {username} assigned permanent INFORMED role (|goal|={abs(goal)})")
             
             logger.info(f"Assigned {username} to slot with role {slot.role.value} and goal {goal}")
             return slot.role, goal

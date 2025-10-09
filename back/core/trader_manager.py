@@ -31,7 +31,7 @@ class TraderManager:
     informed_traders = List[InformedTrader]
     human_informed_trader = None  # Track the human trader with INFORMED role in this market
 
-    def __init__(self, params: TradingParameters):
+    def __init__(self, params: TradingParameters, market_id: str = None):
         self.params = params
         self.tasks = []
         self.human_informed_trader = None  # Keep only for tracking human trader with INFORMED role
@@ -55,8 +55,11 @@ class TraderManager:
         }
         
         # Create trading market
-        current_timestamp = int(time.time())
-        market_id = f"SESSION_{current_timestamp}"
+        # Use provided market_id or generate one with timestamp
+        if market_id is None:
+            current_timestamp = int(time.time())
+            market_id = f"SESSION_{current_timestamp}"
+        
         self.trading_market = TradingPlatform(
             market_id=market_id,
             duration=params.trading_day_duration,

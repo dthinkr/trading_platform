@@ -23,7 +23,7 @@ class InformedTrader(PausingTrader):
         self.use_passive_orders = params.get("informed_use_passive_orders", False)
         # Order multiplier to increase trading volume
         self.order_multiplier = 1
-        print(self.params)
+        # print(self.params)
         
         # Add random direction handling
         if params.get("informed_random_direction", False):
@@ -181,8 +181,8 @@ class InformedTrader(PausingTrader):
         order_side = OrderType.BID if trade_direction == TradeDirection.BUY else OrderType.ASK
         
         self.number_trades = len(self.filled_orders)
-        print('total goal', self.goal)
-        print('number of trades', self.number_trades)
+        # print('total goal', self.goal)
+        # print('number of trades', self.number_trades)
 
         # Get order placement levels
         #levels = self.order_placement_levels
@@ -249,7 +249,7 @@ class InformedTrader(PausingTrader):
             self.total_number_passive_orders = sum(order['price'] in prices_to_check for order in self.orders)
 
 
-        print('number of passive orders exist:', self.total_number_passive_orders)
+        # print('number of passive orders exist:', self.total_number_passive_orders)
 
         
         if self.total_number_passive_orders < self.num_passive_to_keep:
@@ -278,7 +278,7 @@ class InformedTrader(PausingTrader):
         #    flag_send_aggresive = False
 
 
-        print('num_passive_order_to_send',num_passive_order_to_send)
+        # print('num_passive_order_to_send',num_passive_order_to_send)
         # send passive orders at the top self.informed_order_book_levels levels
         if int(num_passive_order_to_send) > 0:
             for jj in range(int(num_passive_order_to_send)):
@@ -314,7 +314,7 @@ class InformedTrader(PausingTrader):
             
         spread = self.calculate_spread(top_bid_price, top_ask_price)
 
-        print('flag_send aggresive',flag_send_aggresive)
+        # print('flag_send aggresive',flag_send_aggresive)
         if flag_send_aggresive:
             if order_side == OrderType.BID:
                 if spread <= self.informed_edge:
@@ -342,7 +342,7 @@ class InformedTrader(PausingTrader):
         self.number_trades = len(self.filled_orders)
         
         if remaining_time < 5 or (abs(self.goal * self.order_multiplier - self.number_trades) <= 0):
-            print(f'Informed trader fullfilled goal with {self.number_trades} trades')
+            # print(f'Informed trader fullfilled goal with {self.number_trades} trades')
             return
 
         trade_direction = self.params["informed_trade_direction"]
@@ -381,7 +381,7 @@ class InformedTrader(PausingTrader):
         self.number_trades = sum(order['amount'] for order in self.filled_orders)
         # Adjust sleep time calculation to account for increased order volume
         self.next_sleep_time = self.calculate_sleep_time(remaining_time, self.number_trades, self.goal * self.order_multiplier)
-        print('next sleep time', self.next_sleep_time)
+        # print('next sleep time', self.next_sleep_time)
 
     async def run(self) -> None:
         while not self._stop_requested.is_set():
@@ -390,11 +390,11 @@ class InformedTrader(PausingTrader):
                 await self.check()
                 await asyncio.sleep(self.next_sleep_time)
             except asyncio.CancelledError:
-                print("Run method cancelled, performing cleanup...")
+                # print("Run method cancelled, performing cleanup...")
                 break
             except Exception as e:
-                print(f"An error occurred in InformedTrader run loop: {e}")
-                traceback.print_exc()
+                # print(f"An error occurred in InformedTrader run loop: {e}")
+                # traceback.print_exc()
                 break
 
         await self.cancel_all_outstanding_orders()
