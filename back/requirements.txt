@@ -1,4 +1,4 @@
-fastapi
+fastapi<0.116.0
 firebase_admin
 google-api-python-client
 matplotlib
@@ -11,6 +11,6 @@ pytest
 PyYAML
 Requests
 sortedcontainers
-starlette
+starlette<0.41.0
 termcolor
 uvicorn

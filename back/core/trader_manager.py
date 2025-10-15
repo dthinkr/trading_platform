@@ -13,6 +13,7 @@ from traders import (
     InformedTrader,
     BookInitializer,
     SimpleOrderTrader,
+    SpoofingTrader,
 )
 from .trading_platform import TradingPlatform
 import asyncio
@@ -44,12 +45,14 @@ class TraderManager:
         self.simple_order_traders = self._create_simple_order_traders(params_dict)  # Pass dict
         self.noise_traders = self._create_noise_traders(params.num_noise_traders, params_dict)  # Pass dict
         self.informed_traders = self._create_informed_traders(params.num_informed_traders, params_dict)  # Pass dict
+        self.spoofing_traders = self._create_spoofing_traders(params.num_spoofing_traders, params_dict)  # Pass dict
 
         # Combine all traders into one dict
         self.traders = {
             t.id: t
             for t in self.noise_traders
             + self.informed_traders
+            + self.spoofing_traders
             + [self.book_initializer]
             + self.simple_order_traders
         }
@@ -113,6 +116,15 @@ class TraderManager:
         ]
         
         return traders
+
+    def _create_spoofing_traders(self, n_spoofing_traders: int, params: dict):
+        return [
+            SpoofingTrader(
+                id=f"SPOOFING_{i+1}",
+                params=params,
+            )
+            for i in range(n_spoofing_traders)
+        ]
 
     async def add_human_trader(self, gmail_username: str, role: TraderRole, goal: Optional[int] = None) -> str:
         """Add human trader with specified role and goal"""

@@ -45,6 +45,7 @@ class TraderType(str, Enum):
     HUMAN = "HUMAN"
     INITIAL_ORDER_BOOK = "INITIAL_ORDER_BOOK"
     SIMPLE_ORDER = "SIMPLE_ORDER"
+    SPOOFING = "SPOOFING"
 
 
 class ThrottleConfig(BaseModel):
@@ -70,6 +71,12 @@ class TradingParameters(BaseModel):
     num_simple_order_traders: int = Field(
         default=0,
         title="Number of Simple Order Traders",
+        description="model_parameter",
+        ge=0,
+    )
+    num_spoofing_traders: int = Field(
+        default=1,
+        title="Number of Spoofing Traders",
         description="model_parameter",
         ge=0,
     )
@@ -239,7 +246,7 @@ class TradingParameters(BaseModel):
 
     # goal settings
     predefined_goals: List[int] = Field(
-        default=[100, 0],
+        default=[0],
         title="Predefined Goals",
         description="human_parameter",
     )
@@ -265,6 +272,7 @@ class TradingParameters(BaseModel):
             TraderType.MARKET_MAKER: ThrottleConfig(),
             TraderType.INITIAL_ORDER_BOOK: ThrottleConfig(),
             TraderType.SIMPLE_ORDER: ThrottleConfig(),
+            TraderType.SPOOFING: ThrottleConfig(),
         },
         title="Throttle Settings Per Trader Type",
         description="model_parameter"

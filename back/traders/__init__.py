@@ -4,3 +4,4 @@ from .base_trader import BaseTrader, PausingTrader
 from .informed_trader import InformedTrader
 from .book_initializer import BookInitializer
 from .simple_order_trader import SimpleOrderTrader
+from .spoofing_trader import SpoofingTrader
