@@ -21,6 +21,7 @@ trading_platform
 # ====================
 # Docker secrets
 docker/ngrok.yml
+ngrok-config/
 /ssh/
 ssh/
 
