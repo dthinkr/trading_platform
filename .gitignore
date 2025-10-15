@@ -66,4 +66,4 @@ docker/ngrok.yml
 # platform-paper/
 REVIEW.md
 
-stress_tests/platform-paper/
+stress_tests
