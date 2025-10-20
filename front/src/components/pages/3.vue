@@ -115,37 +115,41 @@
                   <div style="border: 1px solid #f44336; background-color: #fdecea; color: #b71c1c; padding: 16px; border-radius: 8px; font-family: sans-serif;">
                   <strong>Important Notice:</strong>
                   <br><br>
-                  If, at the end of each market, the number of shares held differs from the initial amount, the platform will restore the original balance by buying or selling shares at the the <strong>Initial Midprice</strong>.
+                  At the end of each market, if the number of shares you hold is different from your initial amount, the platform will automatically adjust your balance. It will do this by <strong>buying or selling shares at the  Initial Midprice</strong>.
                   <br><br>
                   This is very likely to result in a loss.
                   <br><br>
-                  <strong>Example 1</strong>
+                  <strong>Example 1 - You end up with more shares</strong>
                   <br>
-                  Initial Midprice = 100 Liras
-                  <br>
-                  Initial Shares = 100
-                  <br>
-                  Shares at the end of the market = 110
-                  <br>
-                  The 10 excess shares (110 - 100) were purchased at an average price of 120 Liras.
-                  <br>
-                  The platform liquidates these 10 shares at the initial midprice of 100 Liras.
-                  <br>
-                  Loss = 10 shares × (100 - 120) = -200 Liras
+                  <ul style="margin-left: 20px;">
+                    <li style="margin-bottom: 10px; margin-top: 10px;"> <strong>Initial Midprice</strong>: 100 Liras</li>
+                    <li style="margin-bottom: 10px; margin-top: 10px;"> <strong>Your Initial Shares</strong>: 100</li>
+                    <li style="margin-bottom: 10px; margin-top: 10px;"><strong>Your shares at the end of the market</strong> : 110</li>
+                    <li style="margin-bottom: 10px; margin-top: 10px;">You have <strong>10 extra shares</strong> (110 - 100)</li>
+                    <li style="margin-bottom: 10px; margin-top: 10px;">Suppose you bought these 10 shares at an <strong> average price of 120 Liras</strong>.</li>
+                    <li style="margin-bottom: 10px; margin-top: 10px;">At the end, the platform <strong>sells</strong> these 10 shares for you at the <strong>Initial Midprice</strong> of 100 Liras.</li>
+                    <li style="margin-bottom: 10px; margin-top: 10px;"><strong>Result</strong>: Loss = 10 × (100 - 120) = <strong>-200 Liras</strong></li>
+                  </ul>
                   <br><br>
-                  <strong>Example 2</strong>
+                  <strong>Example 2 - You end up with fewer shares</strong>
                   <br>
-                  Initial Midprice = 100 Liras
+                  <ul style="margin-left: 20px;">
+                    <li style="margin-bottom: 10px; margin-top: 10px;"> <strong>Initial Midprice</strong>: 100 Liras</li>
+                    <li style="margin-bottom: 10px; margin-top: 10px;"> <strong>Your Initial Shares</strong>: 100</li>
+                    <li style="margin-bottom: 10px; margin-top: 10px;"><strong>Your shares at the end of the market</strong> : 90</li>
+                    <li style="margin-bottom: 10px; margin-top: 10px;">You are <strong>missing 10 shares</strong> (100 - 90)</li>
+                    <li style="margin-bottom: 10px; margin-top: 10px;">Suppose you sold these 10 shares earlier at an <strong> average price of 80 Liras</strong>.</li>
+                    <li style="margin-bottom: 10px; margin-top: 10px;">At the end, the platform <strong>buys</strong> these 10 shares for you at the <strong>Initial Midprice</strong> of 100 Liras.</li>
+                    <li style="margin-bottom: 10px; margin-top: 10px;"><strong>Result</strong>: Loss = 10 × (80 - 100) = <strong>-200 Liras</strong></li>
+                  </ul>
+                  <br><br>
+                  <strong>In short:</strong>
                   <br>
-                  Initial Shares = 100
+                  You must finish the market with the same number of shares you started with.
                   <br>
-                  Shares at the end of the market = 90
+                  If not, the system automatically restores your original balance at the <strong>Initial Midprice</strong>, 
                   <br>
-                  The 10 missing shares (100 - 90) were sold at an average price of 80 Liras.
-                  <br>
-                  The platform purchases these 10 shares at the initial midprice of 100 Liras.
-                  <br>
-                  Loss = 10 shares × (80 - 100) = -200 Liras
+                  which may likely result in a loss.
                   </div>
                 </div>
               </v-card-text>
