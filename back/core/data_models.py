@@ -63,7 +63,7 @@ class TradingParameters(BaseModel):
         ge=0,
     )
     num_informed_traders: int = Field(
-        default=1,
+        default=0,
         title="Number of Informed Traders",
         description="model_parameter", 
         ge=0,
@@ -89,7 +89,7 @@ class TradingParameters(BaseModel):
         ge=0,
     )
     trading_day_duration: float = Field(
-        default=0.5,
+        default=3,
         title="Trading Day Duration",
         description="model_parameter",
         gt=0,
