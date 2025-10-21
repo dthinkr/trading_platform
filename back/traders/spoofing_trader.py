@@ -17,7 +17,7 @@ class SpoofingTrader(BaseTrader):
         self.spoof_side = "bid"  # "bid", "ask", or "both"
         self.spoof_imb = 0.5    # imbalance -> to be set 
         
-        self.active_spoof_orders = []
+        #self.active_spoof_orders = []
 
 
     async def place_spoof_orders(self):
