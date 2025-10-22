@@ -21,6 +21,7 @@ from utils.calculate_metrics import process_log_file, write_to_csv
 from utils.logfiles_analysis import order_book_contruction, calculate_trader_specific_metrics
 from firebase_admin import auth
 from utils.websocket_utils import sanitize_websocket_message
+from .random_picker import pick_random_element_new
 
 # python stuff we need
 import json
@@ -474,6 +475,20 @@ async def get_trader_info(trader_id: str):
                         general_metrics, 
                         trader_goal
                     )
+                    
+                    # track rewards per market (avoid duplicates)
+                    internal_session_id = market_handler.trader_to_market_lookup.get(trader_id)
+                    if isinstance(trader_specific_metrics.get('Reward'), (int, float)):
+                        if trader_id not in accumulated_rewards:
+                            accumulated_rewards[trader_id] = {}
+                        accumulated_rewards[trader_id][internal_session_id] = trader_specific_metrics['Reward']
+                    
+                    # select random reward from markets 2+ (skip first market)
+                    all_rewards = list(accumulated_rewards.get(trader_id, {}).values())
+                    if len(all_rewards) <= 1:
+                        trader_specific_metrics['Accumulated_Reward'] = 0
+                    else:
+                        trader_specific_metrics['Accumulated_Reward'] = pick_random_element_new(all_rewards[1:])
                 else:
                     trader_specific_metrics = {}
             else:
