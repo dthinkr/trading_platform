@@ -129,9 +129,9 @@
                 <h2 class="text-h5 mb-4 primary--text">Thank you for your participation!</h2>
                 <p class="text-subtitle-1 mb-4">
                   You have completed all trading markets.<br>
-                  Your market reward is {{formatValue(traderSpecificMetrics?.Accumulated_Reward, 'gbp') }}. Your participation fee is {{formatValue(5, 'gbp')}}.
+                  Your market reward is {{formatValue(traderSpecificMetrics.Accumulated_Reward, 'gbp') }}. Your participation fee is {{formatValue(5, 'gbp')}}.
                   <br></br>
-                  Your final payment will be {{formatValue(traderSpecificMetrics?.Accumulated_Reward + 5, 'gbp') }}.
+                  Your final payment will be {{formatValue(traderSpecificMetrics.Accumulated_Reward + 5, 'gbp') }}.
                 </p>
                 <!-- Questionnaire Section -->
                 <div v-if="!questionnaireCompleted" class="questionnaire-section mt-4 mb-4">
