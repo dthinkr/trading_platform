@@ -65,6 +65,7 @@
                   <v-icon size="28" :color="iconColor" class="mr-2">mdi-table</v-icon>
                   <span class="text-h6">Trading Parameters</span>
                 </div>
+
                 <v-data-table
                   :headers="headers"
                   :items="items"
@@ -151,6 +152,7 @@ const headers = [
 
 const items = computed(() => {
   const baseItems = [
+    {parameter : 'Goal', value: 'Speculator'},
     { parameter: 'Initial Shares', value: initialShares.value },
     {
       parameter: 'Initial Cash',
