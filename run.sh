@@ -1,39 +1,41 @@
 #!/bin/bash
 
-echo "🚀 Starting trading platform monitor..."
+MODE=${1:-dev}
 
-# First time setup - ensure containers are running
-echo "📦 Initial container setup..."
-docker compose up -d
-
-while true; do
-    echo -e "\n🔍 Checking for updates at $(date)"
+if [ "$MODE" = "dev" ]; then
+    echo "🚀 starting in LOCAL DEV mode..."
     
-    # Store current git hash
-    CURRENT_HASH=$(git rev-parse HEAD)
+    # stop containers
+    docker compose down
     
-    # Pull changes
-    git pull
+    # start only backend with dev env
+    docker compose --env-file .env.dev up -d back
     
-    # Get new git hash
-    NEW_HASH=$(git rev-parse HEAD)
+    echo ""
+    echo "✅ backend running at http://localhost:8000"
+    echo "🎨 start frontend: cd front && npm run dev"
+    echo "📝 view logs: docker compose logs -f back"
     
-    if [ "$CURRENT_HASH" != "$NEW_HASH" ]; then
-        echo "🔄 Changes detected! Updating containers..."
-        echo "⏬ Stopping containers..."
-        docker compose down
-        
-        echo "🏗️  Rebuilding containers..."
-        docker compose build
-        
-        echo "⏫ Starting containers..."
-        docker compose up -d
-        
-        echo "✅ Update completed successfully!"
-    else
-        echo "👌 Already up to date"
-    fi
+elif [ "$MODE" = "prod" ]; then
+    echo "🚀 starting in PRODUCTION mode (with ngrok)..."
     
-    # Wait for 1 minute before next check
-    sleep 60
-done
+    # stop containers
+    docker compose down
+    
+    # build and start backend + ngrok with prod env
+    docker compose build back
+    docker compose up -d back ngrok
+    
+    echo ""
+    echo "✅ production running"
+    echo "  backend: http://localhost:8000"
+    echo "  public:  https://dthinkr.ngrok.app"
+    echo "📝 view logs: docker compose logs -f"
+    
+else
+    echo "usage: sh run.sh [dev|prod]"
+    echo ""
+    echo "  dev  - local development (backend only)"
+    echo "  prod - production with ngrok"
+    exit 1
+fi

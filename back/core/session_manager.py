@@ -421,12 +421,29 @@ class SessionManager:
         """Remove user from any existing session (internal use)."""
         await self.remove_user_from_session(username)
     
-    def _create_session_slots(self, session_id: str, params: TradingParameters):
-        """Create role slots for a new session."""
+    def _create_session_slots(self, session_id: str, params: TradingParameters, required_goal_magnitude: Optional[int] = None):
+        """
+        Create role slots for a new session.
+        
+        Args:
+            session_id: Unique session identifier
+            params: Trading parameters with predefined_goals
+            required_goal_magnitude: If provided, ensure this goal magnitude is included in slots
+                                     (used when user has permanent goal magnitude not in predefined_goals)
+        """
         import random
         
         # Shuffle goals to randomize assignment across sessions
         goals = params.predefined_goals.copy()
+        
+        # If a required goal magnitude is specified and not already in goals, add it
+        if required_goal_magnitude is not None:
+            goal_magnitudes = [abs(g) for g in goals]
+            if required_goal_magnitude not in goal_magnitudes:
+                # Add the required magnitude (use positive, will be flipped randomly if allow_random_goals)
+                goals.append(required_goal_magnitude)
+                logger.info(f"Added required goal magnitude {required_goal_magnitude} to session slots")
+        
         random.shuffle(goals)
         
         slots = []
@@ -475,7 +492,17 @@ class SessionManager:
         timestamp = int(time.time())
         unique_suffix = str(uuid.uuid4())[:8]
         session_id = f"SESSION_{timestamp}_{unique_suffix}"
-        self._create_session_slots(session_id, params)
+        
+        # If user has permanent goal magnitude, ensure it's included in session slots
+        required_goal_magnitude = None
+        if permanent_goal_magnitude is not None:
+            # Check if permanent magnitude is in current predefined_goals
+            goal_magnitudes = [abs(g) for g in params.predefined_goals]
+            if permanent_goal_magnitude not in goal_magnitudes:
+                required_goal_magnitude = permanent_goal_magnitude
+                logger.info(f"User {username} has permanent goal magnitude {permanent_goal_magnitude} not in predefined_goals {params.predefined_goals}, adding to session slots")
+        
+        self._create_session_slots(session_id, params, required_goal_magnitude=required_goal_magnitude)
         return session_id
     
     def _assign_user_to_slot(self, username: str, session_id: str, params: TradingParameters) -> Tuple[TraderRole, int]:
