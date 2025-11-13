@@ -362,7 +362,69 @@ class SessionManager:
         # Keep permanent_speculators for role consistency across sessions
         
         logger.info("Session manager state reset")
-    
+
+    def update_session_pool_goals(self, new_params: TradingParameters):
+        """
+        Update goals in waiting session pools after settings change.
+
+        This method:
+        1. Clears permanent role/goal memory (allows reassignment)
+        2. Updates goals in waiting sessions (not active markets)
+        3. Maintains role assignments but updates goal magnitudes
+
+        Args:
+            new_params: Updated TradingParameters with new predefined_goals
+        """
+        # Clear permanent role memory - users can be reassigned new goals
+        self.permanent_speculators.clear()
+        self.permanent_informed_goals.clear()
+        logger.info("Cleared permanent role assignments - users will be reassigned on next join")
+
+        # Update waiting sessions (skip active markets)
+        updated_sessions = 0
+        for session_id, slots in list(self.session_slots.items()):
+            # Update session parameters
+            self.session_params[session_id] = new_params
+
+            # Recreate slots with new goals while preserving assignments
+            old_assignments = {}
+            for slot in slots:
+                if slot.assigned_to:
+                    old_assignments[slot.assigned_to] = {
+                        'role': slot.role,
+                        'joined_at': slot.joined_at
+                    }
+
+            # Recreate slots with new goals
+            import random
+            new_goals = new_params.predefined_goals.copy()
+            random.shuffle(new_goals)
+
+            new_slots = []
+            for goal in new_goals:
+                role = TraderRole.INFORMED if goal != 0 else TraderRole.SPECULATOR
+                new_slots.append(RoleSlot(goal=goal, role=role))
+
+            # Reassign users to matching role slots
+            for username, assignment in old_assignments.items():
+                assigned = False
+                for slot in new_slots:
+                    if slot.is_available and slot.role == assignment['role']:
+                        slot.assigned_to = username
+                        slot.joined_at = assignment['joined_at']
+                        assigned = True
+                        logger.info(f"Reassigned {username} to {slot.role.value} slot with new goal {slot.goal}")
+                        break
+
+                if not assigned:
+                    logger.warning(f"Could not reassign {username} with role {assignment['role']} - no matching slots in new configuration")
+
+            self.session_slots[session_id] = new_slots
+            updated_sessions += 1
+            logger.info(f"Updated session {session_id} with new goals {new_goals}")
+
+        logger.info(f"Updated {updated_sessions} waiting sessions with new goal configuration")
+
     # Private helper methods
     
     async def _can_user_join(self, username: str, params: TradingParameters) -> bool:

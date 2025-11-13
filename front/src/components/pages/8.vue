@@ -152,7 +152,6 @@ const headers = [
 
 const items = computed(() => {
   const baseItems = [
-    {parameter : 'Goal', value: 'Speculator'},
     { parameter: 'Initial Shares', value: initialShares.value },
     {
       parameter: 'Initial Cash',

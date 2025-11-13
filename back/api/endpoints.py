@@ -83,20 +83,46 @@ class PersistentSettings(BaseModel):
 @app.post("/admin/update_persistent_settings")
 async def update_persistent_settings(settings: PersistentSettings):
     global persistent_settings  # Only use global when modifying
-    
+
     # Import and set up parameter logger
     from core.parameter_logger import ParameterLogger
     logger = ParameterLogger()
-    
+
     # Merge settings instead of replacing - this preserves fields not explicitly updated
     persistent_settings.update(settings.settings)
-    
+
     # Log the complete current state
     logger.log_parameter_state(
         current_state=persistent_settings,
         source='admin_update'
     )
-    
+
+    # Update session pools with new goals if predefined_goals changed
+    if 'predefined_goals' in settings.settings:
+        try:
+            # Create TradingParameters with updated settings
+            updated_params = TradingParameters(**(persistent_settings or {}))
+
+            # Update waiting session pools (clears permanent memory and updates goals)
+            market_handler.session_manager.update_session_pool_goals(updated_params)
+
+            logger = ParameterLogger()
+            logger.log_parameter_state(
+                current_state={'action': 'goal_update', 'new_goals': settings.settings['predefined_goals']},
+                source='admin_update_goals'
+            )
+
+            return {
+                "status": "success",
+                "message": "Persistent settings updated and waiting sessions refreshed with new goals"
+            }
+        except Exception as e:
+            print(f"Error updating session pool goals: {str(e)}")
+            return {
+                "status": "partial_success",
+                "message": f"Settings updated but failed to update waiting sessions: {str(e)}"
+            }
+
     return {"status": "success", "message": "Persistent settings updated"}
 
 @app.get("/admin/get_persistent_settings")
