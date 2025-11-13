@@ -13,13 +13,16 @@ class SpoofingTrader(BaseTrader):
         self.shares = float('inf')
         
         # hardcoded spoofing parameters
-        self.spoof_interval = 15   # x seconds between cycles
-        self.spoof_duration = 15   # y seconds to keep orders
+        self.spoof_interval = 30   # x seconds between cycles
+        self.spoof_duration = 30   # y seconds to keep orders
         self.spoof_imb = 0.5    # imbalance -> to be set 
-        self.spoof_min_order = 10 # minimum order if spoof_imb is already achieved
+        self.spoof_fake_min_order = 15  # minimum order if spoof_imb is already achieved
+        self.spoof_real_min_order  = 6
         self.spoof_side = None
         self.step = self.params.get("step", 1)
-        
+        self.spoof_book_level = 2
+        print(self.params)
+        self.human_informed_goal = self.params.get('predefined_goals')[0]        
     
     def get_spoofer_position_in_queue(self, all_active_orders: list, best_price: float, fake_price: float, side: str, trader_id: str) -> int:
         
@@ -45,9 +48,9 @@ class SpoofingTrader(BaseTrader):
         best_bid_size = self.order_book["bids"][0]["y"]
         best_ask_size = self.order_book["asks"][0]["y"]
 
-        if best_bid_size > best_ask_size:
+        if self.human_informed_goal > 0:
             self.spoof_side = "bid"
-        elif best_bid_size < best_ask_size:
+        elif self.human_informed_goal < 0:
             self.spoof_side = "ask"
         else:
             self.spoof_side = random.choice(['bid','ask'])
@@ -56,17 +59,22 @@ class SpoofingTrader(BaseTrader):
         if self.spoof_side == "bid" and self.order_book.get("bids"):
             best_bid = self.order_book["bids"][0]["x"]
             best_ask = self.order_book["asks"][0]["x"]
-            self.fake_price = best_bid
+            self.fake_price = best_bid -  (self.spoof_book_level - 1) * self.step
             self.real_price = best_ask
 
             ask_size = self.order_book['asks'][0]['y']
             bid_size = self.order_book['bids'][0]['y']
 
-            bid_size_to_be = int((self.spoof_imb + 1) / (1 - self.spoof_imb) *  ask_size)
-            spoof_amount = max(int(max(0,bid_size_to_be - bid_size)), self.spoof_min_order)
+            #bid_size_to_be = int((self.spoof_imb + 1) / (1 - self.spoof_imb) *  ask_size)
+            #spoof_amount = max(int(max(0,bid_size_to_be - bid_size)), self.spoof_min_order)
+            spoof_amount = self.spoof_fake_min_order
             
             # send the real order
-            await self.post_new_order(1, self.real_price, OrderType.ASK)
+            for i in range(self.spoof_real_min_order):
+                price = self.real_price + (i // 2) * self.step
+                await self.post_new_order(1, price, OrderType.ASK)
+
+
             # send the fake orders
             if spoof_amount > 0:
                 for _ in range(spoof_amount):
@@ -76,17 +84,22 @@ class SpoofingTrader(BaseTrader):
         if self.spoof_side == "ask" and self.order_book.get("asks"):
             best_ask = self.order_book["asks"][0]["x"]
             best_bid = self.order_book["bids"][0]["x"]
-            self.fake_price = best_ask
+            self.fake_price = best_ask + (self.spoof_book_level - 1) * self.step
             self.real_price = best_bid
 
             ask_size = self.order_book['asks'][0]['y']
             bid_size = self.order_book['bids'][0]['y']
 
-            ask_size_to_be = int((self.spoof_imb + 1) / (1 - self.spoof_imb) *  bid_size)
-            spoof_amount = max(int(max(0,ask_size_to_be - ask_size)), self.spoof_min_order)
+            #ask_size_to_be = int((self.spoof_imb + 1) / (1 - self.spoof_imb) *  bid_size)
+            #spoof_amount = max(int(max(0,ask_size_to_be - ask_size)), self.spoof_min_order)
+            spoof_amount = self.spoof_fake_min_order
+
 
             # send the real order
-            await self.post_new_order(1, self.real_price, OrderType.BID)
+            for i in range(self.spoof_real_min_order):
+                price = self.real_price - (i // 2) * self.step
+                await self.post_new_order(1, price, OrderType.BID)
+
             # send the fakes orders
             if spoof_amount > 0:
                 for _ in range(spoof_amount):
