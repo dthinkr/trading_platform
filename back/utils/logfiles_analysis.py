@@ -469,13 +469,15 @@ def calculate_trader_specific_metrics(trader_specific_metrics, general_metrics, 
                 penalized_vwap = total_expenditure/abs(trader_goal)
                 slippage = general_metrics['Initial_Midprice'] - penalized_vwap
                 slippage_scaled = (general_metrics['Initial_Midprice'] - penalized_vwap) / np.sqrt(abs(trader_goal))
-            
+                pnl_informed = (110 - abs(penalized_vwap)) * 10
+                reward = max(0, pnl_informed/ 10 )
+
                 trader_specific_metrics.update({
                     'Remaining_Trades': remaining_trades,
                     'Penalized_VWAP': penalized_vwap,
                     'Slippage': slippage,
                     'Slippage_Scaled': slippage_scaled,
-                    'PnL': original_pnl,  # Keep original PnL
+                    'PnL': pnl_informed, 
                     'Reward': reward
                 })
             else:
@@ -487,13 +489,15 @@ def calculate_trader_specific_metrics(trader_specific_metrics, general_metrics, 
                 penalized_vwap = expenditure / abs(trader_goal)
                 slippage = general_metrics['Initial_Midprice'] - penalized_vwap
                 slippage_scaled = (general_metrics['Initial_Midprice'] - penalized_vwap) / np.sqrt(abs(trader_goal))
+                pnl_informed = (110 - abs(penalized_vwap)) * 10
+                reward = max(0, pnl_informed/ 10 )
 
                 trader_specific_metrics.update({
                     'Remaining_Trades': remaining_trades,
                     'Penalized_VWAP': penalized_vwap,
                     'Slippage': slippage,
                     'Slippage_Scaled': slippage_scaled,
-                    'PnL': original_pnl,
+                    'PnL': pnl_informed,
                     'Reward': reward
                 })
         else:
@@ -504,13 +508,15 @@ def calculate_trader_specific_metrics(trader_specific_metrics, general_metrics, 
                 penalized_vwap = total_expenditure/abs(trader_goal)
                 slippage = penalized_vwap - general_metrics['Initial_Midprice']
                 slippage_scaled = (penalized_vwap - general_metrics['Initial_Midprice']) / np.sqrt(abs(trader_goal))
-            
+                pnl_informed = (abs(penalized_vwap) - 90) * 10
+                reward = max(0, pnl_informed/ 10 )
+
                 trader_specific_metrics.update({
                     'Remaining_Trades': remaining_trades,
                     'Penalized_VWAP': penalized_vwap,
                     'Slippage': slippage,
                     'Slippage_Scaled': slippage_scaled,
-                    'PnL': original_pnl,
+                    'PnL': pnl_informed,
                     'Reward': reward
                 })
             else:
@@ -522,13 +528,15 @@ def calculate_trader_specific_metrics(trader_specific_metrics, general_metrics, 
                 penalized_vwap = expenditure / abs(trader_goal)
                 slippage = penalized_vwap - general_metrics['Initial_Midprice']
                 slippage_scaled = (penalized_vwap - general_metrics['Initial_Midprice']) / np.sqrt(abs(trader_goal))
+                pnl_informed = (abs(penalized_vwap) - 90) * 10
+                reward = max(0, pnl_informed/ 10 )
 
                 trader_specific_metrics.update({
                     'Remaining_Trades': remaining_trades,
                     'Penalized_VWAP': penalized_vwap,
                     'Slippage': slippage,
                     'Slippage_Scaled': slippage_scaled,
-                    'PnL': original_pnl,
+                    'PnL': pnl_informed,
                     'Reward': reward
                 })
 
