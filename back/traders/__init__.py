@@ -5,3 +5,4 @@ from .informed_trader import InformedTrader
 from .book_initializer import BookInitializer
 from .simple_order_trader import SimpleOrderTrader
 from .spoofing_trader import SpoofingTrader
+from .manipulator_trader import ManipulatorTrader

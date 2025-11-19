@@ -46,6 +46,7 @@ class TraderType(str, Enum):
     INITIAL_ORDER_BOOK = "INITIAL_ORDER_BOOK"
     SIMPLE_ORDER = "SIMPLE_ORDER"
     SPOOFING = "SPOOFING"
+    MANIPULATOR = "MANIPULATOR"
 
 
 class ThrottleConfig(BaseModel):
@@ -77,6 +78,12 @@ class TradingParameters(BaseModel):
     num_spoofing_traders: int = Field(
         default=1,
         title="Number of Spoofing Traders",
+        description="model_parameter",
+        ge=0,
+    )
+    num_manipulator_traders: int = Field(
+        default=0,
+        title="Number of Manipulator Traders",
         description="model_parameter",
         ge=0,
     )
@@ -261,6 +268,19 @@ class TradingParameters(BaseModel):
         default=250,
         title="Execution Throttle (ms)",
         description="model_parameter",
+        gt=0,
+    )
+
+    manipulator_buy_shares: int = Field(
+        default=20,
+        title="Buy Shares (int)",
+        description="manipulator_parameter",
+        gt=0,
+    )
+    manipulator_buy_time: int = Field(
+        default=90,
+        title="Buy Time (in secs)",
+        description="manipulator_parameter",
         gt=0,
     )
 

@@ -11,6 +11,7 @@ from traders import (
     HumanTrader,
     NoiseTrader,
     InformedTrader,
+    ManipulatorTrader,
     BookInitializer,
     SimpleOrderTrader,
     SpoofingTrader,
@@ -45,6 +46,7 @@ class TraderManager:
         self.simple_order_traders = self._create_simple_order_traders(params_dict)  # Pass dict
         self.noise_traders = self._create_noise_traders(params.num_noise_traders, params_dict)  # Pass dict
         self.informed_traders = self._create_informed_traders(params.num_informed_traders, params_dict)  # Pass dict
+        self.manipulator_traders = self._create_manipulator_traders(params.num_manipulator_traders, params_dict)  # Pass dict
         self.spoofing_traders = self._create_spoofing_traders(params.num_spoofing_traders, params_dict)  # Pass dict
 
         # Combine all traders into one dict
@@ -52,6 +54,7 @@ class TraderManager:
             t.id: t
             for t in self.noise_traders
             + self.informed_traders
+            + self.manipulator_traders
             + self.spoofing_traders
             + [self.book_initializer]
             + self.simple_order_traders
@@ -117,6 +120,21 @@ class TraderManager:
         
         return traders
 
+    def _create_manipulator_traders(self, n_manipulator_traders: int, params: dict):
+        if n_manipulator_traders <= 0:
+            return []
+            
+        traders = [
+            ManipulatorTrader(
+                id=f"MANIPULATOR_{i+1}",
+                params=params,
+            )
+            for i in range(n_manipulator_traders)
+        ]
+
+        return traders
+        
+    
     def _create_spoofing_traders(self, n_spoofing_traders: int, params: dict):
         return [
             SpoofingTrader(
