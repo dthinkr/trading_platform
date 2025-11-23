@@ -122,6 +122,22 @@ export const useTraderStore = defineStore('trader', {
     activeOrders: (state) => state.placedOrders.filter((order) => order.status === 'active'),
     pendingOrders: (state) => state.placedOrders.filter((order) => order.status === 'pending'),
 
+    // calculate available cash considering locked cash in active orders
+    availableCash(state) {
+      const lockedCash = this.activeOrders
+        .filter((order) => order.order_type === 'BUY' || order.order_type === 1)
+        .reduce((sum, order) => sum + (order.price * (order.amount || 1)), 0)
+      return state.trader.cash - lockedCash
+    },
+
+    // calculate available shares considering locked shares in active orders
+    availableShares(state) {
+      const lockedShares = this.activeOrders
+        .filter((order) => order.order_type === 'SELL' || order.order_type === -1)
+        .reduce((sum, order) => sum + (order.amount || 1), 0)
+      return state.trader.shares - lockedShares
+    },
+
     hasExceededMaxShortShares: (state) => {
       if (state.gameParams.max_short_shares < 0) return false
       return (

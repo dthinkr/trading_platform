@@ -85,6 +85,7 @@
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useTraderStore } from '@/store/app'
 import { useMarketStore } from '@/store/market'
+import { useUIStore } from '@/store/ui'
 import { storeToRefs } from 'pinia'
 
 const props = defineProps({
@@ -100,8 +101,9 @@ const props = defineProps({
 
 const tradingStore = useTraderStore()
 const marketStore = useMarketStore()
-const { sendMessage } = tradingStore
-const { gameParams, bidData, askData } = storeToRefs(tradingStore)
+const uiStore = useUIStore()
+const { sendMessage, availableCash, availableShares } = tradingStore
+const { gameParams, bidData, askData, trader } = storeToRefs(tradingStore)
 const { extraParams } = storeToRefs(marketStore)
 
 const step = computed(() => gameParams.value.step || 1)
@@ -208,6 +210,19 @@ function sendOrder(orderType, price) {
     !isHumanTraderPaused.value &&
     ((orderType === 'BUY' && canBuy.value) || (orderType === 'SELL' && canSell.value))
   ) {
+    // check if trader has sufficient balance (considering locked balances in active orders)
+    if (orderType === 'BUY') {
+      if (availableCash < price) {
+        uiStore.showMessage('insufficient cash to buy')
+        return
+      }
+    } else if (orderType === 'SELL') {
+      if (availableShares < 1) {
+        uiStore.showMessage('insufficient shares to sell')
+        return
+      }
+    }
+
     const newOrder = {
       id: Date.now().toString(),
       order_type: orderType,

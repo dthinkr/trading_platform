@@ -273,9 +273,42 @@ class BaseTrader:
         elif transaction['type'] == 'ask':
             self.goal_progress -= amount
 
+    def get_available_cash(self) -> float:
+        """calculate available cash considering locked orders."""
+        locked_cash = sum(
+            order["price"] * order["amount"]
+            for order in self.orders
+            if order["order_type"] == OrderType.BID
+        )
+        return self.cash - locked_cash
+
+    def get_available_shares(self) -> int:
+        """calculate available shares considering locked orders."""
+        locked_shares = sum(
+            order["amount"]
+            for order in self.orders
+            if order["order_type"] == OrderType.ASK
+        )
+        return self.shares - locked_shares
+
     # Order management
     async def post_new_order(self, amount: int, price: int, order_type: OrderType) -> str:
         """Post a new order with throttling if configured."""
+        # check balance for human traders (noise traders have infinite resources)
+        if self.trader_type == TraderType.HUMAN.value:
+            if order_type == OrderType.BID:
+                # buying - check if enough cash (including locked cash in active orders)
+                available_cash = self.get_available_cash()
+                if available_cash < price * amount:
+                    logger.warning(f"trader {self.id} insufficient cash: available {available_cash}, needs {price * amount}")
+                    return None
+            elif order_type == OrderType.ASK:
+                # selling - check if enough shares (including locked shares in active orders)
+                available_shares = self.get_available_shares()
+                if available_shares < amount:
+                    logger.warning(f"trader {self.id} insufficient shares: available {available_shares}, needs {amount}")
+                    return None
+
         # Apply throttling if configured
         if self.throttle_config and self.throttle_config.order_throttle_ms > 0:
             current_time = asyncio.get_event_loop().time() * 1000  # Convert to milliseconds
