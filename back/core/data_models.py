@@ -196,7 +196,7 @@ class TradingParameters(BaseModel):
         description="human_parameter",
     )
     initial_stocks: int = Field(
-        default=300,
+        default=20,
         title="Initial Stocks",
         description="human_parameter",
     )

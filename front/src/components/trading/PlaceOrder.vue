@@ -102,7 +102,6 @@ const props = defineProps({
 const tradingStore = useTraderStore()
 const marketStore = useMarketStore()
 const uiStore = useUIStore()
-const { sendMessage, availableCash, availableShares } = tradingStore
 const { gameParams, bidData, askData, trader } = storeToRefs(tradingStore)
 const { extraParams } = storeToRefs(marketStore)
 
@@ -212,12 +211,12 @@ function sendOrder(orderType, price) {
   ) {
     // check if trader has sufficient balance (considering locked balances in active orders)
     if (orderType === 'BUY') {
-      if (availableCash < price) {
+      if (tradingStore.availableCash < price) {
         uiStore.showMessage('insufficient cash to buy')
         return
       }
     } else if (orderType === 'SELL') {
-      if (availableShares < 1) {
+      if (tradingStore.availableShares < 1) {
         uiStore.showMessage('insufficient shares to sell')
         return
       }
