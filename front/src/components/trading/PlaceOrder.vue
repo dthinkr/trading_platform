@@ -34,8 +34,8 @@
           </div>
           <v-btn
             @click="sendOrder('BUY', price)"
-            :disabled="isBuyButtonDisabled || isGoalAchieved || !canBuy || isHumanTraderPaused"
-            :color="isHumanTraderPaused ? 'grey' : 'primary'"
+            :disabled="isBuyButtonDisabled(price) || isGoalAchieved || !canBuy || isHumanTraderPaused"
+            :color="isHumanTraderPaused || isBuyButtonDisabled(price) ? 'grey' : 'primary'"
             small
           >
             Buy
@@ -69,8 +69,8 @@
           </div>
           <v-btn
             @click="sendOrder('SELL', price)"
-            :disabled="isSellButtonDisabled || isGoalAchieved || !canSell || isHumanTraderPaused"
-            :color="isHumanTraderPaused ? 'grey' : 'error'"
+            :disabled="isSellButtonDisabled() || isGoalAchieved || !canSell || isHumanTraderPaused"
+            :color="isHumanTraderPaused || isSellButtonDisabled() ? 'grey' : 'error'"
             small
           >
             Sell
@@ -150,13 +150,21 @@ const sellPrices = computed(() => {
 })
 
 // const isBuyButtonDisabled = computed(() => !hasAskData.value);
-const isBuyButtonDisabled = computed(() => {
-  return false // Always keep Buy button enabled
-})
-//const isSellButtonDisabled = computed(() => !hasBidData.value);
-const isSellButtonDisabled = computed(() => {
-  return false // Always keep Buy button enabled
-})
+const canAffordBuy = (price) => {
+  return tradingStore.availableCash >= price
+}
+
+const canAffordSell = () => {
+  return tradingStore.availableShares >= 1
+}
+
+const isBuyButtonDisabled = (price) => {
+  return !canAffordBuy(price)
+}
+
+const isSellButtonDisabled = () => {
+  return !canAffordSell()
+}
 
 const isMobile = ref(false)
 
