@@ -40,17 +40,17 @@ jobs:
         push: true
         tags: venvoo/trading_platform:back
     
-    - name: Deploy to server (refactoring-v2 only)
-      if: github.ref == 'refs/heads/refactoring-v2'
-      uses: appleboy/ssh-action@v0.1.5
-      with:
-        host: ${{ secrets.SERVER_HOST }}
-        username: ${{ secrets.SERVER_USER }}
-        key: ${{ secrets.SERVER_SSH_KEY }}
-        script: |
-          cd /root/trading_platform
-          git pull origin refactoring-v2
-          docker compose pull
-          docker compose down
-          docker compose up -d
+    # - name: Deploy to server (refactoring-v2 only)
+    #   if: github.ref == 'refs/heads/refactoring-v2'
+    #   uses: appleboy/ssh-action@v0.1.5
+    #   with:
+    #     host: ${{ secrets.SERVER_HOST }}
+    #     username: ${{ secrets.SERVER_USER }}
+    #     key: ${{ secrets.SERVER_SSH_KEY }}
+    #     script: |
+    #       cd /root/trading_platform
+    #       git pull origin refactoring-v2
+    #       docker compose pull
+    #       docker compose down
+    #       docker compose up -d
   
