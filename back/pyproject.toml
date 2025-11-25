@@ -1,0 +1,22 @@
+[project]
+name = "trading-platform-backend"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi<0.116.0",
+    "firebase-admin",
+    "google-api-python-client",
+    "matplotlib",
+    "numpy",
+    "pandas",
+    "polars",
+    "prefect",
+    "pydantic",
+    "pytest",
+    "pyyaml",
+    "requests",
+    "sortedcontainers",
+    "starlette<0.41.0",
+    "termcolor",
+    "uvicorn",
+]

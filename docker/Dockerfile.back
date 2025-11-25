@@ -1,23 +1,14 @@
-# Build stage
-FROM python:3.11-slim as builder
-
-WORKDIR /app
-
-COPY requirements.txt .
-
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Runtime stage
 FROM python:3.11-slim
 
 WORKDIR /app
 
-# Copy installed packages from builder stage
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-# Copy application files
+COPY pyproject.toml uv.lock ./
+
+RUN uv sync --frozen --no-dev
+
 COPY . .
 
 ENV PYTHONPATH=/app
-CMD python -m uvicorn api.endpoints:app --host 0.0.0.0 --port 8000 --root-path ${ROOT_PATH:-/api} --reload
+CMD uv run uvicorn api.endpoints:app --host 0.0.0.0 --port 8000 --root-path ${ROOT_PATH:-/api} --reload
