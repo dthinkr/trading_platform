@@ -19,10 +19,7 @@ if [ "$MODE" = "dev" ]; then
 elif [ "$MODE" = "prod" ]; then
     echo "🚀 starting in PRODUCTION mode (with ngrok)..."
     
-    # stop containers
     docker compose down
-    
-    # build and start backend + ngrok with prod env
     docker compose build back
     docker compose up -d back ngrok
     
@@ -32,10 +29,27 @@ elif [ "$MODE" = "prod" ]; then
     echo "  public:  https://dthinkr.ngrok.app"
     echo "📝 view logs: docker compose logs -f"
     
-else
-    echo "usage: sh run.sh [dev|prod]"
+elif [ "$MODE" = "deploy" ]; then
+    set -e
+    echo "🚀 deploying from refactoring-v2..."
+    
+    git fetch origin
+    git reset --hard origin/refactoring-v2
+    
+    docker compose down
+    docker compose pull || echo "⚠️  no remote images, using local build"
+    docker compose up -d
+    
     echo ""
-    echo "  dev  - local development (backend only)"
-    echo "  prod - production with ngrok"
+    echo "✅ deployment complete"
+    echo "  backend: http://localhost:8000"
+    docker compose ps
+    
+else
+    echo "usage: sh run.sh [dev|prod|deploy]"
+    echo ""
+    echo "  dev    - local development (backend only)"
+    echo "  prod   - production with ngrok"
+    echo "  deploy - pull latest & restart containers"
     exit 1
 fi

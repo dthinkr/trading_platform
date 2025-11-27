@@ -13,7 +13,7 @@ BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 async def login_user(session, username, study_id="test"):
     params = {"PROLIFIC_PID": username, "STUDY_ID": study_id, "SESSION_ID": f"s_{username}"}
     async with session.post(f"{BACKEND_URL}/user/login", params=params, 
-                           json={"username": username, "password": "pass"}) as resp:
+                           json={"username": "user1", "password": "password1"}) as resp:
         if resp.status != 200:
             return None
         result = await resp.json()
@@ -23,7 +23,7 @@ async def login_user(session, username, study_id="test"):
 async def start_trading(session, username, study_id="test"):
     params = {"PROLIFIC_PID": username, "STUDY_ID": study_id, "SESSION_ID": f"s_{username}"}
     async with session.post(f"{BACKEND_URL}/trading/start", params=params,
-                           json={"username": username, "password": "pass"}) as resp:
+                           json={"username": "user1", "password": "password1"}) as resp:
         return await resp.json() if resp.status == 200 else None
 
 
