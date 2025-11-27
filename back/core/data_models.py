@@ -76,13 +76,13 @@ class TradingParameters(BaseModel):
         ge=0,
     )
     num_spoofing_traders: int = Field(
-        default=1,
+        default=0,
         title="Number of Spoofing Traders",
         description="model_parameter",
         ge=0,
     )
     num_manipulator_traders: int = Field(
-        default=0,
+        default=1,
         title="Number of Manipulator Traders",
         description="model_parameter",
         ge=0,
@@ -271,17 +271,28 @@ class TradingParameters(BaseModel):
         gt=0,
     )
 
-    manipulator_buy_shares: int = Field(
+    manipulator_open_shares: int = Field(
         default=20,
-        title="Buy Shares (int)",
+        title="Open Shares (int)",
+        description="manipulator_parameter",
+        ne=0 
+    )
+    manipulator_open_time: int = Field(
+        default=30,
+        title="Open Time (in secs)",
         description="manipulator_parameter",
         gt=0,
     )
-    manipulator_buy_time: int = Field(
-        default=90,
-        title="Buy Time (in secs)",
+    manipulator_pause_time: int = Field(
+        default=20,
+        title="Pause Time (in secs)",
         description="manipulator_parameter",
         gt=0,
+    )
+    manipulator_random_direction: bool = Field(
+        default=False,
+        title="Random Direction",
+        description="manipulator_parameter",
     )
 
     throttle_settings: Dict[TraderType, ThrottleConfig] = Field(
