@@ -22,6 +22,7 @@ from utils.logfiles_analysis import order_book_contruction, calculate_trader_spe
 from firebase_admin import auth
 from utils.websocket_utils import sanitize_websocket_message
 from .random_picker import pick_random_element_new
+from core.treatment_manager import treatment_manager
 
 # python stuff we need
 import json
@@ -145,6 +146,44 @@ async def download_parameter_history(current_user: dict = Depends(get_current_ad
         media_type="application/json"
     )
 
+
+class TreatmentYAML(BaseModel):
+    yaml_content: str
+
+
+@app.post("/admin/update_treatments")
+async def update_treatments(data: TreatmentYAML):
+    try:
+        count = treatment_manager.update_from_yaml(data.yaml_content)
+        return {
+            "status": "success",
+            "message": f"Updated {count} treatments",
+            "treatments": treatment_manager.get_all_treatments()
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/admin/get_treatments")
+async def get_treatments():
+    return {
+        "status": "success",
+        "yaml_content": treatment_manager.get_yaml_content(),
+        "treatments": treatment_manager.get_all_treatments()
+    }
+
+
+@app.get("/admin/get_treatment_for_user/{username}")
+async def get_treatment_for_user(username: str):
+    market_count = len(market_handler.user_historical_markets.get(username, set()))
+    treatment = treatment_manager.get_treatment_for_market(market_count)
+    return {
+        "status": "success",
+        "username": username,
+        "markets_played": market_count,
+        "next_treatment_index": market_count,
+        "next_treatment": treatment
+    }
 
 
 @app.post("/user/login")

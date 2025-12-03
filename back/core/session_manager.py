@@ -17,6 +17,7 @@ from enum import Enum
 
 from .data_models import TradingParameters, TraderRole
 from .trader_manager import TraderManager
+from .treatment_manager import treatment_manager
 from utils.utils import setup_custom_logger
 
 logger = setup_custom_logger(__name__)
@@ -202,9 +203,20 @@ class SessionManager:
         # NOW create the actual heavy market infrastructure
         logger.info(f"Converting session {session_id} to active market with {len(session_users)} users")
 
-        
         # Use parameters from first user (all have same params for this session)
-        params = session_users[0].params
+        base_params = session_users[0].params
+        
+        # Apply treatment based on first user's market count
+        first_user = session_users[0].username
+        market_count = len(self.user_historical_markets.get(first_user, set()))
+        
+        # Get treatment-modified params
+        base_params_dict = base_params.model_dump()
+        merged_params_dict = treatment_manager.get_merged_params(market_count, base_params_dict)
+        
+        # Create new TradingParameters with merged settings
+        params = TradingParameters(**merged_params_dict)
+        logger.info(f"Applied treatment {market_count} for session {session_id} (user {first_user})")
         
         # Create the heavy TraderManager (only now!)
         # Use session_id as market_id to ensure uniqueness

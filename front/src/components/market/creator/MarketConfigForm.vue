@@ -109,10 +109,86 @@
       </v-btn>
     </v-card-actions>
   </v-card>
+
+  <v-card elevation="1" class="mt-4">
+    <v-card-title class="compact-title" @click="showTreatments = !showTreatments" style="cursor: pointer">
+      <v-icon left color="deep-blue" size="18">mdi-flask-outline</v-icon>
+      Treatment Sequence (Per-Market Config)
+      <v-spacer></v-spacer>
+      <v-icon>{{ showTreatments ? 'mdi-chevron-up' : 'mdi-chevron-down' }}</v-icon>
+    </v-card-title>
+
+    <v-expand-transition>
+      <div v-show="showTreatments">
+        <v-card-text>
+          <v-alert type="info" density="compact" class="mb-3">
+            Define different trader compositions for each market. Market 1 uses treatment 0, Market 2 uses treatment 1, etc.
+          </v-alert>
+          
+          <v-textarea
+            v-model="treatmentYaml"
+            label="Treatment YAML"
+            placeholder="treatments:
+  - name: 'Market 1 - Noise Only'
+    num_noise_traders: 5
+    num_spoofing_traders: 0
+  - name: 'Market 2 - With Spoofer'
+    num_noise_traders: 3
+    num_spoofing_traders: 1"
+            rows="12"
+            variant="outlined"
+            density="compact"
+            class="yaml-editor"
+            :error="yamlError !== ''"
+            :error-messages="yamlError"
+          ></v-textarea>
+
+          <div v-if="treatments.length > 0" class="mt-2">
+            <v-chip
+              v-for="(t, i) in treatments"
+              :key="i"
+              size="small"
+              class="mr-1 mb-1"
+              color="primary"
+              variant="outlined"
+            >
+              {{ i }}: {{ t.name || `Treatment ${i}` }}
+            </v-chip>
+          </div>
+        </v-card-text>
+
+        <v-card-actions class="pa-2">
+          <v-btn
+            color="secondary"
+            @click="loadTreatments"
+            :disabled="!serverActive"
+            size="small"
+            variant="outlined"
+            class="custom-btn"
+          >
+            <v-icon start size="16">mdi-refresh</v-icon>
+            Load
+          </v-btn>
+          <v-spacer></v-spacer>
+          <v-btn
+            color="primary"
+            @click="saveTreatments"
+            :disabled="!serverActive"
+            size="small"
+            variant="elevated"
+            class="custom-btn"
+          >
+            <v-icon start size="16">mdi-content-save</v-icon>
+            Save Treatments
+          </v-btn>
+        </v-card-actions>
+      </div>
+    </v-expand-transition>
+  </v-card>
 </template>
 
 <script setup>
-import { ref, computed, defineProps, defineEmits } from 'vue'
+import { ref, computed, defineProps, defineEmits, onMounted, watch } from 'vue'
 import axios from '@/api/axios'
 import { debounce } from 'lodash'
 
@@ -132,6 +208,54 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update:formState'])
+
+const showTreatments = ref(false)
+const treatmentYaml = ref('')
+const treatments = ref([])
+const yamlError = ref('')
+
+const loadTreatments = async () => {
+  try {
+    const response = await axios.get(`${import.meta.env.VITE_HTTP_URL}admin/get_treatments`)
+    treatmentYaml.value = response.data.yaml_content || ''
+    treatments.value = response.data.treatments || []
+    yamlError.value = ''
+  } catch (error) {
+    console.error('Failed to load treatments:', error)
+    yamlError.value = 'Failed to load treatments'
+  }
+}
+
+const saveTreatments = async () => {
+  try {
+    const response = await axios.post(`${import.meta.env.VITE_HTTP_URL}admin/update_treatments`, {
+      yaml_content: treatmentYaml.value
+    })
+    treatments.value = response.data.treatments || []
+    yamlError.value = ''
+  } catch (error) {
+    console.error('Failed to save treatments:', error)
+    yamlError.value = error.response?.data?.detail || 'Failed to save treatments'
+  }
+}
+
+onMounted(() => {
+  if (props.serverActive) {
+    loadTreatments()
+  }
+})
+
+watch(() => props.serverActive, (newVal) => {
+  if (newVal && treatments.value.length === 0) {
+    loadTreatments()
+  }
+})
+
+watch(showTreatments, (newVal) => {
+  if (newVal && props.serverActive && treatments.value.length === 0) {
+    loadTreatments()
+  }
+})
 
 // Define trader types for throttling settings
 const traderTypes = ['HUMAN', 'NOISE', 'INFORMED', 'MARKET_MAKER', 'INITIAL_ORDER_BOOK', 'SIMPLE_ORDER']
@@ -331,6 +455,12 @@ const getFieldStyle = (fieldName) => {
   font-weight: 500 !important;
   letter-spacing: 0.5px !important;
   font-family: 'Inter', sans-serif !important;
+}
+
+.yaml-editor :deep(textarea) {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace !important;
+  font-size: 0.8rem !important;
+  line-height: 1.4 !important;
 }
 
 @media (max-width: 960px) {
