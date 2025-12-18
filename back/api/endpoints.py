@@ -98,6 +98,20 @@ async def update_persistent_settings(settings: PersistentSettings):
         source='admin_update'
     )
 
+    # Update market_sizes if changed (for cohort system)
+    if 'market_sizes' in settings.settings:
+        try:
+            market_sizes = settings.settings['market_sizes']
+            if isinstance(market_sizes, str):
+                market_sizes = [int(x.strip()) for x in market_sizes.split(',') if x.strip()]
+            market_handler.session_manager.update_market_sizes(market_sizes)
+            logger.log_parameter_state(
+                current_state={'action': 'market_sizes_update', 'market_sizes': market_sizes},
+                source='admin_update_market_sizes'
+            )
+        except Exception as e:
+            print(f"Error updating market_sizes: {str(e)}")
+
     # Update session pools with new goals if predefined_goals changed
     if 'predefined_goals' in settings.settings:
         try:
@@ -183,6 +197,15 @@ async def get_treatment_for_user(username: str):
         "markets_played": market_count,
         "next_treatment_index": market_count,
         "next_treatment": treatment
+    }
+
+
+@app.get("/admin/get_cohorts")
+async def get_cohorts():
+    """Get current cohort assignments for admin monitoring."""
+    return {
+        "status": "success",
+        **market_handler.session_manager.get_cohort_info()
     }
 
 

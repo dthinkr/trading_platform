@@ -66,6 +66,12 @@ class SessionManager:
     - Markets created only when needed
     - Simple state management
     - Clear user experience
+    
+    Cohort System:
+    - market_sizes defines cohort sizes (e.g., [10, 8] for 18 people)
+    - Users are assigned to cohorts on first join
+    - Cohort members always play together across all markets
+    - Goals are sliced from predefined_goals based on cohort size
     """
     
     def __init__(self):
@@ -82,6 +88,12 @@ class SessionManager:
         # Role persistence: Once assigned, role and goal magnitude stick
         self.permanent_speculators: Set[str] = set()  # username -> always SPECULATOR (goal=0)
         self.permanent_informed_goals: Dict[str, int] = {}  # username -> goal magnitude (e.g., 100)
+        
+        # Cohort system: Users stay together across markets
+        self.user_cohorts: Dict[str, int] = {}  # username -> cohort_id (0, 1, 2, ...)
+        self.cohort_sessions: Dict[int, str] = {}  # cohort_id -> current session_id
+        self.cohort_members: Dict[int, Set[str]] = {}  # cohort_id -> set of usernames
+        self.market_sizes: List[int] = []  # e.g., [10, 8] - set via update_market_sizes()
         
         # Concurrency control: Lock for atomic session join operations
         self._session_join_lock = asyncio.Lock()
@@ -168,8 +180,9 @@ class SessionManager:
         ready_count = sum(1 for user in session_users if self.user_ready_status.get(user.username, False))
         
         # Check for Prolific users (can start with 1)
-        has_prolific = any("prolific" in user.username.lower() for user in session_users)
-        can_start = ready_count >= required_count or (has_prolific and ready_count > 0)
+        # has_prolific = any("prolific" in user.username.lower() for user in session_users)
+        # can_start = ready_count >= required_count or (has_prolific and ready_count > 0)
+        can_start = ready_count >= required_count
         
         status_info = {
             "session_id": session_id,
@@ -245,6 +258,12 @@ class SessionManager:
         if session_id in self.session_params:
             del self.session_params[session_id]
         
+        # Clean up cohort session mapping (cohort will get new session next market)
+        for cohort_id, cohort_session_id in list(self.cohort_sessions.items()):
+            if cohort_session_id == session_id:
+                del self.cohort_sessions[cohort_id]
+                logger.info(f"Cleared cohort {cohort_id} session mapping (market started)")
+        
         for user in session_users:
             self.user_sessions[user.username] = market_id  # Update to market_id
         
@@ -314,13 +333,21 @@ class SessionManager:
         for session_id, users in self.session_pools.items():
             if users:  # Only non-empty sessions
                 params = users[0].params
+                # Find cohort for this session
+                cohort_id = None
+                for cid, sid in self.cohort_sessions.items():
+                    if sid == session_id:
+                        cohort_id = cid
+                        break
+                
                 sessions.append({
                     "id": session_id,
                     "type": "session_pool",
                     "status": SessionStatus.WAITING.value,
                     "user_count": len(users),
                     "required_count": len(params.predefined_goals),
-                    "users": [user.username for user in users]
+                    "users": [user.username for user in users],
+                    "cohort_id": cohort_id
                 })
         
         # Add active markets
@@ -370,10 +397,17 @@ class SessionManager:
         self.active_markets.clear()
         self.user_sessions.clear()
         self.user_ready_status.clear()
+        
+        # Clear cohort state (users get reassigned on next join)
+        self.user_cohorts.clear()
+        self.cohort_sessions.clear()
+        self.cohort_members.clear()
+        # Keep market_sizes - that's a configuration, not state
+        
         # Keep user_historical_markets for limit tracking
         # Keep permanent_speculators for role consistency across sessions
         
-        logger.info("Session manager state reset")
+        logger.info("Session manager state reset (including cohorts)")
 
     def update_session_pool_goals(self, new_params: TradingParameters):
         """
@@ -529,55 +563,138 @@ class SessionManager:
         self.session_params[session_id] = params
         logger.info(f"Created session {session_id} with {len(slots)} slots (shuffled goals: {goals})")
     
+    def _get_effective_market_sizes(self, params: TradingParameters) -> List[int]:
+        """
+        Get effective market sizes for cohort system.
+        If market_sizes is set, use it. Otherwise, use predefined_goals length.
+        """
+        if self.market_sizes:
+            return self.market_sizes
+        # Default: single cohort with size = number of predefined goals
+        return [len(params.predefined_goals)]
+    
     def _find_or_create_session(self, username: str, params: TradingParameters) -> str:
         """
         Find existing session with space or create new one.
-        Respects permanent role assignments.
+        ALWAYS uses cohort system - users who play together stay together.
+        
+        Cohort logic:
+        - If user has a cohort, find/create session for that cohort
+        - If no cohort, assign to first cohort with space or create new cohort
+        - market_sizes defines cohort sizes, or defaults to len(predefined_goals)
         """
-        is_permanent_speculator = username in self.permanent_speculators
-        permanent_goal_magnitude = self.permanent_informed_goals.get(username)
+        # ALWAYS use cohort system
+        cohort_id = self._get_or_assign_cohort(username, params)
+        return self._find_or_create_cohort_session(username, cohort_id, params)
+    
+    def _get_or_assign_cohort(self, username: str, params: TradingParameters) -> int:
+        """
+        Get user's cohort or assign them to one.
+        Cohorts fill up in order based on effective market_sizes.
+        """
+        # User already has a cohort
+        if username in self.user_cohorts:
+            return self.user_cohorts[username]
         
-        # Try existing sessions
-        for session_id, slots in self.session_slots.items():
-            # Check if session has available slots
-            available_slots = [s for s in slots if s.is_available]
-            if not available_slots:
-                continue
+        effective_sizes = self._get_effective_market_sizes(params)
+        
+        # Find first cohort with space
+        for cohort_id, max_size in enumerate(effective_sizes):
+            if cohort_id not in self.cohort_members:
+                self.cohort_members[cohort_id] = set()
             
-            # If permanent SPECULATOR, need a SPECULATOR slot
-            if is_permanent_speculator:
-                has_speculator_slot = any(s.role == TraderRole.SPECULATOR for s in available_slots)
-                if has_speculator_slot:
-                    return session_id
-            # If permanent INFORMED, need an INFORMED slot with matching goal magnitude
-            elif permanent_goal_magnitude is not None:
-                has_matching_slot = any(
-                    s.role == TraderRole.INFORMED and abs(s.goal) == permanent_goal_magnitude 
-                    for s in available_slots
-                )
-                if has_matching_slot:
-                    return session_id
-            # New user can take any available slot
-            else:
-                return session_id
+            if len(self.cohort_members[cohort_id]) < max_size:
+                # Assign user to this cohort
+                self.user_cohorts[username] = cohort_id
+                self.cohort_members[cohort_id].add(username)
+                logger.info(f"Assigned {username} to cohort {cohort_id} (size {len(self.cohort_members[cohort_id])}/{max_size})")
+                return cohort_id
         
-        # Create new session with unique ID
+        # All cohorts full - create overflow cohort using last market_size
+        overflow_cohort_id = len(effective_sizes)
+        while overflow_cohort_id in self.cohort_members:
+            if len(self.cohort_members[overflow_cohort_id]) < effective_sizes[-1]:
+                break
+            overflow_cohort_id += 1
+        
+        if overflow_cohort_id not in self.cohort_members:
+            self.cohort_members[overflow_cohort_id] = set()
+        
+        self.user_cohorts[username] = overflow_cohort_id
+        self.cohort_members[overflow_cohort_id].add(username)
+        logger.info(f"Assigned {username} to overflow cohort {overflow_cohort_id}")
+        return overflow_cohort_id
+    
+    def _find_or_create_cohort_session(self, username: str, cohort_id: int, params: TradingParameters) -> str:
+        """
+        Find or create a session for a specific cohort.
+        Goals are sliced from predefined_goals based on cohort size.
+        """
         import uuid
+        
+        # Check if cohort already has a waiting session
+        if cohort_id in self.cohort_sessions:
+            session_id = self.cohort_sessions[cohort_id]
+            if session_id in self.session_slots:
+                # Session exists and is still waiting
+                available_slots = [s for s in self.session_slots[session_id] if s.is_available]
+                if available_slots:
+                    return session_id
+        
+        # Create new session for this cohort
         timestamp = int(time.time())
         unique_suffix = str(uuid.uuid4())[:8]
-        session_id = f"SESSION_{timestamp}_{unique_suffix}"
+        session_id = f"COHORT{cohort_id}_SESSION_{timestamp}_{unique_suffix}"
         
-        # If user has permanent goal magnitude, ensure it's included in session slots
-        required_goal_magnitude = None
-        if permanent_goal_magnitude is not None:
-            # Check if permanent magnitude is in current predefined_goals
-            goal_magnitudes = [abs(g) for g in params.predefined_goals]
-            if permanent_goal_magnitude not in goal_magnitudes:
-                required_goal_magnitude = permanent_goal_magnitude
-                logger.info(f"User {username} has permanent goal magnitude {permanent_goal_magnitude} not in predefined_goals {params.predefined_goals}, adding to session slots")
+        # Determine cohort size from effective market sizes
+        effective_sizes = self._get_effective_market_sizes(params)
+        if cohort_id < len(effective_sizes):
+            cohort_size = effective_sizes[cohort_id]
+        else:
+            cohort_size = effective_sizes[-1]  # Use last size for overflow
         
-        self._create_session_slots(session_id, params, required_goal_magnitude=required_goal_magnitude)
+        # Slice goals for this cohort size
+        cohort_goals = params.predefined_goals[:cohort_size]
+        if len(cohort_goals) < cohort_size:
+            # Pad with zeros (speculators) if not enough goals defined
+            cohort_goals.extend([0] * (cohort_size - len(cohort_goals)))
+        
+        # Create modified params with cohort-specific goals
+        cohort_params = params.model_copy()
+        cohort_params.predefined_goals = cohort_goals
+        
+        self._create_session_slots(session_id, cohort_params)
+        self.cohort_sessions[cohort_id] = session_id
+        
+        logger.info(f"Created session {session_id} for cohort {cohort_id} with {cohort_size} slots, goals: {cohort_goals}")
         return session_id
+    
+    def update_market_sizes(self, market_sizes: List[int]):
+        """
+        Update market sizes for cohort system.
+        Call this when admin updates settings.
+        
+        Args:
+            market_sizes: List of market sizes, e.g., [10, 8] for 18 people total
+        """
+        self.market_sizes = market_sizes
+        logger.info(f"Updated market_sizes to {market_sizes}")
+    
+    def get_cohort_info(self) -> Dict:
+        """Get current cohort assignments for admin monitoring."""
+        return {
+            "market_sizes": self.market_sizes,
+            "cohorts": {
+                cohort_id: {
+                    "members": list(members),
+                    "size": len(members),
+                    "max_size": self.market_sizes[cohort_id] if cohort_id < len(self.market_sizes) else self.market_sizes[-1] if self.market_sizes else 0,
+                    "current_session": self.cohort_sessions.get(cohort_id)
+                }
+                for cohort_id, members in self.cohort_members.items()
+            },
+            "user_cohorts": self.user_cohorts
+        }
     
     def _assign_user_to_slot(self, username: str, session_id: str, params: TradingParameters) -> Tuple[TraderRole, int]:
         """

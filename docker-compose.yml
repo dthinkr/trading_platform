@@ -30,8 +30,8 @@ services:
       dockerfile: ../docker/Dockerfile.back
     volumes:
       - ./.env:/app/.env:ro
-      - ./back/config:/app/config
-      - ./back/logs:/app/logs
+      - ./back/config:/app/config:Z
+      - ./back/logs:/app/logs:Z
     ports:
       - "8000:8000"
     environment:
