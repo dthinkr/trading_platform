@@ -5,13 +5,17 @@ but uses the elegant SessionManager underneath.
 This provides backward compatibility while dramatically simplifying the logic.
 """
 
-from typing import Dict, Optional, Tuple
+import yaml
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
 from .session_manager import SessionManager
 from .data_models import TradingParameters, TraderRole
 from .trader_manager import TraderManager
 from utils.utils import setup_custom_logger
 
 logger = setup_custom_logger(__name__)
+
+APP_CONFIG_FILE = Path("config/app.yaml")
 
 
 class SimpleMarketHandler:
@@ -24,6 +28,26 @@ class SimpleMarketHandler:
     
     def __init__(self):
         self.session_manager = SessionManager()
+        self._load_market_sizes_from_config()
+    
+    def _load_market_sizes_from_config(self):
+        """Load MARKET_SIZES from app.yaml on startup."""
+        if not APP_CONFIG_FILE.exists():
+            logger.info(f"No config file at {APP_CONFIG_FILE}, using default market_sizes=[]")
+            return
+        
+        try:
+            with open(APP_CONFIG_FILE, 'r') as f:
+                config = yaml.safe_load(f) or {}
+            
+            market_sizes = config.get('MARKET_SIZES', [])
+            if market_sizes:
+                self.session_manager.update_market_sizes(market_sizes)
+                logger.info(f"Loaded MARKET_SIZES from config: {market_sizes}")
+            else:
+                logger.info("MARKET_SIZES is empty in config, using default (single cohort)")
+        except Exception as e:
+            logger.error(f"Error loading config: {e}")
     
     # Main external interface methods (keep same signatures for compatibility)
     
