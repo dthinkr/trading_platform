@@ -18,30 +18,42 @@
               <v-row dense>
                 <template v-for="traderType in traderTypes" :key="traderType">
                   <v-col cols="6">
-                    <v-text-field
-                      v-model.number="formState.throttle_settings[traderType].order_throttle_ms"
-                      :label="`${formatTraderType(traderType)} Throttle (ms)`"
-                      type="number"
-                      min="0"
-                      density="compact"
-                      variant="outlined"
-                      hide-details="auto"
-                      class="mb-1 compact-input"
-                      @input="updatePersistentSettings"
-                    ></v-text-field>
+                    <v-tooltip location="top">
+                      <template v-slot:activator="{ props: tooltipProps }">
+                        <v-text-field
+                          v-bind="tooltipProps"
+                          v-model.number="formState.throttle_settings[traderType].order_throttle_ms"
+                          :label="`${formatTraderType(traderType)} Throttle (ms)`"
+                          type="number"
+                          min="0"
+                          density="compact"
+                          variant="outlined"
+                          hide-details="auto"
+                          class="mb-1 compact-input"
+                          @input="updatePersistentSettings"
+                        ></v-text-field>
+                      </template>
+                      <span class="tooltip-code">throttle_settings.{{ traderType }}.order_throttle_ms</span>
+                    </v-tooltip>
                   </v-col>
                   <v-col cols="6">
-                    <v-text-field
-                      v-model.number="formState.throttle_settings[traderType].max_orders_per_window"
-                      :label="`${formatTraderType(traderType)} Max Orders`"
-                      type="number"
-                      min="1"
-                      density="compact"
-                      variant="outlined"
-                      hide-details="auto"
-                      class="mb-1 compact-input"
-                      @input="updatePersistentSettings"
-                    ></v-text-field>
+                    <v-tooltip location="top">
+                      <template v-slot:activator="{ props: tooltipProps }">
+                        <v-text-field
+                          v-bind="tooltipProps"
+                          v-model.number="formState.throttle_settings[traderType].max_orders_per_window"
+                          :label="`${formatTraderType(traderType)} Max Orders`"
+                          type="number"
+                          min="1"
+                          density="compact"
+                          variant="outlined"
+                          hide-details="auto"
+                          class="mb-1 compact-input"
+                          @input="updatePersistentSettings"
+                        ></v-text-field>
+                      </template>
+                      <span class="tooltip-code">throttle_settings.{{ traderType }}.max_orders_per_window</span>
+                    </v-tooltip>
                   </v-col>
                 </template>
               </v-row>
@@ -63,29 +75,36 @@
             <v-card-text class="pa-2">
               <v-row dense>
                 <v-col cols="6" v-for="field in group" :key="field.name">
-                  <v-text-field
-                    v-if="!isArrayField(field)"
-                    :label="field.title || ''"
-                    v-model="formState[field.name]"
-                    :type="getFieldType(field)"
-                    density="compact"
-                    variant="outlined"
-                    hide-details="auto"
-                    class="mb-1 compact-input"
-                    :class="getFieldStyle(field.name)"
-                    @input="updatePersistentSettings"
-                  ></v-text-field>
-                  <v-text-field
-                    v-else
-                    :label="field.title || ''"
-                    v-model="formState[field.name]"
-                    density="compact"
-                    variant="outlined"
-                    hide-details="auto"
-                    class="mb-1 compact-input"
-                    :class="getFieldStyle(field.name)"
-                    @input="handleArrayInput(field.name, $event)"
-                  ></v-text-field>
+                  <v-tooltip location="top">
+                    <template v-slot:activator="{ props: tooltipProps }">
+                      <v-text-field
+                        v-if="!isArrayField(field)"
+                        v-bind="tooltipProps"
+                        :label="field.title || ''"
+                        v-model="formState[field.name]"
+                        :type="getFieldType(field)"
+                        density="compact"
+                        variant="outlined"
+                        hide-details="auto"
+                        class="mb-1 compact-input"
+                        :class="getFieldStyle(field.name)"
+                        @input="updatePersistentSettings"
+                      ></v-text-field>
+                      <v-text-field
+                        v-else
+                        v-bind="tooltipProps"
+                        :label="field.title || ''"
+                        v-model="formState[field.name]"
+                        density="compact"
+                        variant="outlined"
+                        hide-details="auto"
+                        class="mb-1 compact-input"
+                        :class="getFieldStyle(field.name)"
+                        @input="handleArrayInput(field.name, $event)"
+                      ></v-text-field>
+                    </template>
+                    <span class="tooltip-code">{{ field.name }}</span>
+                  </v-tooltip>
                 </v-col>
               </v-row>
             </v-card-text>
@@ -290,12 +309,13 @@ const isArrayField = (field) => {
   return field.type === 'array'
 }
 
-const handleArrayInput = (fieldName, value) => {
+const handleArrayInput = (fieldName, event) => {
+  // Extract string value from event or use directly if already a string
+  const value = typeof event === 'object' && event?.target ? event.target.value : String(event ?? '')
+  
   if (fieldName === 'predefined_goals') {
     if (value === '') {
       props.formState[fieldName] = []
-    } else if (Array.isArray(value)) {
-      props.formState[fieldName] = value.map((v) => parseInt(v))
     } else {
       // Convert string input to array of numbers
       props.formState[fieldName] = value
@@ -303,7 +323,7 @@ const handleArrayInput = (fieldName, value) => {
         .map((v) => parseInt(v.trim()))
         .filter((n) => !isNaN(n))
     }
-    console.log(`Updated ${fieldName}:`, props.formState[fieldName]) // Debug log
+    console.log(`Updated ${fieldName}:`, props.formState[fieldName])
   } else {
     // Handle other array fields
     props.formState[fieldName] = value === '' ? [] : value.split(',').map((item) => item.trim())
@@ -461,6 +481,14 @@ const getFieldStyle = (fieldName) => {
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace !important;
   font-size: 0.8rem !important;
   line-height: 1.4 !important;
+}
+
+.tooltip-code {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.75rem;
+  background: rgba(0, 0, 0, 0.1);
+  padding: 2px 6px;
+  border-radius: 3px;
 }
 
 @media (max-width: 960px) {
