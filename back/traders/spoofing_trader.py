@@ -44,6 +44,9 @@ class SpoofingTrader(BaseTrader):
         if not self.order_book:
             return
         
+        # Guard against empty order book sides
+        if not self.order_book.get("bids") or not self.order_book.get("asks"):
+            return
         
         best_bid_size = self.order_book["bids"][0]["y"]
         best_ask_size = self.order_book["asks"][0]["y"]
@@ -126,6 +129,12 @@ class SpoofingTrader(BaseTrader):
         iterations = int(self.spoof_duration / spoofer_time_check)
         for i in range(iterations):
             await asyncio.sleep(spoofer_time_check)
+            
+            # Guard against empty order book
+            if not self.order_book.get("bids") or not self.order_book.get("asks"):
+                await self.cancel_spoof_orders()
+                break
+                
             if self.spoof_side == 'bid':
                 best_price = self.order_book["bids"][0]["x"]
                 is_active_real_order = self.check_real_spoofing_order(self.orders, 'ask')
