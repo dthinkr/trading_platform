@@ -95,9 +95,12 @@ class SessionManager:
         
         # Cohort system: Users stay together across markets
         self.user_cohorts: Dict[str, int] = {}  # username -> cohort_id (0, 1, 2, ...)
-        self.cohort_sessions: Dict[int, str] = {}  # cohort_id -> current session_id
+        self.cohort_sessions: Dict[int, str] = {}  # cohort_id -> current session_id (per-market)
         self.cohort_members: Dict[int, Set[str]] = {}  # cohort_id -> set of usernames
         self.market_sizes: List[int] = []  # e.g., [10, 8] - set via update_market_sizes()
+        
+        # Persistent session IDs: Each cohort gets one session_id that spans all their markets
+        self.cohort_persistent_session_ids: Dict[int, str] = {}  # cohort_id -> SESSION_{timestamp}_{uuid}
         
         # Concurrency control: Lock for atomic session join operations
         self._session_join_lock = asyncio.Lock()
@@ -276,9 +279,15 @@ class SessionManager:
         treatment_name = treatment_info.get("name") if treatment_info else None
         participant_usernames = [user.username for user in session_users]
         
+        # Get the persistent session_id for this cohort
+        first_user = session_users[0].username
+        cohort_id = self.user_cohorts.get(first_user)
+        persistent_session_id = self.cohort_persistent_session_ids.get(cohort_id) if cohort_id is not None else None
+        
         parameter_logger.log_market_start(
             market_id=market_id,
             participants=participant_usernames,
+            session_id=persistent_session_id,
             treatment_name=treatment_name,
             treatment_index=market_count,
             parameters=merged_params_dict
@@ -419,12 +428,13 @@ class SessionManager:
         self.user_cohorts.clear()
         self.cohort_sessions.clear()
         self.cohort_members.clear()
+        self.cohort_persistent_session_ids.clear()  # Clear persistent session IDs
         # Keep market_sizes - that's a configuration, not state
         
         # Keep user_historical_markets for limit tracking
         # Keep permanent_speculators for role consistency across sessions
         
-        logger.info("Session manager state reset (including cohorts)")
+        logger.info("Session manager state reset (including cohorts and session IDs)")
 
     def update_session_pool_goals(self, new_params: TradingParameters):
         """
@@ -624,6 +634,8 @@ class SessionManager:
                 # Assign user to this cohort
                 self.user_cohorts[username] = cohort_id
                 self.cohort_members[cohort_id].add(username)
+                # Create persistent session_id for this cohort if first member
+                self._get_or_create_cohort_session_id(cohort_id)
                 logger.info(f"Assigned {username} to cohort {cohort_id} (size {len(self.cohort_members[cohort_id])}/{max_size})")
                 return cohort_id
         
@@ -639,6 +651,8 @@ class SessionManager:
         
         self.user_cohorts[username] = overflow_cohort_id
         self.cohort_members[overflow_cohort_id].add(username)
+        # Create persistent session_id for overflow cohort
+        self._get_or_create_cohort_session_id(overflow_cohort_id)
         logger.info(f"Assigned {username} to overflow cohort {overflow_cohort_id}")
         return overflow_cohort_id
     
@@ -658,10 +672,20 @@ class SessionManager:
                 if available_slots:
                     return session_id
         
-        # Create new session for this cohort
-        timestamp = int(time.time())
-        unique_suffix = str(uuid.uuid4())[:8]
-        session_id = f"MARKET_{timestamp}_{unique_suffix}"
+        # Get the persistent session_id for this cohort
+        persistent_session_id = self._get_or_create_cohort_session_id(cohort_id)
+        
+        # Create new market for this cohort
+        # Format: {SESSION_ID}_MARKET_{market_number}
+        # Count existing markets for this session to get market number
+        market_count = sum(1 for mid in self.active_markets.keys() 
+                         if mid.startswith(persistent_session_id))
+        # Also count historical markets from user_historical_markets
+        first_user = next(iter(self.cohort_members.get(cohort_id, set())), None)
+        if first_user:
+            market_count = len(self.user_historical_markets.get(first_user, set()))
+        
+        market_id = f"{persistent_session_id}_MARKET_{market_count}"
         
         # Determine cohort size from effective market sizes
         effective_sizes = self._get_effective_market_sizes(params)
@@ -680,11 +704,11 @@ class SessionManager:
         cohort_params = params.model_copy()
         cohort_params.predefined_goals = cohort_goals
         
-        self._create_session_slots(session_id, cohort_params)
-        self.cohort_sessions[cohort_id] = session_id
+        self._create_session_slots(market_id, cohort_params)
+        self.cohort_sessions[cohort_id] = market_id
         
-        logger.info(f"Created session {session_id} for cohort {cohort_id} with {cohort_size} slots, goals: {cohort_goals}")
-        return session_id
+        logger.info(f"Created market {market_id} for cohort {cohort_id} (session {persistent_session_id}) with {cohort_size} slots, goals: {cohort_goals}")
+        return market_id
     
     def update_market_sizes(self, market_sizes: List[int]):
         """
@@ -696,6 +720,31 @@ class SessionManager:
         """
         self.market_sizes = market_sizes
         logger.info(f"Updated market_sizes to {market_sizes}")
+    
+    def _get_or_create_cohort_session_id(self, cohort_id: int) -> str:
+        """
+        Get or create a persistent session_id for a cohort.
+        This ID spans all markets the cohort plays together.
+        
+        Returns: SESSION_{timestamp}_{uuid} format
+        """
+        import uuid
+        
+        if cohort_id not in self.cohort_persistent_session_ids:
+            timestamp = int(time.time())
+            unique_suffix = str(uuid.uuid4())[:8]
+            session_id = f"SESSION_{timestamp}_{unique_suffix}"
+            self.cohort_persistent_session_ids[cohort_id] = session_id
+            logger.info(f"Created persistent session_id {session_id} for cohort {cohort_id}")
+        
+        return self.cohort_persistent_session_ids[cohort_id]
+    
+    def get_session_id_for_user(self, username: str) -> Optional[str]:
+        """Get the persistent session_id for a user's cohort."""
+        cohort_id = self.user_cohorts.get(username)
+        if cohort_id is not None:
+            return self.cohort_persistent_session_ids.get(cohort_id)
+        return None
     
     def get_cohort_info(self) -> Dict:
         """Get current cohort assignments for admin monitoring."""

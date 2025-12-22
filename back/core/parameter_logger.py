@@ -66,6 +66,7 @@ class ParameterLogger:
     def log_market_start(self,
                          market_id: str,
                          participants: list,
+                         session_id: str = None,
                          treatment_name: str = None,
                          treatment_index: int = None,
                          parameters: Dict[str, Any] = None):
@@ -73,11 +74,12 @@ class ParameterLogger:
         Log when a market starts with its participants and treatment.
         
         This allows tracking which participants were in which market,
-        enabling session reconstruction by finding markets with overlapping participants.
+        enabling session reconstruction by finding markets with the same session_id.
         
         Args:
-            market_id: Unique market identifier
+            market_id: Unique market identifier (e.g., SESSION_xxx_MARKET_0)
             participants: List of participant usernames
+            session_id: Persistent session identifier that groups markets together
             treatment_name: Name of the treatment applied (from treatments.yaml)
             treatment_index: Index of the treatment (0-based)
             parameters: Optional snapshot of parameters used for this market
@@ -93,6 +95,8 @@ class ParameterLogger:
             "unix_timestamp": unix_timestamp
         }
         
+        if session_id:
+            entry["session_id"] = session_id
         if treatment_name:
             entry["treatment_name"] = treatment_name
         if treatment_index is not None:

@@ -1,6 +1,7 @@
 treatments:
-- name: Test Market - Quick
+- name: Treatment A
   num_noise_traders: 1
-  num_informed_traders: 0
-  num_spoofing_traders: 0
-  num_manipulator_traders: 0
+- name: Treatment B
+  num_noise_traders: 1
+- name: Treatment C
+  num_noise_traders: 1

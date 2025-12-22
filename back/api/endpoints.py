@@ -1005,6 +1005,9 @@ async def start_trading_market(background_tasks: BackgroundTasks, request: Reque
     
     print(f"Trading/start called for user: {gmail_username}, trader_id: {trader_id}, is_prolific: {is_prolific}")
     
+    # Clean up any finished markets first (so users can join new markets)
+    await market_handler.cleanup_finished_markets()
+    
     # Check session status using trader ID (simplified approach)
     session_status = market_handler.get_session_status_by_trader_id(trader_id)
     
@@ -1259,6 +1262,28 @@ async def reset_state(current_user: dict = Depends(get_current_admin_user)):
             status_code=500, 
             detail="Error resetting application state"
         )
+
+# Test-only reset endpoint (no auth required) - for automated testing
+@app.post("/test/reset_state")
+async def test_reset_state():
+    """Reset all application state INCLUDING historical markets - FOR TESTING ONLY"""
+    try:
+        global persistent_settings, accumulated_rewards
+        current_settings = persistent_settings.copy()
+        await market_handler.reset_state()
+        # Also clear historical markets for clean test runs
+        market_handler.session_manager.user_historical_markets.clear()
+        market_handler.session_manager.permanent_speculators.clear()
+        market_handler.session_manager.permanent_informed_goals.clear()
+        persistent_settings = current_settings
+        accumulated_rewards = {}
+        
+        return {
+            "status": "success", 
+            "message": "Test reset completed (including historical markets)"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Reset failed: {str(e)}")
         
 # headcount!
 async def broadcast_trader_count(market_id: str):

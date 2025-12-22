@@ -8,8 +8,9 @@ import os
 from pathlib import Path
 
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
-PARAM_HISTORY_PATH = Path("logs/parameters/parameter_history.json")
-LOGS_DIR = Path("logs")
+# When running from repo root, logs are in back/logs (mounted from Docker)
+PARAM_HISTORY_PATH = Path("back/logs/parameters/parameter_history.json")
+LOGS_DIR = Path("back/logs")
 
 
 async def update_settings(session, **kwargs):
@@ -67,11 +68,11 @@ async def main():
             initial_entries = len(json.load(f))
     print(f"Initial parameter_history entries: {initial_entries}")
     
-    # Get initial log files
+    # Get initial log files (new format: SESSION_xxx_MARKET_n.log)
     initial_logs = set()
     if LOGS_DIR.exists():
-        initial_logs = {f.name for f in LOGS_DIR.glob("MARKET_*.log")}
-    print(f"Initial MARKET_*.log files: {len(initial_logs)}")
+        initial_logs = {f.name for f in LOGS_DIR.glob("SESSION_*_MARKET_*.log")}
+    print(f"Initial SESSION_*_MARKET_*.log files: {len(initial_logs)}")
     
     async with aiohttp.ClientSession() as session:
         # Reset and configure
@@ -138,39 +139,44 @@ treatments:
                 print(f"\nLatest market_start entry:")
                 print(f"  Timestamp: {latest_ts}")
                 print(f"  Market ID: {latest.get('market_id')}")
+                print(f"  Session ID: {latest.get('session_id')}")
                 print(f"  Participants: {latest.get('participants')}")
                 print(f"  Treatment: {latest.get('treatment_name')}")
                 print(f"  Treatment Index: {latest.get('treatment_index')}")
                 
+                # Verify session_id is present
+                if latest.get('session_id'):
+                    print(f"\n✓ Session ID present: {latest.get('session_id')}")
+                else:
+                    print(f"\n✗ Session ID missing")
+                
                 # Verify our user is in participants
                 if username in latest.get('participants', []):
-                    print(f"\n✓ User '{username}' found in participants")
+                    print(f"✓ User '{username}' found in participants")
                 else:
-                    print(f"\n✗ User '{username}' NOT found in participants")
+                    print(f"✗ User '{username}' NOT found in participants")
             else:
                 print("✗ No market_start entries found")
         else:
             print("✗ parameter_history.json not found")
         
-        # Check log files
+        # Check log files (new format: SESSION_xxx_MARKET_n.log)
         print("\n--- Checking log files ---")
         if LOGS_DIR.exists():
-            current_logs = {f.name for f in LOGS_DIR.glob("MARKET_*.log")}
+            current_logs = {f.name for f in LOGS_DIR.glob("SESSION_*_MARKET_*.log")}
             new_logs = current_logs - initial_logs
             
             if new_logs:
                 print(f"✓ New log files created: {len(new_logs)}")
                 for log_name in sorted(new_logs):
                     print(f"  - {log_name}")
-                    # Verify naming format: MARKET_{timestamp}_{uuid}.log
-                    if log_name.startswith("MARKET_") and log_name.endswith(".log"):
-                        parts = log_name[7:-4].split("_")  # Remove MARKET_ and .log
-                        if len(parts) == 2:
-                            print(f"    ✓ Correct format: MARKET_{{timestamp}}_{{uuid}}.log")
-                        else:
-                            print(f"    ✗ Unexpected format: {parts}")
+                    # Verify naming format: SESSION_{timestamp}_{uuid}_MARKET_{n}.log
+                    if log_name.startswith("SESSION_") and "_MARKET_" in log_name and log_name.endswith(".log"):
+                        print(f"    ✓ Correct format: SESSION_{{timestamp}}_{{uuid}}_MARKET_{{n}}.log")
+                    else:
+                        print(f"    ✗ Unexpected format")
             else:
-                print("✗ No new MARKET_*.log files created")
+                print("✗ No new SESSION_*_MARKET_*.log files created")
         
         # Cleanup
         await reset_state(session)
