@@ -962,6 +962,56 @@ async def list_files(
     except Exception:
         raise HTTPException(status_code=500, detail="Internal server error")
 
+import re
+
+@app.get("/files/grouped")
+async def list_files_grouped():
+    """Returns log files grouped by session for heatmap display."""
+    try:
+        multi_market_pattern = re.compile(r'^(?:COHORT\d+_)?SESSION_(\d+_[a-f0-9]+)_MARKET_(\d+)\.log$', re.IGNORECASE)
+        single_market_pattern = re.compile(r'^(?:COHORT\d+_)?SESSION_(\d+_[a-f0-9]+)_trading\.log$', re.IGNORECASE)
+        cohort_market_pattern = re.compile(r'^COHORT\d+_SESSION_(\d+_[a-f0-9]+)_trading_market(\d+)\.log$', re.IGNORECASE)
+        
+        sessions = {}
+        ungrouped = []
+        max_market = 0
+        
+        for item in ROOT_DIR.iterdir():
+            if not item.is_file() or not item.name.endswith('.log'):
+                continue
+            filename = item.name
+            session_id = None
+            market_num = None
+            match = multi_market_pattern.match(filename)
+            if match:
+                session_id = match.group(1)
+                market_num = int(match.group(2))
+            else:
+                match = cohort_market_pattern.match(filename)
+                if match:
+                    session_id = match.group(1)
+                    market_num = int(match.group(2))
+                else:
+                    match = single_market_pattern.match(filename)
+                    if match:
+                        session_id = match.group(1)
+                        market_num = 1
+            if session_id is not None:
+                max_market = max(max_market, market_num)
+                if session_id not in sessions:
+                    sessions[session_id] = {'markets': {}}
+                sessions[session_id]['markets'][market_num] = filename
+            else:
+                ungrouped.append(filename)
+        
+        session_list = []
+        for session_id, data in sorted(sessions.items(), key=lambda x: x[0], reverse=True):
+            session_list.append({'session_id': session_id, 'markets': data['markets']})
+        
+        return {'sessions': session_list, 'max_market': max_market, 'ungrouped': ungrouped}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
 @app.get("/files/{file_path:path}")
 async def get_file(file_path: str):
     try:
@@ -976,9 +1026,58 @@ async def get_file(file_path: str):
         return FileResponse(full_path)
     except Exception:
         raise HTTPException(status_code=500, detail="Internal server error")
+
+import re
+
+@app.get("/files/grouped")
+async def list_files_grouped():
+    """Returns log files grouped by session for heatmap display."""
+    try:
+        multi_market_pattern = re.compile(r'^(?:COHORT\d+_)?SESSION_(\d+_[a-f0-9]+)_MARKET_(\d+)\.log$', re.IGNORECASE)
+        single_market_pattern = re.compile(r'^(?:COHORT\d+_)?SESSION_(\d+_[a-f0-9]+)_trading\.log$', re.IGNORECASE)
+        cohort_market_pattern = re.compile(r'^COHORT\d+_SESSION_(\d+_[a-f0-9]+)_trading_market(\d+)\.log$', re.IGNORECASE)
+        
+        sessions = {}
+        ungrouped = []
+        max_market = 0
+        
+        for item in ROOT_DIR.iterdir():
+            if not item.is_file() or not item.name.endswith('.log'):
+                continue
+            filename = item.name
+            session_id = None
+            market_num = None
+            match = multi_market_pattern.match(filename)
+            if match:
+                session_id = match.group(1)
+                market_num = int(match.group(2))
+            else:
+                match = cohort_market_pattern.match(filename)
+                if match:
+                    session_id = match.group(1)
+                    market_num = int(match.group(2))
+                else:
+                    match = single_market_pattern.match(filename)
+                    if match:
+                        session_id = match.group(1)
+                        market_num = 1
+            if session_id is not None:
+                max_market = max(max_market, market_num)
+                if session_id not in sessions:
+                    sessions[session_id] = {'markets': {}}
+                sessions[session_id]['markets'][market_num] = filename
+            else:
+                ungrouped.append(filename)
+        
+        session_list = []
+        for session_id, data in sorted(sessions.items(), key=lambda x: x[0], reverse=True):
+            session_list.append({'session_id': session_id, 'markets': data['markets']})
+        
+        return {'sessions': session_list, 'max_market': max_market, 'ungrouped': ungrouped}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
 # lets start trading!
-@app.post("/trading/start")
-async def start_trading_market(background_tasks: BackgroundTasks, request: Request):
     # Special handling for Prolific users
     prolific_params = await extract_prolific_params(request)
     if prolific_params:
