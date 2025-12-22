@@ -37,7 +37,7 @@ def setup_trading_logger(market_id: str) -> logging.Logger:
 
     log_dir = "logs"
     os.makedirs(log_dir, exist_ok=True)
-    log_file = os.path.join(log_dir, f"{market_id}_trading.log")
+    log_file = os.path.join(log_dir, f"{market_id}.log")
 
     file_handler = logging.FileHandler(log_file)
     file_handler.setLevel(logging.INFO)

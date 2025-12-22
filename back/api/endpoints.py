@@ -537,7 +537,7 @@ async def get_trader_info(trader_id: str):
         
         # Use internal session/market ID for logging only (don't expose to frontend)
         internal_session_id = market_handler.trader_to_market_lookup.get(trader_id)
-        log_file_path = os.path.join("logs", f"{internal_session_id}_trading.log")
+        log_file_path = os.path.join("logs", f"{internal_session_id}.log")
 
         try:
             # Check if log file exists before processing
@@ -742,7 +742,7 @@ async def get_market_metrics(trader_id: str, market_id: str, current_user: dict 
     if trader_id != f"HUMAN_{current_user['gmail_username']}":
         raise HTTPException(status_code=403, detail="Unauthorized access to trader data")
     
-    log_file_path = f"logs/{market_id}_trading.log"
+    log_file_path = f"logs/{market_id}.log"
     
     try:
         processed_data = process_log_file(log_file_path)
@@ -1113,7 +1113,7 @@ async def test_get_session_info(trader_id: str):
         "data": {
             "session_id": session_id,
             "trader_id": trader_id,
-            "log_file": f"logs/{session_id}_trading.log"
+            "log_file": f"logs/{session_id}.log"
         }
     }
 

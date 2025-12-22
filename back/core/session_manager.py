@@ -18,9 +18,13 @@ from enum import Enum
 from .data_models import TradingParameters, TraderRole
 from .trader_manager import TraderManager
 from .treatment_manager import treatment_manager
+from .parameter_logger import ParameterLogger
 from utils.utils import setup_custom_logger
 
 logger = setup_custom_logger(__name__)
+
+# Shared parameter logger instance
+parameter_logger = ParameterLogger()
 
 
 @dataclass
@@ -266,6 +270,19 @@ class SessionManager:
         
         for user in session_users:
             self.user_sessions[user.username] = market_id  # Update to market_id
+        
+        # Log market start to parameter_history.json for session tracking
+        treatment_info = treatment_manager.get_treatment(market_count)
+        treatment_name = treatment_info.get("name") if treatment_info else None
+        participant_usernames = [user.username for user in session_users]
+        
+        parameter_logger.log_market_start(
+            market_id=market_id,
+            participants=participant_usernames,
+            treatment_name=treatment_name,
+            treatment_index=market_count,
+            parameters=merged_params_dict
+        )
         
         logger.info(f"Successfully created market {market_id} from session {session_id}")
         
@@ -644,7 +661,7 @@ class SessionManager:
         # Create new session for this cohort
         timestamp = int(time.time())
         unique_suffix = str(uuid.uuid4())[:8]
-        session_id = f"COHORT{cohort_id}_SESSION_{timestamp}_{unique_suffix}"
+        session_id = f"MARKET_{timestamp}_{unique_suffix}"
         
         # Determine cohort size from effective market sizes
         effective_sizes = self._get_effective_market_sizes(params)

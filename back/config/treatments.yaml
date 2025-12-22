@@ -1,26 +1,6 @@
 treatments:
-- name: Market 1 - Noise Trader
+- name: Test Market - Quick
   num_noise_traders: 1
   num_informed_traders: 0
   num_spoofing_traders: 0
   num_manipulator_traders: 0
-- name: Market 2 - Informed Trader
-  num_noise_traders: 0
-  num_informed_traders: 1
-  num_spoofing_traders: 0
-  num_manipulator_traders: 0
-- name: Market 3 - Spoofer
-  num_noise_traders: 0
-  num_informed_traders: 0
-  num_spoofing_traders: 1
-  num_manipulator_traders: 0
-- name: Market 4 - Manipulator
-  num_noise_traders: 0
-  num_informed_traders: 0
-  num_spoofing_traders: 0
-  num_manipulator_traders: 1
-- name: Market 5 - All Machine Traders
-  num_noise_traders: 1
-  num_informed_traders: 1
-  num_spoofing_traders: 1
-  num_manipulator_traders: 1

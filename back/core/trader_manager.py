@@ -64,7 +64,7 @@ class TraderManager:
         # Use provided market_id or generate one with timestamp
         if market_id is None:
             current_timestamp = int(time.time())
-            market_id = f"SESSION_{current_timestamp}"
+            market_id = f"MARKET_{current_timestamp}"
         
         self.trading_market = TradingPlatform(
             market_id=market_id,

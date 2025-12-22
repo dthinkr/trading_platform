@@ -62,3 +62,43 @@ class ParameterLogger:
         
         latest_timestamp = max(self.parameter_history.keys())
         return self.parameter_history[latest_timestamp]["parameters"]
+    
+    def log_market_start(self,
+                         market_id: str,
+                         participants: list,
+                         treatment_name: str = None,
+                         treatment_index: int = None,
+                         parameters: Dict[str, Any] = None):
+        """
+        Log when a market starts with its participants and treatment.
+        
+        This allows tracking which participants were in which market,
+        enabling session reconstruction by finding markets with overlapping participants.
+        
+        Args:
+            market_id: Unique market identifier
+            participants: List of participant usernames
+            treatment_name: Name of the treatment applied (from treatments.yaml)
+            treatment_index: Index of the treatment (0-based)
+            parameters: Optional snapshot of parameters used for this market
+        """
+        now = datetime.now()
+        timestamp = now.isoformat()
+        unix_timestamp = int(now.timestamp())
+        
+        entry = {
+            "source": "market_start",
+            "market_id": market_id,
+            "participants": participants,
+            "unix_timestamp": unix_timestamp
+        }
+        
+        if treatment_name:
+            entry["treatment_name"] = treatment_name
+        if treatment_index is not None:
+            entry["treatment_index"] = treatment_index
+        if parameters:
+            entry["parameters"] = parameters
+        
+        self.parameter_history[timestamp] = entry
+        self._save_history()

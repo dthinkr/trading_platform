@@ -8,14 +8,36 @@ if [ "$MODE" = "dev" ]; then
     # stop containers
     docker compose down
     
-    # start only backend with dev env
+    # start backend
     docker compose up -d back
+    
+    # start frontend in background
+    cd front && yarn dev &
+    FRONTEND_PID=$!
+    cd ..
     
     echo ""
     echo "✅ backend running at http://localhost:8000"
-    echo "🎨 start frontend: cd front && npm run dev"
-    echo "📝 view logs: docker compose logs -f back"
+    echo "✅ frontend running at http://localhost:3000"
+    echo "📝 view backend logs: docker compose logs -f back"
+    echo "🛑 stop: docker compose down && kill $FRONTEND_PID"
     
+    # wait for frontend process
+    wait $FRONTEND_PID
+    
+elif [ "$MODE" = "dev_stop" ]; then
+    echo "🛑 stopping LOCAL DEV services..."
+    
+    # Stop docker containers
+    docker compose down
+    
+    # Kill frontend dev server (yarn dev)
+    pkill -f "yarn dev" 2>/dev/null || true
+    pkill -f "vite" 2>/dev/null || true
+    
+    echo "✅ stopped backend (docker)"
+    echo "✅ stopped frontend (yarn dev)"
+
 elif [ "$MODE" = "prod" ]; then
     echo "🚀 starting in PRODUCTION mode..."
     
@@ -104,9 +126,10 @@ elif [ "$MODE" = "deploy" ]; then
     docker compose ps
     
 else
-    echo "usage: sh run.sh [dev|prod|batch|deploy]"
+    echo "usage: sh run.sh [dev|dev_stop|prod|batch|deploy]"
     echo ""
-    echo "  dev              - local development (backend only)"
+    echo "  dev              - local development (backend + frontend)"
+    echo "  dev_stop         - stop dev services"
     echo "  prod             - production with ngrok"
     echo "  batch [N] [SEC] [key=val...]  - run N experiments with custom settings"
     echo "  deploy           - pull latest & restart containers"

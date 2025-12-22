@@ -96,6 +96,19 @@ class TreatmentManager:
         
         return self.treatments[market_index].settings
     
+    def get_treatment(self, market_index: int) -> Optional[Dict[str, Any]]:
+        """Get full treatment info including name for a given market index."""
+        if not self.treatments:
+            return None
+        
+        if market_index < 0:
+            return None
+        
+        if market_index >= len(self.treatments):
+            return self.treatments[-1].to_dict() if self.treatments else None
+        
+        return self.treatments[market_index].to_dict()
+    
     def get_merged_params(self, market_index: int, base_params: Dict[str, Any]) -> Dict[str, Any]:
         treatment = self.get_treatment_for_market(market_index)
         if not treatment:

@@ -32,6 +32,10 @@ services:
       - ./.env:/app/.env:ro
       - ./back/config:/app/config:Z
       - ./back/logs:/app/logs:Z
+      - ./back/core:/app/core:Z
+      - ./back/api:/app/api:Z
+      - ./back/utils:/app/utils:Z
+      - ./back/traders:/app/traders:Z
     ports:
       - "8000:8000"
     environment:
