@@ -1078,6 +1078,8 @@ async def list_files_grouped():
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 # lets start trading!
+@app.post("/trading/start")
+async def start_trading_market(background_tasks: BackgroundTasks, request: Request):
     # Special handling for Prolific users
     prolific_params = await extract_prolific_params(request)
     if prolific_params:
