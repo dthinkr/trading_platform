@@ -17,12 +17,59 @@ from abc import abstractmethod
 from core.data_models import OrderType, TraderType
 from .base_trader import PausingTrader
 from utils.utils import setup_custom_logger
-from utils.logfiles_analysis import calculate_vwap_reward
 
 logger = setup_custom_logger(__name__)
 
 
 ACTION_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "place_order",
+            "description": "Place a limit order for 1 share.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "price": {"type": "integer", "description": "Limit price for the order"},
+                    "side": {"type": "string", "enum": ["buy", "sell"], "description": "Order side (only for speculators)"}
+                },
+                "required": ["price"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "cancel_order",
+            "description": "Cancel an existing order by ID.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "order_id": {"type": "string", "description": "Order ID to cancel"}
+                },
+                "required": ["order_id"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "hold",
+            "description": "Take no action this turn. Use when waiting for better prices.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "reasoning": {"type": "string", "description": "Why you chose to hold"}
+                },
+                "required": ["reasoning"]
+            }
+        }
+    }
+]
+
+
+# Tools for informed traders (no side parameter needed)
+INFORMED_TOOLS = [
     {
         "type": "function",
         "function": {
@@ -56,6 +103,54 @@ ACTION_TOOLS = [
         "function": {
             "name": "hold",
             "description": "Take no action this turn. Use when waiting for better prices.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "reasoning": {"type": "string", "description": "Why you chose to hold"}
+                },
+                "required": ["reasoning"]
+            }
+        }
+    }
+]
+
+
+# Tools for speculators (includes side parameter)
+SPECULATOR_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "place_order",
+            "description": "Place a limit order for 1 share. Specify side as 'buy' or 'sell'.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "price": {"type": "integer", "description": "Limit price for the order"},
+                    "side": {"type": "string", "enum": ["buy", "sell"], "description": "Order side: 'buy' or 'sell'"}
+                },
+                "required": ["price", "side"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "cancel_order",
+            "description": "Cancel an existing order by ID.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "order_id": {"type": "string", "description": "Order ID to cancel"}
+                },
+                "required": ["order_id"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "hold",
+            "description": "Take no action this turn. Use when waiting for better prices or market conditions.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -164,8 +259,39 @@ STRATEGY TIPS:
 You can only place SELL orders for 1 share at a time (the system knows your goal direction)."""
 
         else:
-            return f"""{prefix}You are a trading agent with no specific goal.
-Trade to maximize portfolio value. You can buy or sell."""
+            return f"""{prefix}You are a SPECULATOR trading agent with no specific goal.
+
+YOUR OBJECTIVE: Maximize profit (PnL) by buying low and selling high.
+CONSTRAINT: You can only place 1 share per order.
+
+PnL FORMULA:
+- PnL = (Current_Mid_Price × Net_Shares) - Total_Cost
+- Buy low, sell high to increase PnL
+- Your PnL updates in real-time based on market prices
+
+STRATEGY TIPS:
+- Buy when you expect prices to rise (place BUY orders below best ask)
+- Sell when you expect prices to fall (place SELL orders above best bid)
+- Watch order book imbalance: + means buying pressure (prices may rise)
+- Watch price trend: UP means momentum is bullish
+- Be careful with inventory - don't accumulate too many shares in one direction
+- You must specify 'side' as 'buy' or 'sell' when placing orders
+
+You can place both BUY and SELL orders for 1 share at a time."""
+
+    def get_time_info(self) -> Dict:
+        """Get time information from base trader and params."""
+        elapsed = self.get_elapsed_time()
+        duration_minutes = self.params.get("trading_day_duration", 5)
+        duration_seconds = duration_minutes * 60
+        remaining = max(0, duration_seconds - elapsed)
+        
+        return {
+            "elapsed": elapsed,
+            "remaining": remaining,
+            "duration": duration_seconds,
+            "progress_pct": min(100, (elapsed / duration_seconds) * 100) if duration_seconds > 0 else 0,
+        }
 
     def build_market_state(self, mid_price: float, mode_label: str = "") -> str:
         if not self.order_book:
@@ -204,17 +330,47 @@ Trade to maximize portfolio value. You can buy or sell."""
         vwap = state["vwap"]
         avail_cash = state["avail_cash"]
         avail_shares = state["avail_shares"]
-
-        goal_size = abs(goal)
-        action_type = "BUY" if goal > 0 else ("SELL" if goal < 0 else "ANY")
-        completed = goal_progress
-        remaining = max(0, goal_size - completed)
+        pnl = state.get("pnl", 0)
 
         orders_str = "None"
         if orders:
             orders_str = ", ".join(f"{o['id']}: {o['amount']}@{o['price']}" for o in orders)
 
-        return f"""=== MARKET STATE ===
+        # Build goal/progress section based on whether this is informed or speculator
+        if goal != 0:
+            # Informed trader - show goal progress with estimated reward
+            goal_size = abs(goal)
+            action_type = "BUY" if goal > 0 else "SELL"
+            completed = goal_progress
+            remaining = max(0, goal_size - completed)
+            
+            # Calculate estimated reward (includes penalty for incomplete trades)
+            estimated_reward = self.get_current_reward(mid_price)
+            
+            goal_section = f"""=== GOAL PROGRESS {mode_label} ===
+Goal: {action_type} {goal_size} shares
+Completed: {completed}/{goal_size} ({remaining} remaining)
+Current VWAP: {f'{vwap:.2f}' if vwap > 0 else 'N/A'}
+Estimated Reward: {estimated_reward:.2f} (includes penalty for {remaining} incomplete)"""
+        else:
+            # Speculator - show PnL
+            goal_section = f"""=== PERFORMANCE {mode_label} ===
+Role: SPECULATOR (no goal, maximize PnL)
+Current PnL: {pnl:.2f}
+Net Position: {shares} shares"""
+
+        # Get time info
+        time_info = self.get_time_info()
+        elapsed_min = int(time_info["elapsed"] // 60)
+        elapsed_sec = int(time_info["elapsed"] % 60)
+        remaining_min = int(time_info["remaining"] // 60)
+        remaining_sec = int(time_info["remaining"] % 60)
+        progress_pct = time_info["progress_pct"]
+
+        return f"""=== TIME ===
+Elapsed: {elapsed_min}:{elapsed_sec:02d} | Remaining: {remaining_min}:{remaining_sec:02d} ({progress_pct:.0f}% complete)
+
+=== MARKET STATE ===
 Best Bid: {best_bid} | Best Ask: {best_ask} | Spread: {spread}
 Mid Price: {mid_price:.1f}
 Imbalance: {imbalance:+.2f} (+ = buying pressure)
@@ -224,10 +380,7 @@ Order Book:
   Bids: {[(b['x'], b['y']) for b in bids]}
   Asks: {[(a['x'], a['y']) for a in asks]}
 
-=== GOAL PROGRESS {mode_label} ===
-Goal: {action_type} {goal_size} shares
-Completed: {completed}/{goal_size} ({remaining} remaining)
-Current VWAP: {f'{vwap:.2f}' if vwap > 0 else 'N/A'}
+{goal_section}
 
 === RESOURCES {mode_label} ===
 Cash: {cash:.0f} (available: {avail_cash:.0f})
@@ -243,6 +396,10 @@ Shares: {shares} (available: {avail_shares})
             {"role": "user", "content": f"{market_state}\n\nDecide your action."}
         ]
 
+        # Use appropriate tools based on goal
+        goal = self.get_effective_goal()
+        tools = SPECULATOR_TOOLS if goal == 0 else INFORMED_TOOLS
+
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 resp = await client.post(
@@ -254,7 +411,7 @@ Shares: {shares} (available: {avail_shares})
                     json={
                         "model": self.model,
                         "messages": messages,
-                        "tools": ACTION_TOOLS,
+                        "tools": tools,
                         "tool_choice": "required",
                         "temperature": 0.3,
                         "max_tokens": 300
@@ -386,26 +543,60 @@ class AgenticTrader(AgenticBase):
             "shares": self.shares,
             "orders": self.orders,
             "vwap": self.get_vwap(),  # Use platform's VWAP from base class
+            "pnl": self.get_current_pnl(),  # From base class
             "avail_cash": self.get_available_cash(),
             "avail_shares": self.get_available_shares(),
         }
 
     def is_goal_complete(self) -> bool:
-        return self.goal != 0 and abs(self.goal_progress) >= abs(self.goal)
+        # Speculators never "complete" - they keep trading
+        if self.goal == 0:
+            return False
+        return abs(self.goal_progress) >= abs(self.goal)
 
     def get_current_reward(self, mid_price: float) -> float:
-        """Calculate reward using shared reward calculator."""
-        result = calculate_vwap_reward(
-            goal=self.goal,
-            completed_trades=self.goal_progress,
-            current_vwap=self.get_vwap(),
-            mid_price=mid_price,
-            buy_target_price=self.buy_target_price,
-            sell_target_price=self.sell_target_price,
-            penalty_multiplier_buy=self.penalty_multiplier_buy,
-            penalty_multiplier_sell=self.penalty_multiplier_sell,
-        )
-        return result["reward"]
+        """
+        Calculate estimated reward for agentic trader.
+        Unlike the shared function, this returns raw values (can be negative)
+        so the agent can see the true impact of incomplete goals.
+        """
+        if self.goal == 0:
+            # Speculator: reward is PnL
+            return self.get_current_pnl()
+        
+        # Informed trader: VWAP-based reward with penalty
+        goal_size = abs(self.goal)
+        completed = abs(self.goal_progress)
+        remaining = max(0, goal_size - completed)
+        current_vwap = self.get_vwap()
+        
+        if self.goal > 0:  # Buyer
+            # Penalize incomplete trades at higher price (1.5x mid)
+            if completed > 0:
+                expenditure = current_vwap * completed
+            else:
+                expenditure = 0
+            penalty_cost = remaining * mid_price * self.penalty_multiplier_buy
+            total_expenditure = expenditure + penalty_cost
+            penalized_vwap = total_expenditure / goal_size if goal_size > 0 else 0
+            
+            # Reward formula: (target - penalized_vwap) - can be negative
+            reward = (self.buy_target_price - penalized_vwap)
+            
+        else:  # Seller
+            # Penalize incomplete trades at lower price (0.5x mid)
+            if completed > 0:
+                revenue = current_vwap * completed
+            else:
+                revenue = 0
+            penalty_revenue = remaining * mid_price * self.penalty_multiplier_sell
+            total_revenue = revenue + penalty_revenue
+            penalized_vwap = total_revenue / goal_size if goal_size > 0 else 0
+            
+            # Reward formula: (penalized_vwap - target) - can be negative
+            reward = (penalized_vwap - self.sell_target_price)
+        
+        return reward
 
     async def handle_decision(self, tool_name: str, args: Dict, mid_price: float) -> Dict:
         """Execute the action."""
@@ -429,21 +620,35 @@ class AgenticTrader(AgenticBase):
             qty = 1  # Fixed to 1 share per order
 
             if self.goal > 0:
+                # Informed buyer
                 order_type = OrderType.BID
                 side = "buy"
                 avail = self.get_available_cash()
                 if price * qty > avail:
                     return {"error": f"Insufficient cash. Need {price*qty}, have {avail}"}
             elif self.goal < 0:
+                # Informed seller
                 order_type = OrderType.ASK
                 side = "sell"
                 avail = self.get_available_shares()
                 if qty > avail:
                     return {"error": f"Insufficient shares. Need {qty}, have {avail}"}
             else:
-                mid = self.price_history[-1] if self.price_history else 100
-                order_type = OrderType.BID if price <= mid else OrderType.ASK
-                side = "buy" if price <= mid else "sell"
+                # Speculator - must specify side
+                side = args.get("side", "").lower()
+                if side not in ["buy", "sell"]:
+                    return {"error": "Speculator must specify 'side' as 'buy' or 'sell'"}
+                
+                if side == "buy":
+                    order_type = OrderType.BID
+                    avail = self.get_available_cash()
+                    if price * qty > avail:
+                        return {"error": f"Insufficient cash. Need {price*qty}, have {avail}"}
+                else:
+                    order_type = OrderType.ASK
+                    avail = self.get_available_shares()
+                    if qty > avail:
+                        return {"error": f"Insufficient shares. Need {qty}, have {avail}"}
 
             order_id = await self.post_new_order(qty, price, order_type)
             if order_id:
@@ -468,16 +673,31 @@ class AgenticTrader(AgenticBase):
 
     def get_performance_summary(self) -> Dict[str, Any]:
         mid = self.price_history[-1] if self.price_history else 100
-        return {
-            "goal": self.goal,
-            "goal_progress": self.goal_progress,
-            "goal_complete": self.is_goal_complete(),
-            "vwap": self.get_vwap(),  # Platform's VWAP
-            "reward": self.get_current_reward(mid),
-            "decisions": len(self.decision_log),
-            "cash": self.cash,
-            "shares": self.shares,
-        }
+        
+        if self.goal == 0:
+            # Speculator summary
+            return {
+                "role": "speculator",
+                "goal": 0,
+                "pnl": self.get_current_pnl(),
+                "decisions": len(self.decision_log),
+                "cash": self.cash,
+                "shares": self.shares,
+                "net_position": self.shares - self.initial_shares,
+            }
+        else:
+            # Informed trader summary
+            return {
+                "role": "informed",
+                "goal": self.goal,
+                "goal_progress": self.goal_progress,
+                "goal_complete": self.is_goal_complete(),
+                "vwap": self.get_vwap(),
+                "reward": self.get_current_reward(mid),
+                "decisions": len(self.decision_log),
+                "cash": self.cash,
+                "shares": self.shares,
+            }
 
 
 class AgenticAdvisor(AgenticBase):
@@ -505,7 +725,7 @@ class AgenticAdvisor(AgenticBase):
         if not self.human_trader_ref:
             return {
                 "goal": 0, "goal_progress": 0, "cash": 0, "shares": 0,
-                "orders": [], "vwap": 0, "avail_cash": 0, "avail_shares": 0
+                "orders": [], "vwap": 0, "pnl": 0, "avail_cash": 0, "avail_shares": 0
             }
 
         human = self.human_trader_ref
@@ -515,6 +735,7 @@ class AgenticAdvisor(AgenticBase):
         shares = getattr(human, 'shares', 0)
         orders = getattr(human, 'orders', [])
         vwap = getattr(human, 'get_vwap', lambda: 0)()
+        pnl = getattr(human, 'get_current_pnl', lambda: 0)()
 
         # Calculate available resources
         avail_cash = cash
@@ -532,6 +753,7 @@ class AgenticAdvisor(AgenticBase):
             "shares": shares,
             "orders": orders,
             "vwap": vwap,
+            "pnl": pnl,
             "avail_cash": avail_cash,
             "avail_shares": avail_shares,
         }
@@ -542,6 +764,45 @@ class AgenticAdvisor(AgenticBase):
         goal = getattr(self.human_trader_ref, 'goal', 0) or 0
         progress = getattr(self.human_trader_ref, 'goal_progress', 0)
         return goal != 0 and progress >= abs(goal)
+
+    def get_current_reward(self, mid_price: float) -> float:
+        """Calculate reward for the human - VWAP for informed, PnL for speculators."""
+        if not self.human_trader_ref:
+            return 0
+        
+        goal = self.get_effective_goal()
+        
+        if goal == 0:
+            # Speculator: reward is PnL
+            return getattr(self.human_trader_ref, 'get_current_pnl', lambda: 0)()
+        
+        # Informed trader: VWAP-based reward with penalty (raw value, can be negative)
+        state = self.get_effective_state()
+        goal_size = abs(goal)
+        completed = abs(state["goal_progress"])
+        remaining = max(0, goal_size - completed)
+        current_vwap = state["vwap"]
+        
+        if goal > 0:  # Buyer
+            if completed > 0:
+                expenditure = current_vwap * completed
+            else:
+                expenditure = 0
+            penalty_cost = remaining * mid_price * self.penalty_multiplier_buy
+            total_expenditure = expenditure + penalty_cost
+            penalized_vwap = total_expenditure / goal_size if goal_size > 0 else 0
+            reward = (self.buy_target_price - penalized_vwap)
+        else:  # Seller
+            if completed > 0:
+                revenue = current_vwap * completed
+            else:
+                revenue = 0
+            penalty_revenue = remaining * mid_price * self.penalty_multiplier_sell
+            total_revenue = revenue + penalty_revenue
+            penalized_vwap = total_revenue / goal_size if goal_size > 0 else 0
+            reward = (penalized_vwap - self.sell_target_price)
+        
+        return reward
 
     def _get_mode_label(self) -> str:
         return "(HUMAN'S STATE)"

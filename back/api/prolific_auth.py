@@ -83,7 +83,6 @@ def load_credentials() -> Dict[str, str]:
     
     # If we have in-memory credentials, use those exclusively
     if credentials:
-        print(f"Using {len(credentials)} credential pairs from in-memory storage")
         return credentials
     
     # Otherwise, fall back to loading from .env file (for backward compatibility)
@@ -112,12 +111,9 @@ def load_credentials() -> Dict[str, str]:
                         if len(parts) == 2:
                             username, password = parts
                             credentials[username.strip()] = password.strip()
-                            print(f"Loaded credential: {username.strip()}")
     except Exception as e:
         print(f"Error loading credentials: {str(e)}")
     
-    # Log the available credentials for debugging
-    print(f"Loaded {len(credentials)} credential pairs for Prolific users")
     return credentials
 
 def validate_prolific_user(prolific_params: Dict[str, str], username: str = None, password: str = None) -> Tuple[bool, Dict]:

@@ -204,23 +204,31 @@ const {
   cash,
   sum_dinv,
   activeOrders,
+  gameParams,
 } = storeToRefs(store)
 
-const columns = [
-  [
-    { title: 'AI Advisor', component: AIAdvisor },
+const isAgenticAdvisorEnabled = computed(() => {
+  return store.gameParams?.agentic_advisor_enabled ?? false
+})
+
+const columns = computed(() => {
+  const col1 = [
+    ...(isAgenticAdvisorEnabled.value ? [{ title: 'AI Advisor', component: AIAdvisor }] : []),
     { title: 'Trades History', component: OrderHistory },
     { title: 'Market Info', component: MarketMessages },
-  ],
-  [
-    { title: 'Buy-Sell Chart', component: BidAskDistribution },
-    { title: 'Passive Orders', component: ActiveOrders },
-  ],
-  [
-    { title: 'Price History', component: PriceHistory },
-    { title: 'Trading Panel', component: PlaceOrder },
-  ],
-]
+  ]
+  return [
+    col1,
+    [
+      { title: 'Buy-Sell Chart', component: BidAskDistribution },
+      { title: 'Passive Orders', component: ActiveOrders },
+    ],
+    [
+      { title: 'Price History', component: PriceHistory },
+      { title: 'Trading Panel', component: PlaceOrder },
+    ],
+  ]
+})
 
 const formatDelta = computed(() => {
   if (sum_dinv.value == undefined) return ''

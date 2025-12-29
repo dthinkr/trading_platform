@@ -161,6 +161,8 @@ class TraderManager:
         if not isinstance(agentic_goals, list):
             agentic_goals = [agentic_goals]
         
+        api_key = os.getenv("OPENROUTER_API_KEY")
+        
         traders = []
         for i in range(n_agentic_traders):
             # Cycle through goals if fewer goals than traders
@@ -168,7 +170,7 @@ class TraderManager:
             
             agentic_params = {
                 **params,
-                "openrouter_api_key": os.getenv("OPENROUTER_API_KEY"),
+                "openrouter_api_key": api_key,
                 "agentic_model": params.get("agentic_model", "anthropic/claude-haiku-4.5"),
                 "decision_interval": params.get("agentic_decision_interval", 5.0),
                 "goal": goal,
@@ -179,12 +181,11 @@ class TraderManager:
                 "sell_target_price": params.get("agentic_sell_target_price", 90),
             }
             
-            traders.append(
-                AgenticTrader(
-                    id=f"AGENTIC_{i+1}",
-                    params=agentic_params,
-                )
+            trader = AgenticTrader(
+                id=f"AGENTIC_{i+1}",
+                params=agentic_params,
             )
+            traders.append(trader)
         
         return traders
 

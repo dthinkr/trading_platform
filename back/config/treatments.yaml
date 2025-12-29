@@ -1,25 +1,32 @@
 treatments:
-- name: Treatment A - Noise Only
+- name: Treatment A - With Agentic
   num_noise_traders: 1
-  num_agentic_traders: 0
-
+  num_agentic_traders: 1
+  num_manipulator_traders: 0
+  agentic_model: anthropic/claude-haiku-4.5
+  agentic_goals:
+  - 20
+  agentic_decision_interval: 2
+  trading_day_duration: 1
 - name: Treatment B - Agentic Buyer
   num_noise_traders: 1
   num_agentic_traders: 1
-  agentic_model: "anthropic/claude-haiku-4.5"
-  agentic_goals: [20]  # Buy 20 shares
+  agentic_model: anthropic/claude-haiku-4.5
+  agentic_goals:
+  - 20
   agentic_decision_interval: 5
-
 - name: Treatment C - Agentic Seller
   num_noise_traders: 1
   num_agentic_traders: 1
-  agentic_model: "anthropic/claude-haiku-4.5"
-  agentic_goals: [-20]  # Sell 20 shares
+  agentic_model: anthropic/claude-haiku-4.5
+  agentic_goals:
+  - -20
   agentic_decision_interval: 5
-
 - name: Treatment D - Multiple Agentic Traders
   num_noise_traders: 1
   num_agentic_traders: 2
-  agentic_model: "anthropic/claude-haiku-4.5"
-  agentic_goals: [20, -20]  # One buyer, one seller
+  agentic_model: anthropic/claude-haiku-4.5
+  agentic_goals:
+  - 20
+  - -20
   agentic_decision_interval: 5
