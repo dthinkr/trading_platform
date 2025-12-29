@@ -47,6 +47,8 @@ class TraderType(str, Enum):
     SIMPLE_ORDER = "SIMPLE_ORDER"
     SPOOFING = "SPOOFING"
     MANIPULATOR = "MANIPULATOR"
+    LLM_ADVISOR = "LLM_ADVISOR"  # Deprecated, use AGENTIC
+    AGENTIC = "AGENTIC"
 
 
 class ThrottleConfig(BaseModel):
@@ -301,6 +303,87 @@ class TradingParameters(BaseModel):
         description="manipulator_parameter",
     )
 
+    # Agentic trader settings
+    num_agentic_traders: int = Field(
+        default=1,
+        title="Number of Agentic Traders",
+        description="model_parameter",
+        ge=0,
+    )
+    agentic_model: str = Field(
+        default="anthropic/claude-haiku-4.5",
+        title="Agentic Model",
+        description="agentic_parameter",
+    )
+    agentic_decision_interval: float = Field(
+        default=5.0,
+        title="Agentic Decision Interval (seconds)",
+        description="agentic_parameter",
+        gt=0,
+    )
+    agentic_goals: List[int] = Field(
+        default=[20],
+        title="Agentic Trader Goals",
+        description="agentic_parameter",
+    )
+    agentic_buy_target_price: int = Field(
+        default=110,
+        title="Agentic Buy Target Price",
+        description="agentic_parameter",
+    )
+    agentic_sell_target_price: int = Field(
+        default=90,
+        title="Agentic Sell Target Price",
+        description="agentic_parameter",
+    )
+    agentic_advisor_for_humans: List[str] = Field(
+        default=[],
+        title="Human Trader IDs to Advise (1:1 mapping)",
+        description="agentic_parameter",
+    )
+    agentic_advisor_enabled: bool = Field(
+        default=True,
+        title="Enable Agentic Advisors for All Humans",
+        description="agentic_parameter",
+    )
+
+    # Legacy LLM trader settings (deprecated, use agentic)
+    num_llm_traders: int = Field(
+        default=0,
+        title="Number of LLM Advisor Traders (deprecated)",
+        description="model_parameter",
+        ge=0,
+    )
+    llm_model: str = Field(
+        default="anthropic/claude-haiku-4.5",
+        title="LLM Model (deprecated)",
+        description="llm_parameter",
+    )
+    llm_autonomous_mode: bool = Field(
+        default=True,
+        title="LLM Autonomous Mode (deprecated)",
+        description="llm_parameter",
+    )
+    llm_decision_interval: float = Field(
+        default=5.0,
+        title="LLM Decision Interval (deprecated)",
+        description="llm_parameter",
+        gt=0,
+    )
+    llm_risk_limit: float = Field(
+        default=0.1,
+        title="LLM Risk Limit (deprecated)",
+        description="llm_parameter",
+        gt=0,
+        le=1,
+    )
+    llm_max_position: int = Field(
+        default=50,
+        title="LLM Max Position (deprecated)",
+        description="llm_parameter",
+        gt=0,
+    )
+
     throttle_settings: Dict[TraderType, ThrottleConfig] = Field(
         default_factory=lambda: {
             TraderType.HUMAN: ThrottleConfig(order_throttle_ms=100, max_orders_per_window=1),
@@ -310,6 +393,8 @@ class TradingParameters(BaseModel):
             TraderType.INITIAL_ORDER_BOOK: ThrottleConfig(),
             TraderType.SIMPLE_ORDER: ThrottleConfig(),
             TraderType.SPOOFING: ThrottleConfig(),
+            TraderType.LLM_ADVISOR: ThrottleConfig(),
+            TraderType.AGENTIC: ThrottleConfig(),
         },
         title="Throttle Settings Per Trader Type",
         description="model_parameter"

@@ -36,6 +36,9 @@ services:
       - ./back/api:/app/api:Z
       - ./back/utils:/app/utils:Z
       - ./back/traders:/app/traders:Z
+      - ./back/tests:/app/tests:Z
+      - ./back/pyproject.toml:/app/pyproject.toml:ro
+      - ./back/uv.lock:/app/uv.lock:ro
     ports:
       - "8000:8000"
     environment:
@@ -49,6 +52,8 @@ services:
       - FIREBASE_APP_ID=${FIREBASE_APP_ID}
       - FIREBASE_MEASUREMENT_ID=${FIREBASE_MEASUREMENT_ID}
       - GOOGLE_APPLICATION_CREDENTIALS=/app/config/auth/firebase-service-account.json
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+    command: sh -c "uv sync && uv run uvicorn api.endpoints:app --host 0.0.0.0 --port 8000 --root-path $${ROOT_PATH:-/api} --reload"
 
     networks:
       - app-network

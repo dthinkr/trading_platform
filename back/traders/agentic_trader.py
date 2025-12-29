@@ -1,0 +1,608 @@
+"""
+Agentic Trading System - Goal-based trading with VWAP optimization.
+
+Classes:
+- AgenticBase: Shared LLM logic (prompts, API calls, market state)
+- AgenticTrader: Autonomous trader that executes orders
+- AgenticAdvisor: Advisor that helps humans without executing
+"""
+import asyncio
+import os
+import json
+import httpx
+from typing import Dict, Any, List
+from datetime import datetime
+from abc import abstractmethod
+
+from core.data_models import OrderType, TraderType
+from .base_trader import PausingTrader
+from utils.utils import setup_custom_logger
+from utils.logfiles_analysis import calculate_vwap_reward
+
+logger = setup_custom_logger(__name__)
+
+
+ACTION_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "place_order",
+            "description": "Place a limit order for 1 share.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "price": {"type": "integer", "description": "Limit price for the order"}
+                },
+                "required": ["price"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "cancel_order",
+            "description": "Cancel an existing order by ID.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "order_id": {"type": "string", "description": "Order ID to cancel"}
+                },
+                "required": ["order_id"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "hold",
+            "description": "Take no action this turn. Use when waiting for better prices.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "reasoning": {"type": "string", "description": "Why you chose to hold"}
+                },
+                "required": ["reasoning"]
+            }
+        }
+    }
+]
+
+
+class AgenticBase(PausingTrader):
+    """Base class for agentic traders/advisors with shared LLM logic."""
+
+    def __init__(self, trader_type: TraderType, id: str, params: dict):
+        super().__init__(trader_type=trader_type, id=id)
+        self.params = params
+
+        # LLM config
+        self.api_key = params.get("openrouter_api_key") or os.getenv("OPENROUTER_API_KEY")
+        self.model = params.get("agentic_model", "anthropic/claude-haiku-4.5")
+        self.base_url = "https://openrouter.ai/api/v1"
+
+        # Decision timing
+        self.decision_interval = params.get("decision_interval", 10)
+        self.last_decision_time = 0
+
+        # Reward formula parameters
+        self.buy_target_price = params.get("buy_target_price", 110)
+        self.sell_target_price = params.get("sell_target_price", 90)
+        self.penalty_multiplier_buy = params.get("penalty_multiplier_buy", 1.5)
+        self.penalty_multiplier_sell = params.get("penalty_multiplier_sell", 0.5)
+
+        # Tracking
+        self.decision_log: List[Dict] = []
+        self.price_history: List[float] = []
+        self.initial_mid_price: float = None
+
+    async def initialize(self):
+        await super().initialize()
+        if not self.api_key:
+            logger.warning(f"[{self.id}] No OpenRouter API key configured.")
+
+    @abstractmethod
+    def get_effective_goal(self) -> int:
+        """Get the goal to optimize for."""
+        pass
+
+    @abstractmethod
+    def get_effective_state(self) -> Dict:
+        """Get the state (goal, progress, cash, shares, orders) to use in prompts."""
+        pass
+
+    @abstractmethod
+    def is_goal_complete(self) -> bool:
+        """Check if the goal is complete."""
+        pass
+
+    @abstractmethod
+    async def handle_decision(self, tool_name: str, args: Dict, mid_price: float) -> Dict:
+        """Handle the LLM's decision (execute or advise)."""
+        pass
+
+    def build_system_prompt(self, is_advisor: bool = False) -> str:
+        goal = self.get_effective_goal()
+        
+        prefix = "You are an AI ADVISOR helping a human trader. Suggest actions they should take.\n\n" if is_advisor else ""
+        
+        if goal > 0:
+            return f"""{prefix}You are a trading agent with a BUYING goal.
+
+YOUR OBJECTIVE: Buy {abs(goal)} shares at the lowest average price (VWAP).
+CONSTRAINT: You can only place 1 share per order.
+
+REWARD FORMULA:
+- Reward = ({self.buy_target_price} - Your_VWAP) × 10
+- VWAP = Total_Spent / Shares_Bought
+- WARNING: Incomplete trades are penalized at {self.penalty_multiplier_buy}× mid price
+
+STRATEGY TIPS:
+- Place BUY orders at or below the best ask to get filled
+- Lower buy prices = better VWAP = higher reward
+- But don't wait too long - incomplete goal is heavily penalized
+- Balance between getting good prices and completing your goal
+
+You can only place BUY orders for 1 share at a time (the system knows your goal direction)."""
+
+        elif goal < 0:
+            return f"""{prefix}You are a trading agent with a SELLING goal.
+
+YOUR OBJECTIVE: Sell {abs(goal)} shares at the highest average price (VWAP).
+CONSTRAINT: You can only place 1 share per order.
+
+REWARD FORMULA:
+- Reward = (Your_VWAP - {self.sell_target_price}) × 10
+- VWAP = Total_Received / Shares_Sold
+- WARNING: Incomplete trades are penalized at {self.penalty_multiplier_sell}× mid price
+
+STRATEGY TIPS:
+- Place SELL orders at or above the best bid to get filled
+- Higher sell prices = better VWAP = higher reward
+- But don't wait too long - incomplete goal is heavily penalized
+- Balance between getting good prices and completing your goal
+
+You can only place SELL orders for 1 share at a time (the system knows your goal direction)."""
+
+        else:
+            return f"""{prefix}You are a trading agent with no specific goal.
+Trade to maximize portfolio value. You can buy or sell."""
+
+    def build_market_state(self, mid_price: float, mode_label: str = "") -> str:
+        if not self.order_book:
+            return "Market data not available."
+
+        bids = self.order_book.get("bids", [])[:5]
+        asks = self.order_book.get("asks", [])[:5]
+
+        best_bid = bids[0]["x"] if bids else None
+        best_ask = asks[0]["x"] if asks else None
+        spread = (best_ask - best_bid) if (best_bid and best_ask) else None
+
+        bid_vol = sum(l["y"] for l in bids)
+        ask_vol = sum(l["y"] for l in asks)
+        total = bid_vol + ask_vol
+        imbalance = (bid_vol - ask_vol) / total if total > 0 else 0
+
+        trend = "unknown"
+        if len(self.price_history) >= 5:
+            recent = sum(self.price_history[-5:]) / 5
+            older = sum(self.price_history[-10:-5]) / 5 if len(self.price_history) >= 10 else recent
+            if recent > older * 1.01:
+                trend = "UP ↑"
+            elif recent < older * 0.99:
+                trend = "DOWN ↓"
+            else:
+                trend = "FLAT →"
+
+        # Get effective state
+        state = self.get_effective_state()
+        goal = state["goal"]
+        goal_progress = state["goal_progress"]
+        cash = state["cash"]
+        shares = state["shares"]
+        orders = state["orders"]
+        vwap = state["vwap"]
+        avail_cash = state["avail_cash"]
+        avail_shares = state["avail_shares"]
+
+        goal_size = abs(goal)
+        action_type = "BUY" if goal > 0 else ("SELL" if goal < 0 else "ANY")
+        completed = goal_progress
+        remaining = max(0, goal_size - completed)
+
+        orders_str = "None"
+        if orders:
+            orders_str = ", ".join(f"{o['id']}: {o['amount']}@{o['price']}" for o in orders)
+
+        return f"""=== MARKET STATE ===
+Best Bid: {best_bid} | Best Ask: {best_ask} | Spread: {spread}
+Mid Price: {mid_price:.1f}
+Imbalance: {imbalance:+.2f} (+ = buying pressure)
+Trend: {trend}
+
+Order Book:
+  Bids: {[(b['x'], b['y']) for b in bids]}
+  Asks: {[(a['x'], a['y']) for a in asks]}
+
+=== GOAL PROGRESS {mode_label} ===
+Goal: {action_type} {goal_size} shares
+Completed: {completed}/{goal_size} ({remaining} remaining)
+Current VWAP: {f'{vwap:.2f}' if vwap > 0 else 'N/A'}
+
+=== RESOURCES {mode_label} ===
+Cash: {cash:.0f} (available: {avail_cash:.0f})
+Shares: {shares} (available: {avail_shares})
+
+=== ACTIVE ORDERS {mode_label} ===
+{orders_str}"""
+
+    async def call_llm(self, system_prompt: str, market_state: str) -> Dict:
+        """Make LLM API call and return parsed tool call."""
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"{market_state}\n\nDecide your action."}
+        ]
+
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.post(
+                    f"{self.base_url}/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": self.model,
+                        "messages": messages,
+                        "tools": ACTION_TOOLS,
+                        "tool_choice": "required",
+                        "temperature": 0.3,
+                        "max_tokens": 300
+                    }
+                )
+
+                if resp.status_code != 200:
+                    logger.error(f"[{self.id}] API error: {resp.status_code}")
+                    return {"error": f"API {resp.status_code}"}
+
+                data = resp.json()
+                if "error" in data:
+                    return {"error": data["error"]}
+
+                msg = data["choices"][0]["message"]
+                tool_calls = msg.get("tool_calls", [])
+
+                if not tool_calls:
+                    return {"tool_name": "hold", "args": {"reasoning": "No tool call"}}
+
+                tc = tool_calls[0]
+                tool_name = tc["function"]["name"]
+                try:
+                    args = json.loads(tc["function"].get("arguments", "{}"))
+                except json.JSONDecodeError:
+                    args = {}
+
+                return {"tool_name": tool_name, "args": args}
+
+        except Exception as e:
+            logger.error(f"[{self.id}] LLM call error: {e}")
+            return {"error": str(e)}
+
+    async def make_decision(self) -> Dict:
+        if not self.api_key:
+            return {"error": "No API key"}
+
+        bids = self.order_book.get("bids", [])
+        asks = self.order_book.get("asks", [])
+        if not bids or not asks:
+            return {"error": "No market data"}
+
+        mid_price = (bids[0]["x"] + asks[0]["x"]) / 2
+
+        if self.initial_mid_price is None:
+            self.initial_mid_price = mid_price
+
+        system_prompt = self.build_system_prompt(is_advisor=isinstance(self, AgenticAdvisor))
+        market_state = self.build_market_state(mid_price, mode_label=self._get_mode_label())
+
+        llm_result = await self.call_llm(system_prompt, market_state)
+        
+        if "error" in llm_result:
+            return llm_result
+
+        tool_name = llm_result["tool_name"]
+        args = llm_result["args"]
+
+        return await self.handle_decision(tool_name, args, mid_price)
+
+    def _get_mode_label(self) -> str:
+        return ""
+
+    async def on_book_updated(self, data: Dict[str, Any]):
+        await super().on_book_updated(data)
+        if self.order_book:
+            bids = self.order_book.get("bids", [])
+            asks = self.order_book.get("asks", [])
+            if bids and asks:
+                mid = (bids[0]["x"] + asks[0]["x"]) / 2
+                self.price_history.append(mid)
+                if len(self.price_history) > 100:
+                    self.price_history = self.price_history[-100:]
+
+    async def act(self) -> None:
+        if not self.order_book:
+            return
+
+        if self.is_goal_complete():
+            return
+
+        now = asyncio.get_event_loop().time()
+        if now - self.last_decision_time < self.decision_interval:
+            return
+
+        self.last_decision_time = now
+        await self.make_decision()
+
+    async def run(self) -> None:
+        while not self._stop_requested.is_set():
+            try:
+                await self.maybe_sleep()
+                await self.act()
+                await asyncio.sleep(1)
+            except asyncio.CancelledError:
+                await self.clean_up()
+                raise
+            except Exception as e:
+                logger.error(f"[{self.id}] Run error: {e}")
+                await asyncio.sleep(5)
+
+    async def post_processing_server_message(self, json_message: Dict[str, Any]):
+        pass
+
+
+class AgenticTrader(AgenticBase):
+    """Autonomous trader that executes orders based on LLM decisions."""
+
+    def __init__(self, id: str, params: dict):
+        super().__init__(trader_type=TraderType.AGENTIC, id=id, params=params)
+
+        # Goal: positive = buy, negative = sell
+        self.goal = params.get("goal", 0)
+
+        # Resources
+        self.cash = params.get("initial_cash", 10000)
+        self.shares = params.get("initial_shares", 0)
+        self.initial_cash = self.cash
+        self.initial_shares = self.shares
+
+    def get_effective_goal(self) -> int:
+        return self.goal
+
+    def get_effective_state(self) -> Dict:
+        return {
+            "goal": self.goal,
+            "goal_progress": self.goal_progress,  # From base class
+            "cash": self.cash,
+            "shares": self.shares,
+            "orders": self.orders,
+            "vwap": self.get_vwap(),  # Use platform's VWAP from base class
+            "avail_cash": self.get_available_cash(),
+            "avail_shares": self.get_available_shares(),
+        }
+
+    def is_goal_complete(self) -> bool:
+        return self.goal != 0 and abs(self.goal_progress) >= abs(self.goal)
+
+    def get_current_reward(self, mid_price: float) -> float:
+        """Calculate reward using shared reward calculator."""
+        result = calculate_vwap_reward(
+            goal=self.goal,
+            completed_trades=self.goal_progress,
+            current_vwap=self.get_vwap(),
+            mid_price=mid_price,
+            buy_target_price=self.buy_target_price,
+            sell_target_price=self.sell_target_price,
+            penalty_multiplier_buy=self.penalty_multiplier_buy,
+            penalty_multiplier_sell=self.penalty_multiplier_sell,
+        )
+        return result["reward"]
+
+    async def handle_decision(self, tool_name: str, args: Dict, mid_price: float) -> Dict:
+        """Execute the action."""
+        result = await self.execute_action(tool_name, args)
+
+        decision = {
+            "timestamp": datetime.now().isoformat(),
+            "action": tool_name,
+            "args": args,
+            "result": result,
+            "goal_progress": self.goal_progress,
+            "current_vwap": self.get_vwap(),  # Platform's VWAP
+            "current_reward": self.get_current_reward(mid_price)
+        }
+        self.decision_log.append(decision)
+        return decision
+
+    async def execute_action(self, tool_name: str, args: Dict) -> Dict:
+        if tool_name == "place_order":
+            price = args.get("price", 0)
+            qty = 1  # Fixed to 1 share per order
+
+            if self.goal > 0:
+                order_type = OrderType.BID
+                side = "buy"
+                avail = self.get_available_cash()
+                if price * qty > avail:
+                    return {"error": f"Insufficient cash. Need {price*qty}, have {avail}"}
+            elif self.goal < 0:
+                order_type = OrderType.ASK
+                side = "sell"
+                avail = self.get_available_shares()
+                if qty > avail:
+                    return {"error": f"Insufficient shares. Need {qty}, have {avail}"}
+            else:
+                mid = self.price_history[-1] if self.price_history else 100
+                order_type = OrderType.BID if price <= mid else OrderType.ASK
+                side = "buy" if price <= mid else "sell"
+
+            order_id = await self.post_new_order(qty, price, order_type)
+            if order_id:
+                logger.info(f"[{self.id}] Placed {side} {qty}@{price}, id={order_id}")
+                return {"success": True, "order_id": order_id, "side": side}
+            return {"error": "Order failed"}
+
+        elif tool_name == "cancel_order":
+            order_id = args.get("order_id", "")
+            success = await self.send_cancel_order_request(order_id)
+            if success:
+                logger.info(f"[{self.id}] Cancelled {order_id}")
+                return {"success": True}
+            return {"error": f"Cancel failed for {order_id}"}
+
+        elif tool_name == "hold":
+            reason = args.get("reasoning", "")[:50]
+            logger.info(f"[{self.id}] Hold: {reason}")
+            return {"success": True, "action": "hold"}
+
+        return {"error": f"Unknown action: {tool_name}"}
+
+    def get_performance_summary(self) -> Dict[str, Any]:
+        mid = self.price_history[-1] if self.price_history else 100
+        return {
+            "goal": self.goal,
+            "goal_progress": self.goal_progress,
+            "goal_complete": self.is_goal_complete(),
+            "vwap": self.get_vwap(),  # Platform's VWAP
+            "reward": self.get_current_reward(mid),
+            "decisions": len(self.decision_log),
+            "cash": self.cash,
+            "shares": self.shares,
+        }
+
+
+class AgenticAdvisor(AgenticBase):
+    """Advisor that helps humans without executing trades."""
+
+    def __init__(self, id: str, params: dict):
+        super().__init__(trader_type=TraderType.AGENTIC, id=id, params=params)
+
+        # Human reference (set by trader_manager when human joins)
+        self.human_trader_ref = None
+        self.advice_for_human_id = params.get("advice_for_human_id", None)
+        self.current_advice: Dict = None
+
+    def set_human_trader_ref(self, human_trader):
+        """Link this advisor to a human trader."""
+        self.human_trader_ref = human_trader
+        logger.info(f"[{self.id}] Linked to human trader: {human_trader.id}")
+
+    def get_effective_goal(self) -> int:
+        if self.human_trader_ref:
+            return getattr(self.human_trader_ref, 'goal', 0) or 0
+        return 0
+
+    def get_effective_state(self) -> Dict:
+        if not self.human_trader_ref:
+            return {
+                "goal": 0, "goal_progress": 0, "cash": 0, "shares": 0,
+                "orders": [], "vwap": 0, "avail_cash": 0, "avail_shares": 0
+            }
+
+        human = self.human_trader_ref
+        goal = getattr(human, 'goal', 0) or 0
+        goal_progress = getattr(human, 'goal_progress', 0)
+        cash = getattr(human, 'cash', 0)
+        shares = getattr(human, 'shares', 0)
+        orders = getattr(human, 'orders', [])
+        vwap = getattr(human, 'get_vwap', lambda: 0)()
+
+        # Calculate available resources
+        avail_cash = cash
+        avail_shares = shares
+        for o in orders:
+            if o.get('order_type') == 1:  # BID
+                avail_cash -= o.get('price', 0) * o.get('amount', 0)
+            else:  # ASK
+                avail_shares -= o.get('amount', 0)
+
+        return {
+            "goal": goal,
+            "goal_progress": goal_progress,
+            "cash": cash,
+            "shares": shares,
+            "orders": orders,
+            "vwap": vwap,
+            "avail_cash": avail_cash,
+            "avail_shares": avail_shares,
+        }
+
+    def is_goal_complete(self) -> bool:
+        if not self.human_trader_ref:
+            return False
+        goal = getattr(self.human_trader_ref, 'goal', 0) or 0
+        progress = getattr(self.human_trader_ref, 'goal_progress', 0)
+        return goal != 0 and progress >= abs(goal)
+
+    def _get_mode_label(self) -> str:
+        return "(HUMAN'S STATE)"
+
+    async def handle_decision(self, tool_name: str, args: Dict, mid_price: float) -> Dict:
+        """Store and broadcast advice (don't execute)."""
+        advice = {
+            "timestamp": datetime.now().isoformat(),
+            "action": tool_name,
+            "args": args,
+            "mid_price": mid_price,
+            "reasoning": args.get("reasoning", ""),
+        }
+        self.current_advice = advice
+        await self.broadcast_advice_to_human(advice)
+
+        decision = {
+            "timestamp": advice["timestamp"],
+            "action": tool_name,
+            "args": args,
+            "result": {"advisor_mode": True, "advice_sent": True},
+        }
+        self.decision_log.append(decision)
+        return decision
+
+    async def broadcast_advice_to_human(self, advice: Dict):
+        """Send advice to the human trader's frontend via websocket."""
+        if not self.human_trader_ref:
+            logger.warning(f"[{self.id}] No human trader reference for advice broadcast")
+            return
+
+        websocket = getattr(self.human_trader_ref, 'websocket', None)
+        if not websocket:
+            logger.warning(f"[{self.id}] Human trader has no websocket connection")
+            return
+
+        try:
+            advice_message = {
+                "type": "AI_ADVICE",
+                "advisor_id": self.id,
+                "advice": {
+                    "action": advice["action"],
+                    "price": advice["args"].get("price"),
+                    "quantity": advice["args"].get("quantity", 1),
+                    "order_id": advice["args"].get("order_id"),
+                    "reasoning": advice.get("reasoning", ""),
+                    "mid_price": advice.get("mid_price"),
+                    "timestamp": advice["timestamp"],
+                }
+            }
+
+            await websocket.send_json(advice_message)
+            logger.info(f"[{self.id}] Sent advice to {self.advice_for_human_id}: {advice['action']}")
+
+        except Exception as e:
+            logger.error(f"[{self.id}] Failed to broadcast advice: {e}")
+
+    def get_performance_summary(self) -> Dict[str, Any]:
+        return {
+            "advisor_for": self.advice_for_human_id,
+            "decisions": len(self.decision_log),
+            "current_advice": self.current_advice,
+            "human_linked": self.human_trader_ref is not None,
+        }

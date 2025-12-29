@@ -159,6 +159,7 @@ import PlaceOrder from '@trading/PlaceOrder.vue'
 import OrderHistory from '@trading/OrderHistory.vue'
 import ActiveOrders from '@trading/ActiveOrders.vue'
 import MarketMessages from '@trading/MarketMessages.vue'
+import AIAdvisor from '@trading/AIAdvisor.vue'
 
 import { computed, watch, ref, nextTick, onMounted, onUnmounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
@@ -184,6 +185,7 @@ import {
   List,
   LineChart,
   Calculator,
+  Bot,
 } from 'lucide-vue-next'
 
 const { formatNumber } = useFormatNumber()
@@ -206,6 +208,7 @@ const {
 
 const columns = [
   [
+    { title: 'AI Advisor', component: AIAdvisor },
     { title: 'Trades History', component: OrderHistory },
     { title: 'Market Info', component: MarketMessages },
   ],
@@ -345,6 +348,8 @@ watch(isGoalAchieved, (newValue) => {
 // Add this function to get icons for each tool
 const getToolIconComponent = (toolTitle) => {
   switch (toolTitle) {
+    case 'AI Advisor':
+      return Bot
     case 'Trades History':
       return History
     case 'Market Info':

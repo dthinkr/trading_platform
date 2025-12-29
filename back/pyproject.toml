@@ -6,6 +6,7 @@ dependencies = [
     "fastapi<0.116.0",
     "firebase-admin",
     "google-api-python-client",
+    "httpx",
     "matplotlib",
     "numpy",
     "pandas",

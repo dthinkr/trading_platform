@@ -4,6 +4,8 @@
 Created on Wed Sep 18 11:33:57 2024
 
 @author: marioljonuzaj
+
+Log file analysis and reward calculation utilities for trading platform.
 """
 
 import pandas as pd
@@ -11,6 +13,90 @@ import numpy as np
 import random
 import json
 from datetime import datetime
+from typing import Optional
+
+
+def calculate_vwap_reward(
+    goal: int,
+    completed_trades: int,
+    current_vwap: float,
+    mid_price: float,
+    buy_target_price: float = 110,
+    sell_target_price: float = 90,
+    penalty_multiplier_buy: float = 1.5,
+    penalty_multiplier_sell: float = 0.5,
+) -> dict:
+    """
+    Calculate reward based on VWAP performance with penalty for incomplete goals.
+    
+    Used by:
+    - AgenticTrader (real-time reward calculation)
+    - calculate_trader_specific_metrics (post-hoc analysis)
+    
+    Args:
+        goal: Trading goal (positive = buy, negative = sell)
+        completed_trades: Number of trades completed toward goal
+        current_vwap: Current volume-weighted average price
+        mid_price: Current mid price (used for penalty calculation)
+        buy_target_price: Target price for buyers (default 110)
+        sell_target_price: Target price for sellers (default 90)
+        penalty_multiplier_buy: Penalty multiplier for incomplete buys (default 1.5)
+        penalty_multiplier_sell: Penalty multiplier for incomplete sells (default 0.5)
+    
+    Returns:
+        dict with:
+            - reward: The calculated reward (0 if negative)
+            - pnl: Raw PnL before capping
+            - penalized_vwap: VWAP after applying penalty for incomplete trades
+            - remaining_trades: Number of trades remaining to complete goal
+    """
+    if goal == 0:
+        return {
+            "reward": 0,
+            "pnl": 0,
+            "penalized_vwap": 0,
+            "remaining_trades": 0,
+        }
+    
+    goal_size = abs(goal)
+    completed = abs(completed_trades)
+    remaining = max(0, goal_size - completed)
+    
+    if goal > 0:  # Buyer
+        # Penalize incomplete trades at higher price (1.5x mid)
+        if completed > 0:
+            expenditure = current_vwap * completed
+        else:
+            expenditure = 0
+        penalty_cost = remaining * mid_price * penalty_multiplier_buy
+        total_expenditure = expenditure + penalty_cost
+        penalized_vwap = total_expenditure / goal_size if goal_size > 0 else 0
+        
+        # Reward formula: (target - penalized_vwap) * 10
+        pnl = (buy_target_price - penalized_vwap) * 10
+        reward = max(0, pnl / 10)  # Divide by 10 to get final reward
+        
+    else:  # Seller
+        # Penalize incomplete trades at lower price (0.5x mid)
+        if completed > 0:
+            revenue = current_vwap * completed
+        else:
+            revenue = 0
+        penalty_revenue = remaining * mid_price * penalty_multiplier_sell
+        total_revenue = revenue + penalty_revenue
+        penalized_vwap = total_revenue / goal_size if goal_size > 0 else 0
+        
+        # Reward formula: (penalized_vwap - target) * 10
+        pnl = (penalized_vwap - sell_target_price) * 10
+        reward = max(0, pnl / 10)  # Divide by 10 to get final reward
+    
+    return {
+        "reward": reward,
+        "pnl": pnl,
+        "penalized_vwap": penalized_vwap,
+        "remaining_trades": remaining,
+    }
+
 
 def logfile_to_message(logfile_name):
     log_file_path = logfile_name
@@ -438,108 +524,75 @@ def is_jsonable(x):
 
 def calculate_trader_specific_metrics(trader_specific_metrics, general_metrics, trader_goal):
     """Calculate trader-specific metrics based on trading activity and goals."""
+    
     # Store the original PnL
     original_pnl = trader_specific_metrics['PnL']
     
-    # Calculate reward with scaling between 3 and 10 based on PnL
+    # Calculate reward with scaling between 3 and 10 based on PnL (for no-goal traders)
     if isinstance(original_pnl, (int, float)):
         max_pnl_possible = 100
         max_gbp_to_give = 10
-        if original_pnl<0:
+        if original_pnl < 0:
             reward = 0
         else:
-            ratio = original_pnl/max_pnl_possible
-            real_ratio = min(ratio,1)
+            ratio = original_pnl / max_pnl_possible
+            real_ratio = min(ratio, 1)
             reward = real_ratio * max_gbp_to_give
-        # # Clip PnL to [-100, 100] range
-        # capped_pnl = max(min(original_pnl, 100), -100)
-        # # Scale PnL from [-100, 100] to [0, 1]
-        # normalized_pnl = (capped_pnl + 100) / 200
-        # # Scale to [3, 10] range
-        # reward = 3 + (normalized_pnl * 7)
     else:
         reward = '-'
     
     if trader_goal != 0:
+        completed_trades = trader_specific_metrics['Trades']
+        current_vwap = trader_specific_metrics['VWAP']
+        mid_price = general_metrics['Last_Midprice']
+        initial_midprice = general_metrics['Initial_Midprice']
+        
+        # Handle over-trading: recalculate VWAP using only goal-amount of trades
+        if trader_goal > 0 and completed_trades > trader_goal:
+            prices_buy = trader_specific_metrics['Prices_Buy']
+            expenditure = sum(prices_buy[0:abs(trader_goal)])
+            current_vwap = expenditure / abs(trader_goal)
+            trader_specific_metrics['VWAP'] = current_vwap
+            completed_trades = trader_goal
+        elif trader_goal < 0 and completed_trades > abs(trader_goal):
+            prices_sell = trader_specific_metrics['Prices_Sell']
+            expenditure = sum(prices_sell[0:abs(trader_goal)])
+            current_vwap = expenditure / abs(trader_goal)
+            trader_specific_metrics['VWAP'] = current_vwap
+            completed_trades = abs(trader_goal)
+        
+        # Use shared reward calculator
+        reward_result = calculate_vwap_reward(
+            goal=trader_goal,
+            completed_trades=completed_trades,
+            current_vwap=current_vwap if current_vwap and current_vwap != '-' else 0,
+            mid_price=mid_price,
+            buy_target_price=110,
+            sell_target_price=90,
+            penalty_multiplier_buy=1.5,
+            penalty_multiplier_sell=0.5,
+        )
+        
+        penalized_vwap = reward_result["penalized_vwap"]
+        remaining_trades = reward_result["remaining_trades"]
+        pnl_informed = reward_result["pnl"]
+        reward = reward_result["reward"]
+        
+        # Calculate slippage (platform-specific metric)
         if trader_goal > 0:
-            if trader_specific_metrics['Trades'] <= trader_goal:
-                remaining_trades = abs(abs(trader_goal) - abs(trader_specific_metrics['Trades']))
-                expenditure = trader_specific_metrics['VWAP'] * trader_specific_metrics['Trades']
-                total_expenditure = expenditure + remaining_trades * general_metrics['Last_Midprice'] * 1.5
-                penalized_vwap = total_expenditure/abs(trader_goal)
-                slippage = general_metrics['Initial_Midprice'] - penalized_vwap
-                slippage_scaled = (general_metrics['Initial_Midprice'] - penalized_vwap) / np.sqrt(abs(trader_goal))
-                pnl_informed = (110 - abs(penalized_vwap)) * 10
-                reward = max(0, pnl_informed/ 10 )
-
-                trader_specific_metrics.update({
-                    'Remaining_Trades': remaining_trades,
-                    'Penalized_VWAP': penalized_vwap,
-                    'Slippage': slippage,
-                    'Slippage_Scaled': slippage_scaled,
-                    'PnL': pnl_informed, 
-                    'Reward': reward
-                })
-            else:
-                remaining_trades = abs(trader_goal) - abs(trader_specific_metrics['Trades'])
-                prices_buy = trader_specific_metrics['Prices_Buy'] 
-                expenditure = sum(prices_buy[0:abs(trader_goal)])
-                VWAP = expenditure / abs(trader_goal)
-                trader_specific_metrics['VWAP'] = VWAP
-                penalized_vwap = expenditure / abs(trader_goal)
-                slippage = general_metrics['Initial_Midprice'] - penalized_vwap
-                slippage_scaled = (general_metrics['Initial_Midprice'] - penalized_vwap) / np.sqrt(abs(trader_goal))
-                pnl_informed = (110 - abs(penalized_vwap)) * 10
-                reward = max(0, pnl_informed/ 10 )
-
-                trader_specific_metrics.update({
-                    'Remaining_Trades': remaining_trades,
-                    'Penalized_VWAP': penalized_vwap,
-                    'Slippage': slippage,
-                    'Slippage_Scaled': slippage_scaled,
-                    'PnL': pnl_informed,
-                    'Reward': reward
-                })
+            slippage = initial_midprice - penalized_vwap
         else:
-            if trader_specific_metrics['Trades'] <= abs(trader_goal):
-                remaining_trades = abs(abs(trader_goal) - abs(trader_specific_metrics['Trades']))
-                expenditure = trader_specific_metrics['VWAP'] * trader_specific_metrics['Trades']
-                total_expenditure = expenditure + remaining_trades * general_metrics['Last_Midprice'] * 0.5
-                penalized_vwap = total_expenditure/abs(trader_goal)
-                slippage = penalized_vwap - general_metrics['Initial_Midprice']
-                slippage_scaled = (penalized_vwap - general_metrics['Initial_Midprice']) / np.sqrt(abs(trader_goal))
-                pnl_informed = (abs(penalized_vwap) - 90) * 10
-                reward = max(0, pnl_informed/ 10 )
-
-                trader_specific_metrics.update({
-                    'Remaining_Trades': remaining_trades,
-                    'Penalized_VWAP': penalized_vwap,
-                    'Slippage': slippage,
-                    'Slippage_Scaled': slippage_scaled,
-                    'PnL': pnl_informed,
-                    'Reward': reward
-                })
-            else:
-                remaining_trades = abs(trader_specific_metrics['Trades']) - abs(trader_goal) 
-                prices_sell = trader_specific_metrics['Prices_Sell'] 
-                expenditure = sum(prices_sell[0:abs(trader_goal)])
-                VWAP = expenditure / abs(trader_goal)
-                trader_specific_metrics['VWAP'] = VWAP
-                penalized_vwap = expenditure / abs(trader_goal)
-                slippage = penalized_vwap - general_metrics['Initial_Midprice']
-                slippage_scaled = (penalized_vwap - general_metrics['Initial_Midprice']) / np.sqrt(abs(trader_goal))
-                pnl_informed = (abs(penalized_vwap) - 90) * 10
-                reward = max(0, pnl_informed/ 10 )
-
-                trader_specific_metrics.update({
-                    'Remaining_Trades': remaining_trades,
-                    'Penalized_VWAP': penalized_vwap,
-                    'Slippage': slippage,
-                    'Slippage_Scaled': slippage_scaled,
-                    'PnL': pnl_informed,
-                    'Reward': reward
-                })
-
+            slippage = penalized_vwap - initial_midprice
+        slippage_scaled = slippage / np.sqrt(abs(trader_goal)) if trader_goal != 0 else 0
+        
+        trader_specific_metrics.update({
+            'Remaining_Trades': remaining_trades,
+            'Penalized_VWAP': penalized_vwap,
+            'Slippage': slippage,
+            'Slippage_Scaled': slippage_scaled,
+            'PnL': pnl_informed,
+            'Reward': reward
+        })
     else:
         trader_specific_metrics.update({
             'Remaining_Trades': abs(trader_specific_metrics['Num_Sell'] - trader_specific_metrics['Num_Buy']),

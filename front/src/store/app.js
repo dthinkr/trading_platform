@@ -53,6 +53,10 @@ export const useTraderStore = defineStore('trader', {
     // Transaction tracking
     lastMatchedOrders: null,
 
+    // AI Advisor
+    aiAdvice: null,
+    hasAdvisor: false,
+
     // Legacy/compatibility - deprecated but kept for backward compatibility
     step: 1000,
     messages: [],
@@ -374,6 +378,23 @@ export const useTraderStore = defineStore('trader', {
         useMarketStore().updateExtraParams({
           [paramName]: data.trader_status
         })
+        return
+      }
+
+      // Handle AI advisor advice
+      if (data.type === 'AI_ADVICE') {
+        this.aiAdvice = data.advice
+        this.hasAdvisor = true
+        // Show notification for new advice
+        const action = data.advice.action
+        const price = data.advice.price
+        if (action === 'place_order' && price) {
+          useUIStore().showMessage(`AI Advisor suggests: ${action} at ${price}`)
+        } else if (action === 'hold') {
+          useUIStore().showMessage(`AI Advisor suggests: Hold position`)
+        } else if (action === 'cancel_order') {
+          useUIStore().showMessage(`AI Advisor suggests: Cancel order`)
+        }
         return
       }
 
