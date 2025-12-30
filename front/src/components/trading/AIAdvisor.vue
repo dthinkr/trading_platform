@@ -1,8 +1,8 @@
 <template>
   <div class="ai-advisor-panel">
-    <div v-if="!hasAdvisor" class="no-advisor">
+    <div v-if="!advisorEnabled" class="no-advisor">
       <Bot :size="24" class="advisor-icon muted" />
-      <span>No AI advisor connected</span>
+      <span>No AI advisor for this session</span>
     </div>
     
     <div v-else-if="!advice" class="waiting-advice">
@@ -22,19 +22,10 @@
         <span class="action-text">{{ actionText }}</span>
       </div>
       
-      <div v-if="advice.price" class="advice-details">
-        <span class="detail-label">Price:</span>
-        <span class="detail-value">{{ advice.price }}</span>
-      </div>
-      
       <div v-if="advice.reasoning" class="advice-reasoning">
         <span class="reasoning-text">{{ advice.reasoning }}</span>
       </div>
       
-      <div class="advice-note">
-        <Info :size="14" class="note-icon" />
-        <span>This is a suggestion only. You decide whether to act.</span>
-      </div>
     </div>
   </div>
 </template>
@@ -43,10 +34,76 @@
 import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useTraderStore } from '@/store/app'
-import { Bot, ArrowUp, ArrowDown, Pause, X, Info } from 'lucide-vue-next'
+import { Bot, ArrowUp, ArrowDown, Pause, X } from 'lucide-vue-next'
 
 const store = useTraderStore()
-const { aiAdvice: advice, hasAdvisor } = storeToRefs(store)
+const { aiAdvice: advice, advisorEnabled, gameParams, bidData, askData, activeOrders } = storeToRefs(store)
+
+// Use exact same logic as PlaceOrder for price generation
+const step = computed(() => gameParams.value.step || 1)
+const orderBookLevels = computed(() => gameParams.value.order_book_levels || 5)
+
+const hasBidData = computed(() => bidData.value && bidData.value.length > 0)
+const hasAskData = computed(() => askData.value && askData.value.length > 0)
+
+const bestBid = computed(() =>
+  hasBidData.value ? Math.max(...bidData.value.map((bid) => bid.x)) : null
+)
+const bestAsk = computed(() =>
+  hasAskData.value ? Math.min(...askData.value.map((ask) => ask.x)) : null
+)
+
+// Generate exact same price arrays as PlaceOrder
+const buyPrices = computed(() => {
+  if (bestAsk.value === null || !orderBookLevels.value) {
+    if (bestBid.value === null) return []
+    return Array.from(
+      { length: orderBookLevels.value },
+      (_, i) => bestBid.value + step.value * 1 - step.value * i
+    )
+  } else {
+    return Array.from({ length: orderBookLevels.value }, (_, i) => bestAsk.value - step.value * i)
+  }
+})
+
+const sellPrices = computed(() => {
+  if (bestBid.value === null || !orderBookLevels.value) {
+    if (bestAsk.value === null) return []
+    return Array.from(
+      { length: orderBookLevels.value },
+      (_, i) => bestAsk.value - step.value * 1 + step.value * i
+    )
+  } else {
+    return Array.from({ length: orderBookLevels.value }, (_, i) => bestBid.value + step.value * i)
+  }
+})
+
+// Clamp price to available prices in PlaceOrder panel
+const clampedPrice = computed(() => {
+  if (!advice.value?.price) return null
+  
+  const advicePrice = advice.value.price
+  const goal = store.traderAttributes?.goal || 0
+  
+  // Use buy prices for buyers, sell prices for sellers
+  const availablePrices = goal > 0 ? buyPrices.value : sellPrices.value
+  
+  if (availablePrices.length === 0) return advicePrice
+  
+  // Find the closest available price
+  let closest = availablePrices[0]
+  let minDiff = Math.abs(advicePrice - closest)
+  
+  for (const price of availablePrices) {
+    const diff = Math.abs(advicePrice - price)
+    if (diff < minDiff) {
+      minDiff = diff
+      closest = price
+    }
+  }
+  
+  return closest
+})
 
 const actionClass = computed(() => {
   if (!advice.value) return ''
@@ -81,10 +138,17 @@ const actionText = computed(() => {
   switch (advice.value.action) {
     case 'place_order':
       const side = store.traderAttributes?.goal > 0 ? 'BUY' : 'SELL'
-      return `${side} at ${advice.value.price}`
+      return `${side} at ${clampedPrice.value}`
     case 'hold':
       return 'Hold - Wait for better opportunity'
     case 'cancel_order':
+      const orderId = advice.value.order_id
+      if (orderId && activeOrders.value) {
+        const order = activeOrders.value.find(o => o.id === orderId)
+        if (order) {
+          return `Cancel order at ${order.price}`
+        }
+      }
       return 'Cancel order'
     default:
       return advice.value.action
@@ -101,7 +165,11 @@ const formatTime = (timestamp) => {
 <style scoped>
 .ai-advisor-panel {
   padding: 16px;
-  min-height: 120px;
+  height: 180px;
+  max-height: 180px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .no-advisor,
@@ -133,7 +201,9 @@ const formatTime = (timestamp) => {
 .advice-content {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
+  flex: 1;
+  overflow: hidden;
 }
 
 .advice-header {
@@ -157,10 +227,11 @@ const formatTime = (timestamp) => {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 16px;
-  border-radius: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
   font-weight: 600;
-  font-size: 1rem;
+  font-size: 0.9rem;
+  flex-shrink: 0;
 }
 
 .buy-action {
@@ -207,22 +278,27 @@ const formatTime = (timestamp) => {
 }
 
 .advice-reasoning {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: #6b7280;
   font-style: italic;
-  padding: 8px;
+  padding: 6px 8px;
   background: #f9fafb;
-  border-radius: 8px;
+  border-radius: 6px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  line-height: 1.3;
 }
 
 .advice-note {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: #9ca3af;
-  padding-top: 8px;
+  padding-top: 6px;
   border-top: 1px solid #f3f4f6;
+  flex-shrink: 0;
 }
 
 .note-icon {

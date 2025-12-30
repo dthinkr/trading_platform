@@ -24,7 +24,8 @@
           :class="{ 
             'best-price': price === bestAsk, 
             'locked': !canBuy,
-            'paused': isHumanTraderPaused
+            'paused': isHumanTraderPaused,
+            'ai-suggested': isSuggestedPrice(price, 'BUY')
           }"
         >
           <div class="order-content">
@@ -59,7 +60,8 @@
           :class="{ 
             'best-price': price === bestBid, 
             'locked': !canSell,
-            'paused': isHumanTraderPaused
+            'paused': isHumanTraderPaused,
+            'ai-suggested': isSuggestedPrice(price, 'SELL')
           }"
         >
           <div class="order-content">
@@ -102,7 +104,7 @@ const props = defineProps({
 const tradingStore = useTraderStore()
 const marketStore = useMarketStore()
 const uiStore = useUIStore()
-const { gameParams, bidData, askData, trader } = storeToRefs(tradingStore)
+const { gameParams, bidData, askData, trader, aiAdvice } = storeToRefs(tradingStore)
 const { extraParams } = storeToRefs(marketStore)
 
 const step = computed(() => gameParams.value.step || 1)
@@ -259,6 +261,39 @@ function checkMobile() {
   )
 }
 
+// Check if a price is the AI suggested price (uses same clamping logic as AIAdvisor)
+function isSuggestedPrice(price, side) {
+  if (!aiAdvice.value || aiAdvice.value.action !== 'place_order') return false
+  
+  const advicePrice = aiAdvice.value.price
+  if (!advicePrice) return false
+  
+  // Determine expected side based on goal
+  const goal = tradingStore.traderAttributes?.goal || 0
+  const expectedSide = goal > 0 ? 'BUY' : 'SELL'
+  
+  if (expectedSide !== side) return false
+  
+  // Use the same price arrays as this component
+  const availablePrices = goal > 0 ? buyPrices.value : sellPrices.value
+  
+  if (availablePrices.length === 0) return advicePrice === price
+  
+  // Find the closest available price (same logic as AIAdvisor)
+  let closest = availablePrices[0]
+  let minDiff = Math.abs(advicePrice - closest)
+  
+  for (const p of availablePrices) {
+    const diff = Math.abs(advicePrice - p)
+    if (diff < minDiff) {
+      minDiff = diff
+      closest = p
+    }
+  }
+  
+  return closest === price
+}
+
 onMounted(() => {
   checkMobile()
   window.addEventListener('resize', checkMobile)
@@ -370,6 +405,17 @@ onUnmounted(() => {
   background-color: #f5f5f5 !important;
   border: 1px dashed #ccc;
   pointer-events: none;
+}
+
+.ai-suggested {
+  border: 2px solid #6366f1 !important;
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.5);
+  animation: pulse-highlight 1.5s infinite;
+}
+
+@keyframes pulse-highlight {
+  0%, 100% { box-shadow: 0 0 8px rgba(99, 102, 241, 0.5); }
+  50% { box-shadow: 0 0 16px rgba(99, 102, 241, 0.8); }
 }
 
 .sleep-notification-overlay {

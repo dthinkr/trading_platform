@@ -5,6 +5,11 @@ Classes:
 - AgenticBase: Shared LLM logic (prompts, API calls, market state)
 - AgenticTrader: Autonomous trader that executes orders
 - AgenticAdvisor: Advisor that helps humans without executing
+
+llm behavior notes:
+- llm tends to be aggressive (cross spread) when spread is wide, thinking passive orders won't fill
+- llm is more passive (below best ask) when spread is tight
+
 """
 import asyncio
 import os
@@ -78,7 +83,8 @@ INFORMED_TOOLS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "price": {"type": "integer", "description": "Limit price for the order"}
+                    "price": {"type": "integer", "description": "Limit price for the order"},
+                    "reasoning": {"type": "string", "description": "Brief explanation for this price choice"}
                 },
                 "required": ["price"]
             }
@@ -92,7 +98,8 @@ INFORMED_TOOLS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "order_id": {"type": "string", "description": "Order ID to cancel"}
+                    "order_id": {"type": "string", "description": "Order ID to cancel"},
+                    "reasoning": {"type": "string", "description": "Brief explanation for cancelling"}
                 },
                 "required": ["order_id"]
             }
@@ -126,7 +133,8 @@ SPECULATOR_TOOLS = [
                 "type": "object",
                 "properties": {
                     "price": {"type": "integer", "description": "Limit price for the order"},
-                    "side": {"type": "string", "enum": ["buy", "sell"], "description": "Order side: 'buy' or 'sell'"}
+                    "side": {"type": "string", "enum": ["buy", "sell"], "description": "Order side: 'buy' or 'sell'"},
+                    "reasoning": {"type": "string", "description": "Brief explanation for this trade"}
                 },
                 "required": ["price", "side"]
             }
@@ -140,7 +148,8 @@ SPECULATOR_TOOLS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "order_id": {"type": "string", "description": "Order ID to cancel"}
+                    "order_id": {"type": "string", "description": "Order ID to cancel"},
+                    "reasoning": {"type": "string", "description": "Brief explanation for cancelling"}
                 },
                 "required": ["order_id"]
             }
@@ -367,12 +376,16 @@ Net Position: {shares} shares"""
         remaining_sec = int(time_info["remaining"] % 60)
         progress_pct = time_info["progress_pct"]
 
+        # Calculate valid price range
+        min_price, max_price = self._get_valid_price_range()
+
         return f"""=== TIME ===
 Elapsed: {elapsed_min}:{elapsed_sec:02d} | Remaining: {remaining_min}:{remaining_sec:02d} ({progress_pct:.0f}% complete)
 
 === MARKET STATE ===
 Best Bid: {best_bid} | Best Ask: {best_ask} | Spread: {spread}
 Mid Price: {mid_price:.1f}
+Valid Price Range: {min_price} to {max_price} (orders outside this range will be rejected)
 Imbalance: {imbalance:+.2f} (+ = buying pressure)
 Trend: {trend}
 
@@ -387,7 +400,11 @@ Cash: {cash:.0f} (available: {avail_cash:.0f})
 Shares: {shares} (available: {avail_shares})
 
 === ACTIVE ORDERS {mode_label} ===
-{orders_str}"""
+{orders_str}
+
+{self._build_price_options_section(mid_price, goal, goal_progress, vwap)}
+
+{self._build_recent_decisions_section()}"""
 
     async def call_llm(self, system_prompt: str, market_state: str) -> Dict:
         """Make LLM API call and return parsed tool call."""
@@ -447,11 +464,13 @@ Shares: {shares} (available: {avail_shares})
 
     async def make_decision(self) -> Dict:
         if not self.api_key:
+            logger.warning(f"[{self.id}] No API key!")
             return {"error": "No API key"}
 
         bids = self.order_book.get("bids", [])
         asks = self.order_book.get("asks", [])
         if not bids or not asks:
+            logger.debug(f"[{self.id}] No market data! bids={len(bids)}, asks={len(asks)}")
             return {"error": "No market data"}
 
         mid_price = (bids[0]["x"] + asks[0]["x"]) / 2
@@ -465,15 +484,133 @@ Shares: {shares} (available: {avail_shares})
         llm_result = await self.call_llm(system_prompt, market_state)
         
         if "error" in llm_result:
+            logger.error(f"[{self.id}] LLM error: {llm_result['error']}")
             return llm_result
 
         tool_name = llm_result["tool_name"]
         args = llm_result["args"]
+        logger.info(f"[{self.id}] LLM decided: {tool_name} {args}")
 
         return await self.handle_decision(tool_name, args, mid_price)
 
     def _get_mode_label(self) -> str:
         return ""
+
+    def _get_valid_price_range(self) -> tuple:
+        """Get valid price range based on current order book (best_bid - 5 to best_ask + 5)."""
+        if not self.order_book:
+            return (0, float('inf'))
+        
+        bids = self.order_book.get("bids", [])
+        asks = self.order_book.get("asks", [])
+        
+        best_bid = bids[0]["x"] if bids else 95  # Default if no bids
+        best_ask = asks[0]["x"] if asks else 105  # Default if no asks
+        
+        min_price = best_bid - 5
+        max_price = best_ask + 5
+        
+        return (min_price, max_price)
+
+    def _build_recent_decisions_section(self) -> str:
+        """Build a summary of recent decisions with outcomes."""
+        if not self.decision_log:
+            return "=== RECENT DECISIONS ===\nNo decisions yet."
+        
+        # Get last 5 decisions
+        recent = self.decision_log[-5:]
+        lines = ["=== RECENT DECISIONS (last 5) ==="]
+        
+        for i, decision in enumerate(reversed(recent)):
+            action = decision.get("action", "unknown")
+            args = decision.get("args", {})
+            result = decision.get("result", {})
+            
+            if action == "place_order":
+                price = args.get("price", "?")
+                side = result.get("side", "buy" if self.get_effective_goal() > 0 else "sell")
+                order_id = result.get("order_id", "")
+                
+                # Check if this order is still pending or was filled
+                if result.get("success"):
+                    # Check if order_id is still in active orders
+                    is_pending = any(o.get("id") == order_id for o in self.orders)
+                    if is_pending:
+                        status = "PENDING"
+                    else:
+                        status = "FILLED"
+                else:
+                    status = f"FAILED: {result.get('error', 'unknown')}"
+                
+                lines.append(f"  {i+1}. {side.upper()} @ {price} -> {status}")
+                
+            elif action == "cancel_order":
+                order_id = args.get("order_id", "?")
+                if result.get("success"):
+                    lines.append(f"  {i+1}. CANCEL {order_id} -> SUCCESS")
+                else:
+                    lines.append(f"  {i+1}. CANCEL {order_id} -> FAILED")
+                    
+            elif action == "hold":
+                reason = args.get("reasoning", "")[:30]
+                lines.append(f"  {i+1}. HOLD ({reason})")
+        
+        return "\n".join(lines)
+
+    def _build_price_options_section(self, mid_price: float, goal: int, goal_progress: int, current_vwap: float) -> str:
+        """Show estimated VWAP/PnL for different price options."""
+        min_price, max_price = self._get_valid_price_range()
+        
+        # Generate 5 price options around mid price
+        prices = [int(mid_price) - 2, int(mid_price) - 1, int(mid_price), int(mid_price) + 1, int(mid_price) + 2]
+        prices = [p for p in prices if min_price <= p <= max_price]
+        
+        if goal == 0:
+            # Speculator: show PnL impact for buy/sell at each price
+            lines = ["=== PRICE OPTIONS (PnL if mid moves ±2) ==="]
+            for price in prices:
+                buy_pnl = (mid_price + 2) - price  # profit if price rises
+                sell_pnl = price - (mid_price - 2)  # profit if price falls
+                lines.append(f"  BUY @ {price}: +{buy_pnl:.0f} if mid→{mid_price+2:.0f}")
+                lines.append(f"  SELL @ {price}: +{sell_pnl:.0f} if mid→{mid_price-2:.0f}")
+            return "\n".join(lines)
+        
+        # Informed trader: show VWAP and reward
+        lines = ["=== PRICE OPTIONS (estimated if filled) ==="]
+        
+        goal_size = abs(goal)
+        completed = abs(goal_progress)
+        
+        for price in prices:
+            # Calculate what VWAP would be if this order fills
+            if completed > 0 and current_vwap > 0:
+                new_vwap = (current_vwap * completed + price) / (completed + 1)
+            else:
+                new_vwap = price
+            
+            # Calculate reward with this new VWAP
+            remaining_after = max(0, goal_size - completed - 1)
+            
+            if goal > 0:  # Buyer
+                if completed + 1 > 0:
+                    expenditure = new_vwap * (completed + 1)
+                else:
+                    expenditure = 0
+                penalty = remaining_after * mid_price * self.penalty_multiplier_buy
+                penalized_vwap = (expenditure + penalty) / goal_size
+                reward = self.buy_target_price - penalized_vwap
+            else:  # Seller
+                if completed + 1 > 0:
+                    revenue = new_vwap * (completed + 1)
+                else:
+                    revenue = 0
+                penalty = remaining_after * mid_price * self.penalty_multiplier_sell
+                penalized_vwap = (revenue + penalty) / goal_size
+                reward = penalized_vwap - self.sell_target_price
+            
+            lines.append(f"  Price {price}: VWAP={new_vwap:.1f}, Reward={reward:.1f}")
+        
+        return "\n".join(lines)
 
     async def on_book_updated(self, data: Dict[str, Any]):
         await super().on_book_updated(data)
@@ -501,6 +638,7 @@ Shares: {shares} (available: {avail_shares})
         await self.make_decision()
 
     async def run(self) -> None:
+        logger.info(f"[{self.id}] Starting run loop")
         while not self._stop_requested.is_set():
             try:
                 await self.maybe_sleep()
@@ -618,6 +756,11 @@ class AgenticTrader(AgenticBase):
         if tool_name == "place_order":
             price = args.get("price", 0)
             qty = 1  # Fixed to 1 share per order
+
+            # Validate price is within allowed range (best_bid - 5 to best_ask + 5)
+            min_price, max_price = self._get_valid_price_range()
+            if price < min_price or price > max_price:
+                return {"error": f"Price {price} out of range. Must be between {min_price} and {max_price}"}
 
             if self.goal > 0:
                 # Informed buyer
@@ -809,6 +952,14 @@ class AgenticAdvisor(AgenticBase):
 
     async def handle_decision(self, tool_name: str, args: Dict, mid_price: float) -> Dict:
         """Store and broadcast advice (don't execute)."""
+        # Validate and clamp price if it's a place_order action
+        if tool_name == "place_order" and "price" in args:
+            min_price, max_price = self._get_valid_price_range()
+            original_price = args["price"]
+            args["price"] = max(min_price, min(max_price, args["price"]))
+            if args["price"] != original_price:
+                logger.info(f"[{self.id}] Clamped advice price from {original_price} to {args['price']} (range: {min_price}-{max_price})")
+
         advice = {
             "timestamp": datetime.now().isoformat(),
             "action": tool_name,
@@ -831,12 +982,18 @@ class AgenticAdvisor(AgenticBase):
     async def broadcast_advice_to_human(self, advice: Dict):
         """Send advice to the human trader's frontend via websocket."""
         if not self.human_trader_ref:
-            logger.warning(f"[{self.id}] No human trader reference for advice broadcast")
+            logger.warning(f"[{self.id}] No human trader reference!")
             return
 
         websocket = getattr(self.human_trader_ref, 'websocket', None)
         if not websocket:
-            logger.warning(f"[{self.id}] Human trader has no websocket connection")
+            logger.warning(f"[{self.id}] Human has no websocket!")
+            return
+
+        # Check websocket state
+        from starlette.websockets import WebSocketState
+        if websocket.client_state != WebSocketState.CONNECTED:
+            logger.debug(f"[{self.id}] Websocket not connected (state: {websocket.client_state})")
             return
 
         try:
@@ -855,7 +1012,7 @@ class AgenticAdvisor(AgenticBase):
             }
 
             await websocket.send_json(advice_message)
-            logger.info(f"[{self.id}] Sent advice to {self.advice_for_human_id}: {advice['action']}")
+            logger.info(f"[{self.id}] Sent advice: {advice['action']} @ {advice['args'].get('price')}")
 
         except Exception as e:
             logger.error(f"[{self.id}] Failed to broadcast advice: {e}")

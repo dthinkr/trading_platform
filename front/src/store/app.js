@@ -56,6 +56,7 @@ export const useTraderStore = defineStore('trader', {
     // AI Advisor
     aiAdvice: null,
     hasAdvisor: false,
+    advisorEnabled: false,  // Whether advisor is enabled for this session
 
     // Legacy/compatibility - deprecated but kept for backward compatibility
     step: 1000,
@@ -195,6 +196,9 @@ export const useTraderStore = defineStore('trader', {
         this.tradingMarketData = response.data.data
         this.gameParams = persistentSettings
         this.formState = this.gameParams
+
+        // Check if AI advisor is enabled
+        this.advisorEnabled = persistentSettings.agentic_advisor_enabled ?? false
 
         // Handle different session states
         if (response.data.status === 'waiting') {
