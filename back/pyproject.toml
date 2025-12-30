@@ -3,6 +3,7 @@ name = "trading-platform-backend"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
+    "aiohttp>=3.13.2",
     "fastapi<0.116.0",
     "firebase-admin",
     "google-api-python-client",

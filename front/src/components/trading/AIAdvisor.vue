@@ -1,31 +1,30 @@
 <template>
-  <div class="ai-advisor-panel">
-    <div v-if="!advisorEnabled" class="no-advisor">
-      <Bot :size="24" class="advisor-icon muted" />
-      <span>No AI advisor for this session</span>
-    </div>
-    
-    <div v-else-if="!advice" class="waiting-advice">
-      <Bot :size="24" class="advisor-icon pulse" />
-      <span>AI advisor is analyzing...</span>
+  <div class="ai-advisor-banner">
+    <div v-if="!advice" class="waiting-advice">
+      <Bot :size="20" class="advisor-icon pulse" />
+      <span>AI advisor is analyzing the market...</span>
     </div>
     
     <div v-else class="advice-content">
-      <div class="advice-header">
+      <div class="advice-left">
         <Bot :size="20" class="advisor-icon" />
         <span class="advice-label">AI Suggestion</span>
+      </div>
+      
+      <div class="advice-center">
+        <div class="advice-action" :class="actionClass">
+          <component :is="actionIcon" :size="16" class="action-icon" />
+          <span class="action-text">{{ actionText }}</span>
+        </div>
+        
+        <div v-if="advice.reasoning" class="advice-reasoning">
+          {{ truncatedReasoning }}
+        </div>
+      </div>
+      
+      <div class="advice-right">
         <span class="advice-time">{{ formatTime(advice.timestamp) }}</span>
       </div>
-      
-      <div class="advice-action" :class="actionClass">
-        <component :is="actionIcon" :size="18" class="action-icon" />
-        <span class="action-text">{{ actionText }}</span>
-      </div>
-      
-      <div v-if="advice.reasoning" class="advice-reasoning">
-        <span class="reasoning-text">{{ advice.reasoning }}</span>
-      </div>
-      
     </div>
   </div>
 </template>
@@ -37,7 +36,7 @@ import { useTraderStore } from '@/store/app'
 import { Bot, ArrowUp, ArrowDown, Pause, X } from 'lucide-vue-next'
 
 const store = useTraderStore()
-const { aiAdvice: advice, advisorEnabled, gameParams, bidData, askData, activeOrders } = storeToRefs(store)
+const { aiAdvice: advice, gameParams, bidData, askData, activeOrders } = storeToRefs(store)
 
 // Use exact same logic as PlaceOrder for price generation
 const step = computed(() => gameParams.value.step || 1)
@@ -85,12 +84,10 @@ const clampedPrice = computed(() => {
   const advicePrice = advice.value.price
   const goal = store.traderAttributes?.goal || 0
   
-  // Use buy prices for buyers, sell prices for sellers
   const availablePrices = goal > 0 ? buyPrices.value : sellPrices.value
   
   if (availablePrices.length === 0) return advicePrice
   
-  // Find the closest available price
   let closest = availablePrices[0]
   let minDiff = Math.abs(advicePrice - closest)
   
@@ -140,19 +137,25 @@ const actionText = computed(() => {
       const side = store.traderAttributes?.goal > 0 ? 'BUY' : 'SELL'
       return `${side} at ${clampedPrice.value}`
     case 'hold':
-      return 'Hold - Wait for better opportunity'
+      return 'Hold'
     case 'cancel_order':
       const orderId = advice.value.order_id
       if (orderId && activeOrders.value) {
         const order = activeOrders.value.find(o => o.id === orderId)
         if (order) {
-          return `Cancel order at ${order.price}`
+          return `Cancel @ ${order.price}`
         }
       }
       return 'Cancel order'
     default:
       return advice.value.action
   }
+})
+
+const truncatedReasoning = computed(() => {
+  if (!advice.value?.reasoning) return ''
+  const text = advice.value.reasoning
+  return text.length > 120 ? text.substring(0, 120) + '...' : text
 })
 
 const formatTime = (timestamp) => {
@@ -163,30 +166,26 @@ const formatTime = (timestamp) => {
 </script>
 
 <style scoped>
-.ai-advisor-panel {
-  padding: 16px;
-  height: 180px;
-  max-height: 180px;
-  overflow: hidden;
+.ai-advisor-banner {
+  padding: 12px 16px;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  min-height: 56px;
 }
 
-.no-advisor,
 .waiting-advice {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   color: #6b7280;
-  font-size: 0.9rem;
+  font-size: 0.875rem;
+  width: 100%;
+  justify-content: center;
 }
 
 .advisor-icon {
   color: #6366f1;
-}
-
-.advisor-icon.muted {
-  color: #9ca3af;
+  flex-shrink: 0;
 }
 
 .advisor-icon.pulse {
@@ -200,108 +199,88 @@ const formatTime = (timestamp) => {
 
 .advice-content {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  flex: 1;
-  overflow: hidden;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
 }
 
-.advice-header {
+.advice-left {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .advice-label {
   font-weight: 600;
   color: #374151;
-  flex: 1;
+  font-size: 0.875rem;
 }
 
-.advice-time {
-  font-size: 0.75rem;
-  color: #9ca3af;
+.advice-center {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+  min-width: 0;
 }
 
 .advice-action {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
+  gap: 6px;
+  padding: 6px 12px;
   border-radius: 8px;
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   flex-shrink: 0;
 }
 
 .buy-action {
-  background: linear-gradient(135deg, rgba(37, 99, 235, 0.1) 0%, rgba(29, 78, 216, 0.1) 100%);
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.15) 0%, rgba(29, 78, 216, 0.15) 100%);
   color: #1d4ed8;
-  border: 1px solid rgba(37, 99, 235, 0.2);
+  border: 1px solid rgba(37, 99, 235, 0.3);
 }
 
 .sell-action {
-  background: linear-gradient(135deg, rgba(220, 38, 38, 0.1) 0%, rgba(185, 28, 28, 0.1) 100%);
+  background: linear-gradient(135deg, rgba(220, 38, 38, 0.15) 0%, rgba(185, 28, 28, 0.15) 100%);
   color: #b91c1c;
-  border: 1px solid rgba(220, 38, 38, 0.2);
+  border: 1px solid rgba(220, 38, 38, 0.3);
 }
 
 .hold-action {
-  background: linear-gradient(135deg, rgba(107, 114, 128, 0.1) 0%, rgba(75, 85, 99, 0.1) 100%);
+  background: linear-gradient(135deg, rgba(107, 114, 128, 0.15) 0%, rgba(75, 85, 99, 0.15) 100%);
   color: #4b5563;
-  border: 1px solid rgba(107, 114, 128, 0.2);
+  border: 1px solid rgba(107, 114, 128, 0.3);
 }
 
 .cancel-action {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.1) 100%);
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(217, 119, 6, 0.15) 100%);
   color: #d97706;
-  border: 1px solid rgba(245, 158, 11, 0.2);
+  border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
 .action-icon {
   flex-shrink: 0;
 }
 
-.advice-details {
-  display: flex;
-  gap: 8px;
-  font-size: 0.875rem;
-}
-
-.detail-label {
-  color: #6b7280;
-}
-
-.detail-value {
-  font-weight: 600;
-  color: #111827;
-}
-
 .advice-reasoning {
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   color: #6b7280;
   font-style: italic;
-  padding: 6px 8px;
-  background: #f9fafb;
-  border-radius: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  line-height: 1.3;
+  min-width: 0;
 }
 
-.advice-note {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.7rem;
+.advice-right {
+  flex-shrink: 0;
+}
+
+.advice-time {
+  font-size: 0.75rem;
   color: #9ca3af;
-  padding-top: 6px;
-  border-top: 1px solid #f3f4f6;
-  flex-shrink: 0;
-}
-
-.note-icon {
-  flex-shrink: 0;
 }
 </style>

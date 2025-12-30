@@ -307,7 +307,7 @@ class TradingParameters(BaseModel):
     num_agentic_traders: int = Field(
         default=1,
         title="Number of Agentic Traders",
-        description="model_parameter",
+        description="agentic_parameter",
         ge=0,
     )
     agentic_model: str = Field(

@@ -1418,6 +1418,56 @@ async def get_persistent_settings(current_user: dict = Depends(get_current_admin
         "data": persistent_settings
     }
 
+
+@app.get("/admin/agentic_data")
+async def get_agentic_data():
+    """Get agentic trader decision logs and performance data for paper figures."""
+    try:
+        all_agentic_data = []
+        
+        # Iterate through all active trader managers
+        for market_id, trader_manager in market_handler.trader_managers.items():
+            # Get agentic traders
+            for trader in trader_manager.agentic_traders:
+                trader_data = {
+                    "market_id": market_id,
+                    "trader_id": trader.id,
+                    "goal": trader.goal,
+                    "goal_progress": trader.goal_progress,
+                    "is_complete": trader.is_goal_complete(),
+                    "vwap": trader.get_vwap(),
+                    "decision_log": trader.decision_log,
+                    "price_history": trader.price_history[-50:] if trader.price_history else [],
+                    "performance": trader.get_performance_summary(),
+                }
+                all_agentic_data.append(trader_data)
+            
+            # Get agentic advisors
+            for advisor in trader_manager.agentic_advisors:
+                advisor_data = {
+                    "market_id": market_id,
+                    "trader_id": advisor.id,
+                    "type": "advisor",
+                    "advice_for": advisor.advice_for_human_id,
+                    "decision_log": advisor.decision_log,
+                    "current_advice": advisor.current_advice,
+                    "performance": advisor.get_performance_summary(),
+                }
+                all_agentic_data.append(advisor_data)
+        
+        return {
+            "status": "success",
+            "data": all_agentic_data,
+            "active_markets": list(market_handler.trader_managers.keys()),
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e),
+            "data": []
+        }
+
+
 # Prolific settings model
 class ProlificSettings(BaseModel):
     settings: Dict[str, str]

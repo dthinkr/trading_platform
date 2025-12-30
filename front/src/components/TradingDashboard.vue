@@ -118,30 +118,73 @@
             </v-col>
           </v-row>
           <v-row v-else>
-            <v-col
-              v-for="(columnTools, colIndex) in columns"
-              :key="colIndex"
-              :cols="12"
-              :md="colIndex === 0 ? 2 : 5"
-              class="d-flex flex-column"
-            >
-              <v-card
-                v-for="(tool, toolIndex) in columnTools"
-                :key="toolIndex"
-                class="mb-4 tool-card"
-                :class="{ 'price-history-card': tool.title === 'Price History' }"
-                elevation="2"
-              >
+            <!-- AI Advisor Banner - Full width on top when enabled -->
+            <v-col v-if="isAgenticAdvisorEnabled" cols="12" class="pb-2">
+              <v-card class="ai-advisor-banner" elevation="2">
+                <AIAdvisor />
+              </v-card>
+            </v-col>
+            
+            <!-- 3x2 Grid Layout -->
+            <v-col cols="12" md="4" class="d-flex flex-column">
+              <v-card class="mb-4 tool-card" elevation="2">
                 <v-card-title class="tool-title">
-                  <component :is="getToolIconComponent(tool.title)" :size="20" class="tool-icon" />
-                  {{ tool.title }}
+                  <History :size="20" class="tool-icon" />
+                  Trades History
                 </v-card-title>
                 <v-card-text class="pa-0">
-                  <component
-                    :is="tool.component"
-                    :isGoalAchieved="isGoalAchieved"
-                    :goalType="goalType"
-                  />
+                  <OrderHistory :isGoalAchieved="isGoalAchieved" :goalType="goalType" />
+                </v-card-text>
+              </v-card>
+              <v-card class="mb-4 tool-card" elevation="2">
+                <v-card-title class="tool-title">
+                  <Info :size="20" class="tool-icon" />
+                  Market Info
+                </v-card-title>
+                <v-card-text class="pa-0">
+                  <MarketMessages :isGoalAchieved="isGoalAchieved" :goalType="goalType" />
+                </v-card-text>
+              </v-card>
+            </v-col>
+            
+            <v-col cols="12" md="4" class="d-flex flex-column">
+              <v-card class="mb-4 tool-card" elevation="2">
+                <v-card-title class="tool-title">
+                  <BarChart3 :size="20" class="tool-icon" />
+                  Buy-Sell Chart
+                </v-card-title>
+                <v-card-text class="pa-0">
+                  <BidAskDistribution :isGoalAchieved="isGoalAchieved" :goalType="goalType" />
+                </v-card-text>
+              </v-card>
+              <v-card class="mb-4 tool-card" elevation="2">
+                <v-card-title class="tool-title">
+                  <List :size="20" class="tool-icon" />
+                  Passive Orders
+                </v-card-title>
+                <v-card-text class="pa-0">
+                  <ActiveOrders :isGoalAchieved="isGoalAchieved" :goalType="goalType" />
+                </v-card-text>
+              </v-card>
+            </v-col>
+            
+            <v-col cols="12" md="4" class="d-flex flex-column">
+              <v-card class="mb-4 tool-card price-history-card" elevation="2">
+                <v-card-title class="tool-title">
+                  <LineChart :size="20" class="tool-icon" />
+                  Price History
+                </v-card-title>
+                <v-card-text class="pa-0">
+                  <PriceHistory :isGoalAchieved="isGoalAchieved" :goalType="goalType" />
+                </v-card-text>
+              </v-card>
+              <v-card class="mb-4 tool-card" elevation="2">
+                <v-card-title class="tool-title">
+                  <Calculator :size="20" class="tool-icon" />
+                  Trading Panel
+                </v-card-title>
+                <v-card-text class="pa-0">
+                  <PlaceOrder :isGoalAchieved="isGoalAchieved" :goalType="goalType" />
                 </v-card-text>
               </v-card>
             </v-col>
@@ -209,25 +252,6 @@ const {
 
 const isAgenticAdvisorEnabled = computed(() => {
   return store.gameParams?.agentic_advisor_enabled ?? false
-})
-
-const columns = computed(() => {
-  const col1 = [
-    ...(isAgenticAdvisorEnabled.value ? [{ title: 'AI Advisor', component: AIAdvisor }] : []),
-    { title: 'Trades History', component: OrderHistory },
-    { title: 'Market Info', component: MarketMessages },
-  ]
-  return [
-    col1,
-    [
-      { title: 'Buy-Sell Chart', component: BidAskDistribution },
-      { title: 'Passive Orders', component: ActiveOrders },
-    ],
-    [
-      { title: 'Price History', component: PriceHistory },
-      { title: 'Trading Panel', component: PlaceOrder },
-    ],
-  ]
 })
 
 const formatDelta = computed(() => {
@@ -352,28 +376,6 @@ watch(isGoalAchieved, (newValue) => {
     cancelAllActiveOrders()
   }
 })
-
-// Add this function to get icons for each tool
-const getToolIconComponent = (toolTitle) => {
-  switch (toolTitle) {
-    case 'AI Advisor':
-      return Bot
-    case 'Trades History':
-      return History
-    case 'Market Info':
-      return Info
-    case 'Buy-Sell Chart':
-      return BarChart3
-    case 'Passive Orders':
-      return List
-    case 'Price History':
-      return LineChart
-    case 'Trading Panel':
-      return Calculator
-    default:
-      return Info
-  }
-}
 
 // Add function for role icons
 const getRoleIcon = () => {
@@ -627,8 +629,15 @@ onMounted(() => {
     0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
+/* AI Advisor Banner */
+.ai-advisor-banner {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 16px;
+}
+
 .price-history-card {
-  flex-grow: 1;
+  /* Remove flex-grow to prevent blank space below chart */
 }
 
 /* Dashboard stats responsive layout */

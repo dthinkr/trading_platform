@@ -1,33 +1,42 @@
-treatments:
-- name: Treatment A - With Advisor
-  num_noise_traders: 1
-  num_agentic_traders: 0
-  num_manipulator_traders: 0
-  agentic_advisor_enabled: true
-  agentic_model: anthropic/claude-haiku-4.5
-  agentic_decision_interval: 2
-  trading_day_duration: 1
-  predefined_goals:
-  - 20
-- name: Treatment B - Agentic Buyer
-  num_noise_traders: 1
-  num_agentic_traders: 1
-  agentic_model: anthropic/claude-haiku-4.5
-  agentic_goals:
-  - 20
-  agentic_decision_interval: 5
-- name: Treatment C - Agentic Seller
-  num_noise_traders: 1
-  num_agentic_traders: 1
-  agentic_model: anthropic/claude-haiku-4.5
-  agentic_goals:
-  - -20
-  agentic_decision_interval: 5
-- name: Treatment D - Multiple Agentic Traders
-  num_noise_traders: 1
-  num_agentic_traders: 2
-  agentic_model: anthropic/claude-haiku-4.5
-  agentic_goals:
-  - 20
-  - -20
-  agentic_decision_interval: 5
+# treatments:
+# - name: Treatment A - Paper Test (uses persistent settings)
+#   num_noise_traders: 1
+#   num_manipulator_traders: 0
+#   agentic_advisor_enabled: false
+#   agentic_model: anthropic/claude-haiku-4.5
+#   agentic_decision_interval: 5
+#   trading_day_duration: 2
+#   predefined_goals:
+#   - 0
+# - name: Treatment B - With Advisor
+#   num_noise_traders: 1
+#   num_agentic_traders: 0
+#   num_manipulator_traders: 0
+#   agentic_advisor_enabled: true
+#   agentic_model: anthropic/claude-haiku-4.5
+#   agentic_decision_interval: 2
+#   trading_day_duration: 1
+#   predefined_goals:
+#   - 20
+# - name: Treatment C - Agentic Buyer
+#   num_noise_traders: 1
+#   num_agentic_traders: 1
+#   agentic_advisor_enabled: true
+#   agentic_model: anthropic/claude-haiku-4.5
+#   agentic_goals:
+#   - 20
+#   agentic_decision_interval: 5
+#   trading_day_duration: 1
+#   predefined_goals:
+#   - 20
+# - name: Treatment D - Agentic Seller
+#   num_noise_traders: 1
+#   num_agentic_traders: 1
+#   agentic_advisor_enabled: true
+#   agentic_model: anthropic/claude-haiku-4.5
+#   agentic_goals:
+#   - -20
+#   agentic_decision_interval: 5
+#   trading_day_duration: 1
+#   predefined_goals:
+#   - -20
