@@ -100,7 +100,6 @@ async def get_current_user(request: Request):
         if trader_id.startswith("HUMAN_"):
             gmail_username = trader_id.split('_')[1]
             if gmail_username in authenticated_users:
-                print(f"Found authenticated user by trader_id: {trader_id}")
                 return authenticated_users[gmail_username]
     
     # If not a Prolific user, proceed with regular authentication
@@ -172,7 +171,6 @@ async def get_current_user(request: Request):
             
             user = {**decoded_token, "is_admin": is_admin, "gmail_username": gmail_username, "timezone": user_timezone}
             authenticated_users[gmail_username] = user
-            print(f"Authenticated Google user: {gmail_username}")
             return user
         except Exception as e:
             # One last check for Prolific users

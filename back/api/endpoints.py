@@ -335,7 +335,6 @@ async def create_trading_market(background_tasks: BackgroundTasks, request: Requ
     
     # Log authentication info for debugging
     is_prolific = current_user.get('is_prolific', False)
-    print(f"Trading/initiate called for user: {gmail_username}, trader_id: {trader_id}, is_prolific: {is_prolific}")
     
     # Check session status using trader ID (simplified approach)
     session_status = market_handler.get_session_status_by_trader_id(trader_id)
@@ -613,7 +612,6 @@ async def get_trader_market(trader_id: str, request: Request, current_user: dict
     # Log authentication info for debugging
     is_prolific = current_user.get('is_prolific', False)
     gmail_username = current_user.get('gmail_username', '')
-    print(f"Trader/market endpoint called for trader_id: {trader_id}, user: {gmail_username}, is_prolific: {is_prolific}")
     
     # Verify that the current user has access to this trader_id
     # For Prolific users, we need to ensure they can only access their own trader
@@ -1103,8 +1101,6 @@ async def start_trading_market(background_tasks: BackgroundTasks, request: Reque
     is_prolific = current_user.get('is_prolific', False)
     gmail_username = current_user['gmail_username']
     trader_id = f"HUMAN_{gmail_username}"
-    
-    print(f"Trading/start called for user: {gmail_username}, trader_id: {trader_id}, is_prolific: {is_prolific}")
     
     # Clean up any finished markets first (so users can join new markets)
     await market_handler.cleanup_finished_markets()
