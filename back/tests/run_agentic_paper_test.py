@@ -40,7 +40,7 @@ MARKET_CONFIGS = [
 async def update_settings(session, **kwargs):
     """Update backend settings."""
     async with session.post(
-        f"{BACKEND_URL}/admin/update_persistent_settings", json={"settings": kwargs}
+        f"{BACKEND_URL}/admin/update_base_settings", json={"settings": kwargs}
     ) as resp:
         return resp.status == 200
 

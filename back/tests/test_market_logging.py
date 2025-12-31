@@ -14,7 +14,7 @@ LOGS_DIR = Path("back/logs")
 
 
 async def update_settings(session, **kwargs):
-    async with session.post(f"{BACKEND_URL}/admin/update_persistent_settings",
+    async with session.post(f"{BACKEND_URL}/admin/update_base_settings",
                            json={"settings": kwargs}) as resp:
         return resp.status == 200
 

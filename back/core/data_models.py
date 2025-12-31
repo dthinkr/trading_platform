@@ -451,8 +451,8 @@ class TradingParameters(BaseModel):
                 setattr(self, key, value)
 
     @classmethod
-    def create_with_persistent_settings(cls, base_params: dict, persistent_settings: dict):
-        merged_params = {**base_params, **persistent_settings}
+    def create_with_base_settings(cls, base_params: dict, base_settings: dict):
+        merged_params = {**base_params, **base_settings}
         # need 2+ humans
         merged_params['num_human_traders'] = max(merged_params.get('num_human_traders', 2), 2)
         return cls(**merged_params)

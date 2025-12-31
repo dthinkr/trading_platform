@@ -44,7 +44,7 @@ security = HTTPBasic()
 # Initialize with default values from TradingParameters
 # Use model_dump() to get a dictionary representation of all parameters
 default_params = TradingParameters()
-persistent_settings = default_params.model_dump()
+base_settings = default_params.model_dump()
 accumulated_rewards = {}  # Store accumulated rewards per user
 
 # CORS middleware for cross-origin requests
@@ -77,24 +77,24 @@ def get_historical_markets_count(username):
 def record_market_for_user(username, market_id):
     market_handler.user_historical_markets[username].add(market_id)
 
-class PersistentSettings(BaseModel):
+class BaseSettings(BaseModel):
     settings: dict
 
 # Update the persistent settings endpoint
-@app.post("/admin/update_persistent_settings")
-async def update_persistent_settings(settings: PersistentSettings):
-    global persistent_settings  # Only use global when modifying
+@app.post("/admin/update_base_settings")
+async def update_base_settings(settings: BaseSettings):
+    global base_settings  # Only use global when modifying
 
     # Import and set up parameter logger
     from core.parameter_logger import ParameterLogger
     logger = ParameterLogger()
 
     # Merge settings instead of replacing - this preserves fields not explicitly updated
-    persistent_settings.update(settings.settings)
+    base_settings.update(settings.settings)
 
     # Log the complete current state
     logger.log_parameter_state(
-        current_state=persistent_settings,
+        current_state=base_settings,
         source='admin_update'
     )
 
@@ -116,7 +116,7 @@ async def update_persistent_settings(settings: PersistentSettings):
     if 'predefined_goals' in settings.settings:
         try:
             # Create TradingParameters with updated settings
-            updated_params = TradingParameters(**(persistent_settings or {}))
+            updated_params = TradingParameters(**(base_settings or {}))
 
             # Update waiting session pools (clears permanent memory and updates goals)
             market_handler.session_manager.update_session_pool_goals(updated_params)
@@ -140,9 +140,9 @@ async def update_persistent_settings(settings: PersistentSettings):
 
     return {"status": "success", "message": "Persistent settings updated"}
 
-@app.get("/admin/get_persistent_settings")
-async def get_persistent_settings():
-    return {"status": "success", "data": persistent_settings}
+@app.get("/admin/get_base_settings")
+async def get_base_settings():
+    return {"status": "success", "data": base_settings}
 
 @app.get("/admin/download_parameter_history")
 async def download_parameter_history(current_user: dict = Depends(get_current_admin_user)):
@@ -324,7 +324,7 @@ async def get_trader_defaults():
 async def create_trading_market(background_tasks: BackgroundTasks, request: Request, current_user: dict = Depends(get_current_user)):
     # No need for global here since we're only reading
     try:
-        merged_params = TradingParameters(**(persistent_settings or {}))
+        merged_params = TradingParameters(**(base_settings or {}))
     except Exception as e:
         merged_params = TradingParameters()
         print(f"Error applying persistent settings: {str(e)}")
@@ -465,7 +465,7 @@ async def get_trader_info(trader_id: str):
         historical_markets_count = len(market_handler.user_historical_markets.get(username, set()))
         
         # Get parameters to determine initial allocations
-        params = TradingParameters(**(persistent_settings or {}))
+        params = TradingParameters(**(base_settings or {}))
         
         # Create minimal trader data for not-yet-in-session state
         # DON'T send goal - let it be undefined until assigned
@@ -477,7 +477,7 @@ async def get_trader_info(trader_id: str):
             'all_attributes': {
                 'historical_markets_count': historical_markets_count,
                 'is_admin': username in ['venvoooo', 'asancetta', 'marjonuzaj', 'fra160756', 'expecon', 'w.wu'],
-                'params': persistent_settings,
+                'params': base_settings,
                 'isWaitingForOthers': False  # Not waiting yet - not in session
             }
         }
@@ -511,7 +511,7 @@ async def get_trader_info(trader_id: str):
             'all_attributes': {
                 'historical_markets_count': historical_markets_count,
                 'is_admin': username in ['venvoooo', 'asancetta', 'marjonuzaj', 'fra160756', 'expecon', 'w.wu'],
-                'params': persistent_settings,  # Include current trading parameters
+                'params': base_settings,  # Include current trading parameters
                 'isWaitingForOthers': True
             }
         }
@@ -625,7 +625,7 @@ async def get_trader_market(trader_id: str, request: Request, current_user: dict
     # If user is not in a session yet (reading instructions), return minimal default info
     if session_status.get("status") == "not_found":
         try:
-            params = TradingParameters(**(persistent_settings or {}))
+            params = TradingParameters(**(base_settings or {}))
         except Exception as e:
             params = TradingParameters()
         
@@ -1110,7 +1110,7 @@ async def start_trading_market(background_tasks: BackgroundTasks, request: Reque
     
     # If user is not in a session yet, this is when they join!
     if session_status.get("status") == "not_found":
-        params = TradingParameters(**(persistent_settings or {}))
+        params = TradingParameters(**(base_settings or {}))
         
         try:
             # Join session and get role/goal assignment
@@ -1301,7 +1301,7 @@ async def startup_event():
     from core.parameter_logger import ParameterLogger
     logger = ParameterLogger()
     logger.log_parameter_state(
-        current_state=persistent_settings,
+        current_state=base_settings,
         source='system_startup'
     )
     
@@ -1342,10 +1342,10 @@ def is_market_valid(market_id: str) -> bool:
 async def reset_state(current_user: dict = Depends(get_current_admin_user)):
     """Reset all application state except settings"""
     try:
-        global persistent_settings, accumulated_rewards
-        current_settings = persistent_settings.copy()
+        global base_settings, accumulated_rewards
+        current_settings = base_settings.copy()
         await market_handler.reset_state()
-        persistent_settings = current_settings
+        base_settings = current_settings
         accumulated_rewards = {}  # Reset accumulated rewards
         
         # Preserve historical markets by not clearing market_handler.user_historical_markets
@@ -1365,14 +1365,14 @@ async def reset_state(current_user: dict = Depends(get_current_admin_user)):
 async def test_reset_state():
     """Reset all application state INCLUDING historical markets - FOR TESTING ONLY"""
     try:
-        global persistent_settings, accumulated_rewards
-        current_settings = persistent_settings.copy()
+        global base_settings, accumulated_rewards
+        current_settings = base_settings.copy()
         await market_handler.reset_state()
         # Also clear historical markets for clean test runs
         market_handler.session_manager.user_historical_markets.clear()
         market_handler.session_manager.permanent_speculators.clear()
         market_handler.session_manager.permanent_informed_goals.clear()
-        persistent_settings = current_settings
+        base_settings = current_settings
         accumulated_rewards = {}
         
         return {
@@ -1410,12 +1410,12 @@ async def broadcast_trader_count(market_id: str):
             except Exception:
                 pass
 
-@app.get("/admin/persistent_settings")
-async def get_persistent_settings(current_user: dict = Depends(get_current_admin_user)):
+@app.get("/admin/base_settings")
+async def get_base_settings(current_user: dict = Depends(get_current_admin_user)):
     """Get current persistent settings"""
     return {
         "status": "success",
-        "data": persistent_settings
+        "data": base_settings
     }
 
 

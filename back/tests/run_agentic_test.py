@@ -23,14 +23,14 @@ async def detect_api_prefix(session):
     """detect if backend uses /api prefix (docker) or not (local)."""
     # try without prefix first
     try:
-        async with session.get(f"{BACKEND_URL}/admin/get_persistent_settings", timeout=aiohttp.ClientTimeout(total=2)) as resp:
+        async with session.get(f"{BACKEND_URL}/admin/get_base_settings", timeout=aiohttp.ClientTimeout(total=2)) as resp:
             if resp.status == 200:
                 return ""
     except:
         pass
     # try with /api prefix
     try:
-        async with session.get(f"{BACKEND_URL}/api/admin/get_persistent_settings", timeout=aiohttp.ClientTimeout(total=2)) as resp:
+        async with session.get(f"{BACKEND_URL}/api/admin/get_base_settings", timeout=aiohttp.ClientTimeout(total=2)) as resp:
             if resp.status == 200:
                 return "/api"
     except:
@@ -39,7 +39,7 @@ async def detect_api_prefix(session):
 
 
 async def update_settings(session, prefix, **kwargs):
-    async with session.post(f"{BACKEND_URL}{prefix}/admin/update_persistent_settings", json={"settings": kwargs}) as resp:
+    async with session.post(f"{BACKEND_URL}{prefix}/admin/update_base_settings", json={"settings": kwargs}) as resp:
         return resp.status == 200
 
 
