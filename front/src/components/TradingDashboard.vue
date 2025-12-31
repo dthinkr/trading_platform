@@ -254,6 +254,17 @@ const isAgenticAdvisorEnabled = computed(() => {
   return store.gameParams?.agentic_advisor_enabled ?? false
 })
 
+// Log AI advisor status when session loads
+watch(
+  () => store.gameParams,
+  (params) => {
+    if (params) {
+      console.log('[Session] AI Advisor enabled:', params.agentic_advisor_enabled ?? false)
+    }
+  },
+  { immediate: true }
+)
+
 const formatDelta = computed(() => {
   if (sum_dinv.value == undefined) return ''
   const halfChange = Math.round(sum_dinv.value)

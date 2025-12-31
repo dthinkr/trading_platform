@@ -84,7 +84,7 @@ class TradingParameters(BaseModel):
         ge=0,
     )
     num_manipulator_traders: int = Field(
-        default=1,
+        default=0,
         title="Number of Manipulator Traders",
         description="model_parameter",
         ge=0,
@@ -342,7 +342,7 @@ class TradingParameters(BaseModel):
         description="agentic_parameter",
     )
     agentic_advisor_enabled: bool = Field(
-        default=True,
+        default=False,
         title="Enable Agentic Advisors for All Humans",
         description="agentic_parameter",
     )
