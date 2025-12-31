@@ -11,10 +11,10 @@ Runs 3 sequential markets with different AGENTIC goals:
 Total runtime: ~7 minutes (3 × 2min + buffer)
 
 Outputs:
-- agentic_market_data_seller.json
-- agentic_market_data_buyer.json
-- agentic_market_data_speculator.json
-- agentic_decisions_seller.json (etc.)
+- agentic_market_data_{role}.json (market events, orders, fills, price series)
+
+Note: Agentic decision logs are now auto-saved by the platform to:
+- back/logs/agentic/{market_id}_{trader_id}.json
 """
 
 import asyncio
@@ -54,14 +54,6 @@ async def reset_state(session):
 async def get_market_state(session):
     """Get current market state from backend."""
     async with session.get(f"{BACKEND_URL}/admin/market_state") as resp:
-        if resp.status == 200:
-            return await resp.json()
-        return None
-
-
-async def get_agentic_data(session):
-    """Get agentic trader decision log from backend."""
-    async with session.get(f"{BACKEND_URL}/admin/agentic_data") as resp:
         if resp.status == 200:
             return await resp.json()
         return None
@@ -358,7 +350,7 @@ async def run_single_market(session, role, goal, market_num):
     
     print(f"\n✓ {len(events)} events, {len(agentic_orders)} orders, {len(agentic_fills)} fills")
     
-    # Save
+    # Save market data (decision logs are auto-saved by platform to logs/agentic/)
     market_data = {
         "session_info": {"role": role, "goal": goal, "log_file": str(log_path), "collected_at": datetime.now().isoformat()},
         "events": events,
@@ -369,11 +361,6 @@ async def run_single_market(session, role, goal, market_num):
     
     with open(OUTPUT_DIR / f"agentic_market_data_{role}.json", "w") as f:
         json.dump(market_data, f, indent=2, default=str)
-    
-    agentic_data = await get_agentic_data(session)
-    if agentic_data:
-        with open(OUTPUT_DIR / f"agentic_decisions_{role}.json", "w") as f:
-            json.dump(agentic_data, f, indent=2, default=str)
     
     return market_data
 

@@ -167,11 +167,56 @@ class AgenticBase(PausingTrader):
         self.decision_log: List[Dict] = []
         self.price_history: List[float] = []
         self.initial_mid_price: Optional[float] = None
+        
+        # incremental log saving
+        self._logs_dir = os.path.join(os.path.dirname(__file__), "..", "logs", "agentic")
+        os.makedirs(self._logs_dir, exist_ok=True)
 
     async def initialize(self):
         await super().initialize()
         if not self.api_key:
             logger.warning(f"[{self.id}] No OpenRouter API key configured.")
+
+    def _save_log(self):
+        """Incrementally save decision log to file after each decision.
+        
+        File is named to match the market log: {market_id}.json
+        Contains data for this trader (multiple traders append to same structure).
+        """
+        if not self.decision_log:
+            return
+        
+        market_id = getattr(self, 'trading_market_uuid', None) or 'unknown'
+        filename = f"{market_id}.json"
+        filepath = os.path.join(self._logs_dir, filename)
+        
+        trader_data = {
+            "trader_id": self.id,
+            "goal": self.get_effective_goal(),
+            "decision_log": self.decision_log,
+            "price_history": self.price_history,
+            "updated_at": datetime.now().isoformat(),
+        }
+        
+        # Add performance summary if available
+        if hasattr(self, 'get_performance_summary'):
+            trader_data["performance"] = self.get_performance_summary()
+        
+        try:
+            # Load existing data or create new structure
+            existing_data = {"market_id": market_id, "traders": {}}
+            if os.path.exists(filepath):
+                with open(filepath, "r") as f:
+                    existing_data = json.load(f)
+            
+            # Update this trader's data
+            existing_data["traders"][self.id] = trader_data
+            existing_data["updated_at"] = datetime.now().isoformat()
+            
+            with open(filepath, "w") as f:
+                json.dump(existing_data, f, indent=2, default=str)
+        except Exception as e:
+            logger.error(f"[{self.id}] Failed to save log: {e}")
 
     # ---- properties ----
     @property
@@ -480,6 +525,7 @@ class AgenticTrader(AgenticBase):
             "current_vwap": self.get_vwap(), "current_reward": self.get_current_reward(mid_price)
         }
         self.decision_log.append(decision)
+        self._save_log()  # incremental save
         return decision
 
     async def _execute_action(self, tool_name: str, args: Dict) -> Dict:
@@ -614,6 +660,7 @@ class AgenticAdvisor(AgenticBase):
         decision = {"timestamp": advice["timestamp"], "action": tool_name, "args": args,
                     "result": {"advisor_mode": True, "advice_sent": True}}
         self.decision_log.append(decision)
+        self._save_log()  # incremental save
         return decision
 
     async def _broadcast_advice(self, advice: Dict):

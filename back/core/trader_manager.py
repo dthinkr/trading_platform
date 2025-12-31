@@ -120,7 +120,7 @@ class TraderManager:
         traders = [
             InformedTrader(
                 id=f"INFORMED_{i+1}",
-                params=params,
+                params=dict(params),  # copy so each trader can have independent direction
             )
             for i in range(n_informed_traders)
         ]

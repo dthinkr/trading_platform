@@ -1381,6 +1381,85 @@ async def test_reset_state():
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Reset failed: {str(e)}")
+
+
+# headless experiment runner - run markets with only AI traders
+@app.post("/admin/run_headless_batch")
+async def run_headless_batch(
+    background_tasks: BackgroundTasks,
+    num_markets: int = Query(default=3, ge=1, le=10),
+    start_treatment: int = Query(default=0, ge=0),
+    parallel: bool = Query(default=True, description="Run markets simultaneously (True) or sequentially (False)"),
+    delay_seconds: int = Query(default=5, ge=1, le=60, description="Delay between sequential markets (ignored if parallel=True)")
+):
+    """
+    Run multiple headless markets as a session.
+    
+    - num_markets: how many markets to run in this session
+    - start_treatment: which treatment index to start from
+    - parallel: if True, all markets run simultaneously; if False, run sequentially
+    - delay_seconds: pause between sequential markets (ignored if parallel)
+    """
+    import time as time_module
+    import uuid
+    
+    # Use consistent SESSION naming format
+    session_id = f"SESSION_{int(time_module.time())}_{uuid.uuid4().hex[:8]}"
+    
+    async def run_single_market(market_index: int, treatment_idx: int):
+        """Run a single market."""
+        try:
+            treatment = treatment_manager.get_treatment_for_market(treatment_idx)
+            params_dict = dict(base_settings) if base_settings else {}
+            if treatment:
+                params_dict.update(treatment)
+            
+            params_dict["predefined_goals"] = []
+            
+            if params_dict.get("num_agentic_traders", 0) == 0:
+                params_dict["num_agentic_traders"] = 1
+                params_dict["agentic_goals"] = [20]
+            
+            params = TradingParameters(**params_dict)
+            market_id = f"{session_id}_MARKET_{market_index}"
+            
+            manager = TraderManager(params, market_id=market_id)
+            market_handler.trader_managers[market_id] = manager
+            
+            print(f"Starting market {market_index} (treatment {treatment_idx}): {market_id}")
+            await manager.launch()
+            await manager.cleanup()
+            print(f"Completed market {market_index}: {market_id}")
+            
+        except Exception as e:
+            print(f"Market {market_index} (treatment {treatment_idx}) error: {e}")
+    
+    async def run_batch():
+        if parallel:
+            # run all markets simultaneously
+            tasks = [
+                run_single_market(i, start_treatment + i)
+                for i in range(num_markets)
+            ]
+            await asyncio.gather(*tasks)
+        else:
+            # run markets sequentially
+            for i in range(num_markets):
+                await run_single_market(i, start_treatment + i)
+                if i < num_markets - 1:
+                    await asyncio.sleep(delay_seconds)
+    
+    background_tasks.add_task(run_batch)
+    
+    return {
+        "status": "success",
+        "session_id": session_id,
+        "num_markets": num_markets,
+        "start_treatment": start_treatment,
+        "parallel": parallel,
+        "message": f"Starting {num_markets} markets {'in parallel' if parallel else 'sequentially'} from treatment {start_treatment}"
+    }
+
         
 # headcount!
 async def broadcast_trader_count(market_id: str):
@@ -1421,7 +1500,11 @@ async def get_base_settings(current_user: dict = Depends(get_current_admin_user)
 
 @app.get("/admin/agentic_data")
 async def get_agentic_data():
-    """Get agentic trader decision logs and performance data for paper figures."""
+    """Get agentic trader decision logs from active markets.
+    
+    Note: Logs are also auto-saved incrementally to logs/agentic/{market_id}_{trader_id}.json
+    This endpoint is useful for live debugging during active markets.
+    """
     try:
         all_agentic_data = []
         

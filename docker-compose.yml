@@ -2,6 +2,22 @@ x-logging: &default-logging
   driver: "none"
 
 services:
+  front:
+    build:
+      context: ./front
+      dockerfile: ../docker/Dockerfile.front.dev
+    volumes:
+      - ./front:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_HTTP_URL=http://localhost:8000/
+      - VITE_WS_URL=ws://localhost:8000/
+    command: yarn dev --host
+    depends_on:
+      - back
+
   front-deploy:
     image: venvoo/trading_platform:front
     build:

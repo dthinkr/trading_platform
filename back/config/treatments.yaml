@@ -1,42 +1,125 @@
-# treatments:
-# - name: Treatment A - Paper Test (uses persistent settings)
-#   num_noise_traders: 1
-#   num_manipulator_traders: 0
-#   agentic_advisor_enabled: false
-#   agentic_model: anthropic/claude-haiku-4.5
-#   agentic_decision_interval: 5
-#   trading_day_duration: 2
-#   predefined_goals:
-#   - 0
-# - name: Treatment B - With Advisor
-#   num_noise_traders: 1
-#   num_agentic_traders: 0
-#   num_manipulator_traders: 0
-#   agentic_advisor_enabled: true
-#   agentic_model: anthropic/claude-haiku-4.5
-#   agentic_decision_interval: 2
-#   trading_day_duration: 1
-#   predefined_goals:
-#   - 20
-# - name: Treatment C - Agentic Buyer
-#   num_noise_traders: 1
-#   num_agentic_traders: 1
-#   agentic_advisor_enabled: true
-#   agentic_model: anthropic/claude-haiku-4.5
-#   agentic_goals:
-#   - 20
-#   agentic_decision_interval: 5
-#   trading_day_duration: 1
-#   predefined_goals:
-#   - 20
-# - name: Treatment D - Agentic Seller
-#   num_noise_traders: 1
-#   num_agentic_traders: 1
-#   agentic_advisor_enabled: true
-#   agentic_model: anthropic/claude-haiku-4.5
-#   agentic_goals:
-#   - -20
-#   agentic_decision_interval: 5
-#   trading_day_duration: 1
-#   predefined_goals:
-#   - -20
+# experiment treatments for LLM trader performance testing
+# session 1 (treatments 0-2): LLMs + noise only
+# session 2 (treatments 3-5): LLMs + noise + informed BUYER
+# session 3 (treatments 6-8): LLMs + noise + informed SELLER
+
+treatments:
+  # session 1 - LLMs + noise only
+  - name: S1M0 - Buyer Only
+    num_agentic_traders: 1
+    agentic_goals: [20]
+    agentic_decision_interval: 2
+    agentic_model: anthropic/claude-haiku-4.5
+    num_noise_traders: 1
+    num_informed_traders: 0
+    num_manipulator_traders: 0
+    trading_day_duration: 2
+    predefined_goals: []
+
+  - name: S1M1 - Seller Only
+    num_agentic_traders: 1
+    agentic_goals: [-20]
+    agentic_decision_interval: 2
+    agentic_model: anthropic/claude-haiku-4.5
+    num_noise_traders: 1
+    num_informed_traders: 0
+    num_manipulator_traders: 0
+    trading_day_duration: 2
+    predefined_goals: []
+
+  - name: S1M2 - Speculator Only
+    num_agentic_traders: 1
+    agentic_goals: [0]
+    agentic_decision_interval: 2
+    agentic_model: anthropic/claude-haiku-4.5
+    num_noise_traders: 1
+    num_informed_traders: 0
+    num_manipulator_traders: 0
+    trading_day_duration: 2
+    predefined_goals: []
+
+  # session 2 - LLMs + noise + informed BUYER
+  - name: S2M0 - Buyer + Informed Buyer
+    num_agentic_traders: 1
+    agentic_goals: [20]
+    agentic_decision_interval: 2
+    agentic_model: anthropic/claude-haiku-4.5
+    num_noise_traders: 1
+    num_informed_traders: 1
+    informed_trade_direction: buy
+    informed_trade_intensity: 0.43
+    informed_random_direction: false
+    num_manipulator_traders: 0
+    trading_day_duration: 2
+    predefined_goals: []
+
+  - name: S2M1 - Seller + Informed Buyer
+    num_agentic_traders: 1
+    agentic_goals: [-20]
+    agentic_decision_interval: 2
+    agentic_model: anthropic/claude-haiku-4.5
+    num_noise_traders: 1
+    num_informed_traders: 1
+    informed_trade_direction: buy
+    informed_trade_intensity: 0.43
+    informed_random_direction: false
+    num_manipulator_traders: 0
+    trading_day_duration: 2
+    predefined_goals: []
+
+  - name: S2M2 - Speculator + Informed Buyer
+    num_agentic_traders: 1
+    agentic_goals: [0]
+    agentic_decision_interval: 2
+    agentic_model: anthropic/claude-haiku-4.5
+    num_noise_traders: 1
+    num_informed_traders: 1
+    informed_trade_direction: buy
+    informed_trade_intensity: 0.43
+    informed_random_direction: false
+    num_manipulator_traders: 0
+    trading_day_duration: 2
+    predefined_goals: []
+
+  # session 3 - LLMs + noise + informed SELLER
+  - name: S3M0 - Buyer + Informed Seller
+    num_agentic_traders: 1
+    agentic_goals: [20]
+    agentic_decision_interval: 2
+    agentic_model: anthropic/claude-haiku-4.5
+    num_noise_traders: 1
+    num_informed_traders: 1
+    informed_trade_direction: sell
+    informed_trade_intensity: 0.43
+    informed_random_direction: false
+    num_manipulator_traders: 0
+    trading_day_duration: 2
+    predefined_goals: []
+
+  - name: S3M1 - Seller + Informed Seller
+    num_agentic_traders: 1
+    agentic_goals: [-20]
+    agentic_decision_interval: 2
+    agentic_model: anthropic/claude-haiku-4.5
+    num_noise_traders: 1
+    num_informed_traders: 1
+    informed_trade_direction: sell
+    informed_trade_intensity: 0.43
+    informed_random_direction: false
+    num_manipulator_traders: 0
+    trading_day_duration: 2
+    predefined_goals: []
+
+  - name: S3M2 - Speculator + Informed Seller
+    num_agentic_traders: 1
+    agentic_goals: [0]
+    agentic_decision_interval: 2
+    agentic_model: anthropic/claude-haiku-4.5
+    num_noise_traders: 1
+    num_informed_traders: 1
+    informed_trade_direction: sell
+    informed_trade_intensity: 0.43
+    informed_random_direction: false
+    num_manipulator_traders: 0
+    trading_day_duration: 2
+    predefined_goals: []

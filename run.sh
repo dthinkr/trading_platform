@@ -3,40 +3,27 @@
 MODE=${1:-dev}
 
 if [ "$MODE" = "dev" ]; then
-    echo "🚀 starting in LOCAL DEV mode..."
+    echo "🚀 starting in LOCAL DEV mode (both in Docker)..."
     
     # stop containers
     docker compose down
     
-    # start backend
-    docker compose up -d back
-    
-    # start frontend in background
-    cd front && yarn dev &
-    FRONTEND_PID=$!
-    cd ..
+    # start backend and frontend
+    docker compose up -d back front
     
     echo ""
     echo "✅ backend running at http://localhost:8000"
     echo "✅ frontend running at http://localhost:3000"
-    echo "📝 view backend logs: docker compose logs -f back"
-    echo "🛑 stop: docker compose down && kill $FRONTEND_PID"
-    
-    # wait for frontend process
-    wait $FRONTEND_PID
-    
+    echo "📝 view logs: docker compose logs -f"
+    echo "🛑 stop: docker compose down"
+
 elif [ "$MODE" = "dev_stop" ]; then
     echo "🛑 stopping LOCAL DEV services..."
     
     # Stop docker containers
     docker compose down
     
-    # Kill frontend dev server (yarn dev)
-    pkill -f "yarn dev" 2>/dev/null || true
-    pkill -f "vite" 2>/dev/null || true
-    
-    echo "✅ stopped backend (docker)"
-    echo "✅ stopped frontend (yarn dev)"
+    echo "✅ stopped all services"
 
 elif [ "$MODE" = "prod" ]; then
     echo "🚀 starting in PRODUCTION mode..."
