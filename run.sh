@@ -52,7 +52,7 @@ elif [ "$MODE" = "batch" ]; then
     NUM_SESSIONS=${2:-5}
     DURATION=${3:-60}
     
-    if ! curl -s http://localhost:8000/admin/get_persistent_settings > /dev/null 2>&1; then
+    if ! curl -s http://localhost:8000/admin/get_base_settings > /dev/null 2>&1; then
         echo "❌ backend not running. start with: ./run.sh dev"
         exit 1
     fi
@@ -75,7 +75,7 @@ elif [ "$MODE" = "batch" ]; then
     done
     SETTINGS="$SETTINGS}"
     
-    curl -s -X POST "http://localhost:8000/admin/update_persistent_settings" \
+    curl -s -X POST "http://localhost:8000/admin/update_base_settings" \
         -H "Content-Type: application/json" \
         -d "{\"settings\": $SETTINGS}" > /dev/null
     

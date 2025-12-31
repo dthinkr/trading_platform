@@ -86,7 +86,7 @@ const fetchData = async () => {
   try {
     const [defaultsResponse, persistentSettingsResponse] = await Promise.all([
       axios.get(`${import.meta.env.VITE_HTTP_URL}traders/defaults`),
-      axios.get(`${import.meta.env.VITE_HTTP_URL}admin/get_persistent_settings`),
+      axios.get(`${import.meta.env.VITE_HTTP_URL}admin/get_base_settings`),
     ])
 
     const defaultData = defaultsResponse.data.data

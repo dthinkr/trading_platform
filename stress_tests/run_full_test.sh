@@ -28,7 +28,7 @@ echo ""
 
 # Configure platform for 4 users per market
 echo "Configuring platform (4 users per market)..."
-curl -s -X POST http://localhost:8000/admin/update_persistent_settings \
+curl -s -X POST http://localhost:8000/admin/update_base_settings \
   -H "Content-Type: application/json" \
   -d '{"settings": {"predefined_goals": [100, -200, 150, 50]}}' > /dev/null
 

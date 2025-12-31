@@ -342,7 +342,7 @@ class TradingParameters(BaseModel):
         description="agentic_parameter",
     )
     agentic_advisor_enabled: bool = Field(
-        default=False,
+        default=True,
         title="Enable Agentic Advisors for All Humans",
         description="agentic_parameter",
     )

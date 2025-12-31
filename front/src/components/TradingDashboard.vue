@@ -642,7 +642,7 @@ onMounted(() => {
 
 /* AI Advisor Banner */
 .ai-advisor-banner {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%);
+  background: #ffffff;
   border: 1px solid rgba(99, 102, 241, 0.2);
   border-radius: 16px;
 }

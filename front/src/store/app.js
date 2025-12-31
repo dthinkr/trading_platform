@@ -718,7 +718,7 @@ export const useTraderStore = defineStore('trader', {
     async fetchPersistentSettings() {
       try {
         const response = await axios.get(
-          `${import.meta.env.VITE_HTTP_URL}admin/get_persistent_settings`
+          `${import.meta.env.VITE_HTTP_URL}admin/get_base_settings`
         )
         return response.data.data
       } catch (error) {
@@ -729,7 +729,7 @@ export const useTraderStore = defineStore('trader', {
 
     async updatePersistentSettings(settings) {
       try {
-        await axios.post(`${import.meta.env.VITE_HTTP_URL}admin/update_persistent_settings`, {
+        await axios.post(`${import.meta.env.VITE_HTTP_URL}admin/update_base_settings`, {
           settings,
         })
       } catch (error) {

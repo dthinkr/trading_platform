@@ -127,7 +127,7 @@ python stress_test.py --users 100 --batch-size 25
 
 1. Set 4 users per market:
 ```bash
-curl -X POST http://localhost:8000/admin/update_persistent_settings \
+curl -X POST http://localhost:8000/admin/update_base_settings \
   -H "Content-Type: application/json" \
   -d '{"settings": {"predefined_goals": [100, -200, 150, 50]}}'
 ```
@@ -139,7 +139,7 @@ python stress_test.py --users 40 --batch-size 20
 
 3. Set 10 users per market and compare:
 ```bash
-curl -X POST http://localhost:8000/admin/update_persistent_settings \
+curl -X POST http://localhost:8000/admin/update_base_settings \
   -H "Content-Type: application/json" \
   -d '{"settings": {"predefined_goals": [100, -200, 150, 50, -100, 75, -50, 125, -75, 25]}}'
 

@@ -346,7 +346,7 @@ const debouncedUpdate = debounce(async (settings) => {
       })
     }
 
-    await axios.post(`${import.meta.env.VITE_HTTP_URL}admin/update_persistent_settings`, {
+    await axios.post(`${import.meta.env.VITE_HTTP_URL}admin/update_base_settings`, {
       settings: cleanSettings,
     })
   } catch (error) {
