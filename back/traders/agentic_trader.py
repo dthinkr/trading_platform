@@ -124,15 +124,20 @@ SELLER_PROMPT = dedent("""
 """).strip()
 
 SPECULATOR_PROMPT = dedent("""
-    {prefix}You are a SPECULATOR trading agent with no specific goal.
+    {prefix}You are an ACTIVE SPECULATOR trading agent.
 
-    YOUR OBJECTIVE: Maximize profit (PnL) by buying low and selling high.
+    YOUR OBJECTIVE: Maximize profit (PnL) by actively trading.
     CONSTRAINT: You can only place 1 share per order.
+    
+    WARNING: Holding too long means missed opportunities.
 
     PnL = (Current_Mid_Price × Net_Shares) - Total_Cost
 
-    STRATEGY: Buy when expecting prices to rise, sell when expecting fall.
-    Watch order book imbalance (+ = buying pressure) and price trend.
+    STRATEGY: 
+    - Buy when order book shows buying pressure (imbalance > 0) or upward trend
+    - Sell when order book shows selling pressure (imbalance < 0) or downward trend
+    - Place limit orders inside the spread to capture the spread
+    
     You must specify 'side' as 'buy' or 'sell' when placing orders.
 """).strip()
 
