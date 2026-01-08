@@ -70,15 +70,58 @@
           >
             <v-card-title class="compact-group-title">
               <v-icon left color="deep-blue" size="16">mdi-label-outline</v-icon>
-              {{ hint.replace('_', ' ') }}
+              {{ formatGroupTitle(hint) }}
             </v-card-title>
             <v-card-text class="pa-2">
               <v-row dense>
                 <v-col cols="6" v-for="field in group" :key="field.name">
                   <v-tooltip location="top">
                     <template v-slot:activator="{ props: tooltipProps }">
+                      <!-- Special handling for agentic_prompt_template - dropdown -->
+                      <v-select
+                        v-if="field.name === 'agentic_prompt_template'"
+                        v-bind="tooltipProps"
+                        :label="field.title || ''"
+                        v-model="formState[field.name]"
+                        :items="agenticTemplates"
+                        item-title="name"
+                        item-value="id"
+                        density="compact"
+                        variant="outlined"
+                        hide-details="auto"
+                        class="mb-1 compact-input"
+                        :class="getFieldStyle(field.name)"
+                        @update:modelValue="updatePersistentSettings"
+                      ></v-select>
+                      <!-- Special handling for boolean fields - switch -->
+                      <v-switch
+                        v-else-if="field.type === 'boolean'"
+                        v-bind="tooltipProps"
+                        :label="field.title || ''"
+                        v-model="formState[field.name]"
+                        density="compact"
+                        hide-details="auto"
+                        color="primary"
+                        class="mb-1 compact-input"
+                        :class="getFieldStyle(field.name)"
+                        @update:modelValue="updatePersistentSettings"
+                      ></v-switch>
+                      <!-- Array fields -->
                       <v-text-field
-                        v-if="!isArrayField(field)"
+                        v-else-if="isArrayField(field)"
+                        v-bind="tooltipProps"
+                        :label="field.title || ''"
+                        v-model="formState[field.name]"
+                        density="compact"
+                        variant="outlined"
+                        hide-details="auto"
+                        class="mb-1 compact-input"
+                        :class="getFieldStyle(field.name)"
+                        @input="handleArrayInput(field.name, $event)"
+                      ></v-text-field>
+                      <!-- Regular fields -->
+                      <v-text-field
+                        v-else
                         v-bind="tooltipProps"
                         :label="field.title || ''"
                         v-model="formState[field.name]"
@@ -89,18 +132,6 @@
                         class="mb-1 compact-input"
                         :class="getFieldStyle(field.name)"
                         @input="updatePersistentSettings"
-                      ></v-text-field>
-                      <v-text-field
-                        v-else
-                        v-bind="tooltipProps"
-                        :label="field.title || ''"
-                        v-model="formState[field.name]"
-                        density="compact"
-                        variant="outlined"
-                        hide-details="auto"
-                        class="mb-1 compact-input"
-                        :class="getFieldStyle(field.name)"
-                        @input="handleArrayInput(field.name, $event)"
                       ></v-text-field>
                     </template>
                     <span class="tooltip-code">{{ field.name }}</span>
@@ -204,6 +235,70 @@
       </div>
     </v-expand-transition>
   </v-card>
+
+  <!-- Agentic Prompts Editor -->
+  <v-card elevation="1" class="mt-4">
+    <v-card-title class="compact-title" @click="showAgenticPrompts = !showAgenticPrompts" style="cursor: pointer">
+      <v-icon left color="deep-purple" size="18">mdi-robot-outline</v-icon>
+      AI Agent Prompt Templates
+      <v-spacer></v-spacer>
+      <v-icon>{{ showAgenticPrompts ? 'mdi-chevron-up' : 'mdi-chevron-down' }}</v-icon>
+    </v-card-title>
+
+    <v-expand-transition>
+      <div v-show="showAgenticPrompts">
+        <v-card-text>
+          <v-alert type="info" density="compact" class="mb-3">
+            Define reusable prompt templates for AI agentic traders. Each template includes goal, decision interval, and the system prompt.
+          </v-alert>
+          
+          <v-textarea
+            v-model="agenticPromptsYaml"
+            label="Agentic Prompts YAML"
+            placeholder="templates:
+  buyer_20_default:
+    name: 'Buyer (20 shares)'
+    goal: 20
+    decision_interval: 5.0
+    prompt: |
+      You are a trading agent..."
+            rows="16"
+            variant="outlined"
+            density="compact"
+            class="yaml-editor"
+            :error="agenticPromptsError !== ''"
+            :error-messages="agenticPromptsError"
+          ></v-textarea>
+        </v-card-text>
+
+        <v-card-actions class="pa-2">
+          <v-btn
+            color="secondary"
+            @click="loadAgenticPromptsYaml"
+            :disabled="!serverActive"
+            size="small"
+            variant="outlined"
+            class="custom-btn"
+          >
+            <v-icon start size="16">mdi-refresh</v-icon>
+            Load
+          </v-btn>
+          <v-spacer></v-spacer>
+          <v-btn
+            color="deep-purple"
+            @click="saveAgenticPrompts"
+            :disabled="!serverActive"
+            size="small"
+            variant="elevated"
+            class="custom-btn"
+          >
+            <v-icon start size="16">mdi-content-save</v-icon>
+            Save Prompts
+          </v-btn>
+        </v-card-actions>
+      </div>
+    </v-expand-transition>
+  </v-card>
 </template>
 
 <script setup>
@@ -232,6 +327,51 @@ const showTreatments = ref(false)
 const treatmentYaml = ref('')
 const treatments = ref([])
 const yamlError = ref('')
+const agenticTemplates = ref([])
+
+// Agentic prompts editor state
+const showAgenticPrompts = ref(false)
+const agenticPromptsYaml = ref('')
+const agenticPromptsError = ref('')
+
+// Fetch agentic templates (for dropdown)
+const loadAgenticTemplates = async () => {
+  try {
+    const response = await axios.get(`${import.meta.env.VITE_HTTP_URL}admin/agentic_templates`)
+    agenticTemplates.value = response.data.templates || []
+  } catch (error) {
+    console.error('Failed to load agentic templates:', error)
+    // Fallback to default template
+    agenticTemplates.value = [{ id: 'buyer_20_default', name: 'Buyer (20 shares)' }]
+  }
+}
+
+// Fetch full agentic prompts YAML for editor
+const loadAgenticPromptsYaml = async () => {
+  try {
+    const response = await axios.get(`${import.meta.env.VITE_HTTP_URL}admin/agentic_prompts_yaml`)
+    agenticPromptsYaml.value = response.data.yaml_content || ''
+    agenticTemplates.value = response.data.templates || []
+    agenticPromptsError.value = ''
+  } catch (error) {
+    console.error('Failed to load agentic prompts:', error)
+    agenticPromptsError.value = 'Failed to load agentic prompts'
+  }
+}
+
+// Save agentic prompts YAML
+const saveAgenticPrompts = async () => {
+  try {
+    const response = await axios.post(`${import.meta.env.VITE_HTTP_URL}admin/update_agentic_prompts`, {
+      yaml_content: agenticPromptsYaml.value
+    })
+    agenticTemplates.value = response.data.templates || []
+    agenticPromptsError.value = ''
+  } catch (error) {
+    console.error('Failed to save agentic prompts:', error)
+    agenticPromptsError.value = error.response?.data?.detail || 'Failed to save agentic prompts'
+  }
+}
 
 const loadTreatments = async () => {
   try {
@@ -261,6 +401,7 @@ const saveTreatments = async () => {
 onMounted(() => {
   if (props.serverActive) {
     loadTreatments()
+    loadAgenticTemplates()
   }
 })
 
@@ -268,11 +409,20 @@ watch(() => props.serverActive, (newVal) => {
   if (newVal && treatments.value.length === 0) {
     loadTreatments()
   }
+  if (newVal && agenticTemplates.value.length === 0) {
+    loadAgenticTemplates()
+  }
 })
 
 watch(showTreatments, (newVal) => {
   if (newVal && props.serverActive && treatments.value.length === 0) {
     loadTreatments()
+  }
+})
+
+watch(showAgenticPrompts, (newVal) => {
+  if (newVal && props.serverActive && agenticPromptsYaml.value === '') {
+    loadAgenticPromptsYaml()
   }
 })
 
@@ -284,6 +434,19 @@ const formatTraderType = (type) => {
   return type.replace('_', ' ').toLowerCase().split(' ').map(word => 
     word.charAt(0).toUpperCase() + word.slice(1)
   ).join(' ').substring(0, 12)
+}
+
+// Format group titles for display
+const formatGroupTitle = (hint) => {
+  const titleMap = {
+    'agentic_parameter': 'AI Agentic Traders',
+    'model_parameter': 'Model Parameters',
+    'noise_parameter': 'Noise Traders',
+    'informed_parameter': 'Informed Traders',
+    'human_parameter': 'Human Traders',
+    'manipulator_parameter': 'Manipulator Traders',
+  }
+  return titleMap[hint] || hint.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 
 const groupedFields = computed(() => {

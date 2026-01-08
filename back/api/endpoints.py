@@ -2,6 +2,10 @@ import asyncio
 import io
 from datetime import timedelta, datetime
 
+# Load environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv()
+
 # main imports
 from fastapi import (
     FastAPI, WebSocket, HTTPException, WebSocketDisconnect, 
@@ -143,6 +147,44 @@ async def update_base_settings(settings: BaseSettings):
 @app.get("/admin/get_base_settings")
 async def get_base_settings():
     return {"status": "success", "data": base_settings}
+
+@app.get("/admin/agentic_templates")
+async def get_agentic_templates():
+    """Get list of available agentic prompt templates."""
+    from traders.agentic_trader import list_templates
+    templates = list_templates()
+    return {"status": "success", "templates": templates}
+
+
+class AgenticPromptsYAML(BaseModel):
+    yaml_content: str
+
+
+@app.get("/admin/agentic_prompts_yaml")
+async def get_agentic_prompts_yaml():
+    """Get the full YAML content of agentic prompt templates."""
+    from traders.agentic_trader import get_prompt_templates_yaml, list_templates
+    return {
+        "status": "success",
+        "yaml_content": get_prompt_templates_yaml(),
+        "templates": list_templates()
+    }
+
+
+@app.post("/admin/update_agentic_prompts")
+async def update_agentic_prompts(data: AgenticPromptsYAML):
+    """Update agentic prompt templates from YAML content."""
+    from traders.agentic_trader import save_prompt_templates, list_templates
+    try:
+        count = save_prompt_templates(data.yaml_content)
+        return {
+            "status": "success",
+            "message": f"Updated {count} agentic prompt templates",
+            "templates": list_templates()
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 
 @app.get("/admin/download_parameter_history")
 async def download_parameter_history(current_user: dict = Depends(get_current_admin_user)):
@@ -1418,7 +1460,7 @@ async def run_headless_batch(
             
             if params_dict.get("num_agentic_traders", 0) == 0:
                 params_dict["num_agentic_traders"] = 1
-                params_dict["agentic_goals"] = [20]
+                params_dict["agentic_prompt_template"] = "buyer_20_default"
             
             params = TradingParameters(**params_dict)
             market_id = f"{session_id}_MARKET_{market_index}"
@@ -1432,7 +1474,9 @@ async def run_headless_batch(
             print(f"Completed market {market_index}: {market_id}")
             
         except Exception as e:
+            import traceback
             print(f"Market {market_index} (treatment {treatment_idx}) error: {e}")
+            traceback.print_exc()
     
     async def run_batch():
         if parallel:

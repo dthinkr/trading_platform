@@ -15,7 +15,7 @@
         <div class="header-status">
           <div class="status-chip" :class="serverActive ? 'status-online' : 'status-offline'">
             <div class="status-indicator" :class="serverActive ? 'online' : 'offline'"></div>
-            <span class="status-text">{{ serverActive ? 'Server Online' : 'Server Offline' }}</span>
+            <span class="status-text">{{ serverActive ? 'Backend Connected' : 'Backend Disconnected' }}</span>
           </div>
         </div>
       </div>

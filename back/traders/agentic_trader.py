@@ -1,5 +1,5 @@
 """
-Agentic Trading System - Goal-based trading with VWAP optimization.
+Agentic Trading System - Template-based trading with configurable prompts.
 
 Classes:
 - AgenticBase: Shared LLM logic (prompts, API calls, market state)
@@ -10,17 +10,112 @@ import asyncio
 import os
 import json
 import httpx
-from dataclasses import dataclass, field
+import yaml
+from dataclasses import dataclass
 from typing import Dict, Any, List, Optional, TypedDict
 from datetime import datetime
 from abc import abstractmethod
-from textwrap import dedent
+from pathlib import Path
 
 from core.data_models import OrderType, TraderType
 from .base_trader import PausingTrader
 from utils.utils import setup_custom_logger
 
 logger = setup_custom_logger(__name__)
+
+
+# ============================================================================
+# template loading
+# ============================================================================
+
+_TEMPLATES_CACHE: Optional[Dict] = None
+_CONFIG_PATH = Path(__file__).parent.parent / "config" / "agentic_prompts.yaml"
+
+def load_prompt_templates(force_reload: bool = False) -> Dict:
+    """Load prompt templates from config file."""
+    global _TEMPLATES_CACHE
+    if _TEMPLATES_CACHE is not None and not force_reload:
+        return _TEMPLATES_CACHE
+    
+    try:
+        with open(_CONFIG_PATH, "r") as f:
+            data = yaml.safe_load(f)
+            _TEMPLATES_CACHE = data.get("templates", {})
+            logger.info(f"Loaded {len(_TEMPLATES_CACHE)} agentic prompt templates")
+            return _TEMPLATES_CACHE
+    except Exception as e:
+        logger.error(f"Failed to load prompt templates: {e}")
+        # Return default template
+        _TEMPLATES_CACHE = {
+            "buyer_20_default": {
+                "name": "Buyer (20 shares)",
+                "goal": 20,
+                "decision_interval": 5.0,
+                "buy_target_price": 110,
+                "sell_target_price": 90,
+                "penalty_multiplier_buy": 1.5,
+                "penalty_multiplier_sell": 0.5,
+                "prompt": "You are a trading agent. Buy 20 shares at lowest VWAP."
+            }
+        }
+        return _TEMPLATES_CACHE
+
+def save_prompt_templates(yaml_content: str) -> int:
+    """Save prompt templates from YAML content. Returns number of templates saved."""
+    global _TEMPLATES_CACHE
+    try:
+        data = yaml.safe_load(yaml_content)
+        if not data or "templates" not in data:
+            raise ValueError("YAML must contain a 'templates' key")
+        
+        templates = data.get("templates", {})
+        if not isinstance(templates, dict):
+            raise ValueError("'templates' must be a dictionary")
+        
+        # Validate each template has required fields
+        for tid, template in templates.items():
+            if "name" not in template:
+                template["name"] = tid
+            if "goal" not in template:
+                raise ValueError(f"Template '{tid}' missing required field 'goal'")
+            if "prompt" not in template:
+                raise ValueError(f"Template '{tid}' missing required field 'prompt'")
+        
+        # Save to file
+        with open(_CONFIG_PATH, "w") as f:
+            f.write(yaml_content)
+        
+        # Clear cache to force reload
+        _TEMPLATES_CACHE = None
+        load_prompt_templates(force_reload=True)
+        
+        logger.info(f"Saved {len(templates)} agentic prompt templates")
+        return len(templates)
+    except yaml.YAMLError as e:
+        logger.error(f"Invalid YAML: {e}")
+        raise ValueError(f"Invalid YAML: {e}")
+
+def get_prompt_templates_yaml() -> str:
+    """Get the raw YAML content of the templates file."""
+    try:
+        with open(_CONFIG_PATH, "r") as f:
+            return f.read()
+    except Exception as e:
+        logger.error(f"Failed to read templates file: {e}")
+        return "templates: {}\n"
+
+def get_template(template_name: str) -> Dict:
+    """Get a specific template by name."""
+    templates = load_prompt_templates()
+    if template_name not in templates:
+        logger.warning(f"Template '{template_name}' not found, using first available")
+        template_name = next(iter(templates.keys()))
+    return templates[template_name]
+
+def list_templates() -> List[Dict]:
+    """List all available templates with their names."""
+    templates = load_prompt_templates()
+    return [{"id": k, "name": v.get("name", k)} for k, v in templates.items()]
 
 
 # ============================================================================
@@ -92,57 +187,6 @@ def build_tools(goal: int) -> List[Dict]:
 
 
 # ============================================================================
-# prompt templates
-# ============================================================================
-
-BUYER_PROMPT = dedent("""
-    {prefix}You are a trading agent with a BUYING goal.
-
-    YOUR OBJECTIVE: Buy {goal} shares at the lowest average price (VWAP).
-    CONSTRAINT: You can only place 1 share per order.
-
-    REWARD FORMULA:
-    - Reward = ({buy_target} - Your_VWAP) × 10
-    - WARNING: Incomplete trades are penalized at {penalty_buy}× mid price
-
-    STRATEGY: Place BUY orders at or below best ask. Lower prices = better VWAP.
-    You can only place BUY orders (system knows your direction).
-""").strip()
-
-SELLER_PROMPT = dedent("""
-    {prefix}You are a trading agent with a SELLING goal.
-
-    YOUR OBJECTIVE: Sell {goal} shares at the highest average price (VWAP).
-    CONSTRAINT: You can only place 1 share per order.
-
-    REWARD FORMULA:
-    - Reward = (Your_VWAP - {sell_target}) × 10
-    - WARNING: Incomplete trades are penalized at {penalty_sell}× mid price
-
-    STRATEGY: Place SELL orders at or above best bid. Higher prices = better VWAP.
-    You can only place SELL orders (system knows your direction).
-""").strip()
-
-SPECULATOR_PROMPT = dedent("""
-    {prefix}You are an ACTIVE SPECULATOR trading agent.
-
-    YOUR OBJECTIVE: Maximize profit (PnL) by actively trading.
-    CONSTRAINT: You can only place 1 share per order.
-    
-    WARNING: Holding too long means missed opportunities.
-
-    PnL = (Current_Mid_Price × Net_Shares) - Total_Cost
-
-    STRATEGY: 
-    - Buy when order book shows buying pressure (imbalance > 0) or upward trend
-    - Sell when order book shows selling pressure (imbalance < 0) or downward trend
-    - Place limit orders inside the spread to capture the spread
-    
-    You must specify 'side' as 'buy' or 'sell' when placing orders.
-""").strip()
-
-
-# ============================================================================
 # base class
 # ============================================================================
 
@@ -153,20 +197,24 @@ class AgenticBase(PausingTrader):
         super().__init__(trader_type=trader_type, id=id)
         self.params = params
 
+        # Load template
+        template_name = params.get("agentic_prompt_template", "buyer_20_default")
+        self.template = get_template(template_name)
+        self.system_prompt = self.template.get("prompt", "")
+        
         # llm config
         self.api_key = params.get("openrouter_api_key") or os.getenv("OPENROUTER_API_KEY")
         self.model = params.get("agentic_model", "anthropic/claude-haiku-4.5")
         self.base_url = "https://openrouter.ai/api/v1"
 
-        # decision timing
-        self.decision_interval = params.get("decision_interval", 10)
+        # From template (with fallbacks)
+        self.decision_interval = self.template.get("decision_interval", 5.0)
+        self.buy_target_price = self.template.get("buy_target_price", 110)
+        self.sell_target_price = self.template.get("sell_target_price", 90)
+        self.penalty_multiplier_buy = self.template.get("penalty_multiplier_buy", 1.5)
+        self.penalty_multiplier_sell = self.template.get("penalty_multiplier_sell", 0.5)
+        
         self.last_decision_time = 0
-
-        # reward parameters
-        self.buy_target_price = params.get("buy_target_price", 110)
-        self.sell_target_price = params.get("sell_target_price", 90)
-        self.penalty_multiplier_buy = params.get("penalty_multiplier_buy", 1.5)
-        self.penalty_multiplier_sell = params.get("penalty_multiplier_sell", 0.5)
 
         # tracking
         self.decision_log: List[Dict] = []
@@ -287,20 +335,9 @@ class AgenticBase(PausingTrader):
 
     # ---- prompt building ----
     def build_system_prompt(self, is_advisor: bool = False) -> str:
-        goal = self.get_effective_goal()
+        """Return the system prompt from template, with optional advisor prefix."""
         prefix = "You are an AI ADVISOR helping a human trader. Suggest actions.\n\n" if is_advisor else ""
-        
-        if goal > 0:
-            return BUYER_PROMPT.format(
-                prefix=prefix, goal=abs(goal), 
-                buy_target=self.buy_target_price, penalty_buy=self.penalty_multiplier_buy
-            )
-        elif goal < 0:
-            return SELLER_PROMPT.format(
-                prefix=prefix, goal=abs(goal),
-                sell_target=self.sell_target_price, penalty_sell=self.penalty_multiplier_sell
-            )
-        return SPECULATOR_PROMPT.format(prefix=prefix)
+        return prefix + self.system_prompt
 
     # ---- market state ----
     def _get_valid_price_range(self) -> tuple:
@@ -503,7 +540,8 @@ class AgenticTrader(AgenticBase):
 
     def __init__(self, id: str, params: dict):
         super().__init__(trader_type=TraderType.AGENTIC, id=id, params=params)
-        self.goal = params.get("goal", 0)
+        # Goal comes from template
+        self.goal = self.template.get("goal", 0)
         self.cash = params.get("initial_cash", 10000)
         self.shares = params.get("initial_shares", 0)
         self.initial_cash = self.cash

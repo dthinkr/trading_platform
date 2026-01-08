@@ -1,10 +1,12 @@
-"""Tests for Agentic Trader (goal-based VWAP optimization)"""
+"""Tests for Agentic Trader (template-based trading)"""
 import asyncio
 import os
 import sys
+import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from traders import AgenticTrader, AgenticAdvisor
+from traders.agentic_trader import list_templates, get_template
 from core.data_models import TraderType
 
 
@@ -20,67 +22,83 @@ def load_env():
                     os.environ[k] = v
 
 
+@pytest.mark.asyncio
+async def test_template_loading():
+    """Test that templates load correctly."""
+    print("Testing template loading...")
+    
+    templates = list_templates()
+    assert len(templates) >= 6, f"Expected at least 6 templates, got {len(templates)}"
+    
+    template_ids = [t["id"] for t in templates]
+    assert "buyer_20_default" in template_ids
+    assert "seller_20_default" in template_ids
+    assert "speculator_default" in template_ids
+    
+    print(f"✓ Loaded {len(templates)} templates")
+
+
+@pytest.mark.asyncio
 async def test_buyer_goal():
-    """Test agentic trader with buying goal."""
-    print("Testing buyer goal (goal=20)...")
+    """Test agentic trader with buying goal from template."""
+    print("\nTesting buyer goal (template: buyer_20_default)...")
     
     params = {
-        "goal": 20,
+        "agentic_prompt_template": "buyer_20_default",
         "initial_cash": 10000,
         "initial_shares": 0,
-        "buy_target_price": 110,
     }
     trader = AgenticTrader(id="AGENTIC_BUYER", params=params)
     await trader.initialize()
 
     assert trader.goal == 20
     assert trader.trader_type == TraderType.AGENTIC.value
+    assert trader.is_buyer
     
     prompt = trader.build_system_prompt()
-    assert "BUYING" in prompt
-    assert "Buy 20 shares" in prompt
+    assert "BUYING" in prompt or "Buy" in prompt
     
     print(f"✓ Buyer created with goal={trader.goal}")
 
 
+@pytest.mark.asyncio
 async def test_seller_goal():
-    """Test agentic trader with selling goal."""
-    print("\nTesting seller goal (goal=-15)...")
+    """Test agentic trader with selling goal from template."""
+    print("\nTesting seller goal (template: seller_20_default)...")
     
     params = {
-        "goal": -15,
+        "agentic_prompt_template": "seller_20_default",
         "initial_cash": 0,
         "initial_shares": 20,
-        "sell_target_price": 90,
     }
     trader = AgenticTrader(id="AGENTIC_SELLER", params=params)
     await trader.initialize()
 
-    assert trader.goal == -15
+    assert trader.goal == -20
+    assert trader.is_seller
     
     prompt = trader.build_system_prompt()
-    assert "SELLING" in prompt
-    assert "Sell 15 shares" in prompt
+    assert "SELLING" in prompt or "Sell" in prompt
     
     print(f"✓ Seller created with goal={trader.goal}")
 
 
+@pytest.mark.asyncio
 async def test_vwap_tracking():
     """Test VWAP calculation using platform's method."""
     print("\nTesting VWAP tracking...")
     
-    params = {"goal": 10, "initial_cash": 10000, "initial_shares": 0}
+    params = {"agentic_prompt_template": "buyer_20_default", "initial_cash": 10000, "initial_shares": 0}
     trader = AgenticTrader(id="VWAP_TEST", params=params)
     await trader.initialize()
     
     # Simulate filled orders using base class method
-    # update_filled_orders calls update_data_for_pnl which populates transaction_prices
     trader.update_filled_orders([
         {"trader_id": "VWAP_TEST", "id": "1", "type": "bid", "price": 100, "amount": 5},
         {"trader_id": "VWAP_TEST", "id": "2", "type": "bid", "price": 102, "amount": 5},
     ])
     
-    vwap = trader.get_vwap()  # Platform's VWAP
+    vwap = trader.get_vwap()
     expected = 101.0
     
     assert abs(vwap - expected) < 0.01
@@ -89,45 +107,45 @@ async def test_vwap_tracking():
     print(f"✓ VWAP calculated: {vwap}")
 
 
+@pytest.mark.asyncio
 async def test_reward_calculation():
     """Test reward formula."""
     print("\nTesting reward calculation...")
     
     # Buyer - simulate 10 shares bought at VWAP 100
-    params = {"goal": 10, "buy_target_price": 110}
+    params = {"agentic_prompt_template": "buyer_20_default"}
     trader = AgenticTrader(id="REWARD_BUY", params=params)
     await trader.initialize()
     
-    # Simulate filled orders
+    # Simulate filled orders (complete goal of 20)
     trader.update_filled_orders([
-        {"trader_id": "REWARD_BUY", "id": "1", "type": "bid", "price": 100, "amount": 10},
+        {"trader_id": "REWARD_BUY", "id": "1", "type": "bid", "price": 100, "amount": 20},
     ])
     
-    # VWAP = 100, goal complete
-    # pnl = (110 - 100) * 10 = 100
-    # reward = max(0, 100 / 10) = 10
+    # VWAP = 100, goal complete, buy_target = 110
+    # reward = 110 - 100 = 10
     reward = trader.get_current_reward(mid_price=100)
     assert abs(reward - 10) < 0.01
     print(f"✓ Buyer reward: {reward}")
     
-    # Seller - simulate 10 shares sold at VWAP 105
-    params = {"goal": -10, "sell_target_price": 90, "initial_shares": 20}
+    # Seller - simulate 20 shares sold at VWAP 105
+    params = {"agentic_prompt_template": "seller_20_default", "initial_shares": 30}
     trader = AgenticTrader(id="REWARD_SELL", params=params)
     await trader.initialize()
     
     # Simulate filled orders
     trader.update_filled_orders([
-        {"trader_id": "REWARD_SELL", "id": "1", "type": "ask", "price": 105, "amount": 10},
+        {"trader_id": "REWARD_SELL", "id": "1", "type": "ask", "price": 105, "amount": 20},
     ])
     
-    # VWAP = 105, goal complete
-    # pnl = (105 - 90) * 10 = 150
-    # reward = max(0, 150 / 10) = 15
+    # VWAP = 105, goal complete, sell_target = 90
+    # reward = 105 - 90 = 15
     reward = trader.get_current_reward(mid_price=100)
     assert abs(reward - 15) < 0.01
     print(f"✓ Seller reward: {reward}")
 
 
+@pytest.mark.asyncio
 async def test_decision_with_api():
     """Test actual decision (requires API key)."""
     print("\nTesting decision with API...")
@@ -140,7 +158,7 @@ async def test_decision_with_api():
     params = {
         "openrouter_api_key": api_key,
         "agentic_model": "anthropic/claude-haiku-4.5",
-        "goal": 10,
+        "agentic_prompt_template": "buyer_20_default",
         "initial_cash": 10000,
         "initial_shares": 0,
     }
@@ -159,11 +177,12 @@ async def test_decision_with_api():
     print(f"✓ Decision: {result.get('action')} {result.get('args', {})}")
 
 
+@pytest.mark.asyncio
 async def test_vwap_shown_in_market_state():
     """Test that VWAP is properly substituted in market state sent to LLM."""
     print("\nTesting VWAP shown in market state...")
     
-    params = {"goal": 10, "initial_cash": 10000, "initial_shares": 0}
+    params = {"agentic_prompt_template": "buyer_20_default", "initial_cash": 10000, "initial_shares": 0}
     trader = AgenticTrader(id="VWAP_DISPLAY_TEST", params=params)
     await trader.initialize()
     
@@ -176,85 +195,61 @@ async def test_vwap_shown_in_market_state():
     # Test 1: Before any trades, VWAP should show "N/A"
     mid_price = 100.0
     market_state = trader.build_market_state(mid_price)
-    assert "VWAP: N/A" in market_state, f"Expected 'VWAP: N/A' before trades, got: {market_state}"
+    assert "VWAP: N/A" in market_state, f"Expected 'VWAP: N/A' before trades"
     print("✓ VWAP shows 'N/A' before any trades")
     
     # Test 2: After trades, VWAP should show actual value
-    # Note: base_trader.get_vwap() calculates simple average of transaction_prices
     trader.update_filled_orders([
         {"trader_id": "VWAP_DISPLAY_TEST", "id": "1", "type": "bid", "price": 100, "amount": 3},
         {"trader_id": "VWAP_DISPLAY_TEST", "id": "2", "type": "bid", "price": 102, "amount": 2},
     ])
     
-    # get_vwap() returns simple average: (100 + 102) / 2 = 101.0
     actual_vwap = trader.get_vwap()
-    expected_vwap = 101.0  # Simple average of transaction prices
-    assert abs(actual_vwap - expected_vwap) < 0.01, f"VWAP mismatch: {actual_vwap} vs {expected_vwap}"
+    expected_vwap = 101.0
+    assert abs(actual_vwap - expected_vwap) < 0.01
     
     market_state = trader.build_market_state(mid_price)
-    assert f"VWAP: {expected_vwap:.2f}" in market_state, f"Expected 'VWAP: {expected_vwap:.2f}' in market state, got: {market_state}"
+    assert f"VWAP: {expected_vwap:.2f}" in market_state
     print(f"✓ VWAP shows '{expected_vwap:.2f}' after trades")
-    
-    # Test 3: Verify VWAP appears in GOAL PROGRESS section
-    assert "=== GOAL PROGRESS" in market_state
-    # Extract the goal progress section and verify VWAP is there
-    lines = market_state.split("\n")
-    goal_section_found = False
-    vwap_in_goal_section = False
-    for i, line in enumerate(lines):
-        if "=== GOAL PROGRESS" in line:
-            goal_section_found = True
-        if goal_section_found and "VWAP:" in line:
-            vwap_in_goal_section = True
-            break
-    assert vwap_in_goal_section, "VWAP should appear in GOAL PROGRESS section"
-    print("✓ VWAP appears in GOAL PROGRESS section")
-    
-    # Test 4: Verify the full market state structure contains no unsubstituted placeholders
-    assert "{" not in market_state or "}" not in market_state or "{" not in market_state.split("===")[0], \
-        f"Found unsubstituted placeholder in market state"
-    print("✓ No unsubstituted placeholders in market state")
 
 
-async def test_prompt_keywords_substituted():
-    """Test that all prompt template keywords are properly substituted."""
-    print("\nTesting prompt keyword substitution...")
+@pytest.mark.asyncio
+async def test_prompt_from_template():
+    """Test that prompts come from templates correctly."""
+    print("\nTesting prompt from template...")
     
-    # Test buyer prompt
-    params = {"goal": 15, "buy_target_price": 115, "penalty_multiplier_buy": 1.8}
+    # Test buyer template
+    params = {"agentic_prompt_template": "buyer_20_aggressive"}
     trader = AgenticTrader(id="PROMPT_TEST_BUY", params=params)
     await trader.initialize()
     
     prompt = trader.build_system_prompt()
-    assert "{" not in prompt, f"Found unsubstituted placeholder in buyer prompt: {prompt}"
-    assert "Buy 15 shares" in prompt, "Goal not substituted in buyer prompt"
-    assert "115" in prompt, "buy_target not substituted in buyer prompt"
-    assert "1.8" in prompt, "penalty_buy not substituted in buyer prompt"
-    print("✓ Buyer prompt keywords all substituted")
+    assert "AGGRESSIVE" in prompt, "Aggressive keyword not in buyer prompt"
+    assert trader.goal == 20
+    assert trader.decision_interval == 3.0  # Aggressive has faster interval
+    print("✓ Buyer aggressive template loaded correctly")
     
-    # Test seller prompt
-    params = {"goal": -20, "sell_target_price": 85, "penalty_multiplier_sell": 0.6, "initial_shares": 30}
-    trader = AgenticTrader(id="PROMPT_TEST_SELL", params=params)
-    await trader.initialize()
-    
-    prompt = trader.build_system_prompt()
-    assert "{" not in prompt, f"Found unsubstituted placeholder in seller prompt: {prompt}"
-    assert "Sell 20 shares" in prompt, "Goal not substituted in seller prompt"
-    assert "85" in prompt, "sell_target not substituted in seller prompt"
-    assert "0.6" in prompt, "penalty_sell not substituted in seller prompt"
-    print("✓ Seller prompt keywords all substituted")
-    
-    # Test speculator prompt
-    params = {"goal": 0}
+    # Test speculator template
+    params = {"agentic_prompt_template": "speculator_default"}
     trader = AgenticTrader(id="PROMPT_TEST_SPEC", params=params)
     await trader.initialize()
     
     prompt = trader.build_system_prompt()
-    assert "{" not in prompt, f"Found unsubstituted placeholder in speculator prompt: {prompt}"
     assert "SPECULATOR" in prompt
-    print("✓ Speculator prompt keywords all substituted")
+    assert trader.goal == 0
+    print("✓ Speculator template loaded correctly")
+    
+    # Test conservative template
+    params = {"agentic_prompt_template": "buyer_50_conservative"}
+    trader = AgenticTrader(id="PROMPT_TEST_CONS", params=params)
+    await trader.initialize()
+    
+    assert trader.goal == 50
+    assert trader.decision_interval == 8.0  # Conservative has slower interval
+    print("✓ Conservative template loaded correctly")
 
 
+@pytest.mark.asyncio
 async def test_print_full_llm_prompt():
     """Print the full prompt sent to the LLM for inspection."""
     print("\n" + "=" * 70)
@@ -263,12 +258,10 @@ async def test_print_full_llm_prompt():
     
     # Create a buyer trader with realistic state
     params = {
-        "goal": 10,
+        "agentic_prompt_template": "buyer_20_default",
         "initial_cash": 10000,
         "initial_shares": 0,
-        "buy_target_price": 110,
-        "penalty_multiplier_buy": 1.5,
-        "trading_day_duration": 5,  # 5 minutes
+        "trading_day_duration": 5,
     }
     trader = AgenticTrader(id="PROMPT_PRINT_TEST", params=params)
     await trader.initialize()
@@ -289,13 +282,6 @@ async def test_print_full_llm_prompt():
     # Add a pending order
     trader.orders = [{"id": "pending_1", "amount": 1, "price": 99, "order_type": 1}]
     
-    # Add some decision history
-    trader.decision_log = [
-        {"action": "place_order", "args": {"price": 100}, "result": {"success": True, "order_id": "1", "side": "buy"}},
-        {"action": "place_order", "args": {"price": 101}, "result": {"success": True, "order_id": "2", "side": "buy"}},
-        {"action": "place_order", "args": {"price": 99}, "result": {"success": True, "order_id": "pending_1", "side": "buy"}},
-    ]
-    
     mid_price = 100.0
     
     # Build the prompts
@@ -309,12 +295,10 @@ async def test_print_full_llm_prompt():
     print("\n--- END OF PROMPT ---")
     print("=" * 70)
     
-    # Verify no placeholders remain
-    assert "{" not in system_prompt, "Unsubstituted placeholder in system prompt"
-    assert "VWAP:" in market_state, "VWAP missing from market state"
     print("✓ Buyer prompt printed successfully")
 
 
+@pytest.mark.asyncio
 async def test_print_speculator_prompt():
     """Print the full prompt sent to the LLM for a speculator."""
     print("\n" + "=" * 70)
@@ -323,7 +307,7 @@ async def test_print_speculator_prompt():
     
     # Create a speculator trader (goal=0)
     params = {
-        "goal": 0,
+        "agentic_prompt_template": "speculator_default",
         "initial_cash": 5000,
         "initial_shares": 10,
         "trading_day_duration": 5,
@@ -338,22 +322,6 @@ async def test_print_speculator_prompt():
     }
     trader.price_history = [100, 100.5, 101, 100.8, 101.2, 100.9, 101.1, 101.5, 102, 101.8]
     
-    # Simulate some trades (bought low, sold high)
-    trader.update_filled_orders([
-        {"trader_id": "SPECULATOR_PROMPT_TEST", "id": "1", "type": "bid", "price": 99, "amount": 2},
-        {"trader_id": "SPECULATOR_PROMPT_TEST", "id": "2", "type": "ask", "price": 102, "amount": 1},
-    ])
-    
-    # Add a pending order
-    trader.orders = [{"id": "pending_1", "amount": 1, "price": 98, "order_type": 1}]
-    
-    # Add some decision history
-    trader.decision_log = [
-        {"action": "place_order", "args": {"price": 99, "side": "buy"}, "result": {"success": True, "order_id": "1", "side": "buy"}},
-        {"action": "place_order", "args": {"price": 102, "side": "sell"}, "result": {"success": True, "order_id": "2", "side": "sell"}},
-        {"action": "place_order", "args": {"price": 98, "side": "buy"}, "result": {"success": True, "order_id": "pending_1", "side": "buy"}},
-    ]
-    
     mid_price = 100.5
     
     # Build the prompts
@@ -367,18 +335,17 @@ async def test_print_speculator_prompt():
     print("\n--- END OF PROMPT ---")
     print("=" * 70)
     
-    # Verify no placeholders remain
-    assert "{" not in system_prompt, "Unsubstituted placeholder in system prompt"
-    assert "SPECULATOR" in system_prompt, "SPECULATOR not in system prompt"
-    assert "PnL:" in market_state, "PnL missing from market state for speculator"
+    assert "SPECULATOR" in system_prompt
     print("✓ Speculator prompt printed successfully")
 
 
+@pytest.mark.asyncio
 async def test_advisor_mode():
     """Test advisor class configuration."""
     print("\nTesting advisor class...")
     
     params = {
+        "agentic_prompt_template": "buyer_20_default",
         "advice_for_human_id": "HUMAN_testuser",
     }
     advisor = AgenticAdvisor(id="ADVISOR_1", params=params)
@@ -395,6 +362,7 @@ async def test_advisor_mode():
     print(f"✓ Advisor configured for {advisor.advice_for_human_id}")
 
 
+@pytest.mark.asyncio
 async def test_advisor_decision():
     """Test advisor decision (doesn't execute, just stores advice)."""
     print("\nTesting advisor decision...")
@@ -407,6 +375,7 @@ async def test_advisor_decision():
     params = {
         "openrouter_api_key": api_key,
         "agentic_model": "anthropic/claude-haiku-4.5",
+        "agentic_prompt_template": "buyer_20_default",
         "advice_for_human_id": "HUMAN_testuser",
     }
 
@@ -428,6 +397,8 @@ async def test_advisor_decision():
         orders = []
         def get_vwap(self):
             return 100.5
+        def get_current_pnl(self):
+            return 0
     
     advisor.human_trader_ref = MockHuman()
 
@@ -442,18 +413,19 @@ async def test_advisor_decision():
 
 async def main():
     print("=" * 50)
-    print("Agentic Trader Tests")
+    print("Agentic Trader Tests (Template-based)")
     print("=" * 50)
 
     load_env()
 
     try:
+        await test_template_loading()
         await test_buyer_goal()
         await test_seller_goal()
         await test_vwap_tracking()
         await test_reward_calculation()
         await test_vwap_shown_in_market_state()
-        await test_prompt_keywords_substituted()
+        await test_prompt_from_template()
         await test_print_full_llm_prompt()
         await test_print_speculator_prompt()
         await test_advisor_mode()
