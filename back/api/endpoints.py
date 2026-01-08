@@ -1648,8 +1648,8 @@ async def get_prolific_settings(current_user: dict = Depends(get_current_admin_u
         
         # First check for credentials in memory
         if IN_MEMORY_CREDENTIALS:
-            # Convert in-memory credentials to string format
-            creds_str = " ".join([f"{username},{password}" for username, password in IN_MEMORY_CREDENTIALS.items()])
+            # Convert in-memory credentials to string format (newline-separated for frontend)
+            creds_str = "\n".join([f"{username},{password}" for username, password in IN_MEMORY_CREDENTIALS.items()])
             prolific_settings["PROLIFIC_CREDENTIALS"] = creds_str
             print(f"Returning {len(IN_MEMORY_CREDENTIALS)} credential pairs from memory")
         
@@ -1661,7 +1661,9 @@ async def get_prolific_settings(current_user: dict = Depends(get_current_admin_u
                 prolific_settings["PROLIFIC_REDIRECT_URL"] = line.split("=", 1)[1]
             elif line.startswith("PROLIFIC_CREDENTIALS=") and "PROLIFIC_CREDENTIALS" not in prolific_settings:
                 # Only use .env credentials if no in-memory credentials exist
-                prolific_settings["PROLIFIC_CREDENTIALS"] = line.split("=", 1)[1]
+                # Convert space-separated to newline-separated for frontend display
+                creds = line.split("=", 1)[1]
+                prolific_settings["PROLIFIC_CREDENTIALS"] = creds.replace(" ", "\n")
         
         return {
             "status": "success",

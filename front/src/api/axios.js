@@ -6,6 +6,17 @@ const instance = axios.create({
   baseURL: import.meta.env.VITE_HTTP_URL,
 })
 
+// Helper to show global error notifications
+const showGlobalError = async (message) => {
+  try {
+    const { useUIStore } = await import('@/store/ui')
+    const uiStore = useUIStore()
+    uiStore.showError(message)
+  } catch (e) {
+    console.error('Could not show error notification:', e)
+  }
+}
+
 instance.interceptors.request.use(
   async (config) => {
     try {
@@ -49,7 +60,10 @@ instance.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response) {
-      if (error.response.status === 401) {
+      const status = error.response.status
+      const detail = error.response.data?.detail || error.response.data?.message || ''
+      
+      if (status === 401) {
         // Check if user is logged in
         if (auth.currentUser) {
           try {
@@ -69,16 +83,27 @@ instance.interceptors.response.use(
           return Promise.reject(error)
         }
       }
-      if (
-        error.response.status === 403 &&
-        error.response.data.detail.includes('Maximum number of markets reached')
-      ) {
+      
+      if (status === 403 && detail.includes('Maximum number of markets reached')) {
         error.message = 'You have reached the maximum number of allowed markets.'
+        showGlobalError(error.message)
+      } else if (status >= 500) {
+        // Server errors - show generic message
+        error.message = detail || 'Server error occurred. Please try again later.'
+        showGlobalError(error.message)
+      } else if (status >= 400 && status !== 401) {
+        // Client errors (except auth) - show the detail if available
+        error.message = detail || 'An error occurred'
+        // Show error for non-validation errors (4xx except 400 validation)
+        if (status !== 400 || !detail.includes('validation')) {
+          showGlobalError(error.message)
+        }
       } else {
-        error.message = error.response.data.detail || 'An error occurred'
+        error.message = detail || 'An error occurred'
       }
     } else if (error.request) {
       error.message = 'No response received from server'
+      showGlobalError('Unable to connect to server. Please check your connection.')
     } else {
       error.message = 'Error setting up the request'
     }

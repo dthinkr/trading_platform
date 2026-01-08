@@ -4,13 +4,32 @@ export const useUIStore = defineStore('ui', {
   state: () => ({
     showSnackbar: false,
     snackbarText: '',
+    snackbarColor: 'info',
+    snackbarTimeout: 5000,
     dayOver: false,
     intendedRoute: null,
   }),
 
   actions: {
-    showMessage(text) {
+    // Regular messages - no visual display (kept for compatibility)
+    showMessage(text, color = 'info', timeout = 5000) {
+      // Only log to console, don't show snackbar for info messages
+      console.log(`[Info] ${text}`)
+    },
+
+    // Error messages - show in snackbar
+    showError(text, timeout = 6000) {
       this.snackbarText = text
+      this.snackbarColor = 'error'
+      this.snackbarTimeout = timeout
+      this.showSnackbar = true
+    },
+
+    // Success messages - show in snackbar (for explicit user actions like saving)
+    showSuccess(text, timeout = 4000) {
+      this.snackbarText = text
+      this.snackbarColor = 'success'
+      this.snackbarTimeout = timeout
       this.showSnackbar = true
     },
 

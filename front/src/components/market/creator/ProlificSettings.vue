@@ -90,10 +90,10 @@ username3,password3"
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import axios from '@/api/axios'
-import { useTraderStore } from '@/store/app'
+import { useUIStore } from '@/store/ui'
 import Haikunator from 'haikunator'
 
-const traderStore = useTraderStore()
+const uiStore = useUIStore()
 const haikunator = new Haikunator()
 
 const settings = ref({
@@ -107,9 +107,10 @@ const generatingCredentials = ref(false)
 
 // Validate credentials format
 const credentialsError = computed(() => {
-  if (!settings.value.credentials.trim()) return null
+  const creds = settings.value.credentials
+  if (!creds || !creds.trim()) return null
 
-  const lines = settings.value.credentials.trim().split('\n')
+  const lines = creds.trim().split('\n')
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim()
     if (!line) continue // Skip empty lines
@@ -148,10 +149,7 @@ const fetchSettings = async () => {
 const saveSettings = async () => {
   // Validate credentials before saving
   if (credentialsError.value) {
-    traderStore.showSnackbar({
-      text: credentialsError.value,
-      color: 'error',
-    })
+    uiStore.showError(credentialsError.value)
     return
   }
 
@@ -169,18 +167,12 @@ const saveSettings = async () => {
     })
 
     // Show success message
-    traderStore.showSnackbar({
-      text: 'Prolific settings saved successfully',
-      color: 'success',
-    })
+    uiStore.showSuccess('Prolific settings saved successfully')
   } catch (error) {
     console.error('Failed to save Prolific settings:', error)
 
     // Show error message
-    traderStore.showSnackbar({
-      text: 'Failed to save Prolific settings',
-      color: 'error',
-    })
+    uiStore.showError('Failed to save Prolific settings')
   } finally {
     saving.value = false
   }
@@ -215,17 +207,10 @@ const generateCredentials = () => {
     settings.value.credentials = generatedCredentials.join('\n')
 
     // Show success message
-    traderStore.showSnackbar({
-      text: `Generated ${count} credential pairs`,
-      color: 'success',
-    })
+    uiStore.showSuccess(`Generated ${count} credential pairs`)
   } catch (error) {
     console.error('Error generating credentials:', error)
-
-    traderStore.showSnackbar({
-      text: 'Failed to generate credentials',
-      color: 'error',
-    })
+    uiStore.showError('Failed to generate credentials')
   } finally {
     generatingCredentials.value = false
   }

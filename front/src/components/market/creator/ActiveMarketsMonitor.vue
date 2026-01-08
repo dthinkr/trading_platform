@@ -94,9 +94,9 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import axios from '@/api/axios'
-import { useTraderStore } from '@/store/app'
+import { useUIStore } from '@/store/ui'
 
-const traderStore = useTraderStore()
+const uiStore = useUIStore()
 const activeSessions = ref([])
 let sessionPollingInterval
 
@@ -112,16 +112,10 @@ const fetchActiveSessions = async () => {
 const forceStartSession = async (marketId) => {
   try {
     await axios.post(`${import.meta.env.VITE_HTTP_URL}sessions/${marketId}/force-start`)
-    traderStore.showSnackbar({
-      text: 'Session started successfully',
-      color: 'success',
-    })
+    uiStore.showSuccess('Session started successfully')
     await fetchActiveSessions()
   } catch (error) {
-    traderStore.showSnackbar({
-      text: error.response?.data?.detail || 'Error starting session',
-      color: 'error',
-    })
+    uiStore.showError(error.response?.data?.detail || 'Error starting session')
   }
 }
 

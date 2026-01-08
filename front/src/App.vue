@@ -4,11 +4,32 @@
       <router-view></router-view>
       <!-- This will render the matched component -->
     </v-main>
+    
+    <!-- Global Snackbar for notifications and errors -->
+    <v-snackbar
+      v-model="uiStore.showSnackbar"
+      :color="uiStore.snackbarColor"
+      :timeout="uiStore.snackbarTimeout"
+      location="top"
+      multi-line
+    >
+      {{ uiStore.snackbarText }}
+      <template v-slot:actions>
+        <v-btn
+          variant="text"
+          @click="uiStore.hideMessage()"
+        >
+          Close
+        </v-btn>
+      </template>
+    </v-snackbar>
   </v-app>
 </template>
 
 <script setup>
-const testValue = import.meta.env.VITE_TEST
+import { useUIStore } from '@/store/ui'
+
+const uiStore = useUIStore()
 </script>
 
 <style>
