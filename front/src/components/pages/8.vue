@@ -109,17 +109,17 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import { useTraderStore } from '@/store/app'
-import { storeToRefs } from 'pinia'
-import { useRouter, useRoute } from 'vue-router'
+import { useSessionStore } from '@/store/session'
 import { useAuthStore } from '@/store/auth'
-import { auth } from '@/firebaseConfig'
-
-const router = useRouter()
-const route = useRoute()
+import { storeToRefs } from 'pinia'
+import NavigationService from '@/services/navigation'
 
 const traderStore = useTraderStore()
+const sessionStore = useSessionStore()
+const authStore = useAuthStore()
+
 const { goalMessage } = storeToRefs(traderStore)
 
 const props = defineProps({
@@ -129,21 +129,47 @@ const props = defineProps({
 
 const isLoading = ref(false)
 
+// Watch for market started signal from WebSocket
+watch(
+  () => traderStore.shouldRedirectToTrading,
+  (shouldRedirect) => {
+    if (shouldRedirect) {
+      traderStore.shouldRedirectToTrading = false
+      NavigationService.onMarketStarted()
+    }
+  }
+)
+
+// Also watch isTradingStarted as a backup
+watch(
+  () => traderStore.isTradingStarted,
+  (started) => {
+    if (started && !traderStore.isWaitingForOthers) {
+      NavigationService.onMarketStarted()
+    }
+  }
+)
+
 const marketDuration = computed(() => {
-  // Try to get duration from game params in store first, then from trader attributes
   return (
     traderStore.gameParams?.trading_day_duration ||
     traderStore.traderAttributes?.all_attributes?.params?.trading_day_duration ||
     'Loading...'
   )
 })
+
 const initialShares = computed(() => props.traderAttributes?.shares ?? 'Loading...')
 const initialCash = computed(() => props.traderAttributes?.cash ?? 'Loading...')
+
 const canStartTrading = computed(() => {
-  // Allow starting if we have basic trader info (regardless of waiting state)
   return !!props.traderAttributes
 })
-const startButtonText = computed(() => (isLoading.value ? 'Starting...' : 'Start Trading'))
+
+const startButtonText = computed(() => {
+  if (isLoading.value) return 'Starting...'
+  if (traderStore.isWaitingForOthers) return 'Waiting for other traders...'
+  return 'Start Trading'
+})
 
 const headers = [
   { text: 'Parameter', value: 'parameter', align: 'left' },
@@ -159,7 +185,6 @@ const items = computed(() => {
     },
   ]
 
-  // For buying or selling goals, add more specific information
   const goalValue = props.traderAttributes?.goal
   if (goalValue !== undefined && goalValue !== null) {
     if (goalValue > 0) {
@@ -173,62 +198,53 @@ const items = computed(() => {
 })
 
 const startTrading = async () => {
-  if (!canStartTrading.value) {
+  if (!canStartTrading.value || isLoading.value) {
     return
   }
 
   isLoading.value = true
+  
   try {
-    // Call start trading endpoint
-    await traderStore.startTradingMarket()
-
-    // Wait for the transition to complete and check if we should navigate
+    await NavigationService.startTrading()
+    
+    // Give WebSocket time to respond
+    // Navigation will happen via the watcher when shouldRedirectToTrading becomes true
+    // or when isTradingStarted becomes true
+    
+    // Fallback: check after a delay if we should navigate
     setTimeout(() => {
-      if (!traderStore.isWaitingForOthers) {
-        router.push({
-          name: 'trading',
-          params: {
-            traderUuid: traderStore.traderUuid,
-            marketId: route.params.marketId,
-          },
-        })
-      } else {
-        // Still waiting for other traders
+      if (traderStore.isTradingStarted && !traderStore.isWaitingForOthers) {
+        NavigationService.onMarketStarted()
       }
-      isLoading.value = false
-    }, 200) // Wait 0.2 seconds for transition
+      // Keep loading state if still waiting for others
+      if (!traderStore.isWaitingForOthers) {
+        isLoading.value = false
+      }
+    }, 500)
   } catch (error) {
+    console.error('Failed to start trading:', error)
     isLoading.value = false
   }
 }
 
-const authStore = useAuthStore()
-
 const handleLogout = async () => {
-  try {
-    // Sign out from Firebase
-    await auth.signOut()
-    // Clear auth store state
-    authStore.logout()
-    // Clear trader store state
-    traderStore.$reset()
-    // Redirect to registration page
-    router.push('/')
-  } catch (error) {
-    // Logout failed
-  }
+  await NavigationService.logout()
 }
 
 const currentMarket = computed(() => {
-  return props.traderAttributes?.all_attributes?.historical_markets_count || 0
+  return props.traderAttributes?.all_attributes?.historical_markets_count || 
+         sessionStore.marketsCompleted || 
+         0
 })
 
 const maxMarketsPerHuman = computed(() => {
-  return props.traderAttributes?.all_attributes?.params?.max_markets_per_human || 4
+  return props.traderAttributes?.all_attributes?.params?.max_markets_per_human || 
+         sessionStore.maxMarkets || 
+         4
 })
 
 const isAdmin = computed(() => {
-  return props.traderAttributes?.all_attributes?.is_admin || false
+  return props.traderAttributes?.all_attributes?.is_admin || authStore.isAdmin || false
 })
 
 const remainingMarkets = computed(() => {

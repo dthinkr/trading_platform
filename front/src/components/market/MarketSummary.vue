@@ -8,46 +8,7 @@
           </v-card-title>
           <v-card-text class="pa-6">
             <v-row>
-              <!-- <v-col cols="12" md="6">
-                <div class="metric-card pa-4 mb-4">
-                  <h3 class="text-h6 font-weight-medium mb-2">Cash Overview</h3>
-                  <div class="d-flex justify-space-between align-center mb-2">
-                    <span class="text-subtitle-1">Initial Cash:</span>
-                    <span class="text-h6 font-weight-bold">{{ formatValue(traderInfo?.initial_cash, 'currency') }}</span>
-                  </div>
-                  <div class="d-flex justify-space-between align-center">
-                    <span class="text-subtitle-1">Final Cash:</span>
-                    <span class="text-h6 font-weight-bold">{{ formatValue(traderInfo?.cash, 'currency') }}</span>
-                  </div>
-                </div>
-              </v-col> -->
-              <!-- <v-col cols="12" md="6">
-                <div class="metric-card pa-4 mb-4">
-                  <h3 class="text-h6 font-weight-medium mb-2">Shares Overview</h3>
-                  <div class="d-flex justify-space-between align-center mb-2">
-                    <span class="text-subtitle-1">Initial Shares:</span>
-                    <span class="text-h6 font-weight-bold">{{ formatValue(traderInfo?.initial_shares, 'number') }}</span>
-                  </div>
-                  <div class="d-flex justify-space-between align-center">
-                    <span class="text-subtitle-1">Final Shares:</span>
-                    <span class="text-h6 font-weight-bold">{{ formatValue(traderInfo?.shares, 'number') }}</span>
-                  </div>
-                </div>
-              </v-col> -->
-              <!-- <v-col cols="12">
-                <div class="metric-card pa-4 mb-4">
-                  <h3 class="text-h6 font-weight-medium mb-2">Performance Metrics</h3>
-                  <div class="d-flex justify-space-between align-center mb-2">
-                    <span class="text-subtitle-1">PNL:</span>
-                    <span class="text-h6 font-weight-bold">{{ formatValue(pnl, 'currency') }}</span>
-                  </div>
-                  <div class="d-flex justify-space-between align-center">
-                    <span class="text-subtitle-1">VWAP:</span>
-                    <span class="text-h6 font-weight-bold">{{ formatValue(vwap, 'currency') }}</span>
-                  </div>
-                </div>
-              </v-col> -->
-              <!-- New content: Order Book Metrics -->
+              <!-- Order Book Metrics -->
               <v-col cols="12">
                 <div class="metric-card pa-4 mb-4">
                   <h3 class="text-h6 font-weight-medium mb-2">Order Book Metrics</h3>
@@ -64,11 +25,11 @@
                     <span class="text-h6 font-weight-bold">{{ formatValue(orderBookMetrics?.Total_Cancellations, 'number') }}</span>
                   </div>
                   <div class="d-flex justify-space-between align-center mb-2">
-                    <span class="text-subtitle-1">Initial Midpice:</span>
+                    <span class="text-subtitle-1">Initial Midprice:</span>
                     <span class="text-h6 font-weight-bold">{{ formatValue(orderBookMetrics?.Initial_Midprice, 'number') }}</span>
                   </div>
                   <div class="d-flex justify-space-between align-center mb-2">
-                    <span class="text-subtitle-1">Final Midpice:</span>
+                    <span class="text-subtitle-1">Final Midprice:</span>
                     <span class="text-h6 font-weight-bold">{{ formatValue(orderBookMetrics?.Last_Midprice, 'number') }}</span>
                   </div>
                   <div v-if="traderSpecificMetrics" class="mt-3">
@@ -129,9 +90,9 @@
                 <h2 class="text-h5 mb-4 primary--text">Thank you for your participation!</h2>
                 <p class="text-subtitle-1 mb-4">
                   You have completed all trading markets.<br>
-                  Your market reward is {{formatValue(traderSpecificMetrics.Accumulated_Reward, 'gbp') }}. Your participation fee is {{formatValue(5, 'gbp')}}.
-                  <br></br>
-                  Your final payment will be {{formatValue(traderSpecificMetrics.Accumulated_Reward + 5, 'gbp') }}.
+                  Your market reward is {{ formatValue(traderSpecificMetrics?.Accumulated_Reward, 'gbp') }}. Your participation fee is {{ formatValue(5, 'gbp') }}.
+                  <br><br>
+                  Your final payment will be {{ formatValue((traderSpecificMetrics?.Accumulated_Reward || 0) + 5, 'gbp') }}.
                 </p>
                 <!-- Questionnaire Section -->
                 <div v-if="!questionnaireCompleted" class="questionnaire-section mt-4 mb-4">
@@ -208,7 +169,8 @@
               <v-btn
                 color="primary" 
                 x-large 
-                @click="goToRegister" 
+                @click="goToNextMarket"
+                :loading="isNavigating"
                 class="mr-4"
               >
                 Continue to Next Market
@@ -239,233 +201,228 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from "vue";
-import axios from "axios";
-import { useRouter } from 'vue-router';
-import { useTraderStore } from "@/store/app";
-import { useAuthStore } from "@/store/auth";
-import { storeToRefs } from "pinia";
+import { ref, onMounted, computed } from 'vue'
+import axios from '@/api/axios'
+import { useTraderStore } from '@/store/app'
+import { useSessionStore } from '@/store/session'
+import { useAuthStore } from '@/store/auth'
+import { storeToRefs } from 'pinia'
+import NavigationService from '@/services/navigation'
 
-const props = defineProps({
-  traderUuid: String,
-});
+const traderStore = useTraderStore()
+const sessionStore = useSessionStore()
+const authStore = useAuthStore()
+const { pnl, vwap } = storeToRefs(traderStore)
 
-const router = useRouter();
-const traderStore = useTraderStore();
-const authStore = useAuthStore();
-const { pnl, vwap } = storeToRefs(traderStore);
-const traderInfo = ref(null);
-const orderBookMetrics = ref(null);
-const traderSpecificMetrics = ref(null);
-const httpUrl = import.meta.env.VITE_HTTP_URL;
-const prolificRedirectUrl = import.meta.env.VITE_PROLIFIC_REDIRECT_URL || 'https://app.prolific.com/submissions/complete?cc=C11I8OGE';
-const showDialog = ref(false);
-const dialogTitle = ref('');
-const dialogMessage = ref('');
+// Get trader ID from session store
+const traderId = computed(() => sessionStore.traderId || authStore.traderId)
+
+const traderInfo = ref(null)
+const orderBookMetrics = ref(null)
+const traderSpecificMetrics = ref(null)
+const httpUrl = import.meta.env.VITE_HTTP_URL
+const prolificRedirectUrl = import.meta.env.VITE_PROLIFIC_REDIRECT_URL || 'https://app.prolific.com/submissions/complete?cc=C11I8OGE'
+const showDialog = ref(false)
+const dialogTitle = ref('')
+const dialogMessage = ref('')
+const isNavigating = ref(false)
 
 // Questionnaire state
-const questionnaireCompleted = ref(false);
+const questionnaireCompleted = ref(false)
 const questionnaire = ref({
   q1: null,
   q2: null,
   q3: null,
   q4: null
-});
+})
 
 // Check if all questions are answered
 const isQuestionnaireComplete = computed(() => {
   return questionnaire.value.q1 && 
          questionnaire.value.q2 && 
          questionnaire.value.q3 && 
-         questionnaire.value.q4;
-});
+         questionnaire.value.q4
+})
 
 // Submit questionnaire responses
 async function submitQuestionnaire() {
   try {
-    // Prepare responses array
     const responses = [
       questionnaire.value.q1,
       questionnaire.value.q2,
       questionnaire.value.q3,
       questionnaire.value.q4
-    ];
+    ]
     
-    // Get the correct trader ID
-    let traderId = props.traderUuid;
+    let traderIdForSubmit = traderId.value
     
-    // If this is a prolific user, ensure the trader ID is correctly formatted
+    // For prolific users, ensure correct format
     if (authStore.user?.isProlific) {
-      // For prolific users, the trader ID should be in the format HUMAN_PROLIFIC_PID
-      const prolificPID = authStore.user.prolificData.PROLIFIC_PID;
-      traderId = `HUMAN_${prolificPID}`;
-      console.log('Using prolific trader ID:', traderId);
+      const prolificPID = authStore.user.prolificData.PROLIFIC_PID
+      traderIdForSubmit = `HUMAN_${prolificPID}`
     }
     
-    // Send to backend
     const response = await axios.post(`${httpUrl}save_questionnaire_response`, {
-      trader_id: traderId,
+      trader_id: traderIdForSubmit,
       responses: responses
-    });
+    })
     
     if (response.data.status === 'success') {
-      questionnaireCompleted.value = true;
-      // Success case - no dialog shown, just proceed to show the redirect URL
+      questionnaireCompleted.value = true
+      NavigationService.completeStudy()
     } else {
-      dialogTitle.value = 'Error';
-      dialogMessage.value = 'There was an error saving your responses. Please try again.';
-      showDialog.value = true;
+      dialogTitle.value = 'Error'
+      dialogMessage.value = 'There was an error saving your responses. Please try again.'
+      showDialog.value = true
     }
   } catch (error) {
-    console.error('Error submitting questionnaire:', error);
-    dialogTitle.value = 'Error';
-    dialogMessage.value = 'There was an error saving your responses. Please try again.';
-    showDialog.value = true;
+    console.error('Error submitting questionnaire:', error)
+    dialogTitle.value = 'Error'
+    dialogMessage.value = 'There was an error saving your responses. Please try again.'
+    showDialog.value = true
   }
-};
+}
 
-// Close dialog function
 const closeDialog = () => {
-  showDialog.value = false;
-};
+  showDialog.value = false
+}
 
-// Download market metrics function
+// Download market metrics
 const downloadMarketMetrics = async () => {
   try {
-    const response = await axios.get(`${httpUrl}market_metrics?trader_id=${props.traderUuid}&market_id=${props.traderUuid}`, {
+    const response = await axios.get(`${httpUrl}market_metrics`, {
+      params: {
+        trader_id: traderId.value,
+        market_id: traderId.value
+      },
       responseType: 'blob'
-    });
+    })
     
-    const url = window.URL.createObjectURL(new Blob([response.data]));
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `trader_${props.traderUuid}_metrics.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
+    const url = window.URL.createObjectURL(new Blob([response.data]))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `trader_${traderId.value}_metrics.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
   } catch (error) {
-    console.error('Error downloading market metrics:', error);
-    dialogTitle.value = 'Error';
-    dialogMessage.value = 'Failed to download market metrics. Please try again.';
-    showDialog.value = true;
+    console.error('Error downloading market metrics:', error)
+    dialogTitle.value = 'Error'
+    dialogMessage.value = 'Failed to download market metrics. Please try again.'
+    showDialog.value = true
   }
-};
+}
 
-const maxRetries = 3;
-const retryDelay = 1000; // 1 second
+const maxRetries = 3
+const retryDelay = 1000
 
 async function fetchTraderInfo() {
+  if (!traderId.value) {
+    console.error('No trader ID available')
+    return
+  }
+  
   try {
-    const response = await axios.get(`${httpUrl}trader_info/${props.traderUuid}`);
-    traderInfo.value = response.data.data;
-    orderBookMetrics.value = response.data.data.order_book_metrics;
-    traderSpecificMetrics.value = response.data.data.trader_specific_metrics;
+    const response = await axios.get(`${httpUrl}trader_info/${traderId.value}`)
+    traderInfo.value = response.data.data
+    orderBookMetrics.value = response.data.data.order_book_metrics
+    traderSpecificMetrics.value = response.data.data.trader_specific_metrics
 
-    // If metrics are missing, retry just for metrics
+    // Retry for metrics if missing
     if (traderInfo.value && (!orderBookMetrics.value || !traderSpecificMetrics.value)) {
-      let retryCount = 0;
+      let retryCount = 0
       const retryMetrics = async () => {
-        if (retryCount >= maxRetries) return;
+        if (retryCount >= maxRetries) return
         
-        console.log(`Retrying metrics fetch attempt ${retryCount + 1}`);
-        await new Promise(resolve => setTimeout(resolve, retryDelay));
+        await new Promise(resolve => setTimeout(resolve, retryDelay))
         
         try {
-          const retryResponse = await axios.get(`${httpUrl}trader_info/${props.traderUuid}`);
+          const retryResponse = await axios.get(`${httpUrl}trader_info/${traderId.value}`)
           if (retryResponse.data.data) {
-            orderBookMetrics.value = retryResponse.data.data.order_book_metrics;
-            traderSpecificMetrics.value = retryResponse.data.data.trader_specific_metrics;
+            orderBookMetrics.value = retryResponse.data.data.order_book_metrics
+            traderSpecificMetrics.value = retryResponse.data.data.trader_specific_metrics
             
             if (orderBookMetrics.value && traderSpecificMetrics.value) {
-              console.log('Successfully loaded metrics on retry');
-              return;
+              return
             }
           }
-          retryCount++;
-          await retryMetrics();
+          retryCount++
+          await retryMetrics()
         } catch (error) {
-          console.error('Error in metrics retry:', error);
-          retryCount++;
-          await retryMetrics();
+          retryCount++
+          await retryMetrics()
         }
-      };
+      }
       
-      retryMetrics();
+      retryMetrics()
     }
   } catch (error) {
-    console.error('Failed to fetch trader info:', error);
+    console.error('Failed to fetch trader info:', error)
   }
 }
 
 const formatValue = (value, format) => {
   if (value === undefined || value === null) {
-    return 'N/A';
+    return 'N/A'
   }
   if (format === 'currency' && typeof value === 'number') {
-    return value.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+    return value.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
   } else if (format === 'gbp' && typeof value === 'number') {
-    return value.toLocaleString('en-GB', { style: 'currency', currency: 'GBP' });
+    return value.toLocaleString('en-GB', { style: 'currency', currency: 'GBP' })
   } else if (format === 'number' && typeof value === 'number') {
-    return value.toLocaleString('en-US');
+    return value.toLocaleString('en-US')
   }
-  return value;
-};
+  return value
+}
 
-const goToRegister = () => {
-  // Check if this is a prolific user
-  if (authStore.user?.isProlific && authStore.user?.prolificData) {
-    // For prolific users, set a flag and redirect to root with prolific parameters
-    console.log('Prolific user continuing to next market');
-    localStorage.setItem('prolific_next_market', 'true');
+// Navigate to next market using NavigationService (no page refresh!)
+const goToNextMarket = async () => {
+  isNavigating.value = true
+  
+  try {
+    const success = await NavigationService.startNextMarket()
     
-    // Store prolific parameters for auto-login
-    const prolificData = {
-      PROLIFIC_PID: authStore.user.prolificData.PROLIFIC_PID,
-      STUDY_ID: authStore.user.prolificData.STUDY_ID,
-      SESSION_ID: authStore.user.prolificData.SESSION_ID,
-      timestamp: Date.now()
-    };
-    localStorage.setItem('prolific_auto_login', JSON.stringify(prolificData));
-    
-    // Redirect to root with prolific parameters
-    const prolificParams = new URLSearchParams({
-      PROLIFIC_PID: authStore.user.prolificData.PROLIFIC_PID,
-      STUDY_ID: authStore.user.prolificData.STUDY_ID,
-      SESSION_ID: authStore.user.prolificData.SESSION_ID
-    });
-    
-    window.location.href = `/?${prolificParams.toString()}`;
-  } else {
-    // For regular Google users, use the existing register flow
-    router.push({ name: 'Register', replace: true }).then(() => {
-      window.location.href = '/register';
-    });
+    if (!success) {
+      dialogTitle.value = 'Maximum Markets Reached'
+      dialogMessage.value = 'You have completed the maximum number of markets allowed.'
+      showDialog.value = true
+    }
+  } catch (error) {
+    console.error('Error navigating to next market:', error)
+    dialogTitle.value = 'Error'
+    dialogMessage.value = 'Failed to start next market. Please try again.'
+    showDialog.value = true
+  } finally {
+    isNavigating.value = false
   }
-};
+}
 
 const currentMarket = computed(() => {
-  return traderInfo.value?.all_attributes?.historical_markets_count || 1;
-});
+  return traderInfo.value?.all_attributes?.historical_markets_count || 
+         sessionStore.marketsCompleted || 
+         1
+})
 
 const maxMarketsDisplay = computed(() => {
-  if (traderInfo.value?.all_attributes?.is_admin) {
-    return '∞';
+  if (traderInfo.value?.all_attributes?.is_admin || authStore.isAdmin) {
+    return '∞'
   }
-  return traderInfo.value?.all_attributes?.params?.max_markets_per_human || 'Loading...';
-});
+  return traderInfo.value?.all_attributes?.params?.max_markets_per_human || 
+         sessionStore.maxMarkets || 
+         'Loading...'
+})
 
 const isLastMarket = computed(() => {
-  if (traderInfo.value?.all_attributes?.is_admin) return false;
-  const currentCount = traderInfo.value?.all_attributes?.historical_markets_count || 1;
-  const maxMarkets = traderInfo.value?.all_attributes?.params?.max_markets_per_human || 4;
-  return currentCount >= maxMarkets;
-});
+  if (traderInfo.value?.all_attributes?.is_admin || authStore.isAdmin) return false
+  const currentCount = traderInfo.value?.all_attributes?.historical_markets_count || sessionStore.marketsCompleted || 1
+  const maxMarkets = traderInfo.value?.all_attributes?.params?.max_markets_per_human || sessionStore.maxMarkets || 4
+  return currentCount >= maxMarkets
+})
 
 onMounted(() => {
-  fetchTraderInfo();
-  // No longer need to set trading_market_uuid in store since we use trader-based lookup
-});
+  fetchTraderInfo()
+})
 </script>
 
 <style scoped>
@@ -493,5 +450,15 @@ onMounted(() => {
 .metric-card:hover {
   transform: translateY(-3px);
   box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+}
+
+.questionnaire-section {
+  text-align: left;
+}
+
+.question-container {
+  background: rgba(245, 247, 250, 0.5);
+  padding: 1rem;
+  border-radius: 8px;
 }
 </style>

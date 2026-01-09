@@ -228,6 +228,8 @@ import { ref, defineEmits } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTraderStore } from '@/store/app'
 import { useAuthStore } from '@/store/auth'
+import { useSessionStore } from '@/store/session'
+import NavigationService from '@/services/navigation'
 import axios from '@/api/axios'
 import {
   ClipboardCheck,
@@ -250,6 +252,7 @@ import {
 const router = useRouter()
 const traderStore = useTraderStore()
 const authStore = useAuthStore()
+const sessionStore = useSessionStore()
 const consentGiven = ref(false)
 
 const emit = defineEmits(['update:canProgress'])
@@ -318,7 +321,8 @@ const submitConsent = async () => {
       }
     }
 
-    router.push(`/onboarding/${marketId}/${traderUuid}/welcome`)
+    // Use NavigationService to go to next step
+    NavigationService.nextOnboardingStep()
   } catch (error) {
     console.error('Error handling consent:', error)
     if (error.response) {

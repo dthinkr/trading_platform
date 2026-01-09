@@ -19,6 +19,21 @@ export const useAuthStore = defineStore('auth', {
     prolificUserHasCompletedOnboarding: false,
   }),
   actions: {
+    // Sync trader ID to session store
+    syncToSessionStore() {
+      try {
+        // Dynamically import to avoid circular dependency
+        import('./session').then(({ useSessionStore }) => {
+          const sessionStore = useSessionStore()
+          if (this.traderId && sessionStore.traderId !== this.traderId) {
+            sessionStore.traderId = this.traderId
+          }
+        })
+      } catch (e) {
+        // Session store not available yet
+      }
+    },
+
     async initializeAuth() {
       let unsubscribe
       return new Promise((resolve) => {
@@ -52,15 +67,12 @@ export const useAuthStore = defineStore('auth', {
 
     async prolificLogin(prolificParams, credentials = null) {
       if (this.loginInProgress) {
-        // Login already in progress
         return
       }
 
       try {
         this.loginInProgress = true
-        // Starting Prolific login
 
-        // Create a pseudo-user object for Prolific users
         const prolificPID = prolificParams.PROLIFIC_PID
         const pseudoUser = {
           uid: `prolific_${prolificPID}`,
@@ -70,17 +82,12 @@ export const useAuthStore = defineStore('auth', {
           prolificData: prolificParams,
         }
 
-        // Set user in store
         this.user = pseudoUser
 
-        // Make API call to backend with Prolific parameters in URL
         const url = `/user/login?PROLIFIC_PID=${prolificParams.PROLIFIC_PID}&STUDY_ID=${prolificParams.STUDY_ID}&SESSION_ID=${prolificParams.SESSION_ID}`
-        // Making API call
 
-        // Include credentials if provided
         let requestBody = {}
         if (credentials && credentials.username && credentials.password) {
-          // Including credentials in request
           requestBody = {
             username: credentials.username,
             password: credentials.password,
@@ -88,33 +95,27 @@ export const useAuthStore = defineStore('auth', {
         }
 
         const response = await axios.post(url, requestBody)
-        // Prolific login response received
 
         if (!response.data.data || !response.data.data.trader_id) {
-          // Invalid response format
           throw new Error('No trader ID received')
         }
 
         this.isAdmin = response.data.data.is_admin || false
         this.traderId = response.data.data.trader_id
-        // marketId is no longer assigned at login - will be assigned when user clicks "Start Trading"
         this.lastLoginTime = Date.now()
         this.isPersisted = false
 
-        // Store the Prolific token if available
         if (response.data.data.prolific_token) {
           this.prolificToken = response.data.data.prolific_token
-          // Stored Prolific token
         }
 
-        // Check if this user has previously logged in via Prolific
         const prolificUserId = `prolific_${prolificParams.PROLIFIC_PID}`
         const hasCompletedOnboarding =
           localStorage.getItem(`prolific_onboarded_${prolificUserId}`) === 'true'
         this.prolificUserHasCompletedOnboarding = hasCompletedOnboarding
-        // Prolific user onboarding status checked
 
-        // Prolific login successful
+        // Sync to session store
+        this.syncToSessionStore()
       } catch (error) {
         console.error('Prolific login error:', error)
         this.user = null
@@ -126,7 +127,6 @@ export const useAuthStore = defineStore('auth', {
 
     async login(user, isAutoLogin = false) {
       if (this.loginInProgress) {
-        // Login already in progress
         return
       }
 
@@ -155,12 +155,14 @@ export const useAuthStore = defineStore('auth', {
           this.user = user
           this.isAdmin = response.data.data.is_admin
           this.traderId = response.data.data.trader_id
-          // marketId is no longer assigned at login - will be assigned when user clicks "Start Trading"
           this.lastLoginTime = Date.now()
 
           if (!isAutoLogin) {
             this.isPersisted = false
           }
+
+          // Sync to session store
+          this.syncToSessionStore()
         }
       } catch (error) {
         console.error('Login error:', error)
@@ -190,6 +192,8 @@ export const useAuthStore = defineStore('auth', {
       this.isPersisted = false
       this.isInitialized = false
       this.lastLoginTime = null
+      this.prolificToken = null
+      this.prolificUserHasCompletedOnboarding = false
 
       localStorage.removeItem('auth')
     },
@@ -211,6 +215,7 @@ export const useAuthStore = defineStore('auth', {
           'isPersisted',
           'lastLoginTime',
           'loginInProgress',
+          'prolificToken',
         ],
       },
     ],

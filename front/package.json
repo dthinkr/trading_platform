@@ -22,6 +22,7 @@
     "haikunator": "^2.1.2",
     "highcharts": "^12.3.0",
     "highcharts-vue": "^2.0.1",
+    "js-yaml": "^4.1.1",
     "jszip": "^3.10.1",
     "lodash": "^4.17.21",
     "lucide-vue-next": "^0.523.0",

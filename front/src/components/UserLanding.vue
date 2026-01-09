@@ -84,9 +84,12 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useTraderStore } from '@/store/app'
+import { useSessionStore } from '@/store/session'
+import { useAuthStore } from '@/store/auth'
 import { storeToRefs } from 'pinia'
 import { useRouter, useRoute } from 'vue-router'
-import { useAuthStore } from '@/store/auth'
+import NavigationService from '@/services/navigation'
+import { Toaster } from 'vue-sonner'
 import {
   ClipboardCheck,
   Handshake,
@@ -103,13 +106,10 @@ import {
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
-
+const sessionStore = useSessionStore()
 const traderStore = useTraderStore()
-const { traderAttributes } = storeToRefs(traderStore)
-const { initializeTrader } = traderStore
 
-const traderUuid = ref(route.params.traderUuid)
-const marketId = ref(route.params.marketId)
+const { traderAttributes } = storeToRefs(traderStore)
 
 const pages = [
   { name: 'consent', title: 'Research Participant Consent Form', icon: 'ClipboardCheck' },
@@ -119,7 +119,7 @@ const pages = [
   { name: 'earnings', title: 'Your Earnings', icon: 'DollarSign' },
   { name: 'participants', title: 'Other Participants', icon: 'Users' },
   { name: 'questions', title: 'Control Questions', icon: 'HelpCircle' },
-  { name: 'practice', title: 'Practice', icon: 'GraduationCap' },
+  { name: 'ready', title: 'Ready to Trade', icon: 'GraduationCap' },
 ]
 
 // Icon mapping
@@ -140,39 +140,34 @@ const getCurrentIcon = () => {
 }
 
 const currentPageIndex = computed(() => {
-  return pages.findIndex((page) => page.name === route.name)
+  const index = pages.findIndex((page) => page.name === route.name)
+  return index >= 0 ? index : 0
 })
 
 const currentPageTitle = computed(() => {
   return pages[currentPageIndex.value]?.title || ''
 })
 
+const currentRouteName = computed(() => route.name)
 const isFirstPage = computed(() => currentPageIndex.value === 0)
 const isLastPage = computed(() => currentPageIndex.value === pages.length - 1)
 
+// Navigation using the service
 const nextPage = () => {
-  if (!isLastPage.value) {
-    const nextPageName = pages[currentPageIndex.value + 1].name
-    router.push({
-      name: nextPageName,
-      params: { marketId: marketId.value, traderUuid: traderUuid.value },
-    })
+  if (!isLastPage.value && !shouldDisableNext.value) {
+    NavigationService.nextOnboardingStep()
   }
 }
 
 const prevPage = () => {
   if (!isFirstPage.value) {
-    const prevPageName = pages[currentPageIndex.value - 1].name
-    router.push({
-      name: prevPageName,
-      params: { marketId: marketId.value, traderUuid: traderUuid.value },
-    })
+    NavigationService.prevOnboardingStep()
   }
 }
 
+// Progress tracking
 const canProgressFromQuestions = ref(false)
 const consentGiven = ref(false)
-const currentRouteName = computed(() => route.name)
 
 const handleProgress = (value) => {
   if (currentRouteName.value === 'consent') {
@@ -189,42 +184,41 @@ const shouldDisableNext = computed(() => {
   return currentRouteName.value === 'questions' && !canProgressFromQuestions.value
 })
 
+// Initialize trader data
 onMounted(async () => {
-  if (traderUuid.value && marketId.value) {
+  const traderId = sessionStore.traderId || authStore.traderId
+  
+  if (traderId) {
     try {
-      await initializeTrader(traderUuid.value)
+      await traderStore.initializeTrader(traderId)
       await traderStore.initializeTradingSystemWithPersistentSettings()
-      await traderStore.getTraderAttributes(traderUuid.value)
-
-      if (!route.name || route.name === 'onboarding') {
-        const targetRoute = authStore.isPersisted ? 'practice' : 'consent'
-        router.push({
-          name: targetRoute,
-          params: { marketId: marketId.value, traderUuid: traderUuid.value },
-        })
-      }
+      await traderStore.getTraderAttributes(traderId)
     } catch (error) {
       console.error('Error initializing trader:', error)
     }
   } else {
-    console.error('Trader UUID or Market ID not provided')
+    console.error('No trader ID available')
   }
 })
 
+// Watch for route changes to reset progress flags
 watch(currentRouteName, (newRoute, oldRoute) => {
   if (oldRoute === 'questions') {
     canProgressFromQuestions.value = false
   }
 
-  if (newRoute === 'practice' && authStore.user?.isProlific) {
-    const prolificUserId = authStore.user.uid
-    localStorage.setItem(`prolific_onboarded_${prolificUserId}`, 'true')
-    // Marked Prolific user as having completed onboarding
-    authStore.prolificUserHasCompletedOnboarding = true
+  // Mark onboarding as complete when reaching ready page
+  if (newRoute === 'ready') {
+    sessionStore.setOnboardingStep(7)
+    
+    // For Prolific users, mark as having completed onboarding
+    if (authStore.user?.isProlific) {
+      const prolificUserId = authStore.user.uid
+      localStorage.setItem(`prolific_onboarded_${prolificUserId}`, 'true')
+    }
   }
 })
 
-const lightBlueColor = ref('light-blue')
 const deepBlueColor = ref('deep-blue')
 </script>
 

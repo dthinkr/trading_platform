@@ -378,6 +378,70 @@ async def admin_login(request: Request):
         }
     }
 
+
+@app.get("/session/status")
+async def get_session_status(request: Request, current_user: dict = Depends(get_current_user)):
+    """
+    Get the current session status for the authenticated user.
+    Used by frontend to determine where to route the user after page refresh.
+    """
+    gmail_username = current_user['gmail_username']
+    trader_id = f"HUMAN_{gmail_username}"
+    is_admin = current_user.get('is_admin', False)
+    is_prolific = current_user.get('is_prolific', False)
+    
+    # Get merged params for max markets info
+    try:
+        merged_params = TradingParameters(**(base_settings or {}))
+    except Exception:
+        merged_params = TradingParameters()
+    
+    # Check session status
+    session_status = market_handler.get_session_status_by_trader_id(trader_id)
+    
+    # Get historical markets count
+    historical_markets_count = get_historical_markets_count(gmail_username)
+    max_markets = merged_params.max_markets_per_human
+    
+    # Determine the user's current status
+    status = "authenticated"  # Default
+    market_id = None
+    onboarding_step = 0
+    
+    if session_status.get("status") == "active":
+        status = "trading"
+        # Get market ID if available
+        trader_manager = market_handler.get_trader_manager_by_trader_id(trader_id)
+        if trader_manager:
+            market_id = trader_manager.market_id
+    elif session_status.get("status") == "waiting":
+        status = "waiting"
+    elif historical_markets_count >= max_markets and not is_admin:
+        status = "complete"
+    else:
+        # Check if user has completed onboarding before (for Prolific users)
+        if is_prolific:
+            # Prolific users who have logged in before go to waiting
+            status = "waiting"
+            onboarding_step = 7  # Completed onboarding
+        else:
+            status = "onboarding"
+    
+    return {
+        "status": "success",
+        "data": {
+            "status": status,
+            "trader_id": trader_id,
+            "market_id": market_id,
+            "onboarding_step": onboarding_step,
+            "markets_completed": historical_markets_count,
+            "max_markets": max_markets,
+            "is_admin": is_admin,
+            "is_prolific": is_prolific
+        }
+    }
+
+
 @app.get("/traders/defaults")
 async def get_trader_defaults():
     schema = TradingParameters.model_json_schema()

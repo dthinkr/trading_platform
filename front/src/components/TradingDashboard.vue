@@ -211,6 +211,7 @@ import { storeToRefs } from 'pinia'
 import { useTraderStore } from '@/store/app'
 import { debounce } from 'lodash'
 import axios from '@/api/axios'
+import NavigationService from '@/services/navigation'
 import {
   TrendingUp,
   TrendingDown,
@@ -284,11 +285,7 @@ const debugDisplayValues = computed(() => {
 })
 
 const finalizingDay = () => {
-  if (traderUuid.value) {
-    router.push({ name: 'summary', params: { traderUuid: traderUuid.value } })
-  } else {
-    router.push({ name: 'Register' })
-  }
+  NavigationService.onTradingEnded()
 }
 
 watch(remainingTime, (newValue) => {
@@ -456,7 +453,7 @@ watch(isTradingStarted, (newValue) => {
 watch(marketTimeRemaining, (newValue) => {
   if (newValue === 0 && !isTradingStarted.value) {
     router.push({
-      name: 'Register',
+      name: 'auth',
       query: { error: 'Market timed out - not enough traders joined' },
     })
   }
