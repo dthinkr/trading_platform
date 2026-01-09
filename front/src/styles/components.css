@@ -393,6 +393,47 @@ html, body, #app {
  * VUETIFY OVERRIDES
  * ======================================== */
 
+/* Force Inter font globally - highest specificity */
+html,
+body,
+#app,
+.v-application,
+.v-application *,
+.v-application .v-card,
+.v-application .v-card-text,
+.v-application .v-card-title,
+.v-application .v-list,
+.v-application .v-list-item,
+.v-application .v-btn,
+.v-application .v-alert,
+.v-application .v-chip,
+.v-application p,
+.v-application span,
+.v-application div,
+.v-application h1,
+.v-application h2,
+.v-application h3,
+.v-application h4,
+.v-application h5,
+.v-application h6 {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+}
+
+.v-application .text-body-1,
+.v-application .text-body-2,
+.v-application .text-subtitle-1,
+.v-application .text-subtitle-2,
+.v-application .text-caption,
+.v-application .text-overline,
+.v-application .text-h1,
+.v-application .text-h2,
+.v-application .text-h3,
+.v-application .text-h4,
+.v-application .text-h5,
+.v-application .text-h6 {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+}
+
 /* Make Vuetify cards match our design */
 .v-card {
   background: var(--color-bg-surface) !important;
@@ -461,4 +502,14 @@ html, body, #app {
   text-transform: uppercase !important;
   letter-spacing: 0.05em !important;
   color: var(--color-text-muted) !important;
+}
+
+/* Vuetify tooltips - dark background with white text */
+.v-tooltip > .v-overlay__content {
+  background: #1f2937 !important;
+  color: #ffffff !important;
+  font-family: var(--font-mono) !important;
+  font-size: 12px !important;
+  padding: 6px 10px !important;
+  border-radius: 6px !important;
 }

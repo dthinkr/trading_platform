@@ -2,14 +2,12 @@
  * plugins/webfontloader.js
  *
  * webfontloader documentation: https://github.com/typekit/webfontloader
+ * 
+ * Note: Inter font is loaded via index.html <link> tag for better performance.
+ * This file is kept for compatibility but no longer loads Roboto.
  */
 
 export async function loadFonts() {
-  const webFontLoader = await import(/* webpackChunkName: "webfontloader" */ 'webfontloader')
-
-  webFontLoader.load({
-    google: {
-      families: ['Roboto:100,300,400,500,700,900&display=swap'],
-    },
-  })
+  // Inter font is already loaded in index.html
+  // No additional fonts needed
 }

@@ -53,49 +53,53 @@
             </header>
             <div class="tp-card-body">
               <div class="field-grid">
-                <div v-for="field in group" :key="field.name" class="field-item">
-                  <!-- Dropdown for agentic_prompt_template -->
-                  <v-select
-                    v-if="field.name === 'agentic_prompt_template'"
-                    :label="field.title || ''"
-                    v-model="formState[field.name]"
-                    :items="agenticTemplates"
-                    item-title="name"
-                    item-value="id"
-                    hide-details
-                    :class="getFieldStyle(field.name)"
-                    @update:modelValue="updatePersistentSettings"
-                  />
-                  <!-- Boolean switch -->
-                  <v-switch
-                    v-else-if="field.type === 'boolean'"
-                    :label="field.title || ''"
-                    v-model="formState[field.name]"
-                    hide-details
-                    color="primary"
-                    :class="getFieldStyle(field.name)"
-                    @update:modelValue="updatePersistentSettings"
-                  />
-                  <!-- Array fields -->
-                  <v-text-field
-                    v-else-if="isArrayField(field)"
-                    :label="field.title || ''"
-                    v-model="formState[field.name]"
-                    hide-details
-                    :class="getFieldStyle(field.name)"
-                    @input="handleArrayInput(field.name, $event)"
-                  />
-                  <!-- Regular fields -->
-                  <v-text-field
-                    v-else
-                    :label="field.title || ''"
-                    v-model="formState[field.name]"
-                    :type="getFieldType(field)"
-                    hide-details
-                    :class="getFieldStyle(field.name)"
-                    @input="updatePersistentSettings"
-                  />
-                </div>
+                <v-tooltip v-for="field in group" :key="field.name" location="top" :text="field.name">
+                <template v-slot:activator="{ props: tooltipProps }">
+                  <div class="field-item" v-bind="tooltipProps">
+                    <!-- Dropdown for agentic_prompt_template -->
+                    <v-select
+                      v-if="field.name === 'agentic_prompt_template'"
+                      :label="field.title || ''"
+                      v-model="formState[field.name]"
+                      :items="agenticTemplates"
+                      item-title="name"
+                      item-value="id"
+                      hide-details
+                      :class="getFieldStyle(field.name)"
+                      @update:modelValue="updatePersistentSettings"
+                    />
+                    <!-- Boolean switch -->
+                    <v-switch
+                      v-else-if="field.type === 'boolean'"
+                      :label="field.title || ''"
+                      v-model="formState[field.name]"
+                      hide-details
+                      color="primary"
+                      :class="getFieldStyle(field.name)"
+                      @update:modelValue="updatePersistentSettings"
+                    />
+                    <!-- Array fields -->
+                    <v-text-field
+                      v-else-if="isArrayField(field)"
+                      :label="field.title || ''"
+                      v-model="formState[field.name]"
+                      hide-details
+                      :class="getFieldStyle(field.name)"
+                      @input="handleArrayInput(field.name, $event)"
+                    />
+                    <!-- Regular fields -->
+                    <v-text-field
+                      v-else
+                      :label="field.title || ''"
+                      v-model="formState[field.name]"
+                      :type="getFieldType(field)"
+                      hide-details
+                      :class="getFieldStyle(field.name)"
+                      @input="updatePersistentSettings"
+                    />
+                  </div>
+                </template>
+              </v-tooltip>
               </div>
             </div>
           </div>
