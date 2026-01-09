@@ -76,7 +76,7 @@ trader_managers = {}
 
 # helper funcs
 def get_historical_markets_count(username):
-    return len(market_handler.user_historical_markets[username])
+    return len(market_handler.user_historical_markets.get(username, set()))
 
 def record_market_for_user(username, market_id):
     market_handler.user_historical_markets[username].add(market_id)

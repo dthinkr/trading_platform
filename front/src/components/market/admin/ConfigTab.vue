@@ -1,273 +1,231 @@
 <template>
   <div class="config-tab">
     <!-- Market Configuration -->
-    <v-card elevation="1" class="mb-4">
-      <v-card-title class="compact-title">
-        <v-icon left color="deep-blue" size="18">mdi-cog-outline</v-icon>
-        Market Configuration
-      </v-card-title>
+    <section class="tp-card mb-4">
+      <header class="tp-card-header">
+        <h2 class="tp-card-title">Market Configuration</h2>
+      </header>
 
-      <v-card-text>
-        <v-form>
-          <div class="parameter-grid">
-            <!-- Order Throttling Settings -->
-            <v-card outlined class="parameter-card">
-              <v-card-title class="compact-group-title">
-                <v-icon left color="deep-blue" size="16">mdi-timer-settings-outline</v-icon>
-                Order Throttling
-              </v-card-title>
-              <v-card-text class="pa-2">
-                <v-row dense>
-                  <template v-for="traderType in traderTypes" :key="traderType">
-                    <v-col cols="6">
+      <div class="tp-card-body">
+        <div class="parameter-grid">
+          <!-- Order Throttling Settings -->
+          <div class="tp-card parameter-card">
+            <header class="tp-card-header">
+              <h3 class="tp-card-title text-sm">Order Throttling</h3>
+            </header>
+            <div class="tp-card-body">
+              <div class="throttle-grid">
+                <template v-for="traderType in traderTypes" :key="traderType">
+                  <div class="throttle-row">
+                    <span class="tp-label">{{ formatTraderType(traderType) }}</span>
+                    <div class="throttle-inputs">
                       <v-text-field
                         v-model.number="formState.throttle_settings[traderType].order_throttle_ms"
-                        :label="`${formatTraderType(traderType)} (ms)`"
+                        label="ms"
                         type="number"
                         min="0"
-                        density="compact"
-                        variant="outlined"
-                        hide-details="auto"
-                        class="mb-1 compact-input"
+                        hide-details
                         @input="updatePersistentSettings"
-                      ></v-text-field>
-                    </v-col>
-                    <v-col cols="6">
+                      />
                       <v-text-field
                         v-model.number="formState.throttle_settings[traderType].max_orders_per_window"
-                        :label="`${formatTraderType(traderType)} Max`"
+                        label="Max"
                         type="number"
                         min="1"
-                        density="compact"
-                        variant="outlined"
-                        hide-details="auto"
-                        class="mb-1 compact-input"
+                        hide-details
                         @input="updatePersistentSettings"
-                      ></v-text-field>
-                    </v-col>
-                  </template>
-                </v-row>
-              </v-card-text>
-            </v-card>
-
-            <!-- Regular Parameter Groups -->
-            <v-card
-              v-for="(group, hint) in groupedFields"
-              :key="hint"
-              outlined
-              class="parameter-card"
-            >
-              <v-card-title class="compact-group-title">
-                <v-icon left color="deep-blue" size="16">mdi-label-outline</v-icon>
-                {{ formatGroupTitle(hint) }}
-              </v-card-title>
-              <v-card-text class="pa-2">
-                <v-row dense>
-                  <v-col cols="6" v-for="field in group" :key="field.name">
-                    <!-- Dropdown for agentic_prompt_template -->
-                    <v-select
-                      v-if="field.name === 'agentic_prompt_template'"
-                      :label="field.title || ''"
-                      v-model="formState[field.name]"
-                      :items="agenticTemplates"
-                      item-title="name"
-                      item-value="id"
-                      density="compact"
-                      variant="outlined"
-                      hide-details="auto"
-                      class="mb-1 compact-input"
-                      :class="getFieldStyle(field.name)"
-                      @update:modelValue="updatePersistentSettings"
-                    ></v-select>
-                    <!-- Boolean switch -->
-                    <v-switch
-                      v-else-if="field.type === 'boolean'"
-                      :label="field.title || ''"
-                      v-model="formState[field.name]"
-                      density="compact"
-                      hide-details="auto"
-                      color="primary"
-                      class="mb-1 compact-input"
-                      :class="getFieldStyle(field.name)"
-                      @update:modelValue="updatePersistentSettings"
-                    ></v-switch>
-                    <!-- Array fields -->
-                    <v-text-field
-                      v-else-if="isArrayField(field)"
-                      :label="field.title || ''"
-                      v-model="formState[field.name]"
-                      density="compact"
-                      variant="outlined"
-                      hide-details="auto"
-                      class="mb-1 compact-input"
-                      :class="getFieldStyle(field.name)"
-                      @input="handleArrayInput(field.name, $event)"
-                    ></v-text-field>
-                    <!-- Regular fields -->
-                    <v-text-field
-                      v-else
-                      :label="field.title || ''"
-                      v-model="formState[field.name]"
-                      :type="getFieldType(field)"
-                      density="compact"
-                      variant="outlined"
-                      hide-details="auto"
-                      class="mb-1 compact-input"
-                      :class="getFieldStyle(field.name)"
-                      @input="updatePersistentSettings"
-                    ></v-text-field>
-                  </v-col>
-                </v-row>
-              </v-card-text>
-            </v-card>
+                      />
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
           </div>
-        </v-form>
-      </v-card-text>
 
-      <v-card-actions class="pa-2">
-        <v-spacer></v-spacer>
-        <v-btn
-          color="primary"
+          <!-- Regular Parameter Groups -->
+          <div
+            v-for="(group, hint) in groupedFields"
+            :key="hint"
+            class="tp-card parameter-card"
+          >
+            <header class="tp-card-header">
+              <h3 class="tp-card-title text-sm">{{ formatGroupTitle(hint) }}</h3>
+            </header>
+            <div class="tp-card-body">
+              <div class="field-grid">
+                <div v-for="field in group" :key="field.name" class="field-item">
+                  <!-- Dropdown for agentic_prompt_template -->
+                  <v-select
+                    v-if="field.name === 'agentic_prompt_template'"
+                    :label="field.title || ''"
+                    v-model="formState[field.name]"
+                    :items="agenticTemplates"
+                    item-title="name"
+                    item-value="id"
+                    hide-details
+                    :class="getFieldStyle(field.name)"
+                    @update:modelValue="updatePersistentSettings"
+                  />
+                  <!-- Boolean switch -->
+                  <v-switch
+                    v-else-if="field.type === 'boolean'"
+                    :label="field.title || ''"
+                    v-model="formState[field.name]"
+                    hide-details
+                    color="primary"
+                    :class="getFieldStyle(field.name)"
+                    @update:modelValue="updatePersistentSettings"
+                  />
+                  <!-- Array fields -->
+                  <v-text-field
+                    v-else-if="isArrayField(field)"
+                    :label="field.title || ''"
+                    v-model="formState[field.name]"
+                    hide-details
+                    :class="getFieldStyle(field.name)"
+                    @input="handleArrayInput(field.name, $event)"
+                  />
+                  <!-- Regular fields -->
+                  <v-text-field
+                    v-else
+                    :label="field.title || ''"
+                    v-model="formState[field.name]"
+                    :type="getFieldType(field)"
+                    hide-details
+                    :class="getFieldStyle(field.name)"
+                    @input="updatePersistentSettings"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <footer class="tp-card-footer">
+        <button
+          class="tp-btn tp-btn-primary"
           @click="saveSettings"
           :disabled="!serverActive"
-          size="small"
-          variant="elevated"
-          class="custom-btn"
         >
-          <v-icon start size="16">mdi-content-save</v-icon>
           Save Settings
-        </v-btn>
-      </v-card-actions>
-    </v-card>
+        </button>
+      </footer>
+    </section>
 
     <!-- Treatment Sequence -->
-    <v-card elevation="1" class="mb-4">
-      <v-card-title class="compact-title" @click="showTreatments = !showTreatments" style="cursor: pointer">
-        <v-icon left color="deep-blue" size="18">mdi-flask-outline</v-icon>
-        Treatment Sequence
-        <v-spacer></v-spacer>
-        <v-icon>{{ showTreatments ? 'mdi-chevron-up' : 'mdi-chevron-down' }}</v-icon>
-      </v-card-title>
+    <section class="tp-card mb-4">
+      <header 
+        class="tp-card-header tp-card-header-collapsible"
+        @click="showTreatments = !showTreatments"
+      >
+        <h2 class="tp-card-title">Treatment Sequence</h2>
+        <v-icon size="20">{{ showTreatments ? 'mdi-chevron-up' : 'mdi-chevron-down' }}</v-icon>
+      </header>
 
       <v-expand-transition>
         <div v-show="showTreatments">
-          <v-card-text>
-            <v-alert type="info" density="compact" class="mb-3">
+          <div class="tp-card-body">
+            <p class="text-sm text-secondary mb-3">
               Define different trader compositions for each market.
-            </v-alert>
+            </p>
             
             <v-textarea
               v-model="treatmentYaml"
               label="Treatment YAML"
               rows="10"
-              variant="outlined"
-              density="compact"
               class="yaml-editor"
               :error="yamlError !== ''"
               :error-messages="yamlError"
-            ></v-textarea>
+            />
 
-            <div v-if="treatments.length > 0" class="mt-2">
-              <v-chip
+            <div v-if="treatments.length > 0" class="treatment-chips">
+              <span
                 v-for="(t, i) in treatments"
                 :key="i"
-                size="small"
-                class="mr-1 mb-1"
-                color="primary"
-                variant="outlined"
+                class="tp-badge"
               >
                 {{ i }}: {{ t.name || `Treatment ${i}` }}
-              </v-chip>
+              </span>
             </div>
-          </v-card-text>
+          </div>
 
-          <v-card-actions class="pa-2">
-            <v-btn color="secondary" @click="loadTreatments" :disabled="!serverActive" size="small" variant="outlined">
-              <v-icon start size="16">mdi-refresh</v-icon>
+          <footer class="tp-card-footer">
+            <button class="tp-btn tp-btn-secondary" @click="loadTreatments" :disabled="!serverActive">
               Load
-            </v-btn>
-            <v-spacer></v-spacer>
-            <v-btn color="primary" @click="saveTreatments" :disabled="!serverActive" size="small" variant="elevated">
-              <v-icon start size="16">mdi-content-save</v-icon>
+            </button>
+            <button class="tp-btn tp-btn-primary" @click="saveTreatments" :disabled="!serverActive">
               Save
-            </v-btn>
-          </v-card-actions>
+            </button>
+          </footer>
         </div>
       </v-expand-transition>
-    </v-card>
+    </section>
 
     <!-- Prolific Settings (Collapsed) -->
-    <v-card elevation="1">
-      <v-card-title class="compact-title" @click="showProlific = !showProlific" style="cursor: pointer">
-        <v-icon left color="deep-blue" size="18">mdi-account-group-outline</v-icon>
-        Prolific Settings
-        <v-spacer></v-spacer>
-        <v-icon>{{ showProlific ? 'mdi-chevron-up' : 'mdi-chevron-down' }}</v-icon>
-      </v-card-title>
+    <section class="tp-card">
+      <header 
+        class="tp-card-header tp-card-header-collapsible"
+        @click="showProlific = !showProlific"
+      >
+        <h2 class="tp-card-title">Prolific Settings</h2>
+        <v-icon size="20">{{ showProlific ? 'mdi-chevron-up' : 'mdi-chevron-down' }}</v-icon>
+      </header>
 
       <v-expand-transition>
         <div v-show="showProlific">
-          <v-card-text class="pa-3">
-            <v-form>
-              <v-textarea
-                v-model="prolificSettings.credentials"
-                label="Prolific Credentials"
-                variant="outlined"
-                density="compact"
-                hide-details="auto"
-                class="mb-2"
-                placeholder="username1,password1&#10;username2,password2"
-                hint="One username,password pair per line"
-                persistent-hint
-                rows="3"
-              ></v-textarea>
+          <div class="tp-card-body">
+            <v-textarea
+              v-model="prolificSettings.credentials"
+              label="Prolific Credentials"
+              hide-details
+              class="mb-3"
+              placeholder="username1,password1&#10;username2,password2"
+              rows="3"
+            />
 
-              <div class="d-flex align-center mb-2">
-                <v-text-field
-                  v-model="numCredentials"
-                  label="Count"
-                  type="number"
-                  min="1"
-                  max="20"
-                  variant="outlined"
-                  density="compact"
-                  hide-details
-                  class="mr-2"
-                  style="max-width: 100px"
-                ></v-text-field>
-                <v-btn color="secondary" @click="generateCredentials" :loading="generatingCredentials" size="small">
-                  <v-icon start size="16">mdi-key-variant</v-icon>
-                  Generate
-                </v-btn>
-              </div>
-
+            <div class="credential-gen mb-3">
               <v-text-field
-                v-model="prolificSettings.studyId"
-                label="Study ID"
-                variant="outlined"
-                density="compact"
-                hide-details="auto"
-                class="mb-2"
-              ></v-text-field>
+                v-model="numCredentials"
+                label="Count"
+                type="number"
+                min="1"
+                max="20"
+                hide-details
+                style="max-width: 100px"
+              />
+              <button class="tp-btn tp-btn-secondary" @click="generateCredentials" :disabled="generatingCredentials">
+                Generate
+              </button>
+            </div>
 
-              <v-text-field
-                v-model="prolificSettings.redirectUrl"
-                label="Redirect URL"
-                variant="outlined"
-                density="compact"
-                hide-details="auto"
-                class="mb-2"
-              ></v-text-field>
+            <v-text-field
+              v-model="prolificSettings.studyId"
+              label="Study ID"
+              hide-details
+              class="mb-3"
+            />
 
-              <v-btn color="primary" block @click="saveProlificSettings" :loading="savingProlific" size="small" variant="elevated">
-                <v-icon start size="16">mdi-content-save</v-icon>
-                Save Prolific Settings
-              </v-btn>
-            </v-form>
-          </v-card-text>
+            <v-text-field
+              v-model="prolificSettings.redirectUrl"
+              label="Redirect URL"
+              hide-details
+            />
+          </div>
+
+          <footer class="tp-card-footer">
+            <button 
+              class="tp-btn tp-btn-primary" 
+              @click="saveProlificSettings" 
+              :disabled="savingProlific"
+              style="width: 100%"
+            >
+              Save Prolific Settings
+            </button>
+          </footer>
         </div>
       </v-expand-transition>
-    </v-card>
+    </section>
   </div>
 </template>
 
@@ -308,7 +266,7 @@ const traderTypes = ['HUMAN', 'NOISE', 'INFORMED', 'MARKET_MAKER', 'INITIAL_ORDE
 const formatTraderType = (type) => {
   return type.replace('_', ' ').toLowerCase().split(' ').map(word => 
     word.charAt(0).toUpperCase() + word.slice(1)
-  ).join(' ').substring(0, 10)
+  ).join(' ').substring(0, 12)
 }
 
 const formatGroupTitle = (hint) => {
@@ -363,7 +321,7 @@ const getFieldStyle = (fieldName) => {
     }
     return defaultValue !== currentValue
   })()
-  return isDifferent ? 'treatment-value' : ''
+  return isDifferent ? 'field-modified' : ''
 }
 
 const debouncedUpdate = debounce(async (settings) => {
@@ -508,59 +466,91 @@ watch(() => props.serverActive, (newVal) => {
   max-width: 1200px;
 }
 
-.compact-title {
-  font-size: 0.95rem !important;
-  font-weight: 600 !important;
-  padding: 0.5rem 0.75rem !important;
-  background: rgba(248, 250, 252, 0.8);
-  border-bottom: 1px solid rgba(203, 213, 225, 0.3);
-  display: flex;
-  align-items: center;
-  color: #1e293b !important;
+.mb-3 {
+  margin-bottom: var(--space-3);
 }
 
-.compact-group-title {
-  font-size: 0.8rem !important;
-  font-weight: 500 !important;
-  padding: 0.3rem 0.5rem !important;
-  background: rgba(248, 250, 252, 0.6);
-  border-bottom: 1px solid rgba(203, 213, 225, 0.3);
-  color: #374151 !important;
+.mb-4 {
+  margin-bottom: var(--space-4);
 }
 
+/* Parameter Grid */
 .parameter-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 0.5rem;
-  align-items: start;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--space-3);
 }
 
 .parameter-card {
-  height: 100%;
+  height: fit-content;
+}
+
+/* Throttle Grid */
+.throttle-grid {
   display: flex;
   flex-direction: column;
-  border-radius: 6px !important;
+  gap: var(--space-2);
 }
 
-.compact-input {
-  font-size: 0.85rem;
+.throttle-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
-.treatment-value :deep(.v-field) {
-  border: 1px solid #f44336 !important;
+.throttle-row .tp-label {
+  min-width: 90px;
+  margin-bottom: 0;
 }
 
-.treatment-value :deep(.v-label) {
-  color: #f44336 !important;
+.throttle-inputs {
+  display: flex;
+  gap: var(--space-2);
+  flex: 1;
 }
 
+.throttle-inputs .v-text-field {
+  flex: 1;
+}
+
+/* Field Grid */
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-2);
+}
+
+.field-item {
+  min-width: 0;
+}
+
+/* Modified field indicator */
+.field-modified :deep(.v-field) {
+  border-color: var(--color-warning) !important;
+}
+
+.field-modified :deep(.v-label) {
+  color: var(--color-warning) !important;
+}
+
+/* Treatment chips */
+.treatment-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: var(--space-3);
+}
+
+/* YAML Editor */
 .yaml-editor :deep(textarea) {
-  font-family: 'Monaco', 'Menlo', monospace !important;
-  font-size: 0.8rem !important;
+  font-family: var(--font-mono) !important;
+  font-size: var(--text-xs) !important;
 }
 
-.custom-btn {
-  text-transform: none !important;
-  font-weight: 500 !important;
+/* Credential generator */
+.credential-gen {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 </style>

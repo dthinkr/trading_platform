@@ -59,22 +59,31 @@ export function setupGuards(router) {
       }
     }
 
-    // 6. Onboarding step validation - prevent skipping steps
-    if (to.meta.step !== undefined && to.meta.requiresAuth) {
+    // 6. Onboarding step validation - sync step with current route
+    // Admins can skip to any step
+    if (to.meta.step !== undefined && to.meta.requiresAuth && !authStore.isAdmin) {
       const targetStep = to.meta.step
-      const currentStep = sessionStore.onboardingStep
+      
+      // Get the current step from the route we're coming FROM, not from session store
+      // This ensures we're comparing against the actual current position
+      const fromStep = from.meta?.step
+      const sessionStep = sessionStore.onboardingStep
+      
+      // Use the higher of fromStep or sessionStep as the "current" step
+      // This handles cases where session store is out of sync
+      const effectiveCurrentStep = Math.max(
+        fromStep !== undefined ? fromStep : -1,
+        sessionStep
+      )
       
       // Allow going back to any previous step
       // Allow going to current step or next step only
-      if (targetStep > currentStep + 1) {
-        // Trying to skip ahead - redirect to current step
-        const allowedRoute = ONBOARDING_ROUTES[currentStep] || 'consent'
+      // But don't block if we're just refreshing the same page
+      if (targetStep > effectiveCurrentStep + 1 && from.name !== undefined) {
+        // Trying to skip ahead - redirect to the next allowed step
+        const allowedStep = effectiveCurrentStep + 1
+        const allowedRoute = ONBOARDING_ROUTES[allowedStep] || ONBOARDING_ROUTES[effectiveCurrentStep] || 'consent'
         return next({ name: allowedRoute })
-      }
-      
-      // Update session step if navigating forward
-      if (targetStep > currentStep) {
-        sessionStore.setOnboardingStep(targetStep)
       }
     }
 
@@ -87,9 +96,18 @@ export function setupGuards(router) {
     next()
   })
 
-  // After each navigation, update session status if needed
+  // After each navigation, update session status and step
   router.afterEach((to, from) => {
     const sessionStore = useSessionStore()
+    
+    // Update onboarding step based on current route
+    if (to.meta.step !== undefined) {
+      const targetStep = to.meta.step
+      // Always update to the current step if it's higher than what we have
+      if (targetStep > sessionStore.onboardingStep) {
+        sessionStore.setOnboardingStep(targetStep)
+      }
+    }
     
     // Update status based on current route
     if (to.name === 'trading') {

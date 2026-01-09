@@ -1,41 +1,41 @@
 <template>
-  <v-card elevation="1">
-    <v-card-title class="compact-title">
-      <v-icon left color="deep-blue" size="18">mdi-file-document-multiple-outline</v-icon>
-      Data Export
-      <v-spacer></v-spacer>
-      <v-btn-toggle v-model="viewMode" mandatory density="compact" class="ml-2">
-        <v-btn value="grid" size="x-small" variant="outlined">
+  <div class="log-files-manager">
+    <header class="tp-card-header">
+      <h2 class="tp-card-title">Data Export</h2>
+      <div class="view-toggle">
+        <button 
+          class="toggle-btn" 
+          :class="{ active: viewMode === 'grid' }"
+          @click="viewMode = 'grid'"
+        >
           <v-icon size="14">mdi-grid</v-icon>
-        </v-btn>
-        <v-btn value="list" size="x-small" variant="outlined">
+        </button>
+        <button 
+          class="toggle-btn" 
+          :class="{ active: viewMode === 'list' }"
+          @click="viewMode = 'list'"
+        >
           <v-icon size="14">mdi-format-list-bulleted</v-icon>
-        </v-btn>
-      </v-btn-toggle>
-    </v-card-title>
-    <v-card-text class="pa-3">
-      <v-btn color="primary" @click="downloadAllFiles" block variant="elevated" class="mb-2 custom-btn download-all-btn" size="small">
-        <v-icon start size="16">mdi-download-multiple</v-icon>
-        Download All Files
-      </v-btn>
+        </button>
+      </div>
+    </header>
 
-      <v-row dense class="mb-2">
-        <v-col cols="4">
-          <v-btn color="secondary" @click="downloadParameterHistory" block variant="outlined" class="custom-btn" size="x-small">
-            <v-icon size="14">mdi-history</v-icon>
-          </v-btn>
-        </v-col>
-        <v-col cols="4">
-          <v-btn color="info" @click="downloadQuestionnaireResponses" block variant="outlined" class="custom-btn" size="x-small">
-            <v-icon size="14">mdi-clipboard-text</v-icon>
-          </v-btn>
-        </v-col>
-        <v-col cols="4">
-          <v-btn color="success" @click="downloadConsentData" block variant="outlined" class="custom-btn" size="x-small">
-            <v-icon size="14">mdi-clipboard-check</v-icon>
-          </v-btn>
-        </v-col>
-      </v-row>
+    <div class="tp-card-body">
+      <button class="tp-btn tp-btn-primary mb-3" style="width: 100%" @click="downloadAllFiles">
+        Download All Files
+      </button>
+
+      <div class="quick-actions mb-3">
+        <button class="tp-btn tp-btn-secondary tp-btn-sm" @click="downloadParameterHistory" title="Parameter History">
+          <v-icon size="14">mdi-history</v-icon>
+        </button>
+        <button class="tp-btn tp-btn-secondary tp-btn-sm" @click="downloadQuestionnaireResponses" title="Questionnaire">
+          <v-icon size="14">mdi-clipboard-text</v-icon>
+        </button>
+        <button class="tp-btn tp-btn-secondary tp-btn-sm" @click="downloadConsentData" title="Consent Data">
+          <v-icon size="14">mdi-clipboard-check</v-icon>
+        </button>
+      </div>
 
       <!-- Grid View (Heatmap) -->
       <div v-if="viewMode === 'grid'" class="grid-view">
@@ -52,7 +52,14 @@
               <tr v-for="session in groupedData.sessions" :key="session.session_id">
                 <td class="session-cell" :title="session.session_id">{{ formatSessionId(session.session_id) }}</td>
                 <td class="time-cell">{{ formatSessionTime(session.session_id) }}</td>
-                <td v-for="m in marketColumns" :key="m" class="market-cell" :class="{ 'has-file': session.markets[m], 'no-file': !session.markets[m] }" @click="session.markets[m] && downloadFile(session.markets[m])" :title="session.markets[m] || 'No file'">
+                <td 
+                  v-for="m in marketColumns" 
+                  :key="m" 
+                  class="market-cell" 
+                  :class="{ 'has-file': session.markets[m], 'no-file': !session.markets[m] }" 
+                  @click="session.markets[m] && downloadFile(session.markets[m])" 
+                  :title="session.markets[m] || 'No file'"
+                >
                   <v-icon v-if="session.markets[m]" size="14" color="white">mdi-download</v-icon>
                   <span v-else class="no-file-indicator">-</span>
                 </td>
@@ -60,38 +67,68 @@
             </tbody>
           </table>
         </div>
-        <div v-if="groupedData.ungrouped.length > 0" class="ungrouped-section mt-3">
-          <div class="ungrouped-title">Other Files ({{ groupedData.ungrouped.length }})</div>
+
+        <div v-if="groupedData.ungrouped.length > 0" class="ungrouped-section">
+          <span class="tp-label">Other Files ({{ groupedData.ungrouped.length }})</span>
           <div class="ungrouped-chips">
-            <v-chip v-for="file in groupedData.ungrouped" :key="file" size="small" class="ma-1" @click="downloadFile(file)" prepend-icon="mdi-download">{{ truncateFilename(file) }}</v-chip>
+            <span 
+              v-for="file in groupedData.ungrouped" 
+              :key="file" 
+              class="tp-badge file-badge"
+              @click="downloadFile(file)"
+            >
+              {{ truncateFilename(file) }}
+            </span>
           </div>
         </div>
-        <div v-if="groupedData.sessions.length === 0 && groupedData.ungrouped.length === 0" class="no-data">No log files found</div>
+
+        <div v-if="groupedData.sessions.length === 0 && groupedData.ungrouped.length === 0" class="no-data">
+          No log files found
+        </div>
       </div>
 
       <!-- List View -->
-      <v-data-table v-else :headers="[{ title: 'File Name', key: 'name' }, { title: 'Actions', key: 'actions', sortable: false }]" :items="logFiles" :items-per-page="4" density="compact" class="compact-table">
-        <template v-slot:item.actions="{ item }">
-          <v-btn icon size="x-small" color="primary" @click="downloadFile(item.name)" class="mr-1" variant="outlined"><v-icon size="14">mdi-download</v-icon></v-btn>
-          <v-btn icon size="x-small" color="error" @click="confirmDeleteFile(item.name)" variant="outlined"><v-icon size="14">mdi-delete</v-icon></v-btn>
-        </template>
-      </v-data-table>
-    </v-card-text>
+      <div v-else class="list-view">
+        <v-data-table
+          :headers="[{ title: 'File Name', key: 'name' }, { title: '', key: 'actions', sortable: false, width: '80px' }]"
+          :items="logFiles"
+          :items-per-page="5"
+          density="compact"
+        >
+          <template v-slot:item.name="{ item }">
+            <span class="font-mono text-sm">{{ item.name }}</span>
+          </template>
+          <template v-slot:item.actions="{ item }">
+            <div class="action-btns">
+              <button class="tp-btn tp-btn-ghost tp-btn-sm" @click="downloadFile(item.name)">
+                <v-icon size="14">mdi-download</v-icon>
+              </button>
+              <button class="tp-btn tp-btn-ghost tp-btn-sm" @click="confirmDeleteFile(item.name)">
+                <v-icon size="14" color="error">mdi-delete</v-icon>
+              </button>
+            </div>
+          </template>
+        </v-data-table>
+      </div>
+    </div>
 
-    <v-dialog v-model="showDeleteDialog" max-width="300px">
-      <v-card>
-        <v-card-title class="compact-title">Confirm Delete</v-card-title>
-        <v-card-text class="pa-3">Are you sure you want to delete this file?</v-card-text>
-        <v-card-actions class="pa-3">
-          <v-spacer></v-spacer>
-          <v-btn color="grey" variant="outlined" @click="showDeleteDialog = false" class="custom-btn" size="small">Cancel</v-btn>
-          <v-btn color="error" variant="elevated" @click="deleteFile" class="custom-btn ml-2" size="small">Delete</v-btn>
-        </v-card-actions>
-      </v-card>
+    <!-- Delete Dialog -->
+    <v-dialog v-model="showDeleteDialog" max-width="320px">
+      <div class="tp-card">
+        <header class="tp-card-header">
+          <h3 class="tp-card-title">Confirm Delete</h3>
+        </header>
+        <div class="tp-card-body">
+          <p class="text-sm">Are you sure you want to delete this file?</p>
+        </div>
+        <footer class="tp-card-footer">
+          <button class="tp-btn tp-btn-secondary" @click="showDeleteDialog = false">Cancel</button>
+          <button class="tp-btn tp-btn-primary" style="background: var(--color-error); border-color: var(--color-error)" @click="deleteFile">Delete</button>
+        </footer>
+      </div>
     </v-dialog>
-  </v-card>
+  </div>
 </template>
-
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
@@ -116,7 +153,6 @@ const formatSessionId = (sessionId) => {
 }
 
 const formatSessionTime = (sessionId) => {
-  // Extract timestamp from session_id (format: 1766424459_be21e6d4)
   const timestamp = parseInt(sessionId.split('_')[0])
   if (isNaN(timestamp)) return '-'
   const date = new Date(timestamp * 1000)
@@ -244,44 +280,173 @@ onMounted(() => {
 })
 </script>
 
-
 <style scoped>
-.compact-title {
-  font-size: 0.95rem !important;
-  font-weight: 600 !important;
-  padding: 0.5rem 0.75rem !important;
-  background: rgba(248, 250, 252, 0.8);
-  border-bottom: 1px solid rgba(203, 213, 225, 0.3);
-  backdrop-filter: blur(4px);
+.log-files-manager {
+  background: var(--color-bg-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.mb-3 { margin-bottom: var(--space-3); }
+
+/* View Toggle */
+.view-toggle {
+  display: flex;
+  gap: 2px;
+  background: var(--color-bg-subtle);
+  border-radius: var(--radius-md);
+  padding: 2px;
+}
+
+.toggle-btn {
   display: flex;
   align-items: center;
-  color: #1e293b !important;
+  justify-content: center;
+  width: 28px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--color-text-muted);
+  transition: all var(--transition-fast);
 }
-.compact-table { font-size: 0.85rem; font-family: 'Inter', sans-serif; }
-:deep(.v-data-table-header th) { font-size: 0.8rem !important; padding: 0.5rem !important; font-weight: 600 !important; }
-:deep(.v-data-table tbody td) { padding: 0.25rem 0.5rem !important; font-size: 0.85rem !important; }
-.deep-blue { color: #1a237e !important; }
-.custom-btn { text-transform: none !important; font-weight: 500 !important; letter-spacing: 0.5px !important; font-family: 'Inter', sans-serif !important; }
-.v-btn.v-btn--icon.v-size--x-small { width: 20px; height: 20px; margin: 0 1px; }
-.v-btn.v-btn--icon.v-size--x-small .v-icon { font-size: 14px; }
-.download-all-btn { font-weight: 600 !important; }
 
-/* Grid/Heatmap styles */
-.grid-view { max-height: 300px; overflow: auto; }
-.heatmap-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
-.heatmap-table th, .heatmap-table td { border: 1px solid #e0e0e0; padding: 4px 6px; text-align: center; }
-.session-header { background: #f5f5f5; font-weight: 600; position: sticky; top: 0; z-index: 1; min-width: 80px; }
-.time-header { background: #f5f5f5; font-weight: 600; position: sticky; top: 0; z-index: 1; min-width: 90px; }
-.market-header { background: #f5f5f5; font-weight: 600; position: sticky; top: 0; z-index: 1; min-width: 36px; }
-.session-cell { background: #fafafa; font-family: monospace; font-size: 0.7rem; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px; }
-.time-cell { background: #fafafa; font-size: 0.65rem; text-align: left; white-space: nowrap; color: #666; }
-.market-cell { cursor: pointer; transition: all 0.15s ease; width: 36px; height: 28px; }
-.market-cell.has-file { background: #4caf50; color: white; }
-.market-cell.has-file:hover { background: #388e3c; transform: scale(1.05); }
-.market-cell.no-file { background: #f5f5f5; color: #bdbdbd; cursor: default; }
-.no-file-indicator { font-size: 0.8rem; }
-.ungrouped-section { border-top: 1px solid #e0e0e0; padding-top: 8px; }
-.ungrouped-title { font-size: 0.8rem; font-weight: 600; color: #666; margin-bottom: 4px; }
-.ungrouped-chips { display: flex; flex-wrap: wrap; }
-.no-data { text-align: center; color: #999; padding: 20px; font-size: 0.85rem; }
+.toggle-btn:hover {
+  color: var(--color-text-primary);
+}
+
+.toggle-btn.active {
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-xs);
+}
+
+/* Quick Actions */
+.quick-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.quick-actions .tp-btn {
+  flex: 1;
+}
+
+/* Grid View */
+.grid-view {
+  max-height: 300px;
+  overflow: auto;
+}
+
+.heatmap-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-xs);
+}
+
+.heatmap-table th,
+.heatmap-table td {
+  border: var(--border-width) solid var(--color-border-light);
+  padding: var(--space-1) var(--space-2);
+  text-align: center;
+}
+
+.session-header,
+.time-header,
+.market-header {
+  background: var(--color-bg-subtle);
+  font-weight: var(--font-semibold);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.session-header { min-width: 80px; }
+.time-header { min-width: 90px; }
+.market-header { min-width: 36px; }
+
+.session-cell {
+  background: var(--color-bg-page);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100px;
+}
+
+.time-cell {
+  background: var(--color-bg-page);
+  font-size: 10px;
+  text-align: left;
+  white-space: nowrap;
+  color: var(--color-text-muted);
+}
+
+.market-cell {
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  width: 36px;
+  height: 28px;
+}
+
+.market-cell.has-file {
+  background: var(--color-success);
+  color: white;
+}
+
+.market-cell.has-file:hover {
+  background: #0d9668;
+  transform: scale(1.05);
+}
+
+.market-cell.no-file {
+  background: var(--color-bg-subtle);
+  color: var(--color-text-muted);
+  cursor: default;
+}
+
+.no-file-indicator {
+  font-size: var(--text-xs);
+}
+
+/* Ungrouped Section */
+.ungrouped-section {
+  border-top: var(--border-width) solid var(--color-border-light);
+  padding-top: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.ungrouped-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+}
+
+.file-badge {
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.file-badge:hover {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+/* No Data */
+.no-data {
+  text-align: center;
+  color: var(--color-text-muted);
+  padding: var(--space-6);
+  font-size: var(--text-sm);
+}
+
+/* List View */
+.action-btns {
+  display: flex;
+  gap: var(--space-1);
+}
 </style>

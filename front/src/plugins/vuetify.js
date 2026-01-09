@@ -11,22 +11,62 @@ import 'vuetify/styles'
 // Composables
 import { createVuetify } from 'vuetify'
 
-// https://vuetifyjs.com/en/introduction/why-vuetify/#feature-guides
+/**
+ * Trading Platform Design System - Vuetify Theme
+ * Colors aligned with design-tokens.css
+ */
 export default createVuetify({
   theme: {
     defaultTheme: 'light',
     themes: {
       light: {
         colors: {
-          primary: '#1976d2',
-          secondary: '#424242',
-          accent: '#82B1FF',
-          error: '#ef4444',
-          info: '#3b82f6',
-          success: '#10b981',
-          warning: '#f59e0b',
+          // Primary - Main brand color
+          primary: '#4F46E5',
+          'primary-darken-1': '#4338CA',
+          
+          // Secondary - Neutral gray
+          secondary: '#4B5563',
+          
+          // Semantic colors
+          error: '#EF4444',
+          info: '#3B82F6',
+          success: '#10B981',
+          warning: '#F59E0B',
+          
+          // Surface colors
+          background: '#F9FAFB',
+          surface: '#FFFFFF',
+          'surface-variant': '#F3F4F6',
+          
+          // Text colors
+          'on-background': '#111827',
+          'on-surface': '#111827',
+          'on-primary': '#FFFFFF',
         }
       }
     }
+  },
+  defaults: {
+    VBtn: {
+      variant: 'flat',
+      rounded: 'md',
+    },
+    VCard: {
+      rounded: 'lg',
+      elevation: 0,
+    },
+    VTextField: {
+      variant: 'outlined',
+      density: 'compact',
+    },
+    VSelect: {
+      variant: 'outlined',
+      density: 'compact',
+    },
+    VTextarea: {
+      variant: 'outlined',
+      density: 'compact',
+    },
   }
 })

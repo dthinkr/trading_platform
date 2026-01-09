@@ -55,9 +55,11 @@
               </v-form>
             </div>
 
-            <!-- Regular authentication UI -->
-            <template v-else-if="!authStore.isAuthenticated">
-              <p class="text-subtitle-1 mb-6">Sign in to access a trading market</p>
+            <!-- Main choice screen - show for both authenticated and unauthenticated users -->
+            <template v-else>
+              <p class="text-subtitle-1 mb-6">
+                {{ authStore.isAuthenticated ? 'Welcome back! Choose an option:' : 'Sign in to access a trading market' }}
+              </p>
 
               <v-btn 
                 block 
@@ -68,7 +70,7 @@
                 :loading="googleLoading"
               >
                 <v-icon start icon="mdi-google"></v-icon>
-                Sign in with Google
+                {{ authStore.isAuthenticated ? 'Continue to Trading' : 'Sign in with Google' }}
               </v-btn>
 
               <v-btn
@@ -80,14 +82,21 @@
                 :loading="adminLoading"
               >
                 <v-icon start icon="mdi-google"></v-icon>
-                Admin Sign in with Google
+                {{ authStore.isAuthenticated ? 'Admin Dashboard' : 'Admin Sign in with Google' }}
               </v-btn>
-            </template>
 
-            <!-- Already authenticated - show redirect message -->
-            <template v-else>
-              <p class="text-subtitle-1 mb-6">You are already signed in. Redirecting...</p>
-              <v-progress-circular indeterminate color="primary" size="32"></v-progress-circular>
+              <!-- Show logout option if already authenticated -->
+              <v-btn
+                v-if="authStore.isAuthenticated"
+                block
+                variant="text"
+                color="grey"
+                size="small"
+                @click="handleLogout"
+                class="mt-2"
+              >
+                Sign out and use different account
+              </v-btn>
             </template>
 
             <v-alert
@@ -107,7 +116,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { getAuth, GoogleAuthProvider, signInWithPopup } from 'firebase/auth'
 import { useAuthStore } from '@/store/auth'
@@ -143,7 +152,6 @@ const prolificParams = ref(null)
 
 // Check for Prolific params from multiple sources
 const getProlificParams = () => {
-  // 1. From props (URL query params via router)
   if (props.prolificPID && props.studyID && props.sessionID) {
     return {
       PROLIFIC_PID: props.prolificPID,
@@ -152,7 +160,6 @@ const getProlificParams = () => {
     }
   }
   
-  // 2. From route query directly
   if (route.query.PROLIFIC_PID && route.query.STUDY_ID && route.query.SESSION_ID) {
     return {
       PROLIFIC_PID: route.query.PROLIFIC_PID,
@@ -161,12 +168,10 @@ const getProlificParams = () => {
     }
   }
   
-  // 3. From session store (persisted)
   if (sessionStore.prolificParams) {
     return sessionStore.prolificParams
   }
   
-  // 4. From localStorage (legacy support)
   const stored = sessionStore.loadProlificParams()
   if (stored) {
     return stored
@@ -191,34 +196,30 @@ onMounted(async () => {
     if (lastPassword) password.value = lastPassword
   }
   
-  // If already authenticated, redirect to appropriate page
-  if (authStore.isAuthenticated) {
-    isLoading.value = true
-    loadingMessage.value = 'Redirecting...'
-    
-    try {
-      await NavigationService.afterLogin()
-    } catch (error) {
-      console.error('Redirect failed:', error)
-      isLoading.value = false
-    }
-  } else if (!isProlificUser.value) {
-    // Initialize Firebase auth listener for regular users
+  // Initialize Firebase auth state (but don't auto-redirect)
+  if (!isProlificUser.value && !authStore.isAuthenticated) {
     await authStore.initializeAuth()
-    
-    // Check again after init
-    if (authStore.isAuthenticated && authStore.traderId) {
-      await NavigationService.afterLogin()
-    }
   }
 })
 
-// Google sign-in for regular users
+// Handle logout
+const handleLogout = async () => {
+  await NavigationService.logout()
+}
+
+// Google sign-in / Continue to trading
 const signInWithGoogle = async () => {
   googleLoading.value = true
   errorMessage.value = ''
   
   try {
+    // If already authenticated, just navigate - no popup needed
+    if (authStore.isAuthenticated && authStore.traderId) {
+      await NavigationService.afterLogin()
+      return
+    }
+    
+    // Not authenticated - show Google popup
     const provider = new GoogleAuthProvider()
     const result = await signInWithPopup(auth, provider)
     const user = result.user
@@ -233,12 +234,37 @@ const signInWithGoogle = async () => {
   }
 }
 
-// Admin sign-in
+// Admin sign-in / Go to admin dashboard
 const adminSignInWithGoogle = async () => {
   adminLoading.value = true
   errorMessage.value = ''
   
   try {
+    // If already authenticated as admin, just navigate - no popup needed
+    if (authStore.isAuthenticated && authStore.isAdmin) {
+      await NavigationService.goToAdmin()
+      return
+    }
+    
+    // If authenticated but not admin, need to verify admin status
+    if (authStore.isAuthenticated) {
+      // Try to login as admin with existing user
+      try {
+        await authStore.adminLogin(auth.currentUser)
+        if (authStore.isAdmin) {
+          await NavigationService.goToAdmin()
+          return
+        } else {
+          errorMessage.value = 'You do not have admin privileges.'
+          return
+        }
+      } catch (e) {
+        errorMessage.value = 'You do not have admin privileges.'
+        return
+      }
+    }
+    
+    // Not authenticated - show Google popup
     const provider = new GoogleAuthProvider()
     const result = await signInWithPopup(auth, provider)
     const user = result.user
@@ -274,11 +300,9 @@ const handleProlificCredentialLogin = async () => {
       password: password.value,
     })
 
-    // Store credentials for future auto-fill
     localStorage.setItem('prolific_last_username', username.value)
     localStorage.setItem('prolific_last_password', password.value)
 
-    // Navigate using the service
     await NavigationService.afterProlificLogin(prolificParams.value)
   } catch (error) {
     console.error('Prolific login error:', error)

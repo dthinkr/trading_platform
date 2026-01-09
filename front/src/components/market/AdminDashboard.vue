@@ -1,72 +1,48 @@
 <template>
   <div class="admin-dashboard">
     <!-- Header -->
-    <div class="dashboard-header">
-      <div class="header-content">
-        <div class="header-info">
-          <h1 class="dashboard-title">
-            <v-icon size="28" color="#667eea">mdi-view-dashboard</v-icon>
-            Trading Platform Admin
-          </h1>
-        </div>
-        <div class="header-status">
-          <div class="status-chip" :class="serverActive ? 'status-online' : 'status-offline'">
-            <div class="status-indicator" :class="serverActive ? 'online' : 'offline'"></div>
-            <span class="status-text">{{ serverActive ? 'Connected' : 'Disconnected' }}</span>
-          </div>
-        </div>
+    <header class="tp-page-header">
+      <h1 class="tp-page-title">Trading Platform Admin</h1>
+      <div class="tp-status">
+        <span class="tp-status-dot" :class="serverActive ? 'tp-status-dot-success' : 'tp-status-dot-error'"></span>
+        <span class="text-sm">{{ serverActive ? 'Connected' : 'Disconnected' }}</span>
       </div>
-    </div>
+    </header>
 
     <!-- Main Layout: Tabs + Content + Export Panel -->
     <div class="main-layout">
       <!-- Left: Vertical Tabs -->
-      <div class="tabs-sidebar">
-        <v-tabs v-model="activeTab" direction="vertical" color="primary" class="vertical-tabs">
-          <v-tab value="config">
-            <v-icon start size="18">mdi-cog-outline</v-icon>
-            Config
-          </v-tab>
-          <v-tab value="prompts">
-            <v-icon start size="18">mdi-robot-outline</v-icon>
-            AI Prompts
-          </v-tab>
-          <v-tab value="markets">
-            <v-icon start size="18">mdi-monitor-dashboard</v-icon>
-            Markets
-          </v-tab>
-        </v-tabs>
-      </div>
+      <nav class="tabs-sidebar">
+        <div class="tabs-list">
+          <button
+            v-for="tab in tabs"
+            :key="tab.value"
+            class="tab-item"
+            :class="{ 'tab-active': activeTab === tab.value }"
+            @click="activeTab = tab.value"
+          >
+            {{ tab.label }}
+          </button>
+        </div>
+      </nav>
 
       <!-- Center: Tab Content -->
-      <div class="tab-content">
-        <v-tabs-window v-model="activeTab">
-          <!-- Config Tab -->
-          <v-tabs-window-item value="config">
-            <ConfigTab
-              :formState="formState"
-              :formFields="formFields"
-              :serverActive="serverActive"
-              @update:formState="updateFormState"
-            />
-          </v-tabs-window-item>
-
-          <!-- AI Prompts Tab -->
-          <v-tabs-window-item value="prompts">
-            <AIPromptsTab :serverActive="serverActive" />
-          </v-tabs-window-item>
-
-          <!-- Markets Tab -->
-          <v-tabs-window-item value="markets">
-            <MarketsTab :serverActive="serverActive" />
-          </v-tabs-window-item>
-        </v-tabs-window>
-      </div>
+      <main class="tab-content">
+        <ConfigTab
+          v-if="activeTab === 'config'"
+          :formState="formState"
+          :formFields="formFields"
+          :serverActive="serverActive"
+          @update:formState="updateFormState"
+        />
+        <AIPromptsTab v-else-if="activeTab === 'prompts'" :serverActive="serverActive" />
+        <MarketsTab v-else-if="activeTab === 'markets'" :serverActive="serverActive" />
+      </main>
 
       <!-- Right: Data Export (Always Visible) -->
-      <div class="export-sidebar">
+      <aside class="export-sidebar">
         <LogFilesManager />
-      </div>
+      </aside>
     </div>
   </div>
 </template>
@@ -78,6 +54,12 @@ import ConfigTab from './admin/ConfigTab.vue'
 import AIPromptsTab from './admin/AIPromptsTab.vue'
 import MarketsTab from './admin/MarketsTab.vue'
 import LogFilesManager from './creator/LogFilesManager.vue'
+
+const tabs = [
+  { value: 'config', label: 'Config' },
+  { value: 'prompts', label: 'AI Prompts' },
+  { value: 'markets', label: 'Markets' },
+]
 
 const activeTab = ref('config')
 const formState = ref({
@@ -141,68 +123,9 @@ onMounted(() => {
 <style scoped>
 .admin-dashboard {
   min-height: 100vh;
-  background: #f3f4f6;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--color-bg-page);
   display: flex;
   flex-direction: column;
-}
-
-.dashboard-header {
-  background: white;
-  padding: 0.75rem 1.5rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  border-bottom: 1px solid rgba(203, 213, 225, 0.3);
-}
-
-.header-content {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.dashboard-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: #1e293b;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 0;
-}
-
-.status-chip {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.35rem 0.75rem;
-  border-radius: 20px;
-  font-size: 0.8rem;
-  font-weight: 500;
-}
-
-.status-online {
-  background: rgba(34, 197, 94, 0.1);
-  color: #16a34a;
-}
-
-.status-offline {
-  background: rgba(239, 68, 68, 0.1);
-  color: #dc2626;
-}
-
-.status-indicator {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-}
-
-.status-indicator.online {
-  background: #22c55e;
-  box-shadow: 0 0 6px #22c55e;
-}
-
-.status-indicator.offline {
-  background: #ef4444;
 }
 
 .main-layout {
@@ -211,41 +134,69 @@ onMounted(() => {
   overflow: hidden;
 }
 
+/* Tabs Sidebar */
 .tabs-sidebar {
-  width: 140px;
-  background: white;
-  border-right: 1px solid #e5e7eb;
-  padding-top: 1rem;
+  width: 160px;
+  background: var(--color-bg-surface);
+  border-right: var(--border-width) solid var(--color-border);
+  padding: var(--space-3) 0;
 }
 
-.vertical-tabs {
-  width: 100%;
+.tabs-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
 }
 
-.vertical-tabs :deep(.v-tab) {
-  justify-content: flex-start;
-  text-transform: none;
-  font-weight: 500;
-  font-size: 0.85rem;
-  min-height: 48px;
-  padding: 0 1rem;
+.tab-item {
+  display: flex;
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-align: left;
 }
 
+.tab-item:hover {
+  background: var(--color-bg-subtle);
+  color: var(--color-text-primary);
+}
+
+.tab-active {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.tab-active:hover {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+/* Tab Content */
 .tab-content {
   flex: 1;
   overflow-y: auto;
-  padding: 1rem;
-  background: #f3f4f6;
+  padding: var(--space-4);
+  background: var(--color-bg-page);
 }
 
+/* Export Sidebar */
 .export-sidebar {
   width: 320px;
-  background: white;
-  border-left: 1px solid #e5e7eb;
-  padding: 1rem;
+  background: var(--color-bg-surface);
+  border-left: var(--border-width) solid var(--color-border);
+  padding: var(--space-4);
   overflow-y: auto;
 }
 
+/* Responsive */
 @media (max-width: 1200px) {
   .export-sidebar {
     width: 280px;
@@ -260,18 +211,19 @@ onMounted(() => {
   .tabs-sidebar {
     width: 100%;
     border-right: none;
-    border-bottom: 1px solid #e5e7eb;
-    padding: 0;
+    border-bottom: var(--border-width) solid var(--color-border);
+    padding: var(--space-2) 0;
   }
   
-  .vertical-tabs {
-    flex-direction: row !important;
+  .tabs-list {
+    flex-direction: row;
+    overflow-x: auto;
   }
   
   .export-sidebar {
     width: 100%;
     border-left: none;
-    border-top: 1px solid #e5e7eb;
+    border-top: var(--border-width) solid var(--color-border);
   }
 }
 </style>

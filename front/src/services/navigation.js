@@ -96,15 +96,25 @@ export const NavigationService = {
    */
   async nextOnboardingStep() {
     const sessionStore = useSessionStore()
-    const currentStep = sessionStore.onboardingStep
+    
+    // Get current step from the current route, not from session store
+    // This ensures we're always moving forward from where we actually are
+    const currentRoute = router.currentRoute.value
+    const currentRouteStep = currentRoute.meta?.step
+    
+    // Use the route's step if available, otherwise fall back to session store
+    const currentStep = currentRouteStep !== undefined ? currentRouteStep : sessionStore.onboardingStep
     
     if (currentStep >= ONBOARDING_ROUTES.length - 1) {
       // Already at last step (ready)
       return
     }
     
-    sessionStore.advanceOnboarding()
-    const nextRoute = ONBOARDING_ROUTES[sessionStore.onboardingStep]
+    const nextStep = currentStep + 1
+    const nextRoute = ONBOARDING_ROUTES[nextStep]
+    
+    // Update session store to the next step
+    sessionStore.setOnboardingStep(nextStep)
     
     if (nextRoute) {
       return router.push({ name: nextRoute })
@@ -116,14 +126,21 @@ export const NavigationService = {
    */
   async prevOnboardingStep() {
     const sessionStore = useSessionStore()
-    const currentStep = sessionStore.onboardingStep
+    
+    // Get current step from the current route
+    const currentRoute = router.currentRoute.value
+    const currentRouteStep = currentRoute.meta?.step
+    const currentStep = currentRouteStep !== undefined ? currentRouteStep : sessionStore.onboardingStep
     
     if (currentStep <= 0) {
       return
     }
     
-    sessionStore.setOnboardingStep(currentStep - 1)
-    const prevRoute = ONBOARDING_ROUTES[sessionStore.onboardingStep]
+    const prevStep = currentStep - 1
+    const prevRoute = ONBOARDING_ROUTES[prevStep]
+    
+    // Note: Don't decrease the session step when going back
+    // The session step represents the furthest point reached
     
     if (prevRoute) {
       return router.push({ name: prevRoute })

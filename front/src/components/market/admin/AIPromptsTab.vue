@@ -1,15 +1,14 @@
 <template>
   <div class="prompts-tab">
-    <v-card elevation="1">
-      <v-card-title class="compact-title">
-        <v-icon left color="deep-purple" size="18">mdi-robot-outline</v-icon>
-        AI Agent Prompt Templates
-      </v-card-title>
+    <section class="tp-card">
+      <header class="tp-card-header">
+        <h2 class="tp-card-title">AI Agent Prompt Templates</h2>
+      </header>
 
-      <v-card-text>
-        <v-alert type="info" density="compact" class="mb-4">
+      <div class="tp-card-body">
+        <p class="text-sm text-secondary mb-4">
           Edit LLM prompts for agentic traders. Changes apply to all markets using the selected template.
-        </v-alert>
+        </p>
 
         <!-- Template Selector -->
         <v-select
@@ -18,52 +17,32 @@
           item-title="name"
           item-value="id"
           label="Select Template"
-          variant="outlined"
-          density="compact"
           class="mb-4"
           @update:modelValue="loadTemplateYaml"
-        >
-          <template v-slot:item="{ props, item }">
-            <v-list-item v-bind="props">
-              <template v-slot:prepend>
-                <v-icon :color="getTemplateColor(item.raw.id)" size="18">
-                  {{ getTemplateIcon(item.raw.id) }}
-                </v-icon>
-              </template>
-            </v-list-item>
-          </template>
-        </v-select>
+        />
 
         <!-- Template Preview Cards -->
         <div v-if="parsedTemplate" class="template-preview mb-4">
-          <v-row dense>
-            <v-col cols="6" md="3">
-              <div class="preview-stat">
-                <div class="stat-label">Goal</div>
-                <div class="stat-value" :class="parsedTemplate.goal > 0 ? 'text-success' : 'text-error'">
-                  {{ parsedTemplate.goal > 0 ? 'Buy' : 'Sell' }} {{ Math.abs(parsedTemplate.goal) }}
-                </div>
-              </div>
-            </v-col>
-            <v-col cols="6" md="3">
-              <div class="preview-stat">
-                <div class="stat-label">Decision Interval</div>
-                <div class="stat-value">{{ parsedTemplate.decision_interval || 5 }}s</div>
-              </div>
-            </v-col>
-            <v-col cols="6" md="3">
-              <div class="preview-stat">
-                <div class="stat-label">Buy Target</div>
-                <div class="stat-value">{{ parsedTemplate.buy_target_price || '-' }}</div>
-              </div>
-            </v-col>
-            <v-col cols="6" md="3">
-              <div class="preview-stat">
-                <div class="stat-label">Sell Target</div>
-                <div class="stat-value">{{ parsedTemplate.sell_target_price || '-' }}</div>
-              </div>
-            </v-col>
-          </v-row>
+          <div class="preview-grid">
+            <div class="preview-stat">
+              <span class="tp-label">Goal</span>
+              <span class="stat-value" :class="parsedTemplate.goal > 0 ? 'text-success' : 'text-error'">
+                {{ parsedTemplate.goal > 0 ? 'Buy' : 'Sell' }} {{ Math.abs(parsedTemplate.goal) }}
+              </span>
+            </div>
+            <div class="preview-stat">
+              <span class="tp-label">Decision Interval</span>
+              <span class="stat-value">{{ parsedTemplate.decision_interval || 5 }}s</span>
+            </div>
+            <div class="preview-stat">
+              <span class="tp-label">Buy Target</span>
+              <span class="stat-value">{{ parsedTemplate.buy_target_price || '-' }}</span>
+            </div>
+            <div class="preview-stat">
+              <span class="tp-label">Sell Target</span>
+              <span class="stat-value">{{ parsedTemplate.sell_target_price || '-' }}</span>
+            </div>
+          </div>
         </div>
 
         <!-- YAML Editor -->
@@ -71,8 +50,6 @@
           v-model="templateYaml"
           :label="`Editing: ${selectedTemplate || 'None'}`"
           rows="18"
-          variant="outlined"
-          density="compact"
           class="yaml-editor"
           :error="!!yamlError"
           :error-messages="yamlError"
@@ -85,64 +62,57 @@ penalty_multiplier_buy: 1.5
 penalty_multiplier_sell: 0.5
 prompt: |
   You are a trading agent..."
-        ></v-textarea>
-      </v-card-text>
+        />
+      </div>
 
-      <v-card-actions class="pa-3">
-        <v-btn color="secondary" @click="loadTemplateYaml" :disabled="!serverActive || !selectedTemplate" size="small" variant="outlined">
-          <v-icon start size="16">mdi-refresh</v-icon>
+      <footer class="tp-card-footer">
+        <button class="tp-btn tp-btn-secondary" @click="loadTemplateYaml" :disabled="!serverActive || !selectedTemplate">
           Reload
-        </v-btn>
-        <v-spacer></v-spacer>
-        <v-btn color="deep-purple" @click="saveTemplate" :disabled="!serverActive || !selectedTemplate" :loading="saving" size="small" variant="elevated">
-          <v-icon start size="16">mdi-content-save</v-icon>
-          Save Template
-        </v-btn>
-      </v-card-actions>
-    </v-card>
+        </button>
+        <button class="tp-btn tp-btn-primary" @click="saveTemplate" :disabled="!serverActive || !selectedTemplate || saving">
+          {{ saving ? 'Saving...' : 'Save Template' }}
+        </button>
+      </footer>
+    </section>
 
     <!-- Full YAML Editor (Advanced) -->
-    <v-card elevation="1" class="mt-4">
-      <v-card-title class="compact-title" @click="showFullEditor = !showFullEditor" style="cursor: pointer">
-        <v-icon left color="orange" size="18">mdi-code-braces</v-icon>
-        Full Templates YAML (Advanced)
-        <v-spacer></v-spacer>
-        <v-icon>{{ showFullEditor ? 'mdi-chevron-up' : 'mdi-chevron-down' }}</v-icon>
-      </v-card-title>
+    <section class="tp-card mt-4">
+      <header 
+        class="tp-card-header tp-card-header-collapsible"
+        @click="showFullEditor = !showFullEditor"
+      >
+        <h2 class="tp-card-title">Full Templates YAML (Advanced)</h2>
+        <v-icon size="20">{{ showFullEditor ? 'mdi-chevron-up' : 'mdi-chevron-down' }}</v-icon>
+      </header>
 
       <v-expand-transition>
         <div v-show="showFullEditor">
-          <v-card-text>
-            <v-alert type="warning" density="compact" class="mb-3">
+          <div class="tp-card-body">
+            <p class="text-sm text-warning mb-3">
               Edit all templates at once. Be careful - invalid YAML will break all templates.
-            </v-alert>
+            </p>
             
             <v-textarea
               v-model="fullYaml"
               label="All Templates YAML"
               rows="20"
-              variant="outlined"
-              density="compact"
               class="yaml-editor"
               :error="!!fullYamlError"
               :error-messages="fullYamlError"
-            ></v-textarea>
-          </v-card-text>
+            />
+          </div>
 
-          <v-card-actions class="pa-3">
-            <v-btn color="secondary" @click="loadFullYaml" :disabled="!serverActive" size="small" variant="outlined">
-              <v-icon start size="16">mdi-refresh</v-icon>
+          <footer class="tp-card-footer">
+            <button class="tp-btn tp-btn-secondary" @click="loadFullYaml" :disabled="!serverActive">
               Reload All
-            </v-btn>
-            <v-spacer></v-spacer>
-            <v-btn color="orange" @click="saveFullYaml" :disabled="!serverActive" :loading="savingFull" size="small" variant="elevated">
-              <v-icon start size="16">mdi-content-save</v-icon>
-              Save All Templates
-            </v-btn>
-          </v-card-actions>
+            </button>
+            <button class="tp-btn tp-btn-primary" @click="saveFullYaml" :disabled="!serverActive || savingFull">
+              {{ savingFull ? 'Saving...' : 'Save All Templates' }}
+            </button>
+          </footer>
         </div>
       </v-expand-transition>
-    </v-card>
+    </section>
   </div>
 </template>
 
@@ -177,20 +147,6 @@ const parsedTemplate = computed(() => {
     return null
   }
 })
-
-const getTemplateIcon = (id) => {
-  if (id.includes('buyer')) return 'mdi-arrow-up-bold'
-  if (id.includes('seller')) return 'mdi-arrow-down-bold'
-  if (id.includes('speculator')) return 'mdi-chart-line'
-  return 'mdi-robot'
-}
-
-const getTemplateColor = (id) => {
-  if (id.includes('buyer')) return 'success'
-  if (id.includes('seller')) return 'error'
-  if (id.includes('speculator')) return 'info'
-  return 'grey'
-}
 
 const loadTemplates = async () => {
   try {
@@ -282,44 +238,49 @@ watch(showFullEditor, (newVal) => {
   max-width: 900px;
 }
 
-.compact-title {
-  font-size: 0.95rem !important;
-  font-weight: 600 !important;
-  padding: 0.5rem 0.75rem !important;
-  background: rgba(248, 250, 252, 0.8);
-  border-bottom: 1px solid rgba(203, 213, 225, 0.3);
-  display: flex;
-  align-items: center;
-  color: #1e293b !important;
+.mb-3 { margin-bottom: var(--space-3); }
+.mb-4 { margin-bottom: var(--space-4); }
+.mt-4 { margin-top: var(--space-4); }
+
+/* Template Preview */
+.template-preview {
+  background: var(--color-bg-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
 }
 
-.template-preview {
-  background: #f8fafc;
-  border-radius: 8px;
-  padding: 0.75rem;
+.preview-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-3);
 }
 
 .preview-stat {
   text-align: center;
-  padding: 0.5rem;
-}
-
-.stat-label {
-  font-size: 0.7rem;
-  color: #64748b;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
 .stat-value {
-  font-size: 1rem;
-  font-weight: 600;
-  color: #1e293b;
+  display: block;
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+  margin-top: var(--space-1);
 }
 
+.text-success { color: var(--color-success); }
+.text-error { color: var(--color-error); }
+.text-warning { color: var(--color-warning); }
+
+/* YAML Editor */
 .yaml-editor :deep(textarea) {
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace !important;
-  font-size: 0.8rem !important;
+  font-family: var(--font-mono) !important;
+  font-size: var(--text-xs) !important;
   line-height: 1.5 !important;
+}
+
+@media (max-width: 600px) {
+  .preview-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 </style>

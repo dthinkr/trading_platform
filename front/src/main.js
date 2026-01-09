@@ -4,8 +4,12 @@ import { registerPlugins } from '@/plugins'
 import VueApexCharts from 'vue3-apexcharts'
 import VueCountdown from '@chenfengyuan/vue-countdown'
 import { auth } from './firebaseConfig.js'
+
+// Design System - Import order matters
+import './styles/design-tokens.css'
+import './styles/components.css'
 import './global.css'
-import './styles/variables.css'
+
 import '@mdi/font/css/materialdesignicons.css'
 import { Toaster } from 'vue-sonner'
 

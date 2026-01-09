@@ -1,166 +1,139 @@
 <template>
   <div class="markets-tab">
     <!-- Active Markets Monitor -->
-    <v-card elevation="1" class="mb-4">
-      <v-card-title class="compact-title">
-        <v-icon left color="deep-blue" size="18">mdi-monitor-dashboard</v-icon>
-        Active Markets
-        <v-spacer></v-spacer>
-        <v-chip size="x-small" :color="activeSessions.length > 0 ? 'success' : 'grey'" variant="flat">
+    <section class="tp-card mb-4">
+      <header class="tp-card-header">
+        <h2 class="tp-card-title">Active Markets</h2>
+        <span class="tp-badge" :class="activeSessions.length > 0 ? 'tp-badge-success' : ''">
           {{ activeSessions.length }} active
-        </v-chip>
-      </v-card-title>
+        </span>
+      </header>
 
-      <v-card-text>
+      <div class="tp-card-body">
         <v-data-table
           :headers="marketHeaders"
           :items="activeSessions"
           :items-per-page="5"
           density="compact"
-          class="compact-table"
           no-data-text="No active markets"
         >
           <template v-slot:item.market_id="{ item }">
-            <span class="market-id">{{ formatMarketId(item.market_id) }}</span>
+            <span class="font-mono text-sm text-muted">{{ formatMarketId(item.market_id) }}</span>
           </template>
 
           <template v-slot:item.status="{ item }">
-            <v-chip :color="getStatusColor(item.status)" size="x-small" variant="flat">
+            <span class="tp-badge" :class="getStatusBadgeClass(item.status)">
               {{ item.status }}
-            </v-chip>
+            </span>
           </template>
 
           <template v-slot:item.member_ids="{ item }">
-            <v-chip size="x-small" :color="item.member_ids?.length ? 'info' : 'grey'" variant="flat">
+            <span class="tp-badge" :class="item.member_ids?.length ? 'tp-badge-info' : ''">
               {{ item.member_ids?.length || 0 }} members
-            </v-chip>
+            </span>
           </template>
 
           <template v-slot:item.actions="{ item }">
-            <v-btn
-              size="x-small"
-              color="primary"
+            <button
+              class="tp-btn tp-btn-sm tp-btn-secondary"
               :disabled="item.status === 'active' || !item.member_ids?.length"
               @click="forceStartSession(item.market_id)"
-              variant="outlined"
             >
-              <v-icon size="14">mdi-play</v-icon>
-            </v-btn>
+              Start
+            </button>
           </template>
         </v-data-table>
-      </v-card-text>
-    </v-card>
+      </div>
+    </section>
 
     <!-- No-Human Market Runner -->
-    <v-card elevation="1">
-      <v-card-title class="compact-title">
-        <v-icon left color="deep-purple" size="18">mdi-robot-industrial</v-icon>
-        No-Human Market Runner
-      </v-card-title>
+    <section class="tp-card">
+      <header class="tp-card-header">
+        <h2 class="tp-card-title">No-Human Market Runner</h2>
+      </header>
 
-      <v-card-text>
-        <v-alert type="info" density="compact" class="mb-4">
+      <div class="tp-card-body">
+        <p class="text-sm text-secondary mb-4">
           Run markets with only AI traders. Useful for testing and data collection.
-        </v-alert>
+        </p>
 
-        <v-row dense>
-          <v-col cols="12" md="6">
-            <v-text-field
-              v-model.number="batchConfig.numMarkets"
-              label="Number of Markets"
-              type="number"
-              min="1"
-              max="10"
-              variant="outlined"
-              density="compact"
-              hint="1-10 markets per batch"
-              persistent-hint
-            ></v-text-field>
-          </v-col>
-          <v-col cols="12" md="6">
-            <v-text-field
-              v-model.number="batchConfig.startTreatment"
-              label="Starting Treatment Index"
-              type="number"
-              min="0"
-              variant="outlined"
-              density="compact"
-              hint="Which treatment to start from"
-              persistent-hint
-            ></v-text-field>
-          </v-col>
-        </v-row>
+        <div class="config-grid mb-4">
+          <v-text-field
+            v-model.number="batchConfig.numMarkets"
+            label="Number of Markets"
+            type="number"
+            min="1"
+            max="10"
+            hint="1-10 markets per batch"
+            persistent-hint
+          />
+          <v-text-field
+            v-model.number="batchConfig.startTreatment"
+            label="Starting Treatment Index"
+            type="number"
+            min="0"
+            hint="Which treatment to start from"
+            persistent-hint
+          />
+        </div>
 
-        <v-row dense class="mt-2">
-          <v-col cols="12" md="6">
-            <v-switch
-              v-model="batchConfig.parallel"
-              label="Run in Parallel"
-              color="primary"
-              density="compact"
-              hide-details
-            ></v-switch>
-          </v-col>
-          <v-col cols="12" md="6" v-if="!batchConfig.parallel">
-            <v-text-field
-              v-model.number="batchConfig.delaySeconds"
-              label="Delay Between Markets (s)"
-              type="number"
-              min="1"
-              max="60"
-              variant="outlined"
-              density="compact"
-              hide-details
-            ></v-text-field>
-          </v-col>
-        </v-row>
+        <div class="config-row mb-4">
+          <v-switch
+            v-model="batchConfig.parallel"
+            label="Run in Parallel"
+            color="primary"
+            hide-details
+          />
+          <v-text-field
+            v-if="!batchConfig.parallel"
+            v-model.number="batchConfig.delaySeconds"
+            label="Delay Between Markets (s)"
+            type="number"
+            min="1"
+            max="60"
+            hide-details
+            style="max-width: 200px"
+          />
+        </div>
 
-        <v-btn
-          color="deep-purple"
+        <button
+          class="tp-btn tp-btn-primary"
+          style="width: 100%"
           @click="startHeadlessBatch"
-          :loading="startingBatch"
-          :disabled="!serverActive"
-          class="mt-4"
-          block
-          variant="elevated"
+          :disabled="!serverActive || startingBatch"
         >
-          <v-icon start>mdi-play-circle</v-icon>
-          Start {{ batchConfig.numMarkets }} AI-Only Market{{ batchConfig.numMarkets > 1 ? 's' : '' }}
-        </v-btn>
+          {{ startingBatch ? 'Starting...' : `Start ${batchConfig.numMarkets} AI-Only Market${batchConfig.numMarkets > 1 ? 's' : ''}` }}
+        </button>
 
         <!-- Running Sessions -->
         <div v-if="runningSessions.length > 0" class="mt-4">
-          <div class="section-label">Running Sessions</div>
-          <v-chip
-            v-for="session in runningSessions"
-            :key="session"
-            size="small"
-            color="deep-purple"
-            variant="outlined"
-            class="mr-2 mb-2"
-          >
-            <v-icon start size="14">mdi-loading mdi-spin</v-icon>
-            {{ formatSessionId(session) }}
-          </v-chip>
+          <span class="tp-label">Running Sessions</span>
+          <div class="session-chips">
+            <span
+              v-for="session in runningSessions"
+              :key="session"
+              class="tp-badge tp-badge-info"
+            >
+              {{ formatSessionId(session) }}
+            </span>
+          </div>
         </div>
 
         <!-- Completed Sessions -->
         <div v-if="completedSessions.length > 0" class="mt-4">
-          <div class="section-label">Recent Completed</div>
-          <v-chip
-            v-for="session in completedSessions.slice(0, 5)"
-            :key="session"
-            size="small"
-            color="success"
-            variant="outlined"
-            class="mr-2 mb-2"
-          >
-            <v-icon start size="14">mdi-check</v-icon>
-            {{ formatSessionId(session) }}
-          </v-chip>
+          <span class="tp-label">Recent Completed</span>
+          <div class="session-chips">
+            <span
+              v-for="session in completedSessions.slice(0, 5)"
+              :key="session"
+              class="tp-badge tp-badge-success"
+            >
+              {{ formatSessionId(session) }}
+            </span>
+          </div>
         </div>
-      </v-card-text>
-    </v-card>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -191,7 +164,7 @@ const marketHeaders = [
   { title: 'Market ID', key: 'market_id' },
   { title: 'Status', key: 'status' },
   { title: 'Members', key: 'member_ids' },
-  { title: '', key: 'actions', sortable: false, width: '60px' },
+  { title: '', key: 'actions', sortable: false, width: '80px' },
 ]
 
 let pollingInterval = null
@@ -204,7 +177,6 @@ const formatMarketId = (id) => {
 
 const formatSessionId = (id) => {
   if (!id) return '-'
-  // Extract just the timestamp and short hash
   const parts = id.split('_')
   if (parts.length >= 2) {
     return `${parts[0].slice(-6)}_${parts[1].slice(0, 6)}`
@@ -212,13 +184,13 @@ const formatSessionId = (id) => {
   return id.slice(-12)
 }
 
-const getStatusColor = (status) => {
-  const colors = {
-    pending: 'warning',
-    active: 'success',
-    completed: 'grey',
+const getStatusBadgeClass = (status) => {
+  const classes = {
+    pending: 'tp-badge-warning',
+    active: 'tp-badge-success',
+    completed: '',
   }
-  return colors[status] || 'grey'
+  return classes[status] || ''
 }
 
 const fetchActiveSessions = async () => {
@@ -226,16 +198,6 @@ const fetchActiveSessions = async () => {
     const response = await axios.get(`${import.meta.env.VITE_HTTP_URL}sessions`)
     activeSessions.value = response.data || []
     
-    // Track running headless sessions
-    const headless = activeSessions.value
-      .filter(s => s.market_id?.includes('SESSION_'))
-      .map(s => {
-        const match = s.market_id.match(/SESSION_(\d+_[a-f0-9]+)/)
-        return match ? match[1] : null
-      })
-      .filter(Boolean)
-    
-    // Update running sessions (remove completed ones)
     runningSessions.value = runningSessions.value.filter(s => 
       activeSessions.value.some(a => a.market_id?.includes(s))
     )
@@ -271,7 +233,6 @@ const startHeadlessBatch = async () => {
       uiStore.showSuccess(`Started batch: ${formatSessionId(response.data.session_id)}`)
     }
     
-    // Refresh sessions
     await fetchActiveSessions()
   } catch (error) {
     uiStore.showError(error.response?.data?.detail || 'Failed to start batch')
@@ -295,33 +256,38 @@ onUnmounted(() => {
   max-width: 900px;
 }
 
-.compact-title {
-  font-size: 0.95rem !important;
-  font-weight: 600 !important;
-  padding: 0.5rem 0.75rem !important;
-  background: rgba(248, 250, 252, 0.8);
-  border-bottom: 1px solid rgba(203, 213, 225, 0.3);
+.mb-4 { margin-bottom: var(--space-4); }
+.mt-4 { margin-top: var(--space-4); }
+
+/* Config Grid */
+.config-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+}
+
+.config-row {
   display: flex;
   align-items: center;
-  color: #1e293b !important;
+  gap: var(--space-4);
 }
 
-.compact-table {
-  font-size: 0.85rem;
+/* Session Chips */
+.session-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
 }
 
-.market-id {
-  font-family: 'Monaco', 'Menlo', monospace;
-  font-size: 0.75rem;
-  color: #64748b;
-}
-
-.section-label {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #64748b;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 0.5rem;
+@media (max-width: 600px) {
+  .config-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .config-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 </style>

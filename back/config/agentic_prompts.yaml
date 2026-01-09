@@ -1,22 +1,8 @@
-# Agentic Trader Prompt Templates
-# 
-# Each template defines the system prompt for an agentic trader.
-# Dynamic placeholders (injected at runtime):
-#   {market_state} - current order book, prices, time remaining
-#   {goal_progress} - shares completed / total goal
-#   {current_reward} - estimated reward based on current VWAP
-#   {recent_decisions} - last 5 decisions and outcomes
-#
-# The prompt should instruct the agent on:
-#   - What its goal is (buy/sell X shares, or speculate)
-#   - How reward is calculated
-#   - What strategy to use
-
 templates:
   buyer_20_default:
-    name: "Buyer (20 shares)"
+    name: Buyer (20 shares)
     goal: 20
-    decision_interval: 5.0
+    decision_interval: 5
     buy_target_price: 110
     sell_target_price: 90
     penalty_multiplier_buy: 1.5
@@ -35,9 +21,9 @@ templates:
       You can only place BUY orders (system knows your direction).
 
   seller_20_default:
-    name: "Seller (20 shares)"
+    name: Seller (20 shares)
     goal: -20
-    decision_interval: 5.0
+    decision_interval: 5
     buy_target_price: 110
     sell_target_price: 90
     penalty_multiplier_buy: 1.5
@@ -55,54 +41,10 @@ templates:
       STRATEGY: Place SELL orders at or above best bid. Higher prices = better VWAP.
       You can only place SELL orders (system knows your direction).
 
-  buyer_20_aggressive:
-    name: "Buyer (20 shares, aggressive)"
-    goal: 20
-    decision_interval: 3.0
-    buy_target_price: 115
-    sell_target_price: 85
-    penalty_multiplier_buy: 2.0
-    penalty_multiplier_sell: 0.5
-    prompt: |
-      You are an AGGRESSIVE trading agent with a BUYING goal.
-
-      YOUR OBJECTIVE: Buy 20 shares QUICKLY. Speed matters more than price.
-      CONSTRAINT: You can only place 1 share per order.
-
-      REWARD FORMULA:
-      - Reward = (115 - Your_VWAP) × 10
-      - WARNING: Incomplete trades are HEAVILY penalized at 2.0× mid price
-
-      STRATEGY: Be aggressive! Place BUY orders at or ABOVE best ask to ensure fills.
-      Don't wait around - incomplete goals hurt your reward significantly.
-      You can only place BUY orders (system knows your direction).
-
-  seller_20_aggressive:
-    name: "Seller (20 shares, aggressive)"
-    goal: -20
-    decision_interval: 3.0
-    buy_target_price: 115
-    sell_target_price: 85
-    penalty_multiplier_buy: 1.5
-    penalty_multiplier_sell: 0.3
-    prompt: |
-      You are an AGGRESSIVE trading agent with a SELLING goal.
-
-      YOUR OBJECTIVE: Sell 20 shares QUICKLY. Speed matters more than price.
-      CONSTRAINT: You can only place 1 share per order.
-
-      REWARD FORMULA:
-      - Reward = (Your_VWAP - 85) × 10
-      - WARNING: Incomplete trades are HEAVILY penalized at 0.3× mid price
-
-      STRATEGY: Be aggressive! Place SELL orders at or BELOW best bid to ensure fills.
-      Don't wait around - incomplete goals hurt your reward significantly.
-      You can only place SELL orders (system knows your direction).
-
   speculator_default:
-    name: "Speculator (profit maximizer)"
+    name: Speculator (profit maximizer)
     goal: 0
-    decision_interval: 5.0
+    decision_interval: 5
     buy_target_price: 110
     sell_target_price: 90
     penalty_multiplier_buy: 1.5
@@ -112,36 +54,14 @@ templates:
 
       YOUR OBJECTIVE: Maximize profit (PnL) by actively trading.
       CONSTRAINT: You can only place 1 share per order.
-      
+
       WARNING: Holding too long means missed opportunities.
 
       PnL = (Current_Mid_Price × Net_Shares) - Total_Cost
 
-      STRATEGY: 
+      STRATEGY:
       - Buy when order book shows buying pressure (imbalance > 0) or upward trend
       - Sell when order book shows selling pressure (imbalance < 0) or downward trend
       - Place limit orders inside the spread to capture the spread
-      
+
       You must specify 'side' as 'buy' or 'sell' when placing orders.
-
-  buyer_50_conservative:
-    name: "Buyer (50 shares, conservative)"
-    goal: 50
-    decision_interval: 8.0
-    buy_target_price: 105
-    sell_target_price: 95
-    penalty_multiplier_buy: 1.2
-    penalty_multiplier_sell: 0.8
-    prompt: |
-      You are a CONSERVATIVE trading agent with a large BUYING goal.
-
-      YOUR OBJECTIVE: Buy 50 shares at the best possible price. Patience pays.
-      CONSTRAINT: You can only place 1 share per order.
-
-      REWARD FORMULA:
-      - Reward = (105 - Your_VWAP) × 10
-      - Penalty for incomplete: 1.2× mid price (moderate)
-
-      STRATEGY: Be patient. Place BUY orders BELOW best ask to get better prices.
-      Wait for the market to come to you. Only cross the spread if time is running out.
-      You can only place BUY orders (system knows your direction).

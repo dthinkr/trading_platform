@@ -1,0 +1,464 @@
+/**
+ * Trading Platform Component Styles
+ * 
+ * Reusable component classes that follow the design system.
+ * Import this after design-tokens.css
+ */
+
+/* ========================================
+ * BASE RESETS
+ * ======================================== */
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #app {
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-family);
+  font-size: var(--text-base);
+  color: var(--color-text-primary);
+  background: var(--color-bg-page);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ========================================
+ * TYPOGRAPHY UTILITIES
+ * ======================================== */
+
+.text-xs { font-size: var(--text-xs); }
+.text-sm { font-size: var(--text-sm); }
+.text-base { font-size: var(--text-base); }
+.text-lg { font-size: var(--text-lg); }
+.text-xl { font-size: var(--text-xl); }
+.text-2xl { font-size: var(--text-2xl); }
+.text-3xl { font-size: var(--text-3xl); }
+
+.font-normal { font-weight: var(--font-normal); }
+.font-medium { font-weight: var(--font-medium); }
+.font-semibold { font-weight: var(--font-semibold); }
+.font-bold { font-weight: var(--font-bold); }
+
+.text-primary { color: var(--color-text-primary); }
+.text-secondary { color: var(--color-text-secondary); }
+.text-muted { color: var(--color-text-muted); }
+
+.font-mono { font-family: var(--font-mono); }
+
+/* ========================================
+ * CARD COMPONENT
+ * ======================================== */
+
+.tp-card {
+  background: var(--color-bg-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.tp-card-header {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: var(--border-width) solid var(--color-border-light);
+  background: var(--color-bg-subtle);
+}
+
+.tp-card-title {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.tp-card-body {
+  padding: var(--space-4);
+}
+
+.tp-card-footer {
+  padding: var(--space-3) var(--space-4);
+  border-top: var(--border-width) solid var(--color-border-light);
+  background: var(--color-bg-subtle);
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+/* Collapsible card header */
+.tp-card-header-collapsible {
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--transition-fast);
+}
+
+.tp-card-header-collapsible:hover {
+  background: var(--color-bg-hover);
+}
+
+/* ========================================
+ * BUTTON COMPONENT
+ * ======================================== */
+
+.tp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  font-family: var(--font-family);
+  line-height: 1;
+  border-radius: var(--radius-md);
+  border: var(--border-width) solid transparent;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.tp-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Primary button */
+.tp-btn-primary {
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  border-color: var(--color-primary);
+}
+
+.tp-btn-primary:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+}
+
+/* Secondary button */
+.tp-btn-secondary {
+  background: var(--color-bg-surface);
+  color: var(--color-text-secondary);
+  border-color: var(--color-border);
+}
+
+.tp-btn-secondary:hover:not(:disabled) {
+  background: var(--color-bg-subtle);
+  color: var(--color-text-primary);
+}
+
+/* Ghost button */
+.tp-btn-ghost {
+  background: transparent;
+  color: var(--color-text-secondary);
+  border-color: transparent;
+}
+
+.tp-btn-ghost:hover:not(:disabled) {
+  background: var(--color-bg-subtle);
+  color: var(--color-text-primary);
+}
+
+/* Button sizes */
+.tp-btn-sm {
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-xs);
+}
+
+.tp-btn-lg {
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-base);
+}
+
+/* ========================================
+ * INPUT COMPONENT
+ * ======================================== */
+
+.tp-input {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  font-family: var(--font-family);
+  color: var(--color-text-primary);
+  background: var(--color-bg-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.tp-input:focus {
+  outline: none;
+  border-color: var(--color-border-focus);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+
+.tp-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.tp-input:disabled {
+  background: var(--color-bg-subtle);
+  cursor: not-allowed;
+}
+
+/* ========================================
+ * LABEL COMPONENT
+ * ======================================== */
+
+.tp-label {
+  display: block;
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-1);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ========================================
+ * BADGE/CHIP COMPONENT
+ * ======================================== */
+
+.tp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-subtle);
+  color: var(--color-text-secondary);
+}
+
+.tp-badge-success {
+  background: var(--color-success-light);
+  color: var(--color-success);
+}
+
+.tp-badge-warning {
+  background: var(--color-warning-light);
+  color: var(--color-warning);
+}
+
+.tp-badge-error {
+  background: var(--color-error-light);
+  color: var(--color-error);
+}
+
+.tp-badge-info {
+  background: var(--color-info-light);
+  color: var(--color-info);
+}
+
+/* ========================================
+ * STATUS INDICATOR
+ * ======================================== */
+
+.tp-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+}
+
+.tp-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-text-muted);
+}
+
+.tp-status-dot-success {
+  background: var(--color-success);
+  box-shadow: 0 0 0 3px var(--color-success-light);
+}
+
+.tp-status-dot-error {
+  background: var(--color-error);
+}
+
+.tp-status-dot-warning {
+  background: var(--color-warning);
+}
+
+/* ========================================
+ * TABLE STYLES
+ * ======================================== */
+
+.tp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.tp-table th {
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: var(--border-width) solid var(--color-border);
+  background: var(--color-bg-subtle);
+}
+
+.tp-table td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: var(--border-width) solid var(--color-border-light);
+  color: var(--color-text-primary);
+}
+
+.tp-table tr:hover td {
+  background: var(--color-bg-hover);
+}
+
+/* ========================================
+ * SECTION HEADER
+ * ======================================== */
+
+.tp-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+}
+
+.tp-section-title {
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+/* ========================================
+ * PAGE HEADER
+ * ======================================== */
+
+.tp-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-6);
+  background: var(--color-bg-surface);
+  border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.tp-page-title {
+  font-size: var(--text-xl);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+/* ========================================
+ * DIVIDER
+ * ======================================== */
+
+.tp-divider {
+  height: var(--border-width);
+  background: var(--color-border-light);
+  border: none;
+  margin: var(--space-4) 0;
+}
+
+/* ========================================
+ * SCROLLBAR
+ * ======================================== */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
+/* ========================================
+ * VUETIFY OVERRIDES
+ * ======================================== */
+
+/* Make Vuetify cards match our design */
+.v-card {
+  background: var(--color-bg-surface) !important;
+  border: var(--border-width) solid var(--color-border) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: none !important;
+}
+
+.v-card-title {
+  font-size: var(--text-sm) !important;
+  font-weight: var(--font-semibold) !important;
+  color: var(--color-text-primary) !important;
+  padding: var(--space-3) var(--space-4) !important;
+  border-bottom: var(--border-width) solid var(--color-border-light);
+  background: var(--color-bg-subtle);
+}
+
+/* Vuetify buttons */
+.v-btn {
+  text-transform: none !important;
+  font-weight: var(--font-medium) !important;
+  letter-spacing: 0 !important;
+  border-radius: var(--radius-md) !important;
+}
+
+/* Vuetify inputs */
+.v-field {
+  border-radius: var(--radius-md) !important;
+}
+
+.v-field--variant-outlined .v-field__outline__start,
+.v-field--variant-outlined .v-field__outline__end {
+  border-color: var(--color-border) !important;
+}
+
+.v-field--focused .v-field__outline__start,
+.v-field--focused .v-field__outline__end {
+  border-color: var(--color-primary) !important;
+}
+
+/* Vuetify tabs */
+.v-tab {
+  text-transform: none !important;
+  font-weight: var(--font-medium) !important;
+  letter-spacing: 0 !important;
+}
+
+/* Vuetify alerts */
+.v-alert {
+  border-radius: var(--radius-md) !important;
+}
+
+/* Vuetify chips */
+.v-chip {
+  font-weight: var(--font-medium) !important;
+}
+
+/* Vuetify data tables */
+.v-data-table {
+  font-size: var(--text-sm) !important;
+}
+
+.v-data-table-header th {
+  font-size: var(--text-xs) !important;
+  font-weight: var(--font-semibold) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  color: var(--color-text-muted) !important;
+}

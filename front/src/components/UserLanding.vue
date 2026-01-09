@@ -25,6 +25,16 @@
                 ></div>
               </div>
               <span class="progress-text"> {{ currentPageIndex + 1 }} of {{ pages.length }} </span>
+              
+              <!-- Admin skip button -->
+              <button
+                v-if="isAdmin"
+                @click="skipToReady"
+                class="nav-btn nav-btn-skip"
+              >
+                <FastForward :size="16" />
+                Skip to Ready
+              </button>
             </div>
 
             <!-- Header section with enhanced styling -->
@@ -64,11 +74,10 @@
               </button>
 
               <button
-                v-if="!isLastPage"
                 @click="nextPage"
-                :disabled="shouldDisableNext"
+                :disabled="isLastPage || shouldDisableNext"
                 class="nav-btn nav-btn-primary"
-                :class="{ disabled: shouldDisableNext }"
+                :class="{ disabled: isLastPage || shouldDisableNext }"
               >
                 Next
                 <ChevronRight :size="20" />
@@ -101,6 +110,7 @@ import {
   GraduationCap,
   ChevronLeft,
   ChevronRight,
+  FastForward,
 } from 'lucide-vue-next'
 
 const router = useRouter()
@@ -151,6 +161,7 @@ const currentPageTitle = computed(() => {
 const currentRouteName = computed(() => route.name)
 const isFirstPage = computed(() => currentPageIndex.value === 0)
 const isLastPage = computed(() => currentPageIndex.value === pages.length - 1)
+const isAdmin = computed(() => authStore.isAdmin)
 
 // Navigation using the service
 const nextPage = () => {
@@ -163,6 +174,13 @@ const prevPage = () => {
   if (!isFirstPage.value) {
     NavigationService.prevOnboardingStep()
   }
+}
+
+// Admin skip to trading
+const skipToReady = () => {
+  // Set onboarding step to max so guards don't block
+  sessionStore.onboardingStep = 7
+  router.push({ name: 'ready' })
 }
 
 // Progress tracking
@@ -454,6 +472,19 @@ const deepBlueColor = ref('deep-blue')
   cursor: not-allowed;
   transform: none !important;
   box-shadow: none !important;
+}
+
+.nav-btn-skip {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+}
+
+.nav-btn-skip:hover {
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.5);
+  transform: translateY(-1px);
 }
 
 .relative {

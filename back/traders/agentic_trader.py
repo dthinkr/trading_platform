@@ -690,10 +690,78 @@ class AgenticAdvisor(AgenticBase):
 
     def set_human_trader_ref(self, human_trader):
         self.human_trader_ref = human_trader
-        logger.info(f"[{self.id}] Linked to human trader: {human_trader.id}")
+        logger.info(f"[{self.id}] Linked to human trader: {human_trader.id}, goal: {getattr(human_trader, 'goal', 'unknown')}")
 
     def get_effective_goal(self) -> int:
         return getattr(self.human_trader_ref, 'goal', 0) or 0 if self.human_trader_ref else 0
+
+    def build_system_prompt(self, is_advisor: bool = False) -> str:
+        """Build system prompt dynamically based on human's actual goal.
+        
+        This overrides the base class to ensure the advisor's prompt matches
+        the human trader's goal, not the template's hardcoded goal.
+        """
+        human_goal = self.get_effective_goal()
+        template_goal = self.template.get("goal", 0)
+        
+        # Start with advisor prefix
+        prompt = "You are an AI ADVISOR helping a human trader. Suggest actions, do not execute them.\n\n"
+        
+        # Get the base prompt from template
+        base_prompt = self.template.get("prompt", "")
+        
+        # If goals match in direction, use template as-is
+        if (human_goal > 0 and template_goal > 0) or (human_goal < 0 and template_goal < 0) or (human_goal == 0 and template_goal == 0):
+            # Same direction - just replace the number if different
+            if human_goal != template_goal and template_goal != 0:
+                import re
+                # Replace goal numbers in the prompt
+                base_prompt = re.sub(
+                    rf'\b{abs(template_goal)}\s*(shares?|units?)',
+                    f'{abs(human_goal)} shares',
+                    base_prompt,
+                    flags=re.IGNORECASE
+                )
+            return prompt + base_prompt
+        
+        # Goals are in opposite directions - need to flip the prompt
+        if human_goal > 0 and template_goal < 0:
+            # Human is buyer, template is seller - flip to buyer language
+            base_prompt = self._flip_prompt_to_buyer(base_prompt, abs(human_goal))
+        elif human_goal < 0 and template_goal > 0:
+            # Human is seller, template is buyer - flip to seller language
+            base_prompt = self._flip_prompt_to_seller(base_prompt, abs(human_goal))
+        elif human_goal == 0:
+            # Human is speculator
+            base_prompt = self._make_speculator_prompt()
+        
+        logger.info(f"[{self.id}] Adjusted prompt for human goal={human_goal} (template goal={template_goal})")
+        return prompt + base_prompt
+    
+    def _flip_prompt_to_buyer(self, prompt: str, goal_size: int) -> str:
+        """Convert a seller prompt to buyer prompt."""
+        import re
+        prompt = re.sub(r'\bsell(ing)?\b', 'BUY', prompt, flags=re.IGNORECASE)
+        prompt = re.sub(r'\bseller\b', 'BUYER', prompt, flags=re.IGNORECASE)
+        prompt = re.sub(r'\bask(s)?\b', 'bid', prompt, flags=re.IGNORECASE)
+        prompt = re.sub(r'\b\d+\s*(shares?|units?)', f'{goal_size} shares', prompt, flags=re.IGNORECASE)
+        return prompt
+    
+    def _flip_prompt_to_seller(self, prompt: str, goal_size: int) -> str:
+        """Convert a buyer prompt to seller prompt."""
+        import re
+        prompt = re.sub(r'\bbuy(ing)?\b', 'SELL', prompt, flags=re.IGNORECASE)
+        prompt = re.sub(r'\bbuyer\b', 'SELLER', prompt, flags=re.IGNORECASE)
+        prompt = re.sub(r'\bbid(s)?\b', 'ask', prompt, flags=re.IGNORECASE)
+        prompt = re.sub(r'\b\d+\s*(shares?|units?)', f'{goal_size} shares', prompt, flags=re.IGNORECASE)
+        return prompt
+    
+    def _make_speculator_prompt(self) -> str:
+        """Create a speculator prompt."""
+        return """You are a SPECULATOR with no directional goal.
+Your objective is to maximize profit through buying low and selling high.
+Monitor market conditions and trade opportunistically.
+Focus on capturing spreads and price movements."""
 
     def get_effective_state(self) -> TraderState:
         if not self.human_trader_ref:
