@@ -186,6 +186,36 @@ async def update_agentic_prompts(data: AgenticPromptsYAML):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@app.get("/admin/agentic_template/{template_id}")
+async def get_agentic_template(template_id: str):
+    """Get a specific agentic prompt template as YAML."""
+    from traders.agentic_trader import get_template_yaml
+    try:
+        yaml_content = get_template_yaml(template_id)
+        return {
+            "status": "success",
+            "template_id": template_id,
+            "yaml_content": yaml_content
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.post("/admin/agentic_template/{template_id}")
+async def update_agentic_template(template_id: str, data: AgenticPromptsYAML):
+    """Update a specific agentic prompt template from YAML content."""
+    from traders.agentic_trader import save_template_yaml, list_templates
+    try:
+        save_template_yaml(template_id, data.yaml_content)
+        return {
+            "status": "success",
+            "message": f"Updated template '{template_id}'",
+            "templates": list_templates()
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @app.get("/admin/download_parameter_history")
 async def download_parameter_history(current_user: dict = Depends(get_current_admin_user)):
     """Download the parameter history JSON file"""

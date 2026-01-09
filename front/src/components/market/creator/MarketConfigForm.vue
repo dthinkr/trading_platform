@@ -240,7 +240,7 @@
   <v-card elevation="1" class="mt-4">
     <v-card-title class="compact-title" @click="showAgenticPrompts = !showAgenticPrompts" style="cursor: pointer">
       <v-icon left color="deep-purple" size="18">mdi-robot-outline</v-icon>
-      AI Agent Prompt Templates
+      AI Agent Prompt Template: {{ formState.agentic_prompt_template || 'None selected' }}
       <v-spacer></v-spacer>
       <v-icon>{{ showAgenticPrompts ? 'mdi-chevron-up' : 'mdi-chevron-down' }}</v-icon>
     </v-card-title>
@@ -249,19 +249,21 @@
       <div v-show="showAgenticPrompts">
         <v-card-text>
           <v-alert type="info" density="compact" class="mb-3">
-            Define reusable prompt templates for AI agentic traders. Each template includes goal, decision interval, and the system prompt.
+            Edit the currently selected prompt template. Changes apply to all markets using this template.
           </v-alert>
           
           <v-textarea
-            v-model="agenticPromptsYaml"
-            label="Agentic Prompts YAML"
-            placeholder="templates:
-  buyer_20_default:
-    name: 'Buyer (20 shares)'
-    goal: 20
-    decision_interval: 5.0
-    prompt: |
-      You are a trading agent..."
+            v-model="selectedTemplateYaml"
+            :label="`Template: ${formState.agentic_prompt_template}`"
+            placeholder="goal: 20
+decision_interval: 5.0
+buy_target_price: null
+sell_target_price: null
+penalty_multipliers:
+  goal_deviation: 1.0
+  inventory_risk: 0.5
+prompt: |
+  You are a trading agent..."
             rows="16"
             variant="outlined"
             density="compact"
@@ -274,26 +276,26 @@
         <v-card-actions class="pa-2">
           <v-btn
             color="secondary"
-            @click="loadAgenticPromptsYaml"
+            @click="loadSelectedTemplateYaml"
             :disabled="!serverActive"
             size="small"
             variant="outlined"
             class="custom-btn"
           >
             <v-icon start size="16">mdi-refresh</v-icon>
-            Load
+            Reload
           </v-btn>
           <v-spacer></v-spacer>
           <v-btn
             color="deep-purple"
-            @click="saveAgenticPrompts"
+            @click="saveSelectedTemplate"
             :disabled="!serverActive"
             size="small"
             variant="elevated"
             class="custom-btn"
           >
             <v-icon start size="16">mdi-content-save</v-icon>
-            Save Prompts
+            Save Template
           </v-btn>
         </v-card-actions>
       </div>
@@ -331,7 +333,7 @@ const agenticTemplates = ref([])
 
 // Agentic prompts editor state
 const showAgenticPrompts = ref(false)
-const agenticPromptsYaml = ref('')
+const selectedTemplateYaml = ref('')
 const agenticPromptsError = ref('')
 
 // Fetch agentic templates (for dropdown)
@@ -346,30 +348,42 @@ const loadAgenticTemplates = async () => {
   }
 }
 
-// Fetch full agentic prompts YAML for editor
-const loadAgenticPromptsYaml = async () => {
+// Fetch selected template YAML for editor
+const loadSelectedTemplateYaml = async () => {
+  const templateId = props.formState.agentic_prompt_template
+  if (!templateId) {
+    selectedTemplateYaml.value = '# No template selected'
+    return
+  }
+  
   try {
-    const response = await axios.get(`${import.meta.env.VITE_HTTP_URL}admin/agentic_prompts_yaml`)
-    agenticPromptsYaml.value = response.data.yaml_content || ''
-    agenticTemplates.value = response.data.templates || []
+    const response = await axios.get(`${import.meta.env.VITE_HTTP_URL}admin/agentic_template/${templateId}`)
+    selectedTemplateYaml.value = response.data.yaml_content || ''
     agenticPromptsError.value = ''
   } catch (error) {
-    console.error('Failed to load agentic prompts:', error)
-    agenticPromptsError.value = 'Failed to load agentic prompts'
+    console.error('Failed to load template:', error)
+    agenticPromptsError.value = 'Failed to load template'
   }
 }
 
-// Save agentic prompts YAML
-const saveAgenticPrompts = async () => {
+// Save selected template YAML
+const saveSelectedTemplate = async () => {
+  const templateId = props.formState.agentic_prompt_template
+  if (!templateId) {
+    agenticPromptsError.value = 'No template selected'
+    return
+  }
+  
   try {
-    const response = await axios.post(`${import.meta.env.VITE_HTTP_URL}admin/update_agentic_prompts`, {
-      yaml_content: agenticPromptsYaml.value
+    await axios.post(`${import.meta.env.VITE_HTTP_URL}admin/agentic_template/${templateId}`, {
+      yaml_content: selectedTemplateYaml.value
     })
-    agenticTemplates.value = response.data.templates || []
     agenticPromptsError.value = ''
+    // Reload templates list in case name changed
+    await loadAgenticTemplates()
   } catch (error) {
-    console.error('Failed to save agentic prompts:', error)
-    agenticPromptsError.value = error.response?.data?.detail || 'Failed to save agentic prompts'
+    console.error('Failed to save template:', error)
+    agenticPromptsError.value = error.response?.data?.detail || 'Failed to save template'
   }
 }
 
@@ -421,8 +435,15 @@ watch(showTreatments, (newVal) => {
 })
 
 watch(showAgenticPrompts, (newVal) => {
-  if (newVal && props.serverActive && agenticPromptsYaml.value === '') {
-    loadAgenticPromptsYaml()
+  if (newVal && props.serverActive && selectedTemplateYaml.value === '') {
+    loadSelectedTemplateYaml()
+  }
+})
+
+// Reload template when selection changes
+watch(() => props.formState.agentic_prompt_template, (newVal) => {
+  if (showAgenticPrompts.value && props.serverActive) {
+    loadSelectedTemplateYaml()
   }
 })
 

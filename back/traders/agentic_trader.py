@@ -112,6 +112,43 @@ def get_template(template_name: str) -> Dict:
         template_name = next(iter(templates.keys()))
     return templates[template_name]
 
+def get_template_yaml(template_name: str) -> str:
+    """Get a specific template as YAML string."""
+    templates = load_prompt_templates()
+    if template_name not in templates:
+        raise ValueError(f"Template '{template_name}' not found")
+    
+    template_data = templates[template_name]
+    return yaml.dump(template_data, default_flow_style=False, allow_unicode=True, sort_keys=False)
+
+def save_template_yaml(template_name: str, yaml_content: str) -> None:
+    """Save a specific template from YAML content."""
+    global _TEMPLATES_CACHE
+    
+    try:
+        # Parse the new template content
+        new_template = yaml.safe_load(yaml_content)
+        if not isinstance(new_template, dict):
+            raise ValueError("Template must be a YAML object")
+        
+        # Load all templates
+        templates = load_prompt_templates(force_reload=True)
+        
+        # Update the specific template
+        templates[template_name] = new_template
+        
+        # Save back to file
+        full_data = {"templates": templates}
+        with open(_CONFIG_PATH, "w") as f:
+            yaml.dump(full_data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+        
+        # Clear cache
+        _TEMPLATES_CACHE = None
+        logger.info(f"Saved template '{template_name}'")
+        
+    except yaml.YAMLError as e:
+        raise ValueError(f"Invalid YAML: {e}")
+
 def list_templates() -> List[Dict]:
     """List all available templates with their names."""
     templates = load_prompt_templates()
