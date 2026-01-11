@@ -61,8 +61,14 @@ export function setupGuards(router) {
 
     // 6. Onboarding step validation - sync step with current route
     // Admins can skip to any step
+    // Allow navigation to 'ready' from 'summary' (for next market)
     if (to.meta.step !== undefined && to.meta.requiresAuth && !authStore.isAdmin) {
       const targetStep = to.meta.step
+      
+      // Allow going to 'ready' from 'summary' - this is the "next market" flow
+      if (to.name === 'ready' && from.name === 'summary') {
+        return next()
+      }
       
       // Get the current step from the route we're coming FROM, not from session store
       // This ensures we're comparing against the actual current position
