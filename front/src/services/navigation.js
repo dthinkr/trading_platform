@@ -63,6 +63,7 @@ export const NavigationService = {
    */
   async afterLogin() {
     const sessionStore = useSessionStore()
+    const authStore = useAuthStore()
     
     try {
       await sessionStore.syncFromBackend()
@@ -72,8 +73,10 @@ export const NavigationService = {
     }
     
     // Determine destination based on state
-    if (sessionStore.hasCompletedOnboarding) {
+    // Persisted users (returning after refresh) go directly to ready page
+    if (sessionStore.hasCompletedOnboarding || authStore.isPersisted) {
       sessionStore.setStatus('waiting')
+      sessionStore.setOnboardingStep(7)  // Mark as completed
       return router.push({ name: 'ready' })
     } else {
       sessionStore.setStatus('onboarding')
@@ -96,25 +99,15 @@ export const NavigationService = {
    */
   async nextOnboardingStep() {
     const sessionStore = useSessionStore()
-    
-    // Get current step from the current route, not from session store
-    // This ensures we're always moving forward from where we actually are
-    const currentRoute = router.currentRoute.value
-    const currentRouteStep = currentRoute.meta?.step
-    
-    // Use the route's step if available, otherwise fall back to session store
-    const currentStep = currentRouteStep !== undefined ? currentRouteStep : sessionStore.onboardingStep
+    const currentStep = sessionStore.onboardingStep
     
     if (currentStep >= ONBOARDING_ROUTES.length - 1) {
       // Already at last step (ready)
       return
     }
     
-    const nextStep = currentStep + 1
-    const nextRoute = ONBOARDING_ROUTES[nextStep]
-    
-    // Update session store to the next step
-    sessionStore.setOnboardingStep(nextStep)
+    sessionStore.advanceOnboarding()
+    const nextRoute = ONBOARDING_ROUTES[sessionStore.onboardingStep]
     
     if (nextRoute) {
       return router.push({ name: nextRoute })
@@ -126,21 +119,14 @@ export const NavigationService = {
    */
   async prevOnboardingStep() {
     const sessionStore = useSessionStore()
-    
-    // Get current step from the current route
-    const currentRoute = router.currentRoute.value
-    const currentRouteStep = currentRoute.meta?.step
-    const currentStep = currentRouteStep !== undefined ? currentRouteStep : sessionStore.onboardingStep
+    const currentStep = sessionStore.onboardingStep
     
     if (currentStep <= 0) {
       return
     }
     
-    const prevStep = currentStep - 1
-    const prevRoute = ONBOARDING_ROUTES[prevStep]
-    
-    // Note: Don't decrease the session step when going back
-    // The session step represents the furthest point reached
+    sessionStore.setOnboardingStep(currentStep - 1)
+    const prevRoute = ONBOARDING_ROUTES[sessionStore.onboardingStep]
     
     if (prevRoute) {
       return router.push({ name: prevRoute })

@@ -376,24 +376,49 @@ const formatValue = (value, format) => {
   return value
 }
 
-// Navigate to next market using NavigationService (no page refresh!)
+// Navigate to next market with page refresh (ensures clean state)
 const goToNextMarket = async () => {
   isNavigating.value = true
   
   try {
-    const success = await NavigationService.startNextMarket()
-    
-    if (!success) {
+    // Check if user can start a new market
+    if (!sessionStore.canStartNewMarket) {
       dialogTitle.value = 'Maximum Markets Reached'
       dialogMessage.value = 'You have completed the maximum number of markets allowed.'
       showDialog.value = true
+      isNavigating.value = false
+      return
     }
+    
+    // For Prolific users, store data for auto-login after refresh
+    if (authStore.user?.isProlific) {
+      // Mark as having completed onboarding
+      if (authStore.user?.uid) {
+        localStorage.setItem(`prolific_onboarded_${authStore.user.uid}`, 'true')
+        
+        // Store flag indicating continuation to next market
+        localStorage.setItem('prolific_next_market', 'true')
+        
+        // Store Prolific parameters for auto-login
+        if (authStore.user.prolificData) {
+          const prolificData = {
+            PROLIFIC_PID: authStore.user.prolificData.PROLIFIC_PID,
+            STUDY_ID: authStore.user.prolificData.STUDY_ID,
+            SESSION_ID: authStore.user.prolificData.SESSION_ID,
+            timestamp: Date.now()
+          }
+          localStorage.setItem('prolific_auto_login', JSON.stringify(prolificData))
+        }
+      }
+    }
+    
+    // Page refresh to ensure clean state
+    window.location.href = '/onboarding/ready'
   } catch (error) {
     console.error('Error navigating to next market:', error)
     dialogTitle.value = 'Error'
     dialogMessage.value = 'Failed to start next market. Please try again.'
     showDialog.value = true
-  } finally {
     isNavigating.value = false
   }
 }

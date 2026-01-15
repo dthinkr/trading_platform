@@ -25,16 +25,6 @@
                 ></div>
               </div>
               <span class="progress-text"> {{ currentPageIndex + 1 }} of {{ pages.length }} </span>
-              
-              <!-- Admin skip button -->
-              <button
-                v-if="isAdmin"
-                @click="skipToReady"
-                class="nav-btn nav-btn-skip"
-              >
-                <FastForward :size="16" />
-                Skip to Ready
-              </button>
             </div>
 
             <!-- Header section with enhanced styling -->
@@ -59,8 +49,9 @@
             <!-- Enhanced navigation -->
             <div
               v-if="currentRouteName !== 'consent'"
-              v-motion-slide-visible-once-bottom
-              :delay="1000"
+              v-motion-fade
+              :initial="{ opacity: 0 }"
+              :enter="{ opacity: 1, transition: { delay: 500 } }"
               class="navigation-area"
             >
               <button
@@ -110,7 +101,6 @@ import {
   GraduationCap,
   ChevronLeft,
   ChevronRight,
-  FastForward,
 } from 'lucide-vue-next'
 
 const router = useRouter()
@@ -161,7 +151,6 @@ const currentPageTitle = computed(() => {
 const currentRouteName = computed(() => route.name)
 const isFirstPage = computed(() => currentPageIndex.value === 0)
 const isLastPage = computed(() => currentPageIndex.value === pages.length - 1)
-const isAdmin = computed(() => authStore.isAdmin)
 
 // Navigation using the service
 const nextPage = () => {
@@ -174,13 +163,6 @@ const prevPage = () => {
   if (!isFirstPage.value) {
     NavigationService.prevOnboardingStep()
   }
-}
-
-// Admin skip to trading
-const skipToReady = () => {
-  // Set onboarding step to max so guards don't block
-  sessionStore.onboardingStep = 7
-  router.push({ name: 'ready' })
 }
 
 // Progress tracking
