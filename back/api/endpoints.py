@@ -272,15 +272,6 @@ async def get_treatment_for_user(username: str):
     }
 
 
-@app.get("/admin/get_cohorts")
-async def get_cohorts():
-    """Get current cohort assignments for admin monitoring."""
-    return {
-        "status": "success",
-        **market_handler.session_manager.get_cohort_info()
-    }
-
-
 @app.post("/user/login")
 async def user_login(request: Request):
     # Check for Prolific parameters first
@@ -1161,55 +1152,6 @@ async def get_file(file_path: str):
     except Exception:
         raise HTTPException(status_code=500, detail="Internal server error")
 
-import re
-
-@app.get("/files/grouped")
-async def list_files_grouped():
-    """Returns log files grouped by session for heatmap display."""
-    try:
-        multi_market_pattern = re.compile(r'^(?:COHORT\d+_)?SESSION_(\d+_[a-f0-9]+)_MARKET_(\d+)\.log$', re.IGNORECASE)
-        single_market_pattern = re.compile(r'^(?:COHORT\d+_)?SESSION_(\d+_[a-f0-9]+)_trading\.log$', re.IGNORECASE)
-        cohort_market_pattern = re.compile(r'^COHORT\d+_SESSION_(\d+_[a-f0-9]+)_trading_market(\d+)\.log$', re.IGNORECASE)
-        
-        sessions = {}
-        ungrouped = []
-        max_market = 0
-        
-        for item in ROOT_DIR.iterdir():
-            if not item.is_file() or not item.name.endswith('.log'):
-                continue
-            filename = item.name
-            session_id = None
-            market_num = None
-            match = multi_market_pattern.match(filename)
-            if match:
-                session_id = match.group(1)
-                market_num = int(match.group(2))
-            else:
-                match = cohort_market_pattern.match(filename)
-                if match:
-                    session_id = match.group(1)
-                    market_num = int(match.group(2))
-                else:
-                    match = single_market_pattern.match(filename)
-                    if match:
-                        session_id = match.group(1)
-                        market_num = 1
-            if session_id is not None:
-                max_market = max(max_market, market_num)
-                if session_id not in sessions:
-                    sessions[session_id] = {'markets': {}}
-                sessions[session_id]['markets'][market_num] = filename
-            else:
-                ungrouped.append(filename)
-        
-        session_list = []
-        for session_id, data in sorted(sessions.items(), key=lambda x: x[0], reverse=True):
-            session_list.append({'session_id': session_id, 'markets': data['markets']})
-        
-        return {'sessions': session_list, 'max_market': max_market, 'ungrouped': ungrouped}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 # lets start trading!
 @app.post("/trading/start")
@@ -1601,25 +1543,6 @@ async def startup_event():
     asyncio.create_task(periodic_update_registered_users())
     asyncio.create_task(periodic_time_offset_calculation())
 
-# zip up all the files for download
-@app.get("/files/download/all")
-async def download_all_files():
-    try:
-        zip_buffer = io.BytesIO()
-        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-            for file in ROOT_DIR.glob('*'):
-                if file.is_file():
-                    zip_file.write(file, file.name)
-        
-        zip_buffer.seek(0)
-        return StreamingResponse(
-            iter([zip_buffer.getvalue()]),
-            media_type="application/zip",
-            headers={"Content-Disposition": f"attachment; filename=all_log_files.zip"}
-        )
-    except Exception:
-        raise HTTPException(status_code=500, detail="Internal server error")
-
 # quick market check
 def is_market_valid(market_id: str) -> bool:
     """Check if market is active"""
@@ -1782,67 +1705,6 @@ async def broadcast_trader_count(market_id: str):
                 await trader.websocket.send_json(sanitized_count_message)
             except Exception:
                 pass
-
-@app.get("/admin/base_settings")
-async def get_base_settings(current_user: dict = Depends(get_current_admin_user)):
-    """Get current persistent settings"""
-    return {
-        "status": "success",
-        "data": base_settings
-    }
-
-
-@app.get("/admin/agentic_data")
-async def get_agentic_data():
-    """Get agentic trader decision logs from active markets.
-    
-    Note: Logs are also auto-saved incrementally to logs/agentic/{market_id}_{trader_id}.json
-    This endpoint is useful for live debugging during active markets.
-    """
-    try:
-        all_agentic_data = []
-        
-        # Iterate through all active trader managers
-        for market_id, trader_manager in market_handler.trader_managers.items():
-            # Get agentic traders
-            for trader in trader_manager.agentic_traders:
-                trader_data = {
-                    "market_id": market_id,
-                    "trader_id": trader.id,
-                    "goal": trader.goal,
-                    "goal_progress": trader.goal_progress,
-                    "is_complete": trader.is_goal_complete(),
-                    "vwap": trader.get_vwap(),
-                    "decision_log": trader.decision_log,
-                    "price_history": trader.price_history[-50:] if trader.price_history else [],
-                    "performance": trader.get_performance_summary(),
-                }
-                all_agentic_data.append(trader_data)
-            
-            # Get agentic advisors
-            for advisor in trader_manager.agentic_advisors:
-                advisor_data = {
-                    "market_id": market_id,
-                    "trader_id": advisor.id,
-                    "type": "advisor",
-                    "advice_for": advisor.advice_for_human_id,
-                    "decision_log": advisor.decision_log,
-                    "current_advice": advisor.current_advice,
-                    "performance": advisor.get_performance_summary(),
-                }
-                all_agentic_data.append(advisor_data)
-        
-        return {
-            "status": "success",
-            "data": all_agentic_data,
-            "active_markets": list(market_handler.trader_managers.keys()),
-        }
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": str(e),
-            "data": []
-        }
 
 
 # Prolific settings model

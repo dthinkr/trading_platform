@@ -1,0 +1,52 @@
+# Production docker-compose for Durham server
+# Uses pre-built images from Docker Hub - no local building required
+
+services:
+  back:
+    image: docker.io/venvoo/trading_platform:back
+    volumes:
+      - ./.env:/app/.env:ro
+      - ./back/config:/app/config:Z
+      - ./back/logs:/app/logs:Z
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - ROOT_PATH=
+      - FIREBASE_API_KEY=${FIREBASE_API_KEY}
+      - FIREBASE_AUTH_DOMAIN=${FIREBASE_AUTH_DOMAIN}
+      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
+      - FIREBASE_STORAGE_BUCKET=${FIREBASE_STORAGE_BUCKET}
+      - FIREBASE_MESSAGING_SENDER_ID=${FIREBASE_MESSAGING_SENDER_ID}
+      - FIREBASE_APP_ID=${FIREBASE_APP_ID}
+      - FIREBASE_MEASUREMENT_ID=${FIREBASE_MEASUREMENT_ID}
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/config/auth/firebase-service-account.json
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+    command: sh -c "uv sync && uv run uvicorn api.endpoints:app --host 0.0.0.0 --port 8000 --root-path $${ROOT_PATH:-/api}"
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  ngrok:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.ngrok
+    restart: unless-stopped
+    command:
+      - "http"
+      - "localhost:8000"
+      - "--hostname"
+      - "dthinkr.ngrok.app"
+      - "--authtoken"
+      - "2j4K90jU5KvNPr1zFNnOes5QnU9_334pieyQKiRBBb6WFpsDp"
+    network_mode: host
+    depends_on:
+      - back
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
