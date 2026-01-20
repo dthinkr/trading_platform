@@ -253,13 +253,36 @@ class BaseTrader:
                 )
 
     def update_inventory(self, transactions_relevant_to_self: list) -> None:
-        """Update trader inventory from transactions."""
+        """Update trader inventory from transactions with floor checks.
+
+        Note: The primary validation happens in post_new_order() which blocks
+        orders that would exceed available shares/cash. This method adds a
+        defensive safety net that clamps values to prevent negative inventory
+        in case of race conditions or edge cases.
+        """
         for transaction in transactions_relevant_to_self:
             if transaction["type"] == "bid":
+                cost = transaction["price"] * transaction["amount"]
+                new_cash = self.cash - cost
+                if new_cash < 0:
+                    logger.error(
+                        f"NEGATIVE CASH BLOCKED: trader {self.id} would have {new_cash} cash "
+                        f"after buying {transaction['amount']} shares at {transaction['price']}. "
+                        f"Current cash: {self.cash}, cost: {cost}. Clamping to 0."
+                    )
+                    new_cash = 0  # Clamp to prevent negative cash
                 self.shares += transaction["amount"]
-                self.cash -= transaction["price"] * transaction["amount"]
+                self.cash = new_cash
             elif transaction["type"] == "ask":
-                self.shares -= transaction["amount"]
+                new_shares = self.shares - transaction["amount"]
+                if new_shares < 0:
+                    logger.error(
+                        f"NEGATIVE INVENTORY BLOCKED: trader {self.id} would have {new_shares} shares "
+                        f"after selling {transaction['amount']} shares. "
+                        f"Current shares: {self.shares}, initial_shares: {self.initial_shares}. Clamping to 0."
+                    )
+                    new_shares = 0  # Clamp to prevent negative inventory
+                self.shares = new_shares
                 self.cash += transaction["price"] * transaction["amount"]
 
     def update_goal_progress(self, transaction: Dict[str, Any]):
@@ -274,39 +297,83 @@ class BaseTrader:
             self.goal_progress -= amount
 
     def get_available_cash(self) -> float:
-        """calculate available cash considering locked orders."""
-        locked_cash = sum(
+        """Calculate available cash considering locked orders.
+
+        Includes both:
+        - Orders confirmed in the order book (self.orders)
+        - Orders placed but not yet confirmed (self.placed_orders)
+        This prevents race conditions where rapid orders bypass validation.
+        """
+        # Cash locked by confirmed orders in the book
+        locked_in_book = sum(
             order["price"] * order["amount"]
             for order in self.orders
             if order["order_type"] == OrderType.BID
         )
-        return self.cash - locked_cash
+        # Cash locked by orders we've placed but not yet confirmed
+        # (prevents race condition between placing order and receiving BOOK_UPDATED)
+        locked_pending = sum(
+            order["price"] * order["amount"]
+            for order in self.placed_orders
+            if order.get("order_type") == OrderType.BID
+            # Only count if not already filled (check if order_ids still exist)
+            and not any(oid in [o["id"] for o in self.filled_orders] for oid in order.get("order_ids", []))
+            # Only count if not already in self.orders (avoid double counting)
+            and not any(oid in [o["id"] for o in self.orders] for oid in order.get("order_ids", []))
+        )
+        return self.cash - locked_in_book - locked_pending
 
     def get_available_shares(self) -> int:
-        """calculate available shares considering locked orders."""
-        locked_shares = sum(
+        """Calculate available shares considering locked orders.
+
+        Includes both:
+        - Orders confirmed in the order book (self.orders)
+        - Orders placed but not yet confirmed (self.placed_orders)
+        This prevents race conditions where rapid orders bypass validation.
+        """
+        # Shares locked by confirmed orders in the book
+        locked_in_book = sum(
             order["amount"]
             for order in self.orders
             if order["order_type"] == OrderType.ASK
         )
-        return self.shares - locked_shares
+        # Shares locked by orders we've placed but not yet confirmed
+        # (prevents race condition between placing order and receiving BOOK_UPDATED)
+        locked_pending = sum(
+            order["amount"]
+            for order in self.placed_orders
+            if order.get("order_type") == OrderType.ASK
+            # Only count if not already filled
+            and not any(oid in [o["id"] for o in self.filled_orders] for oid in order.get("order_ids", []))
+            # Only count if not already in self.orders (avoid double counting)
+            and not any(oid in [o["id"] for o in self.orders] for oid in order.get("order_ids", []))
+        )
+        return self.shares - locked_in_book - locked_pending
 
     # Order management
     async def post_new_order(self, amount: int, price: int, order_type: OrderType) -> str:
         """Post a new order with throttling if configured."""
-        # check balance for human traders (noise traders have infinite resources)
-        if self.trader_type == TraderType.HUMAN.value:
+        # Check balance for human and agentic traders (noise/informed traders have infinite resources)
+        # This prevents negative inventory issues
+        traders_with_finite_resources = [TraderType.HUMAN.value, TraderType.AGENTIC.value]
+        if self.trader_type in traders_with_finite_resources:
             if order_type == OrderType.BID:
                 # buying - check if enough cash (including locked cash in active orders)
                 available_cash = self.get_available_cash()
                 if available_cash < price * amount:
-                    logger.warning(f"trader {self.id} insufficient cash: available {available_cash}, needs {price * amount}")
+                    logger.warning(
+                        f"trader {self.id} ({self.trader_type}) insufficient cash: "
+                        f"available {available_cash}, needs {price * amount}"
+                    )
                     return None
             elif order_type == OrderType.ASK:
                 # selling - check if enough shares (including locked shares in active orders)
                 available_shares = self.get_available_shares()
                 if available_shares < amount:
-                    logger.warning(f"trader {self.id} insufficient shares: available {available_shares}, needs {amount}")
+                    logger.warning(
+                        f"trader {self.id} ({self.trader_type}) insufficient shares: "
+                        f"available {available_shares}, needs {amount}, current shares: {self.shares}"
+                    )
                     return None
 
         # Apply throttling if configured
