@@ -115,39 +115,47 @@
                   <div style="border: 1px solid #f44336; background-color: #fdecea; color: #b71c1c; padding: 16px; border-radius: 8px; font-family: sans-serif;">
                   <strong>Important Notice:</strong>
                   <br><br>
-                  At the end of each market, if the number of shares you hold is different from your initial amount, the platform will automatically adjust your balance. It will do this by <strong>buying or selling shares at the  Initial Midprice</strong>.
+                  At the end of each market, if the number of shares you hold is different from your initial amount, the platform will automatically adjust your balance.
                   <br><br>
-                  This is very likely to result in a loss.
+                  To do this, the platform will:
+                  <ul style="margin-left: 20px;">
+                    <li><strong>Sell extra shares</strong> at <strong>Final Midprice − 5</strong></li>
+                    <li><strong>Buy missing shares</strong> at <strong>Final Midprice + 5</strong></li>
+                  </ul>
+                  <br><br>
+                  This adjustment is very likely to result in a loss.
                   <br><br>
                   <strong>Example 1 - You end up with more shares</strong>
                   <br>
                   <ul style="margin-left: 20px;">
                     <li style="margin-bottom: 10px; margin-top: 10px;"> <strong>Initial Midprice</strong>: 100 Liras</li>
-                    <li style="margin-bottom: 10px; margin-top: 10px;"> <strong>Your Initial Shares</strong>: 100</li>
-                    <li style="margin-bottom: 10px; margin-top: 10px;"><strong>Your shares at the end of the market</strong> : 110</li>
-                    <li style="margin-bottom: 10px; margin-top: 10px;">You have <strong>10 extra shares</strong> (110 - 100)</li>
-                    <li style="margin-bottom: 10px; margin-top: 10px;">Suppose you bought these 10 shares at an <strong> average price of 120 Liras</strong>.</li>
-                    <li style="margin-bottom: 10px; margin-top: 10px;">At the end, the platform <strong>sells</strong> these 10 shares for you at the <strong>Initial Midprice</strong> of 100 Liras.</li>
-                    <li style="margin-bottom: 10px; margin-top: 10px;"><strong>Result</strong>: Loss = 10 × (100 - 120) = <strong>-200 Liras</strong></li>
+                    <li style="margin-bottom: 10px; margin-top: 10px;"> <strong>Final Midprice</strong>: 110 Liras.</li>
+                    <li style="margin-bottom: 10px; margin-top: 10px;"> <strong>Your Initial Shares</strong>: 10</li>
+                    <li style="margin-bottom: 10px; margin-top: 10px;"><strong>Your shares at the end of the market</strong> : 15</li>
+                    <li style="margin-bottom: 10px; margin-top: 10px;">You have <strong>5 extra shares</strong> (15 - 10). </li>
+                    <li style="margin-bottom: 10px; margin-top: 10px;">Suppose you bought these 5 shares at an <strong> average price of 106 Liras</strong>.</li>
+                    <li style="margin-bottom: 10px; margin-top: 10px;">At the end, the platform <strong>sells</strong> these 5 shares for you at the <strong>Final Midprice - 5 = 105 Liras</strong>.</li>
+                    <li style="margin-bottom: 10px; margin-top: 10px;"><strong>Result</strong>: Loss = 5 × (106 - 105) = <strong>-5 Liras</strong></li>
                   </ul>
                   <br><br>
                   <strong>Example 2 - You end up with fewer shares</strong>
                   <br>
                   <ul style="margin-left: 20px;">
                     <li style="margin-bottom: 10px; margin-top: 10px;"> <strong>Initial Midprice</strong>: 100 Liras</li>
-                    <li style="margin-bottom: 10px; margin-top: 10px;"> <strong>Your Initial Shares</strong>: 100</li>
-                    <li style="margin-bottom: 10px; margin-top: 10px;"><strong>Your shares at the end of the market</strong> : 90</li>
-                    <li style="margin-bottom: 10px; margin-top: 10px;">You are <strong>missing 10 shares</strong> (100 - 90)</li>
-                    <li style="margin-bottom: 10px; margin-top: 10px;">Suppose you sold these 10 shares earlier at an <strong> average price of 80 Liras</strong>.</li>
-                    <li style="margin-bottom: 10px; margin-top: 10px;">At the end, the platform <strong>buys</strong> these 10 shares for you at the <strong>Initial Midprice</strong> of 100 Liras.</li>
-                    <li style="margin-bottom: 10px; margin-top: 10px;"><strong>Result</strong>: Loss = 10 × (80 - 100) = <strong>-200 Liras</strong></li>
+                    <li style="margin-bottom: 10px; margin-top: 10px;"> <strong>Final Midprice</strong>: 90 Liras.</li>
+                    <li style="margin-bottom: 10px; margin-top: 10px;"> <strong>Your Initial Shares</strong>: 10</li>
+                    <li style="margin-bottom: 10px; margin-top: 10px;"><strong>Your shares at the end of the market</strong> : 5</li>
+                    <li style="margin-bottom: 10px; margin-top: 10px;">You are <strong>missing 5 shares</strong> (10 - 5)</li>
+                    <li style="margin-bottom: 10px; margin-top: 10px;">Suppose you sold these 5 shares earlier at an <strong> average price of 92 Liras</strong>.</li>
+                    <li style="margin-bottom: 10px; margin-top: 10px;">At the end, the platform <strong>buys</strong> these 5 shares for you at the <strong>Final Midprice + 5 = 95 Liras</strong>.</li>
+                    <li style="margin-bottom: 10px; margin-top: 10px;"><strong>Result</strong>: Loss = 5 × (92 - 95) = <strong> -15 Liras</strong></li>
                   </ul>
                   <br><br>
                   <strong>In short:</strong>
                   <br>
                   You must finish the market with the same number of shares you started with.
                   <br>
-                  If not, the system automatically restores your original balance at the <strong>Initial Midprice</strong>, 
+                  If not, the system automatically restores your original balance at a <strong>Penalised Price</strong>, 
                   <br>
                   which may likely result in a loss.
                   </div>

@@ -172,11 +172,11 @@ const questions = ref([
     showFeedback: false,
   },
   {
-    text: 'Let assume that you bought 3 shares at an average price of 101 Liras, and you sold only 2 of them at an average price of 104 Liras. The initial midprice is 100 liras. What is the generated profit?',
+    text: 'Let assume that you bought 3 shares at an average price of 101 Liras, and you sold only 2 of them at an average price of 104 Liras. The final midprice is 105 liras. What is the generated profit?',
     options: ['0', '5', '9'],
     correctAnswer: '5',
     explanation:
-      'In this scenario, the profit is 2*104 + 100 - 3*101 = 5, as the last unsold share will be sold at the initial midprice.',
+      'In this scenario, the profit is 2*104 + 100 - 3*101 = 5, as the last unsold share will be sold at the final midprice - 5.',
     userAnswer: null,
     isCorrect: false,
     showFeedback: false,
