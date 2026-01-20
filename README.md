@@ -17,34 +17,34 @@
   <a href="https://github.com/dthinkr/trading_platform/blob/master/LICENSE"><img src="https://img.shields.io/github/license/dthinkr/trading_platform?color=2b9348" alt="License Badge"/></a>
 </p>
 
-## Key Features (v2.2.0) 🚀
+## Key Features (v2.2.0)
 
-### 🏗️ **Session-Based Architecture**
+### Session-Based Architecture
 - Lightweight session pools with lazy market creation
 - Zero resource waste from zombie markets
 
-### 🎭 **Role-Based Trading**
-- Informed traders (buy/sell specialists) 
+### Role-Based Trading
+- Informed traders (buy/sell specialists)
 - Speculators (flexible strategies)
 - Automatic goal-based trader matching
 
-### 👥 **Multi-Trader Markets**
+### Multi-Trader Markets
 - Coordinated market starts when all traders ready
 - Real-time status updates and waiting room
 - Seamless session-to-market conversion
 
-### 📊 **Real-Time Data**
+### Real-Time Data
 - Live order book and price charts
 - Instant execution feedback
 - Market summary with P&L and VWAP
 
-### 🔒 **Infrastructure**
+### Infrastructure
 - Google authentication
 - WebSocket communication
 - Comprehensive error handling
 - Modular event-driven architecture
 
-## 🏗️ **How Multi-Trader Markets Work**
+## How Multi-Trader Markets Work
 
 Session pool mechanism handles multiple human traders elegantly:
 

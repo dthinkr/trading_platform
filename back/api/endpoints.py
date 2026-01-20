@@ -25,6 +25,7 @@ from utils.calculate_metrics import process_log_file, write_to_csv
 from utils.logfiles_analysis import order_book_contruction, calculate_trader_specific_metrics
 from firebase_admin import auth
 from utils.websocket_utils import sanitize_websocket_message
+from utils.api_responses import success, error, not_found, waiting, not_in_session
 from .random_picker import pick_random_element_new
 from core.treatment_manager import treatment_manager
 
@@ -131,10 +132,7 @@ async def update_base_settings(settings: BaseSettings):
                 source='admin_update_goals'
             )
 
-            return {
-                "status": "success",
-                "message": "Persistent settings updated and waiting sessions refreshed with new goals"
-            }
+            return success(message="Persistent settings updated and waiting sessions refreshed with new goals")
         except Exception as e:
             print(f"Error updating session pool goals: {str(e)}")
             return {
@@ -142,18 +140,18 @@ async def update_base_settings(settings: BaseSettings):
                 "message": f"Settings updated but failed to update waiting sessions: {str(e)}"
             }
 
-    return {"status": "success", "message": "Persistent settings updated"}
+    return success(message="Persistent settings updated")
 
 @app.get("/admin/get_base_settings")
 async def get_base_settings():
-    return {"status": "success", "data": base_settings}
+    return success(data=base_settings)
 
 @app.get("/admin/agentic_templates")
 async def get_agentic_templates():
     """Get list of available agentic prompt templates."""
     from traders.agentic_trader import list_templates
     templates = list_templates()
-    return {"status": "success", "templates": templates}
+    return success(templates=templates)
 
 
 class AgenticPromptsYAML(BaseModel):
@@ -164,11 +162,7 @@ class AgenticPromptsYAML(BaseModel):
 async def get_agentic_prompts_yaml():
     """Get the full YAML content of agentic prompt templates."""
     from traders.agentic_trader import get_prompt_templates_yaml, list_templates
-    return {
-        "status": "success",
-        "yaml_content": get_prompt_templates_yaml(),
-        "templates": list_templates()
-    }
+    return success(yaml_content=get_prompt_templates_yaml(), templates=list_templates())
 
 
 @app.post("/admin/update_agentic_prompts")
@@ -177,11 +171,7 @@ async def update_agentic_prompts(data: AgenticPromptsYAML):
     from traders.agentic_trader import save_prompt_templates, list_templates
     try:
         count = save_prompt_templates(data.yaml_content)
-        return {
-            "status": "success",
-            "message": f"Updated {count} agentic prompt templates",
-            "templates": list_templates()
-        }
+        return success(message=f"Updated {count} agentic prompt templates", templates=list_templates())
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -192,11 +182,7 @@ async def get_agentic_template(template_id: str):
     from traders.agentic_trader import get_template_yaml
     try:
         yaml_content = get_template_yaml(template_id)
-        return {
-            "status": "success",
-            "template_id": template_id,
-            "yaml_content": yaml_content
-        }
+        return success(template_id=template_id, yaml_content=yaml_content)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -207,11 +193,7 @@ async def update_agentic_template(template_id: str, data: AgenticPromptsYAML):
     from traders.agentic_trader import save_template_yaml, list_templates
     try:
         save_template_yaml(template_id, data.yaml_content)
-        return {
-            "status": "success",
-            "message": f"Updated template '{template_id}'",
-            "templates": list_templates()
-        }
+        return success(message=f"Updated template '{template_id}'", templates=list_templates())
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -221,10 +203,7 @@ async def download_parameter_history(current_user: dict = Depends(get_current_ad
     """Download the parameter history JSON file"""
     param_history_path = Path("logs/parameters/parameter_history.json")
     if not param_history_path.exists():
-        return JSONResponse(
-            status_code=404,
-            content={"status": "error", "message": "Parameter history file not found"}
-        )
+        return not_found("Parameter history file not found")
     
     return FileResponse(
         path=param_history_path,
@@ -241,35 +220,24 @@ class TreatmentYAML(BaseModel):
 async def update_treatments(data: TreatmentYAML):
     try:
         count = treatment_manager.update_from_yaml(data.yaml_content)
-        return {
-            "status": "success",
-            "message": f"Updated {count} treatments",
-            "treatments": treatment_manager.get_all_treatments()
-        }
+        return success(message=f"Updated {count} treatments", treatments=treatment_manager.get_all_treatments())
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.get("/admin/get_treatments")
 async def get_treatments():
-    return {
-        "status": "success",
-        "yaml_content": treatment_manager.get_yaml_content(),
-        "treatments": treatment_manager.get_all_treatments()
-    }
+    return success(yaml_content=treatment_manager.get_yaml_content(), treatments=treatment_manager.get_all_treatments())
 
 
 @app.get("/admin/get_treatment_for_user/{username}")
 async def get_treatment_for_user(username: str):
     market_count = len(market_handler.user_historical_markets.get(username, set()))
     treatment = treatment_manager.get_treatment_for_market(market_count)
-    return {
-        "status": "success",
-        "username": username,
-        "markets_played": market_count,
-        "next_treatment_index": market_count,
-        "next_treatment": treatment
-    }
+    return success(
+        username=username, markets_played=market_count,
+        next_treatment_index=market_count, next_treatment=treatment
+    )
 
 
 @app.post("/user/login")
@@ -294,17 +262,11 @@ async def user_login(request: Request):
                 await market_handler.remove_user_from_session(gmail_username)
                 
                 # DON'T assign session at login - wait until they click "Start Trading"
-                return {
-                    "status": "success",
-                    "message": "Prolific login successful",
-                    "data": {
-                        "trader_id": trader_id,
-                        "username": gmail_username,
-                        "is_admin": False,
-                        "is_prolific": True,
-                        "prolific_token": prolific_token  # Include the token for future authentication
-                    }
-                }
+                return success(
+                    message="Prolific login successful",
+                    data={"trader_id": trader_id, "username": gmail_username, "is_admin": False,
+                          "is_prolific": True, "prolific_token": prolific_token}
+                )
             else:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -336,15 +298,7 @@ async def user_login(request: Request):
     await market_handler.remove_user_from_session(gmail_username)
     
     # DON'T assign session at login - wait until they click "Start Trading"
-    return {
-        "status": "success",
-        "message": "Login successful",
-        "data": {
-            "username": email,
-            "is_admin": is_user_admin(email),
-            "trader_id": trader_id
-        }
-    }
+    return success(message="Login successful", data={"username": email, "is_admin": is_user_admin(email), "trader_id": trader_id})
 
 @app.post("/admin/login")
 async def admin_login(request: Request):
@@ -360,14 +314,7 @@ async def admin_login(request: Request):
     if not is_user_admin(email):
         raise HTTPException(status_code=403, detail="User does not have admin privileges")
     
-    return {
-        "status": "success",
-        "message": "Admin login successful",
-        "data": {
-            "username": email,
-            "is_admin": True
-        }
-    }
+    return success(message="Admin login successful", data={"username": email, "is_admin": True})
 
 
 @app.get("/session/status")
@@ -418,19 +365,11 @@ async def get_session_status(request: Request, current_user: dict = Depends(get_
         else:
             status = "onboarding"
     
-    return {
-        "status": "success",
-        "data": {
-            "status": status,
-            "trader_id": trader_id,
-            "market_id": market_id,
-            "onboarding_step": onboarding_step,
-            "markets_completed": historical_markets_count,
-            "max_markets": max_markets,
-            "is_admin": is_admin,
-            "is_prolific": is_prolific
-        }
-    }
+    return success(data={
+        "status": status, "trader_id": trader_id, "market_id": market_id,
+        "onboarding_step": onboarding_step, "markets_completed": historical_markets_count,
+        "max_markets": max_markets, "is_admin": is_admin, "is_prolific": is_prolific
+    })
 
 
 @app.get("/traders/defaults")
@@ -445,7 +384,7 @@ async def get_trader_defaults():
         }
         for field, props in schema.get("properties", {}).items()
     }
-    return JSONResponse(content={"status": "success", "data": defaults})
+    return JSONResponse(content=success(data=defaults))
 
 @app.post("/trading/initiate")
 async def create_trading_market(background_tasks: BackgroundTasks, request: Request, current_user: dict = Depends(get_current_user)):
@@ -468,29 +407,17 @@ async def create_trading_market(background_tasks: BackgroundTasks, request: Requ
     
     # If user is not in a session yet, return basic info so they can read instructions
     if session_status.get("status") == "not_found":
-        response_data = {
-            "status": "not_in_session",
-            "message": "User not in trading session yet",
-            "data": {
-                "trader_id": trader_id,
-                "num_human_traders": len(merged_params.predefined_goals),
-                "isWaitingForOthers": False
-            }
-        }
-        return response_data
-    
+        return not_in_session(
+            "User not in trading session yet",
+            data={"trader_id": trader_id, "num_human_traders": len(merged_params.predefined_goals), "isWaitingForOthers": False}
+        )
+
     # If user is in waiting session, return minimal waiting info (no session/market IDs)
     if session_status.get("status") == "waiting":
-        response_data = {
-            "status": "waiting",
-            "message": "Waiting for other traders to join",
-            "data": {
-                "trader_id": trader_id,
-                "num_human_traders": len(merged_params.predefined_goals),
-                "isWaitingForOthers": True
-            }
-        }
-        return response_data
+        return waiting(
+            "Waiting for other traders to join",
+            data={"trader_id": trader_id, "num_human_traders": len(merged_params.predefined_goals), "isWaitingForOthers": True}
+        )
     
     # If market is active, get the trader manager using trader ID only
     trader_manager = market_handler.get_trader_manager_by_trader_id(trader_id)
@@ -510,19 +437,12 @@ async def create_trading_market(background_tasks: BackgroundTasks, request: Requ
                 # This will trigger the zero-amount order for record-keeping
                 print(f"Ensuring record for human trader: {trader_id}")
     
-    response_data = {
-        "status": "success",
-        "message": "Trading market info retrieved",
-        "data": {
-            "trader_id": trader_id,
-            "traders": list(trader_manager.traders.keys()),
-            "human_traders": [t.id for t in trader_manager.human_traders],
-            "num_human_traders": len(merged_params.predefined_goals),
-            "isWaitingForOthers": False
-        }
-    }
-    
-    return response_data
+    return success(
+        message="Trading market info retrieved",
+        data={"trader_id": trader_id, "traders": list(trader_manager.traders.keys()),
+              "human_traders": [t.id for t in trader_manager.human_traders],
+              "num_human_traders": len(merged_params.predefined_goals), "isWaitingForOthers": False}
+    )
 
 def get_manager_by_trader(trader_id: str):
     """Get trader manager for trader ID"""
@@ -721,15 +641,7 @@ async def get_trader_info(trader_id: str):
             trader_data['all_attributes'] = {}
         trader_data['all_attributes']['isWaitingForOthers'] = False
 
-        return {
-            "status": "success",
-            "message": "Trader found",
-            "data": {
-                **trader_data,
-                "order_book_metrics": order_book_metrics,
-                "trader_specific_metrics": trader_specific_metrics
-            }
-        }
+        return success(message="Trader found", data={**trader_data, "order_book_metrics": order_book_metrics, "trader_specific_metrics": trader_specific_metrics})
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting trader info: {str(e)}")
@@ -753,36 +665,23 @@ async def get_trader_market(trader_id: str, request: Request, current_user: dict
     if session_status.get("status") == "not_found":
         try:
             params = TradingParameters(**(base_settings or {}))
-        except Exception as e:
+        except Exception:
             params = TradingParameters()
-        
-        response_data = {
-            "status": "not_in_session",
-            "data": {
-                "traders": [trader_id],
-                "human_traders": [{"id": trader_id}],
-                "game_params": {
-                    "predefined_goals": params.predefined_goals,
-                    "num_human_traders": len(params.predefined_goals),
-                    "trading_day_duration": params.trading_day_duration
-                },
-                "isWaitingForOthers": False  # Not waiting - not in session yet
-            },
-        }
-        return response_data
-    
+        return not_in_session(data={
+            "traders": [trader_id], "human_traders": [{"id": trader_id}],
+            "game_params": {"predefined_goals": params.predefined_goals,
+                           "num_human_traders": len(params.predefined_goals),
+                           "trading_day_duration": params.trading_day_duration},
+            "isWaitingForOthers": False
+        })
+
     # If user is in waiting session, return minimal session info (no session/market IDs)
     if session_status.get("status") == "waiting":
-        response_data = {
-            "status": "waiting",
-            "data": {
-                "traders": [trader_id],  # Just this trader for now
-                "human_traders": [{"id": trader_id}],  # Minimal human trader data
-                "game_params": {"predefined_goals": [0], "num_human_traders": 1},  # Placeholder
-                "isWaitingForOthers": True
-            },
-        }
-        return response_data
+        return waiting(data={
+            "traders": [trader_id], "human_traders": [{"id": trader_id}],
+            "game_params": {"predefined_goals": [0], "num_human_traders": 1},
+            "isWaitingForOthers": True
+        })
     
     # If market is active, get the trader manager using trader ID only
     trader_manager = market_handler.get_trader_manager_by_trader_id(trader_id)
@@ -805,17 +704,10 @@ async def get_trader_market(trader_id: str, request: Request, current_user: dict
                 # This will ensure the trader has a record in the system
                 print(f"Ensuring record for human trader: {trader_id} in market endpoint")
 
-    response_data = {
-        "status": "success",
-        "data": {
-            "traders": list(trader_manager.traders.keys()),
-            "human_traders": human_traders_data,
-            "game_params": params_dict,
-            "isWaitingForOthers": False
-        },
-    }
-    
-    return response_data
+    return success(data={
+        "traders": list(trader_manager.traders.keys()), "human_traders": human_traders_data,
+        "game_params": params_dict, "isWaitingForOthers": False
+    })
 
 
 
@@ -1222,12 +1114,7 @@ async def start_trading_market(background_tasks: BackgroundTasks, request: Reque
     internal_session_id = market_handler.trader_to_market_lookup.get(trader_id)
     ready_traders = list(market_handler.market_ready_traders.get(internal_session_id, set()))
     
-    return {
-        "status": "success",
-        "ready_traders": ready_traders,
-        "all_ready": all_ready,
-        "message": status_message
-    }
+    return success(ready_traders=ready_traders, all_ready=all_ready, message=status_message)
 
 # ============================================================================
 # TESTING API - REST endpoints for easy external testing without WebSocket
@@ -1254,7 +1141,7 @@ async def test_place_order(request: Request):
         raise HTTPException(404, "Trader not found")
     
     order_id = await trader.post_new_order(amount, price, order_type)
-    return {"status": "success", "order_id": order_id}
+    return success(order_id=order_id)
 
 
 @app.post("/api/test/cancel_order")
@@ -1276,7 +1163,7 @@ async def test_cancel_order(request: Request):
         raise HTTPException(404, "Trader not found")
     
     await trader.send_cancel_order_request(order_id)
-    return {"status": "success", "order_id": order_id}
+    return success(order_id=order_id)
 
 
 @app.get("/api/test/session_info/{trader_id}")
@@ -1286,14 +1173,7 @@ async def test_get_session_info(trader_id: str):
     if not session_id:
         raise HTTPException(404, "Trader not in active session")
 
-    return {
-        "status": "success",
-        "data": {
-            "session_id": session_id,
-            "trader_id": trader_id,
-            "log_file": f"logs/{session_id}.log"
-        }
-    }
+    return success(data={"session_id": session_id, "trader_id": trader_id, "log_file": f"logs/{session_id}.log"})
 
 
 @app.get("/api/test/trader_inventory/{trader_id}")
@@ -1307,25 +1187,15 @@ async def test_get_trader_inventory(trader_id: str):
     if not trader:
         raise HTTPException(404, "Trader not found")
 
-    return {
-        "status": "success",
-        "data": {
-            "trader_id": trader_id,
-            "trader_type": trader.trader_type,
-            "initial_shares": trader.initial_shares,
-            "initial_cash": trader.initial_cash,
-            "current_shares": trader.shares,
-            "current_cash": trader.cash,
-            "available_shares": trader.get_available_shares(),
-            "available_cash": trader.get_available_cash(),
-            "active_orders": len(trader.orders),
-            "filled_orders": len(trader.filled_orders),
-            "goal": trader.goal,
-            "goal_progress": trader.goal_progress,
-            "negative_inventory": trader.shares < 0,
-            "negative_cash": trader.cash < 0,
-        }
-    }
+    return success(data={
+        "trader_id": trader_id, "trader_type": trader.trader_type,
+        "initial_shares": trader.initial_shares, "initial_cash": trader.initial_cash,
+        "current_shares": trader.shares, "current_cash": trader.cash,
+        "available_shares": trader.get_available_shares(), "available_cash": trader.get_available_cash(),
+        "active_orders": len(trader.orders), "filled_orders": len(trader.filled_orders),
+        "goal": trader.goal, "goal_progress": trader.goal_progress,
+        "negative_inventory": trader.shares < 0, "negative_cash": trader.cash < 0,
+    })
 
 
 @app.post("/api/test/verify_inventory_constraint")
@@ -1362,18 +1232,13 @@ async def test_verify_inventory_constraint(request: Request):
     from core.data_models import OrderType
     order_id = await trader.post_new_order(amount, price, OrderType.ASK)  # ASK = -1 = SELL
 
-    return {
-        "status": "success",
-        "test_result": {
-            "order_accepted": order_id is not None,
-            "order_id": order_id,
-            "constraint_working": order_id is None,  # If None, constraint blocked the order
-            "shares_before": current_shares,
-            "available_shares": available_shares,
-            "attempted_sell_amount": amount,
-            "message": "Inventory constraint is WORKING correctly" if order_id is None else "WARNING: Order was accepted despite insufficient shares!"
-        }
-    }
+    return success(test_result={
+        "order_accepted": order_id is not None, "order_id": order_id,
+        "constraint_working": order_id is None,
+        "shares_before": current_shares, "available_shares": available_shares,
+        "attempted_sell_amount": amount,
+        "message": "Inventory constraint is WORKING correctly" if order_id is None else "WARNING: Order was accepted despite insufficient shares!"
+    })
 
 
 @app.post("/api/test/create_test_session")
@@ -1434,22 +1299,20 @@ async def create_test_session(request: Request):
     # Get trader info
     trader = manager.get_trader(trader_id)
 
-    return {
-        "status": "success",
-        "test_session": {
-            "session_id": test_session_id,
-            "trader_id": trader_id,
+    return success(
+        test_session={
+            "session_id": test_session_id, "trader_id": trader_id,
             "initial_shares": trader.initial_shares if trader else initial_shares,
             "initial_cash": trader.initial_cash if trader else initial_cash,
             "current_shares": trader.shares if trader else None,
             "current_cash": trader.cash if trader else None,
         },
-        "usage": {
+        usage={
             "check_inventory": f"GET /api/test/trader_inventory/{trader_id}",
             "place_order": f"POST /api/test/place_order with {{trader_id: '{trader_id}', type: 0 or 1, price: X, amount: Y}}",
             "verify_constraint": f"POST /api/test/verify_inventory_constraint with {{trader_id: '{trader_id}'}}",
         }
-    }
+    )
 
 
 # Market monitoring endpoint
@@ -1506,7 +1369,7 @@ async def force_start_session(
         # Restore original predefined_goals
         manager.params.predefined_goals = original_goals
     
-    return {"status": "success", "message": "Market session started successfully"}
+    return success(message="Market session started successfully")
 
 
 
@@ -1564,10 +1427,7 @@ async def reset_state(current_user: dict = Depends(get_current_admin_user)):
         accumulated_rewards = {}  # Reset accumulated rewards
         
         # Preserve historical markets by not clearing market_handler.user_historical_markets
-        return {
-            "status": "success", 
-            "message": "Application state reset successfully"
-        }
+        return success(message="Application state reset successfully")
         
     except Exception:
         raise HTTPException(
@@ -1590,10 +1450,7 @@ async def test_reset_state():
         base_settings = current_settings
         accumulated_rewards = {}
         
-        return {
-            "status": "success", 
-            "message": "Test reset completed (including historical markets)"
-        }
+        return success(message="Test reset completed (including historical markets)")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Reset failed: {str(e)}")
 
@@ -1668,14 +1525,10 @@ async def run_headless_batch(
     
     background_tasks.add_task(run_batch)
     
-    return {
-        "status": "success",
-        "session_id": session_id,
-        "num_markets": num_markets,
-        "start_treatment": start_treatment,
-        "parallel": parallel,
-        "message": f"Starting {num_markets} markets {'in parallel' if parallel else 'sequentially'} from treatment {start_treatment}"
-    }
+    return success(
+        session_id=session_id, num_markets=num_markets, start_treatment=start_treatment,
+        parallel=parallel, message=f"Starting {num_markets} markets {'in parallel' if parallel else 'sequentially'} from treatment {start_treatment}"
+    )
 
         
 # headcount!
@@ -1733,7 +1586,7 @@ async def debug_consent(data: dict):
     
     try:
         # Just echo back the data
-        return {"status": "success", "received": data}
+        return success(received=data)
     except Exception as e:
         print(f"ERROR in debug endpoint: {str(e)}")
         return {"status": "error", "message": str(e)}
@@ -1777,10 +1630,7 @@ async def get_prolific_settings(current_user: dict = Depends(get_current_admin_u
                 creds = line.split("=", 1)[1]
                 prolific_settings["PROLIFIC_CREDENTIALS"] = creds.replace(" ", "\n")
         
-        return {
-            "status": "success",
-            "data": prolific_settings
-        }
+        return success(data=prolific_settings)
     except Exception as e:
         return {
             "status": "error",
@@ -1817,7 +1667,7 @@ async def save_questionnaire_response(response: QuestionnaireResponse):
             # Write data row
             f.write(','.join([str(item) for item in row]) + '\n')
         
-        return {"status": "success", "message": "Questionnaire response saved successfully"}
+        return success(message="Questionnaire response saved successfully")
     except Exception as e:
         return {"status": "error", "message": f"Failed to save questionnaire response: {str(e)}"}
 
@@ -1870,7 +1720,7 @@ async def save_consent_data(consent: ConsentData):
             'consent_timestamp': timestamp
         }
         writer.writerow(row_data)
-    return {"status": "success", "message": "Consent data saved successfully", "timestamp": timestamp}
+    return success(message="Consent data saved successfully", timestamp=timestamp)
 
 
 # Download consent data
@@ -1950,10 +1800,7 @@ async def update_prolific_settings(settings: ProlificSettings, current_user: dic
         # Write the updated content back to the .env file
         env_path.write_text("\n".join(new_env_content))
         
-        return {
-            "status": "success",
-            "message": "Prolific settings updated successfully"
-        }
+        return success(message="Prolific settings updated successfully")
     except Exception as e:
         return {
             "status": "error",

@@ -259,53 +259,7 @@ const marketProgress = computed(() => {
 </script>
 
 <style scoped>
-.page-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 2rem;
-}
-
-.header-section {
-  text-align: center;
-  margin-bottom: 3rem;
-}
-
-.gradient-text {
-  background: linear-gradient(45deg, #2196f3, #4caf50);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  font-weight: bold;
-  margin: 1rem 0;
-}
-
-.pulse-icon {
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.1);
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-
-.info-card {
-  height: 100%;
-  border-radius: 12px;
-  transition: all 0.3s ease;
-}
-
-.highlight-text {
-  color: #1976d2;
-  font-weight: 600;
-  font-size: 1.1rem;
-}
-
+/* Page-specific styles only - shared styles are in components.css */
 .parameters-table {
   border-radius: 8px;
   overflow: hidden;
@@ -339,11 +293,5 @@ const marketProgress = computed(() => {
 .logout-button {
   font-size: 0.9rem;
   text-transform: none;
-}
-
-@media (max-width: 960px) {
-  .page-container {
-    padding: 1rem;
-  }
 }
 </style>
