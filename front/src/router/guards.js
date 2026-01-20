@@ -25,21 +25,16 @@ export function setupGuards(router) {
 
     // 2. Guest-only routes (login page) - redirect authenticated users
     if (to.meta.requiresGuest && authStore.isAuthenticated) {
-      // Persisted users (returning after refresh) go directly to ready page
-      if (authStore.isPersisted) {
-        sessionStore.setStatus('waiting')
-        sessionStore.setOnboardingStep(7)
-        return next({ name: 'ready' })
-      }
+      // Let NavigationService handle where to go based on user's progress
       const redirect = NavigationService.getRedirectForStatus(sessionStore.status)
       return next(redirect)
     }
 
     // 3. Auth required - redirect unauthenticated users to login
     if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-      return next({ 
-        name: 'auth', 
-        query: to.fullPath !== '/' ? { redirect: to.fullPath } : undefined 
+      return next({
+        name: 'auth',
+        query: to.fullPath !== '/' ? { redirect: to.fullPath } : undefined
       })
     }
 
@@ -51,13 +46,12 @@ export function setupGuards(router) {
     // 5. Active market required (for trading page)
     if (to.meta.requiresActiveMarket) {
       if (sessionStore.status !== 'trading') {
-        // Try to sync from backend first
         try {
           await sessionStore.syncFromBackend()
         } catch (e) {
           // Use local state
         }
-        
+
         if (sessionStore.status !== 'trading') {
           const redirect = NavigationService.getRedirectForStatus(sessionStore.status)
           return next(redirect)
@@ -65,39 +59,36 @@ export function setupGuards(router) {
       }
     }
 
-    // 6. Onboarding step validation - prevent skipping steps
+    // 6. Onboarding step validation
     if (to.meta.step !== undefined && to.meta.requiresAuth) {
       const targetStep = to.meta.step
-      const currentStep = sessionStore.onboardingStep
-      
-      // Allow going back to any previous step
-      // Allow going to current step or next step only
-      if (targetStep > currentStep + 1) {
-        // Trying to skip ahead - redirect to current step
-        const allowedRoute = ONBOARDING_ROUTES[currentStep] || 'consent'
-        return next({ name: allowedRoute })
+      const currentProgress = sessionStore.onboardingStep
+
+      // Users who completed onboarding (step 7) should stay on ready page
+      // They can't go back to earlier onboarding pages
+      if (currentProgress >= 7 && targetStep < 7) {
+        return next({ name: 'ready' })
       }
-      
-      // Update session step if navigating forward
-      if (targetStep > currentStep) {
-        sessionStore.setOnboardingStep(targetStep)
+
+      // Prevent skipping ahead (can only go to current step or next step)
+      if (targetStep > currentProgress + 1) {
+        const allowedRoute = ONBOARDING_ROUTES[currentProgress] || 'consent'
+        return next({ name: allowedRoute })
       }
     }
 
     // 7. Session sync for protected routes (non-blocking)
     if (to.meta.requiresSession && !sessionStore.isSyncing) {
-      // Fire and forget - don't block navigation
       sessionStore.syncFromBackend().catch(() => {})
     }
 
     next()
   })
 
-  // After each navigation, update session status if needed
+  // After each navigation, update session status based on current route
   router.afterEach((to, from) => {
     const sessionStore = useSessionStore()
-    
-    // Update status based on current route
+
     if (to.name === 'trading') {
       sessionStore.setStatus('trading')
     } else if (to.name === 'summary') {

@@ -44,25 +44,25 @@ export const useSessionStore = defineStore('session', {
 
   actions: {
     // Sync state from backend - call this on app init and after key transitions
+    // Note: onboardingStep is managed by frontend (per-user localStorage), not backend
     async syncFromBackend() {
       if (this.isSyncing) return this.status
-      
+
       try {
         this.isSyncing = true
         const response = await axios.get('/session/status')
         const data = response.data.data || response.data
-        
+
+        // Don't overwrite onboardingStep - it's managed by frontend per-user localStorage
         this.$patch({
           status: data.status || 'authenticated',
           traderId: data.trader_id,
           marketId: data.market_id,
-          onboardingStep: data.onboarding_step || 0,
-          hasCompletedOnboarding: (data.onboarding_step || 0) >= 7,
           marketsCompleted: data.markets_completed || 0,
           maxMarkets: data.max_markets || 4,
           lastSyncTime: Date.now(),
         })
-        
+
         this.saveToLocalStorage()
         return this.status
       } catch (error) {
@@ -86,6 +86,7 @@ export const useSessionStore = defineStore('session', {
       this.onboardingStep = step
       this.hasCompletedOnboarding = step >= 7
       this.saveToLocalStorage()
+      this.savePerUserOnboardingStep()
     },
 
     // Increment onboarding step
@@ -94,6 +95,22 @@ export const useSessionStore = defineStore('session', {
         this.onboardingStep++
         this.hasCompletedOnboarding = this.onboardingStep >= 7
         this.saveToLocalStorage()
+        this.savePerUserOnboardingStep()
+      }
+    },
+
+    // Save onboarding step per-user (for Prolific users to resume at exact page)
+    savePerUserOnboardingStep() {
+      try {
+        // Dynamically import to avoid circular dependency
+        import('./auth').then(({ useAuthStore }) => {
+          const authStore = useAuthStore()
+          if (authStore.user?.uid) {
+            localStorage.setItem(`onboarding_step_${authStore.user.uid}`, this.onboardingStep.toString())
+          }
+        })
+      } catch (e) {
+        // Auth store not available
       }
     },
 

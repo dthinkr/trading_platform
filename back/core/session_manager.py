@@ -306,6 +306,14 @@ class SessionManager:
         # Check if it's an active market
         if session_id in self.active_markets:
             trader_manager = self.active_markets[session_id]
+            # If market is finished, return "finished" status so frontend knows to show summary
+            if trader_manager.trading_market.is_finished:
+                return {
+                    "status": "finished",
+                    "market_id": session_id,
+                    "trading_started": True,
+                    "is_finished": True
+                }
             return {
                 "status": SessionStatus.ACTIVE.value,
                 "market_id": session_id,

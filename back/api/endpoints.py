@@ -352,6 +352,10 @@ async def get_session_status(request: Request, current_user: dict = Depends(get_
         trader_manager = market_handler.get_trader_manager_by_trader_id(trader_id)
         if trader_manager:
             market_id = trader_manager.market_id
+    elif session_status.get("status") == "finished":
+        # Market has ended - user should be on summary page
+        status = "summary"
+        market_id = session_status.get("market_id")
     elif session_status.get("status") == "waiting":
         status = "waiting"
     elif historical_markets_count >= max_markets and not is_admin:
@@ -370,6 +374,23 @@ async def get_session_status(request: Request, current_user: dict = Depends(get_
         "onboarding_step": onboarding_step, "markets_completed": historical_markets_count,
         "max_markets": max_markets, "is_admin": is_admin, "is_prolific": is_prolific
     })
+
+
+@app.post("/session/reset-for-new-market")
+async def reset_session_for_new_market(request: Request, current_user: dict = Depends(get_current_user)):
+    """
+    Reset user's session to prepare for a new market.
+    Called when user clicks "Continue to next market" from summary page.
+    """
+    gmail_username = current_user['gmail_username']
+
+    # Remove user from any existing session
+    await market_handler.remove_user_from_session(gmail_username)
+
+    # Clean up any finished markets
+    await market_handler.cleanup_finished_markets()
+
+    return success(message="Session reset for new market", data={"username": gmail_username})
 
 
 @app.get("/traders/defaults")
