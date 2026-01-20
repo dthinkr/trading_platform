@@ -286,65 +286,7 @@ const goalDescription = computed(() => {
 </script>
 
 <style scoped>
-.page-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 2rem;
-}
-
-.header-section {
-  text-align: center;
-  margin-bottom: 3rem;
-}
-
-.gradient-text {
-  background: linear-gradient(45deg, #2196f3, #4caf50);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  font-weight: bold;
-  margin: 1rem 0;
-}
-
-.pulse-icon {
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.1);
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-
-.info-card {
-  height: 100%;
-  border-radius: 12px;
-  transition: all 0.3s ease;
-}
-
-.success-gradient {
-  background: linear-gradient(135deg, #4caf5011, #81c78411) !important;
-}
-
-.info-gradient {
-  background: linear-gradient(135deg, #2196f311, #64b5f611) !important;
-}
-
-.warning-gradient {
-  background: linear-gradient(135deg, #ffa00011, #ffd54f11) !important;
-}
-
-.highlight-text {
-  color: #1976d2;
-  font-weight: 600;
-  font-size: 1.1rem;
-}
-
+/* Page-specific styles only - shared styles are in components.css */
 .earnings-formula {
   background: rgba(255, 255, 255, 0.5);
   border: 1px solid rgba(0, 0, 0, 0.1);
@@ -368,11 +310,5 @@ const goalDescription = computed(() => {
   font-size: 0.9em;
   font-style: italic;
   color: #666;
-}
-
-@media (max-width: 960px) {
-  .page-container {
-    padding: 1rem;
-  }
 }
 </style>
