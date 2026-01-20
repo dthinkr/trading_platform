@@ -210,12 +210,6 @@ watch(currentRouteName, (newRoute, oldRoute) => {
   // Mark onboarding as complete when reaching ready page
   if (newRoute === 'ready') {
     sessionStore.setOnboardingStep(7)
-    
-    // For Prolific users, mark as having completed onboarding
-    if (authStore.user?.isProlific) {
-      const prolificUserId = authStore.user.uid
-      localStorage.setItem(`prolific_onboarded_${prolificUserId}`, 'true')
-    }
   }
 })
 

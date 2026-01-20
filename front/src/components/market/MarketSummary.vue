@@ -379,7 +379,7 @@ const formatValue = (value, format) => {
 // Navigate to next market with page refresh (ensures clean state)
 const goToNextMarket = async () => {
   isNavigating.value = true
-  
+
   try {
     // Check if user can start a new market
     if (!sessionStore.canStartNewMarket) {
@@ -389,31 +389,9 @@ const goToNextMarket = async () => {
       isNavigating.value = false
       return
     }
-    
-    // For Prolific users, store data for auto-login after refresh
-    if (authStore.user?.isProlific) {
-      // Mark as having completed onboarding
-      if (authStore.user?.uid) {
-        localStorage.setItem(`prolific_onboarded_${authStore.user.uid}`, 'true')
-        
-        // Store flag indicating continuation to next market
-        localStorage.setItem('prolific_next_market', 'true')
-        
-        // Store Prolific parameters for auto-login
-        if (authStore.user.prolificData) {
-          const prolificData = {
-            PROLIFIC_PID: authStore.user.prolificData.PROLIFIC_PID,
-            STUDY_ID: authStore.user.prolificData.STUDY_ID,
-            SESSION_ID: authStore.user.prolificData.SESSION_ID,
-            timestamp: Date.now()
-          }
-          localStorage.setItem('prolific_auto_login', JSON.stringify(prolificData))
-        }
-      }
-    }
-    
-    // Page refresh to ensure clean state
-    window.location.href = '/onboarding/ready'
+
+    // Use NavigationService to handle the transition properly
+    await NavigationService.startNextMarket()
   } catch (error) {
     console.error('Error navigating to next market:', error)
     dialogTitle.value = 'Error'

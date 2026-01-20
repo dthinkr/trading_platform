@@ -322,7 +322,7 @@ const submitConsent = async () => {
     }
 
     // Use NavigationService to go to next step
-    NavigationService.nextOnboardingStep()
+    await NavigationService.nextOnboardingStep()
   } catch (error) {
     console.error('Error handling consent:', error)
     if (error.response) {

@@ -16,7 +16,6 @@ export const useAuthStore = defineStore('auth', {
     lastLoginTime: null,
     loginInProgress: false,
     prolificToken: null,
-    prolificUserHasCompletedOnboarding: false,
   }),
   actions: {
     // Sync trader ID to session store
@@ -74,8 +73,19 @@ export const useAuthStore = defineStore('auth', {
         this.loginInProgress = true
 
         const prolificPID = prolificParams.PROLIFIC_PID
+        const newUserId = `prolific_${prolificPID}`
+
+        // Check if this is a different user than before - if so, reset session state
+        const previousUserId = this.user?.uid
+        if (previousUserId !== newUserId) {
+          // Different user logging in (or first login) - clear old session data
+          const { useSessionStore } = await import('./session')
+          const sessionStore = useSessionStore()
+          sessionStore.reset()
+        }
+
         const pseudoUser = {
-          uid: `prolific_${prolificPID}`,
+          uid: newUserId,
           email: `${prolificPID}@prolific.co`,
           displayName: `Prolific User ${prolificPID}`,
           isProlific: true,
@@ -108,11 +118,6 @@ export const useAuthStore = defineStore('auth', {
         if (response.data.data.prolific_token) {
           this.prolificToken = response.data.data.prolific_token
         }
-
-        const prolificUserId = `prolific_${prolificParams.PROLIFIC_PID}`
-        const hasCompletedOnboarding =
-          localStorage.getItem(`prolific_onboarded_${prolificUserId}`) === 'true'
-        this.prolificUserHasCompletedOnboarding = hasCompletedOnboarding
 
         // Sync to session store
         this.syncToSessionStore()
@@ -193,7 +198,6 @@ export const useAuthStore = defineStore('auth', {
       this.isInitialized = false
       this.lastLoginTime = null
       this.prolificToken = null
-      this.prolificUserHasCompletedOnboarding = false
 
       localStorage.removeItem('auth')
     },

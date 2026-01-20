@@ -5,17 +5,20 @@ import { useAuthStore } from '@/store/auth'
 import { useTraderStore } from '@/store/app'
 import { useWebSocketStore } from '@/store/websocket'
 
-// Step name to route name mapping
+// Onboarding pages in order (0-6 are instruction pages, 7 is ready page)
 const ONBOARDING_ROUTES = [
-  'consent',
-  'welcome', 
-  'platform',
-  'setup',
-  'earnings',
-  'participants',
-  'questions',
-  'ready'
+  'consent',      // 0
+  'welcome',      // 1
+  'platform',     // 2
+  'setup',        // 3
+  'earnings',     // 4
+  'participants', // 5
+  'questions',    // 6
+  'ready'         // 7 - special: this is the "completed onboarding" page
 ]
+
+// Ready page is treated differently - it's the gateway to trading
+const READY_PAGE_INDEX = 7
 
 export const NavigationService = {
   /**
@@ -43,45 +46,94 @@ export const NavigationService = {
   },
 
   /**
-   * Navigate to the appropriate page based on current session state
+   * Get the route name for a given step index
    */
-  async navigateToCurrentState() {
-    const sessionStore = useSessionStore()
-    const route = this.getRedirectForStatus(sessionStore.status)
-    
-    // If in onboarding, go to the correct step
-    if (sessionStore.status === 'onboarding' || sessionStore.status === 'authenticated') {
-      const stepRoute = ONBOARDING_ROUTES[sessionStore.onboardingStep] || 'consent'
-      return router.push({ name: stepRoute })
+  getRouteForStep(step) {
+    if (step < 0) return ONBOARDING_ROUTES[0]
+    if (step >= ONBOARDING_ROUTES.length) return ONBOARDING_ROUTES[READY_PAGE_INDEX]
+    return ONBOARDING_ROUTES[step]
+  },
+
+  /**
+   * Get the step index for a given route name
+   */
+  getStepForRoute(routeName) {
+    const index = ONBOARDING_ROUTES.indexOf(routeName)
+    return index >= 0 ? index : 0
+  },
+
+  /**
+   * Load the user's saved onboarding progress
+   * Returns the step they should resume at
+   */
+  loadUserProgress(userId) {
+    if (!userId) return 0
+
+    const savedStep = localStorage.getItem(`onboarding_step_${userId}`)
+    if (savedStep !== null) {
+      const step = parseInt(savedStep, 10)
+      // Validate the step is in range
+      if (step >= 0 && step < ONBOARDING_ROUTES.length) {
+        return step
+      }
     }
-    
-    return router.push(route)
+    return 0
+  },
+
+  /**
+   * Save the user's onboarding progress
+   */
+  saveUserProgress(userId, step) {
+    if (!userId) return
+    localStorage.setItem(`onboarding_step_${userId}`, step.toString())
   },
 
   /**
    * After successful login - determine where to send the user
+   *
+   * Logic:
+   * - Admin users skip onboarding entirely, go to ready page
+   * - Load user's saved progress
+   * - If they completed onboarding (step >= 7), go to ready page
+   * - Otherwise, resume at their saved step
    */
   async afterLogin() {
     const sessionStore = useSessionStore()
     const authStore = useAuthStore()
-    
+
+    console.log('[Navigation] afterLogin called')
+    console.log('[Navigation] Current sessionStore.onboardingStep:', sessionStore.onboardingStep)
+
     try {
       await sessionStore.syncFromBackend()
     } catch (e) {
-      // If sync fails, use local state
       console.warn('Failed to sync session from backend:', e)
     }
-    
-    // Determine destination based on state
-    // Persisted users (returning after refresh) go directly to ready page
-    if (sessionStore.hasCompletedOnboarding || authStore.isPersisted) {
+
+    // Admin users skip onboarding entirely
+    if (authStore.isAdmin) {
+      console.log('[Navigation] Admin user, skipping to ready page')
+      sessionStore.setOnboardingStep(READY_PAGE_INDEX)
       sessionStore.setStatus('waiting')
-      sessionStore.setOnboardingStep(7)  // Mark as completed
+      return router.push({ name: 'ready' })
+    }
+
+    // Load user-specific progress
+    const userId = authStore.user?.uid
+    const savedStep = this.loadUserProgress(userId)
+    console.log('[Navigation] User:', userId, 'savedStep from localStorage:', savedStep)
+
+    // Set the step in session store
+    sessionStore.setOnboardingStep(savedStep)
+    console.log('[Navigation] Set onboardingStep to:', savedStep)
+
+    // Navigate to the appropriate page
+    if (savedStep >= READY_PAGE_INDEX) {
+      sessionStore.setStatus('waiting')
       return router.push({ name: 'ready' })
     } else {
       sessionStore.setStatus('onboarding')
-      const stepRoute = ONBOARDING_ROUTES[sessionStore.onboardingStep] || 'consent'
-      return router.push({ name: stepRoute })
+      return router.push({ name: this.getRouteForStep(savedStep) })
     }
   },
 
@@ -96,22 +148,33 @@ export const NavigationService = {
 
   /**
    * Navigate to next onboarding step
+   * This is the ONLY way to advance forward in onboarding
    */
   async nextOnboardingStep() {
     const sessionStore = useSessionStore()
+    const authStore = useAuthStore()
     const currentStep = sessionStore.onboardingStep
-    
-    if (currentStep >= ONBOARDING_ROUTES.length - 1) {
-      // Already at last step (ready)
+
+    console.log('[Navigation] nextOnboardingStep called, currentStep:', currentStep)
+
+    // Can't go past ready page
+    if (currentStep >= READY_PAGE_INDEX) {
+      console.log('[Navigation] Already at or past ready page, not advancing')
       return
     }
-    
-    sessionStore.advanceOnboarding()
-    const nextRoute = ONBOARDING_ROUTES[sessionStore.onboardingStep]
-    
-    if (nextRoute) {
-      return router.push({ name: nextRoute })
-    }
+
+    const nextStep = currentStep + 1
+
+    // Update session store
+    sessionStore.setOnboardingStep(nextStep)
+
+    // Save per-user progress
+    this.saveUserProgress(authStore.user?.uid, nextStep)
+
+    // Navigate
+    const nextRoute = this.getRouteForStep(nextStep)
+    console.log('[Navigation] Navigating to:', nextRoute, 'step:', nextStep)
+    return router.push({ name: nextRoute })
   },
 
   /**
@@ -119,36 +182,44 @@ export const NavigationService = {
    */
   async prevOnboardingStep() {
     const sessionStore = useSessionStore()
+    const authStore = useAuthStore()
     const currentStep = sessionStore.onboardingStep
-    
+
+    // Can't go before first page
     if (currentStep <= 0) {
       return
     }
-    
-    sessionStore.setOnboardingStep(currentStep - 1)
-    const prevRoute = ONBOARDING_ROUTES[sessionStore.onboardingStep]
-    
-    if (prevRoute) {
-      return router.push({ name: prevRoute })
-    }
+
+    const prevStep = currentStep - 1
+
+    // Update session store (but don't save - we only save forward progress)
+    sessionStore.setOnboardingStep(prevStep)
+
+    // Navigate
+    const prevRoute = this.getRouteForStep(prevStep)
+    return router.push({ name: prevRoute })
   },
 
   /**
-   * Navigate to specific onboarding step (for direct navigation)
+   * Navigate to specific onboarding step
+   * Only allows going to steps <= current progress
    */
-  async goToOnboardingStep(step) {
+  async goToOnboardingStep(targetStep) {
     const sessionStore = useSessionStore()
-    
-    // Can only go to steps we've completed or the next one
-    if (step > sessionStore.onboardingStep + 1) {
-      step = sessionStore.onboardingStep
+    const authStore = useAuthStore()
+    const currentStep = sessionStore.onboardingStep
+
+    // Clamp to valid range
+    if (targetStep < 0) targetStep = 0
+    if (targetStep > READY_PAGE_INDEX) targetStep = READY_PAGE_INDEX
+
+    // Can only go to steps we've already reached
+    if (targetStep > currentStep) {
+      targetStep = currentStep
     }
-    
-    if (step < 0) step = 0
-    if (step >= ONBOARDING_ROUTES.length) step = ONBOARDING_ROUTES.length - 1
-    
-    sessionStore.setOnboardingStep(step)
-    return router.push({ name: ONBOARDING_ROUTES[step] })
+
+    sessionStore.setOnboardingStep(targetStep)
+    return router.push({ name: this.getRouteForStep(targetStep) })
   },
 
   /**
@@ -157,12 +228,11 @@ export const NavigationService = {
   async startTrading() {
     const sessionStore = useSessionStore()
     const traderStore = useTraderStore()
-    
+
     try {
       await traderStore.startTradingMarket()
       sessionStore.setStatus('waiting')
       // Navigation will happen via WebSocket 'market_started' event
-      // or immediately if all traders are ready
     } catch (error) {
       console.error('Failed to start trading:', error)
       throw error
@@ -174,12 +244,12 @@ export const NavigationService = {
    */
   async onMarketStarted(marketId = null) {
     const sessionStore = useSessionStore()
-    
+
     if (marketId) {
       sessionStore.marketId = marketId
     }
     sessionStore.setStatus('trading')
-    
+
     return router.push({ name: 'trading' })
   },
 
@@ -189,11 +259,11 @@ export const NavigationService = {
   async onTradingEnded() {
     const sessionStore = useSessionStore()
     const wsStore = useWebSocketStore()
-    
+
     sessionStore.setStatus('summary')
     sessionStore.incrementMarketsCompleted()
     wsStore.disconnect()
-    
+
     return router.push({ name: 'summary' })
   },
 
@@ -203,17 +273,34 @@ export const NavigationService = {
   async startNextMarket() {
     const sessionStore = useSessionStore()
     const traderStore = useTraderStore()
-    
+
+    console.log('[Navigation] startNextMarket called')
+    console.log('[Navigation] canStartNewMarket:', sessionStore.canStartNewMarket)
+    console.log('[Navigation] current status:', sessionStore.status)
+
     if (!sessionStore.canStartNewMarket) {
+      console.log('[Navigation] Cannot start new market, returning false')
       return false
     }
-    
+
+    // Tell backend to clean up the finished market session
+    try {
+      const axios = (await import('@/api/axios')).default
+      await axios.post('/session/reset-for-new-market')
+      console.log('[Navigation] Backend session reset successful')
+    } catch (error) {
+      console.warn('[Navigation] Failed to reset backend session:', error)
+      // Continue anyway - the backend might already be cleaned up
+    }
+
     // Reset trader state for new market
     traderStore.clearStore()
-    
+
     // Reset session for new market
     sessionStore.resetForNewMarket()
-    
+    console.log('[Navigation] After resetForNewMarket, status:', sessionStore.status)
+
+    console.log('[Navigation] Navigating to ready page')
     return router.push({ name: 'ready' })
   },
 
@@ -231,11 +318,11 @@ export const NavigationService = {
    */
   async goToAdmin() {
     const authStore = useAuthStore()
-    
+
     if (!authStore.isAdmin) {
       return router.push({ name: 'auth' })
     }
-    
+
     return router.push({ name: 'admin' })
   },
 
@@ -247,20 +334,18 @@ export const NavigationService = {
     const sessionStore = useSessionStore()
     const traderStore = useTraderStore()
     const wsStore = useWebSocketStore()
-    
+
     // Disconnect WebSocket
     wsStore.disconnect()
-    
+
     // Clear all stores
     traderStore.clearStore()
     sessionStore.reset()
     authStore.logout()
-    
-    // Clear any Prolific data
+
+    // Clear Prolific params
     localStorage.removeItem('prolific_params')
-    localStorage.removeItem('prolific_auto_login')
-    localStorage.removeItem('prolific_next_market')
-    
+
     return router.push({ name: 'auth' })
   },
 
@@ -270,24 +355,23 @@ export const NavigationService = {
   async recoverSession() {
     const sessionStore = useSessionStore()
     const authStore = useAuthStore()
-    
+
     // Load Prolific params if they exist
     sessionStore.loadProlificParams()
-    
+
     // If not authenticated, go to auth
     if (!authStore.isAuthenticated) {
       sessionStore.setStatus('unauthenticated')
       return { name: 'auth' }
     }
-    
+
     // Try to sync from backend
     try {
       await sessionStore.syncFromBackend()
     } catch (e) {
-      // Use persisted local state
       console.warn('Using persisted session state')
     }
-    
+
     return this.getRedirectForStatus(sessionStore.status)
   }
 }
