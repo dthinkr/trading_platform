@@ -61,10 +61,11 @@ firebase-debug.log
 # ====================
 .DS_Store
 Thumbs.db
-*.tmpngrok-config/
-docker/ngrok.yml
+*.tmp
 
-
-
+# ====================
+# PROJECT SPECIFIC IGNORES
+# ====================
 REVIEW.md
-platform-paperanalysis/
+platform-paper/
+analysis/
