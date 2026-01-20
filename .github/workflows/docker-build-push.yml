@@ -6,7 +6,7 @@ on:
   workflow_dispatch:  # Allow manual trigger
 
 jobs:
-  build-and-push:
+  build-backend:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -30,8 +30,8 @@ jobs:
         push: true
         tags: venvoo/trading_platform:back
 
-  deploy:
-    needs: build-and-push
+  deploy-backend:
+    needs: build-backend
     runs-on: ubuntu-latest
     steps:
     - name: Deploy to Durham server
@@ -43,4 +43,34 @@ jobs:
         passphrase: ${{ secrets.SERVER_SSH_PASSPHRASE }}
         script: |
           /root/trading_platform/deploy.sh
+
+  deploy-frontend:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'yarn'
+        cache-dependency-path: front/yarn.lock
+
+    - name: Install dependencies
+      run: cd front && yarn install --frozen-lockfile
+
+    - name: Build frontend
+      run: cd front && yarn build
+      env:
+        VITE_HTTP_URL: https://dthinkr.ngrok.app/
+        VITE_WS_URL: wss://dthinkr.ngrok.app/
+
+    - name: Deploy to Firebase
+      uses: FirebaseExtended/action-hosting-deploy@v0
+      with:
+        repoToken: ${{ secrets.GITHUB_TOKEN }}
+        firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        projectId: london-trader
+        channelId: live
+        entryPoint: ./front
   
