@@ -1343,13 +1343,169 @@ async def test_get_session_info(trader_id: str):
     session_id = market_handler.trader_to_market_lookup.get(trader_id)
     if not session_id:
         raise HTTPException(404, "Trader not in active session")
-    
+
     return {
         "status": "success",
         "data": {
             "session_id": session_id,
             "trader_id": trader_id,
             "log_file": f"logs/{session_id}.log"
+        }
+    }
+
+
+@app.get("/api/test/trader_inventory/{trader_id}")
+async def test_get_trader_inventory(trader_id: str):
+    """Get detailed inventory info for a trader - for debugging inventory constraint issues"""
+    trader_manager = market_handler.get_trader_manager_by_trader_id(trader_id)
+    if not trader_manager:
+        raise HTTPException(404, "Trader not in active session")
+
+    trader = trader_manager.get_trader(trader_id)
+    if not trader:
+        raise HTTPException(404, "Trader not found")
+
+    return {
+        "status": "success",
+        "data": {
+            "trader_id": trader_id,
+            "trader_type": trader.trader_type,
+            "initial_shares": trader.initial_shares,
+            "initial_cash": trader.initial_cash,
+            "current_shares": trader.shares,
+            "current_cash": trader.cash,
+            "available_shares": trader.get_available_shares(),
+            "available_cash": trader.get_available_cash(),
+            "active_orders": len(trader.orders),
+            "filled_orders": len(trader.filled_orders),
+            "goal": trader.goal,
+            "goal_progress": trader.goal_progress,
+            "negative_inventory": trader.shares < 0,
+            "negative_cash": trader.cash < 0,
+        }
+    }
+
+
+@app.post("/api/test/verify_inventory_constraint")
+async def test_verify_inventory_constraint(request: Request):
+    """
+    Test endpoint to verify inventory constraint is working.
+    Attempts to place a SELL order for more shares than available.
+    Body: {trader_id, price, amount (optional, defaults to shares+1 to trigger constraint)}
+    Should return success=false if constraint is working.
+    """
+    data = await request.json()
+    trader_id = data.get("trader_id")
+    price = data.get("price", 100)
+
+    if not trader_id:
+        raise HTTPException(400, "Missing trader_id")
+
+    trader_manager = market_handler.get_trader_manager_by_trader_id(trader_id)
+    if not trader_manager:
+        raise HTTPException(404, "Trader not in active session")
+
+    trader = trader_manager.get_trader(trader_id)
+    if not trader:
+        raise HTTPException(404, "Trader not found")
+
+    # Get current inventory state
+    current_shares = trader.shares
+    available_shares = trader.get_available_shares()
+
+    # Amount to sell: either specified or more than available to test constraint
+    amount = data.get("amount", available_shares + 1)
+
+    # Try to place a sell order (ASK = -1, BID = 1)
+    from core.data_models import OrderType
+    order_id = await trader.post_new_order(amount, price, OrderType.ASK)  # ASK = -1 = SELL
+
+    return {
+        "status": "success",
+        "test_result": {
+            "order_accepted": order_id is not None,
+            "order_id": order_id,
+            "constraint_working": order_id is None,  # If None, constraint blocked the order
+            "shares_before": current_shares,
+            "available_shares": available_shares,
+            "attempted_sell_amount": amount,
+            "message": "Inventory constraint is WORKING correctly" if order_id is None else "WARNING: Order was accepted despite insufficient shares!"
+        }
+    }
+
+
+@app.post("/api/test/create_test_session")
+async def create_test_session(request: Request):
+    """
+    Create a standalone test session with a mock human trader for inventory testing.
+    No authentication required.
+    Body: {initial_shares (default 10), initial_cash (default 10000)}
+    Returns the trader_id that can be used with other test endpoints.
+    """
+    data = await request.json() if request.headers.get("content-type") == "application/json" else {}
+    initial_shares = data.get("initial_shares", 10)
+    initial_cash = data.get("initial_cash", 10000)
+
+    import time as time_module
+    import uuid
+
+    # Create unique test session
+    test_session_id = f"TEST_SESSION_{int(time_module.time())}_{uuid.uuid4().hex[:8]}"
+    test_username = f"test_user_{uuid.uuid4().hex[:8]}"
+    trader_id = f"HUMAN_{test_username}"
+
+    # Create params with the test configuration
+    params_dict = dict(base_settings) if base_settings else {}
+    params_dict["initial_stocks"] = initial_shares
+    params_dict["initial_cash"] = initial_cash
+    params_dict["trading_day_duration"] = 5.0  # 5 minutes for testing
+    params_dict["num_noise_traders"] = 1  # minimal noise traders
+    params_dict["num_informed_traders"] = 0
+    params_dict["num_agentic_traders"] = 0
+    params_dict["predefined_goals"] = [0]  # speculator role
+    params_dict["market_sizes"] = [1]  # single trader market
+
+    params = TradingParameters(**params_dict)
+
+    # Create trader manager
+    manager = TraderManager(params, market_id=test_session_id)
+    market_handler.trader_managers[test_session_id] = manager
+
+    # Add human trader manually
+    from core.data_models import TraderRole
+    await manager.add_human_trader(test_username, TraderRole.SPECULATOR, goal=0)
+
+    # Register trader in ALL lookups (this was the missing piece)
+    market_handler.trader_to_market_lookup[trader_id] = test_session_id
+    market_handler.active_users[test_session_id] = {test_username}
+    market_handler.market_ready_traders[test_session_id] = {trader_id}
+
+    # Also register in session_manager so get_trader_manager works
+    market_handler.session_manager.user_sessions[test_username] = test_session_id
+    market_handler.session_manager.active_markets[test_session_id] = manager
+
+    # Initialize and start trading
+    await manager.trading_market.initialize()
+    manager.trading_market.trading_started = True
+    await manager.trading_market.start_trading()
+
+    # Get trader info
+    trader = manager.get_trader(trader_id)
+
+    return {
+        "status": "success",
+        "test_session": {
+            "session_id": test_session_id,
+            "trader_id": trader_id,
+            "initial_shares": trader.initial_shares if trader else initial_shares,
+            "initial_cash": trader.initial_cash if trader else initial_cash,
+            "current_shares": trader.shares if trader else None,
+            "current_cash": trader.cash if trader else None,
+        },
+        "usage": {
+            "check_inventory": f"GET /api/test/trader_inventory/{trader_id}",
+            "place_order": f"POST /api/test/place_order with {{trader_id: '{trader_id}', type: 0 or 1, price: X, amount: Y}}",
+            "verify_constraint": f"POST /api/test/verify_inventory_constraint with {{trader_id: '{trader_id}'}}",
         }
     }
 
