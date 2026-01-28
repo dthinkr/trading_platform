@@ -75,6 +75,14 @@ class NoiseTrader(PausingTrader):
         if not self.orders:
             return
 
+        # if bid are empty, cancel at asks
+        if not self.order_book['bids']:
+            side = 'asks'
+        
+        # if asks are empty, cancel at bids
+        if not self.order_book['asks']:
+            side = 'bids'
+
         # Get unique prices available
         available_prices = list(set([order['price'] for order in self.orders]))
 
@@ -194,6 +202,7 @@ class NoiseTrader(PausingTrader):
     async def act(self) -> None:
         if not self.order_book:
             return
+            
 
         amt = random.randint(1, self.params["max_order_amount"])
 
@@ -221,7 +230,7 @@ class NoiseTrader(PausingTrader):
         side = ("bids" if random.random() < pr_bid else "asks")
         
         if action == 'cancel':
-            await self.cancel_orders(amt,side)
+            await self.cancel_orders(amt, side)
         elif action == 'passive':
             await self.place_passive_orders(amt,side)
         else:
