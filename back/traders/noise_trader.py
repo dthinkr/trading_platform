@@ -30,6 +30,17 @@ class NoiseTrader(PausingTrader):
         self.target_actions = int(
             self.market_duration.total_seconds() * self.activity_frequency
         )
+        self.order_book_levels = self.params["order_book_levels"]
+        self.noise_choise_weights_passive = self.params['noise_pr_passive_weights']
+        self.noise_choise_weights_cancel = self.params['noise_pr_cancel_weights']
+
+        if len(self.noise_choise_weights_passive) < self.order_book_levels:
+            min_val = min(self.noise_choise_weights_passive)
+            self.noise_choise_weights_passive = self.noise_choise_weights_passive + [min_val] * (self.order_book_levels - len(self.noise_choise_weights_passive))
+        
+        if len(self.noise_choise_weights_cancel) < self.order_book_levels:
+            min_val = min(self.noise_choise_weights_cancel)
+            self.noise_choise_weights_cancel = self.noise_choise_weights_cancel + [min_val] * (self.order_book_levels - len(self.noise_choise_weights_cancel))
 
     @property
     def elapsed_time(self) -> float:
@@ -60,13 +71,35 @@ class NoiseTrader(PausingTrader):
         #     # We're on track
         return 1 / self.activity_frequency  # Normal interval
 
-    async def cancel_orders(self, amt: int) -> None:
+    async def cancel_orders(self, amt: int, side: str) -> None:
         if not self.orders:
             return
 
         # Get unique prices available
         available_prices = list(set([order['price'] for order in self.orders]))
-        prices_to_cancel = random.sample(available_prices, min(amt, len(available_prices)))
+
+        if side == 'bids':
+            best_bid_price = self.order_book["bids"][0]["x"]
+            available_prices = [price for price in available_prices if price<= best_bid_price ]
+            available_prices.sort(reverse=True) 
+        else:
+            best_ask_price = self.order_book["asks"][0]["x"]
+            available_prices = [price for price in available_prices if price>= best_ask_price ]
+            available_prices.sort() 
+
+        n_available_prices = len(available_prices)
+        available_cancel_probs = self.noise_choise_weights_cancel
+
+        if n_available_prices == 0:
+            return
+        if n_available_prices <= self.order_book_levels:
+            available_cancel_probs = available_cancel_probs[0:n_available_prices]
+        else:
+            available_cancel_probs = available_cancel_probs + [available_cancel_probs[-1]] * (n_available_prices - self.order_book_levels)
+
+        
+        #prices_to_cancel = random.sample(available_prices, min(amt, len(available_prices))) \\ Previous Version
+        prices_to_cancel = random.choices(available_prices, weights= available_cancel_probs, k=min(amt, len(available_prices)))
         orders_to_cancel = []
         
         for price in prices_to_cancel:
@@ -78,9 +111,12 @@ class NoiseTrader(PausingTrader):
                 most_recent_order = max(orders_at_price, key=lambda order: datetime.strptime(order['timestamp'], '%Y-%m-%d %H:%M:%S.%f'))
                 orders_to_cancel.append(most_recent_order)
 
+        unique_cancel_ids = []
         for order in orders_to_cancel:
-            await self.send_cancel_order_request(order["id"])
-            self.historical_cancelled_orders += 1
+            if order['id'] not in unique_cancel_ids:
+                await self.send_cancel_order_request(order["id"])
+                unique_cancel_ids.append(order['id'])
+                self.historical_cancelled_orders += 1
 
     async def place_aggressive_orders(self, amt: int, side: str) -> None:
         remaining_amt = amt
@@ -117,13 +153,15 @@ class NoiseTrader(PausingTrader):
             if side == "bids":
                 if self.order_book["asks"]:
                     best_ask = self.order_book["asks"][0]["x"]
-                    price = best_ask - random.randint(1, order_book_levels) * step
+                    #price = best_ask - random.randint(1, order_book_levels) * step // Previous Version
+                    price = best_ask - random.choices(range(1,order_book_levels+1), weights=self.noise_choise_weights_passive, k=1)[0] * step
                 else:
                     price = default_price - random.randint(1, order_book_levels) * step
             else:
                 if self.order_book["bids"]:
                     best_bid = self.order_book["bids"][0]["x"]
-                    price = best_bid + random.randint(1, order_book_levels) * step
+                    #price = best_bid + random.randint(1, order_book_levels) * step // Previous Version
+                    price = best_bid + random.choices(range(1,order_book_levels+1), weights=self.noise_choise_weights_passive, k=1)[0] * step
                 else:
                     price = default_price + random.randint(1, order_book_levels) * step
 
@@ -159,11 +197,6 @@ class NoiseTrader(PausingTrader):
 
         amt = random.randint(1, self.params["max_order_amount"])
 
-        # Cancel orders
-        if random.random() < self.params["noise_cancel_probability"]:
-            await self.cancel_orders(amt)
-            action = "cancel"
-
         # Handle empty sides
         # if not self.order_book['bids'] or not self.order_book['asks']:
         #     empty_side = "bids" if not self.order_book['bids'] else "asks"
@@ -171,7 +204,10 @@ class NoiseTrader(PausingTrader):
         #     return
 
         pr_passive = self.params["noise_passive_probability"]
+        pr_cancel = self.params["noise_cancel_probability"]
+        pr_aggresive = 1 - pr_passive - pr_cancel
         pr_bid = self.params["noise_bid_probability"]
+
         if not self.order_book['bids']:
             pr_passive = 1
             pr_bid = 1
@@ -180,22 +216,20 @@ class NoiseTrader(PausingTrader):
             pr_passive = 1
             pr_bid = 0
 
-
-        # Place orders
+        action = random.choices(['cancel','passive','aggressive'], weights = [pr_cancel,pr_passive,pr_aggresive],k=1)[0]
         amt = random.randint(1, self.params["max_order_amount"])
-        side = (
-            "bids" if random.random() < pr_bid else "asks"
-        )
-
-        # Proceed with regular order placement
-        if random.random() < pr_passive:
-            await self.place_passive_orders(amt, side)
-            action = "non_executable"
+        side = ("bids" if random.random() < pr_bid else "asks")
+        
+        if action == 'cancel':
+            await self.cancel_orders(amt,side)
+        elif action == 'passive':
+            await self.place_passive_orders(amt,side)
         else:
-            await self.place_aggressive_orders(amt, side)
-            action = "executable"
+            await self.place_aggressive_orders(amt,side)
 
         self.action_counter += 1
+
+
 
     async def run(self) -> None:
         while not self._stop_requested.is_set():
