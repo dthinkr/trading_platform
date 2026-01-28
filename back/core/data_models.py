@@ -97,7 +97,7 @@ class TradingParameters(BaseModel):
         ge=0,
     )
     trading_day_duration: float = Field(
-        default=0.25,
+        default=3,
         title="Trading Day Duration (minutes)",
         description="model_parameter",
         gt=0,
@@ -147,6 +147,16 @@ class TradingParameters(BaseModel):
         description="noise_parameter",
         gt=0,
     )
+    noise_pr_passive_weights: List[int] = Field(
+        default=[11,7,3,1,1],
+        title="Passive Odds/Ratios",
+        description="noise_parameter",
+    )
+    noise_pr_cancel_weights: List[int] = Field(
+        default=[2,1,1,1,1],
+        title="Cancel Odds/Ratios",
+        description="noise_parameter",
+    )
 
     # informed trader settings
     informed_trade_intensity: float = Field(
@@ -192,12 +202,12 @@ class TradingParameters(BaseModel):
 
     # human trader settings
     initial_cash: float = Field(
-        default=100000,
+        default=1200,
         title="Initial Cash",
         description="human_parameter",
     )
     initial_stocks: int = Field(
-        default=20,
+        default=10,
         title="Initial Stocks",
         description="human_parameter",
     )
@@ -260,7 +270,7 @@ class TradingParameters(BaseModel):
 
     # goal settings
     predefined_goals: List[int] = Field(
-        default=[20],
+        default=[0],
         title="Predefined Goals",
         description="human_parameter",
     )
