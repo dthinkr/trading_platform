@@ -107,6 +107,11 @@ class TradingParameters(BaseModel):
         title="Step for New Orders",
         description="model_parameter",
     )
+    depth_weights: List[int] = Field(
+        default=[1,1,1,1,1],
+        title="Depth Weights",
+        description="model_parameter",
+    )
 
     # noise trader settings
     noise_activity_frequency: float = Field(

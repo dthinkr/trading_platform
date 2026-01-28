@@ -23,7 +23,6 @@ class InformedTrader(PausingTrader):
         self.use_passive_orders = params.get("informed_use_passive_orders", False)
         # Order multiplier to increase trading volume
         self.order_multiplier = 1
-        # print(self.params)
         
         # Add random direction handling
         if params.get("informed_random_direction", False):
@@ -92,7 +91,7 @@ class InformedTrader(PausingTrader):
         expected_noise_volume = (
             expected_noise_amount_per_action
             * expected_noise_number_of_actions
-            * (1 - params["noise_passive_probability"])
+            * (1 - params["noise_passive_probability"] - params['noise_cancel_probability'])
         )
         x = params["informed_trade_intensity"]
 
@@ -170,7 +169,7 @@ class InformedTrader(PausingTrader):
         if goal <= number_trades:
             sleep_time = 1000
         else:
-            sleep_time = max(0.5,(remaining_time - 5) / (goal - number_trades))
+            sleep_time = max(0.5,(remaining_time - 7) / (goal - number_trades))
         return sleep_time
         
     async def manage_passive_aggresive_orders(self):
@@ -341,8 +340,8 @@ class InformedTrader(PausingTrader):
         remaining_time = self.get_remaining_time()
         self.number_trades = len(self.filled_orders)
         
-        if remaining_time < 5 or (abs(self.goal * self.order_multiplier - self.number_trades) <= 0):
-            # print(f'Informed trader fullfilled goal with {self.number_trades} trades')
+        if remaining_time < 2 or (abs(self.goal * self.order_multiplier - self.number_trades) <= 0):
+            #print(f'Informed trader fullfilled goal with {self.number_trades} trades')
             return
 
         trade_direction = self.params["informed_trade_direction"]
