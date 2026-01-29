@@ -157,6 +157,19 @@ class TradingParameters(BaseModel):
         title="Passive Odds/Ratios",
         description="noise_parameter",
     )
+    noise_alpha: float = Field(
+        default=0.05,
+        title="Mid-Price Smoothing Alpha",
+        description="noise_parameter",
+        gt=0,
+        le=1,
+    )
+    noise_bias_thresh: float = Field(
+        default=3,
+        title="Bid Probability Bias Threshold",
+        description="noise_parameter",
+        ge=0,
+    )
 
     # informed trader settings
     informed_trade_intensity: float = Field(
