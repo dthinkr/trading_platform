@@ -157,11 +157,6 @@ class TradingParameters(BaseModel):
         title="Passive Odds/Ratios",
         description="noise_parameter",
     )
-    noise_pr_cancel_weights: List[int] = Field(
-        default=[2,1,1,1,1],
-        title="Cancel Odds/Ratios",
-        description="noise_parameter",
-    )
 
     # informed trader settings
     informed_trade_intensity: float = Field(

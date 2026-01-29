@@ -91,7 +91,7 @@ class InformedTrader(PausingTrader):
         expected_noise_volume = (
             expected_noise_amount_per_action
             * expected_noise_number_of_actions
-            * (1 - params["noise_passive_probability"] - params['noise_cancel_probability'])
+            * (1 - params["noise_passive_probability"])
         )
         x = params["informed_trade_intensity"]
 
