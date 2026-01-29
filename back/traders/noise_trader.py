@@ -1,3 +1,11 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Jan 29 14:15:58 2026
+
+@author: uxte001
+"""
+
 import asyncio
 import random
 import numpy as np
@@ -36,6 +44,21 @@ class NoiseTrader(PausingTrader):
         if len(self.noise_choise_weights_passive) < self.order_book_levels:
             min_val = min(self.noise_choise_weights_passive)
             self.noise_choise_weights_passive = self.noise_choise_weights_passive + [min_val] * (self.order_book_levels - len(self.noise_choise_weights_passive))
+        
+        # ============================================================
+        # NEW STATE: smoothed mid reference
+        # ============================================================
+        self.mid_ref = self.params["default_price"]
+        
+        # ============================================================
+        # NEW PARAMETERS (add to config):
+        #
+        self.noise_alpha = self.params["noise_alpha"]
+        self.bias_thresh = self.params["noise_bias_thresh"]
+        # ============================================================
+
+        
+        
         
     @property
     def elapsed_time(self) -> float:
@@ -116,7 +139,7 @@ class NoiseTrader(PausingTrader):
             if remaining_amt == 0:
                 break
 
-    async def place_passive_orders(self, amt: int, side: str) -> None:
+    async def place_passive_orders0(self, amt: int, side: str) -> None:
         order_book_levels = self.params["order_book_levels"]
         step = self.params["step"]
         default_price = self.params["default_price"]
@@ -142,10 +165,38 @@ class NoiseTrader(PausingTrader):
             )
             self.historical_placed_orders += 1
 
+
+    async def place_passive_orders(self, amt: int, side: str) -> None:
+        order_book_levels = self.params["order_book_levels"]
+        step = self.params["step"]
+    
+        for _ in range(amt):
+    
+            anchor = self.mid_ref
+    
+            if side == "bids":
+                price = anchor - random.choices(
+                    range(1, order_book_levels + 1),
+                    weights=self.noise_choise_weights_passive,
+                    k=1
+                )[0] * step
+            else:
+                price = anchor + random.choices(
+                    range(1, order_book_levels + 1),
+                    weights=self.noise_choise_weights_passive,
+                    k=1
+                )[0] * step
+    
+            await self.post_new_order(
+                1, price, OrderType.BID if side == "bids" else OrderType.ASK
+            )
+            self.historical_placed_orders += 1
+    
+
     async def place_orders_on_empty_side(self, amt: int) -> None:
         order_book_levels = self.params["order_book_levels"]
         step = self.params["step"]
-        default_price = self.params["default_price"]
+        #default_price = self.params["default_price"]
 
         best_bid = self.order_book["bids"][0]["x"]
         best_ask = self.order_book["asks"][0]["x"]
@@ -185,6 +236,44 @@ class NoiseTrader(PausingTrader):
         pr_aggresive = 1 - pr_passive 
         pr_bid = self.params["noise_bid_probability"]
 
+
+
+        # ------------------------------------------------------------
+        # NEW: update smoothed mid reference when book is two-sided
+        # ------------------------------------------------------------
+        bids = self.order_book["bids"]
+        asks = self.order_book["asks"]
+        step = self.params["step"]
+        
+        if bids and asks:
+            
+            best_bid = bids[0]["x"]
+            best_ask = asks[0]["x"]
+
+            mid = (best_bid + best_ask) / 2
+
+            alpha = self.noise_alpha  # NEW PARAM
+            self.mid_ref = (1 - alpha) * self.mid_ref + alpha * mid
+
+            
+            db = max(0.0, self.mid_ref - best_bid)
+            da = max(0.0, best_ask - self.mid_ref)
+
+            thr = self.bias_thresh*step  # NEW PARAM
+
+            x = max(0.0, db - da - thr)
+            y = max(0.0, da - db - thr)
+            # Symmetric bias term in [-0.5, +0.5]
+            bias = (x - y) / (2 + x + y)
+
+            # Skew around baseline probability
+            pr_bid = pr_bid + bias
+
+            # Clamp to valid probability range
+            pr_bid = max(0.05, min(0.95, pr_bid))
+        ##################End of New################
+        
+        
         if not self.order_book['bids']:
             pr_passive = 1
             pr_bid = 1
@@ -192,6 +281,7 @@ class NoiseTrader(PausingTrader):
         if not self.order_book['asks']:
             pr_passive = 1
             pr_bid = 0
+
 
         action = random.choices(['passive','aggressive'], weights = [pr_passive,pr_aggresive],k=1)[0]
         amt = random.randint(1, self.params["max_order_amount"])
