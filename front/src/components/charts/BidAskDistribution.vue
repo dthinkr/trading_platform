@@ -89,10 +89,11 @@ const chartOptions = reactive({
   plotOptions: {
     column: {
       animation: false,
-      pointPadding: 0.01,
+      pointPadding: 0,
       groupPadding: 0,
       borderWidth: 1,
-      grouping: false,
+      grouping: false,  // No grouping - bars fill entire space, overlap when crossing
+      pointRange: 1,    // Each bar fills 1 unit of x-axis for thick bars
     },
   },
   series: chartData.value,
