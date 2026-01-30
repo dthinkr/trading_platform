@@ -1,11 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Thu Jan 29 14:15:58 2026
-
-@author: uxte001
-"""
-
 import asyncio
 import random
 import numpy as np
@@ -38,6 +30,7 @@ class NoiseTrader(PausingTrader):
         self.target_actions = int(
             self.market_duration.total_seconds() * self.activity_frequency
         )
+        self.step = self.params['step']
         self.order_book_levels = self.params["order_book_levels"]
         self.noise_choise_weights_passive = self.params['noise_pr_passive_weights']
 
@@ -48,16 +41,15 @@ class NoiseTrader(PausingTrader):
         # ============================================================
         # NEW STATE: smoothed mid reference
         # ============================================================
-        self.mid_ref = self.params["default_price"]
+        self.best_bid_ref = self.params["default_price"] - self.step
+        self.best_ask_ref = self.params["default_price"] + self.step
         
         # ============================================================
-        # NEW PARAMETERS (add to config):
-        #
+        # EMA parameters:
         self.noise_alpha = self.params["noise_alpha"]
         self.bias_thresh = self.params["noise_bias_thresh"]
         # ============================================================
 
-        
         
         
     @property
@@ -76,18 +68,7 @@ class NoiseTrader(PausingTrader):
         return int(self.elapsed_time * self.activity_frequency)
 
     def calculate_cooling_interval(self) -> float:
-        # """Dynamically calculate the cooling interval to match expected actions."""
-        # action_difference = self.expected_actions - self.action_counter
-
-        # if action_difference > 0:
-        #     # We're behind, need to catch up
-        #     return 0.1  # Minimum interval to catch up quickly
-        # elif action_difference < 0:
-        #     # We're ahead, need to slow down
-        #     return 2 / self.activity_frequency  # Wait for 2 expected intervals
-        # else:
-        #     # We're on track
-        return 1 / self.activity_frequency  # Normal interval
+        return 1 / self.activity_frequency 
 
     async def cancel_orders(self, amt: int) -> None:
         if not self.orders:
@@ -139,7 +120,7 @@ class NoiseTrader(PausingTrader):
             if remaining_amt == 0:
                 break
 
-    async def place_passive_orders0(self, amt: int, side: str) -> None:
+    async def place_passive_orders(self, amt: int, side: str) -> None:
         order_book_levels = self.params["order_book_levels"]
         step = self.params["step"]
         default_price = self.params["default_price"]
@@ -165,32 +146,6 @@ class NoiseTrader(PausingTrader):
             )
             self.historical_placed_orders += 1
 
-
-    async def place_passive_orders(self, amt: int, side: str) -> None:
-        order_book_levels = self.params["order_book_levels"]
-        step = self.params["step"]
-    
-        for _ in range(amt):
-    
-            anchor = self.mid_ref
-    
-            if side == "bids":
-                price = anchor - random.choices(
-                    range(1, order_book_levels + 1),
-                    weights=self.noise_choise_weights_passive,
-                    k=1
-                )[0] * step
-            else:
-                price = anchor + random.choices(
-                    range(1, order_book_levels + 1),
-                    weights=self.noise_choise_weights_passive,
-                    k=1
-                )[0] * step
-    
-            await self.post_new_order(
-                1, price, OrderType.BID if side == "bids" else OrderType.ASK
-            )
-            self.historical_placed_orders += 1
     
 
     async def place_orders_on_empty_side(self, amt: int) -> None:
@@ -214,74 +169,138 @@ class NoiseTrader(PausingTrader):
             )
             self.historical_placed_orders += 1
 
+        ########new function
+    async def place_tightening_passive_orders(self, amt: int, side: str, best_bid: float, best_ask: float) -> None:
+        order_book_levels = self.params["order_book_levels"]
+        step = self.params["step"]
+    
+        for _ in range(amt):
+    
+            if side == "bids":
+                # --- tightening bid placement ---
+                levels_to_ref = int(np.round((self.best_bid_ref - best_bid) / step))
+                levels_to_spread = int((best_ask - step - best_bid) / step)
+    
+                max_levels_bid = min(levels_to_ref, levels_to_spread)
+                max_levels_bid = max(1, max_levels_bid)
+    
+                level = random.choices(
+                    range(1, max_levels_bid + 1),
+                    weights=self.noise_choise_weights_passive[:max_levels_bid],
+                    k=1
+                )[0]
+    
+                price = best_bid + level * step
+    
+            else:
+                # --- tightening ask placement ---
+                levels_to_ref = int(np.round((best_ask - self.best_ask_ref) / step))
+                levels_to_spread = int((best_ask - (best_bid + step)) / step)
+    
+                max_levels_ask = min(levels_to_ref, levels_to_spread)
+                max_levels_ask = max(1, max_levels_ask)
+    
+                level = random.choices(
+                    range(1, max_levels_ask + 1),
+                    weights=self.noise_choise_weights_passive[:max_levels_ask],
+                    k=1
+                )[0]
+    
+                price = best_ask - level * step
+
+            await self.post_new_order(
+                1, price, OrderType.BID if side == "bids" else OrderType.ASK
+            )
+            self.historical_placed_orders += 1
+    
+    
     async def act(self) -> None:
         if not self.order_book:
             return
-            
-        pr_cancel = self.params["noise_cancel_probability"]
 
+        pr_cancel = self.params["noise_cancel_probability"]
+        max_order_amount = self.params["max_order_amount"]
+        step = self.params['step']
         amt = random.randint(1, self.params["max_order_amount"])
 
         # Cancel orders
         if random.random() < pr_cancel:
             await self.cancel_orders(amt)
 
-        # Handle empty sides
-        # if not self.order_book['bids'] or not self.order_book['asks']:
-        #     empty_side = "bids" if not self.order_book['bids'] else "asks"
-        #     await self.place_passive_orders(amt, empty_side)
-        #     return
-
         pr_passive = self.params["noise_passive_probability"]
         pr_aggresive = 1 - pr_passive 
         pr_bid = self.params["noise_bid_probability"]
 
-
-
-        # ------------------------------------------------------------
-        # NEW: update smoothed mid reference when book is two-sided
-        # ------------------------------------------------------------
         bids = self.order_book["bids"]
         asks = self.order_book["asks"]
-        step = self.params["step"]
-        
-        if bids and asks:
-            
+
+        alpha = self.noise_alpha
+        bias_ticks = self.bias_thresh
+
+        # ------------------------------------------------------------
+        # EMA update for best bid/ask refs
+        # ------------------------------------------------------------
+        if bids:
             best_bid = bids[0]["x"]
+            self.best_bid_ref = (1 - alpha) * self.best_bid_ref + alpha * best_bid
+        else:
+            # since empty, keep the same
+            self.best_bid_ref = self.best_bid_ref 
+        
+        if asks:
             best_ask = asks[0]["x"]
-
-            mid = (best_bid + best_ask) / 2
-
-            alpha = self.noise_alpha  # NEW PARAM
-            self.mid_ref = (1 - alpha) * self.mid_ref + alpha * mid
-
-            
-            db = max(0.0, self.mid_ref - best_bid)
-            da = max(0.0, best_ask - self.mid_ref)
-
-            thr = self.bias_thresh*step  # NEW PARAM
-
-            x = max(0.0, db - da - thr)
-            y = max(0.0, da - db - thr)
-            # Symmetric bias term in [-0.5, +0.5]
-            bias = (x - y) / (2 + x + y)
-
-            # Skew around baseline probability
-            pr_bid = pr_bid + bias
-
-            # Clamp to valid probability range
-            pr_bid = max(0.05, min(0.95, pr_bid))
-        ##################End of New################
+            self.best_ask_ref = (1 - alpha) * self.best_ask_ref + alpha * best_ask
+        else:
+            # since empty, keep the same
+            self.best_ask_ref = self.best_ask_ref
         
+        # ------------------------------------------------------------
+        # Spread condition trigger
+        # ------------------------------------------------------------
+        if bids and asks:            
+            spread_ticks = (best_ask - best_bid) / step
+            tightening_mode = (spread_ticks >= bias_ticks)
+    
+        # ------------------------------------------------------------
+        # Choose action + side randomly
+        # ------------------------------------------------------------  
+        side = "bids" if random.random() < pr_bid else "asks"
+
+
+        if not bids:
+            pr_passive = 1
+            pr_aggresive = 1 - pr_passive
+            side = 'bids'
+            tightening_mode = False
         
-        if not self.order_book['bids']:
-            pr_passive = 1
-            pr_bid = 1
+        if not asks:
+            pr_passive  = 1
+            pr_aggresive = 1 - pr_passive
+            side = 'asks'
+            tightening_mode = False
 
-        if not self.order_book['asks']:
-            pr_passive = 1
-            pr_bid = 0
-
+        if tightening_mode:
+        
+            if side == "asks":
+                delta_price = best_ask - self.best_ask_ref
+            else:
+                delta_price = self.best_bid_ref - best_bid
+        
+            delta_ticks = max(1, delta_price / step)
+        
+            amt = int(round(max_order_amount * delta_ticks))
+            await self.place_tightening_passive_orders(amt, side, best_bid, best_ask)
+        else:
+            # Normal behavior
+            action = random.choices(["passive", "aggressive"],weights=[pr_passive, pr_aggresive],k=1)[0]
+    
+            if action == "passive":
+                await self.place_passive_orders(amt, side)
+            else:
+                await self.place_aggressive_orders(amt, side)
+    
+        self.action_counter += 1
+    
 
         action = random.choices(['passive','aggressive'], weights = [pr_passive,pr_aggresive],k=1)[0]
         amt = random.randint(1, self.params["max_order_amount"])
