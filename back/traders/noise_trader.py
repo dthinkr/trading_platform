@@ -237,6 +237,17 @@ class NoiseTrader(PausingTrader):
         alpha = self.noise_alpha
         bias_ticks = self.bias_thresh
 
+        if not bids:
+            pr_passive = 1
+            pr_aggresive = 1 - pr_passive
+            pr_bid = 1
+        
+        if not asks:
+            pr_passive  = 1
+            pr_aggresive = 1 - pr_passive
+            pr_bid = 0
+
+
         # ------------------------------------------------------------
         # EMA update for best bid/ask refs
         # ------------------------------------------------------------
@@ -245,39 +256,25 @@ class NoiseTrader(PausingTrader):
             self.best_bid_ref = (1 - alpha) * self.best_bid_ref + alpha * best_bid
         else:
             # since empty, keep the same
-            self.best_bid_ref = self.best_bid_ref 
+            best_bid = self.best_bid_ref - bias_ticks * step
         
         if asks:
             best_ask = asks[0]["x"]
             self.best_ask_ref = (1 - alpha) * self.best_ask_ref + alpha * best_ask
         else:
             # since empty, keep the same
-            self.best_ask_ref = self.best_ask_ref
+            best_ask = self.best_ask_ref + bias_ticks * step
         
         # ------------------------------------------------------------
         # Spread condition trigger
-        # ------------------------------------------------------------
-        if bids and asks:            
-            spread_ticks = (best_ask - best_bid) / step
-            tightening_mode = (spread_ticks >= bias_ticks)
+        # ------------------------------------------------------------         
+        spread_ticks = (best_ask - best_bid) / step
+        tightening_mode = (spread_ticks >= bias_ticks)
     
         # ------------------------------------------------------------
         # Choose action + side randomly
         # ------------------------------------------------------------  
         side = "bids" if random.random() < pr_bid else "asks"
-
-
-        if not bids:
-            pr_passive = 1
-            pr_aggresive = 1 - pr_passive
-            side = 'bids'
-            tightening_mode = False
-        
-        if not asks:
-            pr_passive  = 1
-            pr_aggresive = 1 - pr_passive
-            side = 'asks'
-            tightening_mode = False
 
         if tightening_mode:
         
