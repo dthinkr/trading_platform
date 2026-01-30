@@ -12,19 +12,6 @@ function findMidpoint(bids, asks) {
   return midpoint
 }
 
-function aggregateOrdersByPrice(orders, step = 1) {
-  const aggregated = {}
-
-  orders.forEach((order) => {
-    const bucket = Math.round(order.x / step) * step
-    aggregated[bucket] = (aggregated[bucket] || 0) + order.y
-  })
-
-  return Object.entries(aggregated)
-    .map(([x, y]) => ({ x: parseFloat(x), y }))
-    .sort((a, b) => a.x - b.x)
-}
-
 export const useMarketStore = defineStore('market', {
   state: () => ({
     orderBook: {
@@ -91,12 +78,8 @@ export const useMarketStore = defineStore('market', {
       const { bids, asks } = orderBook
       const depthBookShown = gameParams?.depth_book_shown || 3
 
-      // Aggregate orders to integer price buckets for thick bars
-      const aggregatedBids = aggregateOrdersByPrice(bids.slice(0, depthBookShown))
-      const aggregatedAsks = aggregateOrdersByPrice(asks.slice(0, depthBookShown))
-
-      this.orderBook.bids = aggregatedBids
-      this.orderBook.asks = aggregatedAsks
+      this.orderBook.bids = bids.slice(0, depthBookShown)
+      this.orderBook.asks = asks.slice(0, depthBookShown)
       this.orderBook.midpoint = findMidpoint(this.orderBook.bids, this.orderBook.asks)
 
       this.chartData = [
