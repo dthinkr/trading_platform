@@ -297,19 +297,6 @@ class NoiseTrader(PausingTrader):
                 await self.place_aggressive_orders(amt, side)
     
         self.action_counter += 1
-    
-
-        action = random.choices(['passive','aggressive'], weights = [pr_passive,pr_aggresive],k=1)[0]
-        amt = random.randint(1, self.params["max_order_amount"])
-        side = ("bids" if random.random() < pr_bid else "asks")
-        
-        if action == 'passive':
-            await self.place_passive_orders(amt,side)
-        else:
-            await self.place_aggressive_orders(amt,side)
-
-        self.action_counter += 1
-
 
 
     async def run(self) -> None:
