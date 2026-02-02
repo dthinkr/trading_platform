@@ -16,6 +16,7 @@ class NoiseTrader(PausingTrader):
         self.cash = math.inf
         self.shares = math.inf
 
+
         # Historical tracking
         self.historical_cancelled_orders = 0
         self.historical_placed_orders = 0
