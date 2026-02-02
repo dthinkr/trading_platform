@@ -44,7 +44,7 @@ class NoiseTrader(PausingTrader):
         # ============================================================
         self.best_bid_ref = self.params["default_price"] - self.step
         self.best_ask_ref = self.params["default_price"] + self.step
-        
+        self.mid_ref = self.params['default_price']
         # ============================================================
         # EMA parameters:
         self.noise_alpha = self.params["noise_alpha"]
@@ -170,50 +170,71 @@ class NoiseTrader(PausingTrader):
             )
             self.historical_placed_orders += 1
 
-        ########new function
-    async def place_tightening_passive_orders(self, amt: int, side: str, best_bid: float, best_ask: float) -> None:
-        order_book_levels = self.params["order_book_levels"]
-        step = self.params["step"]
     
-        for _ in range(amt):
-    
-            if side == "bids":
-                # --- tightening bid placement ---
-                levels_to_ref = int(np.round((self.best_bid_ref - best_bid) / step))
-                levels_to_spread = int((best_ask - step - best_bid) / step)
-    
-                max_levels_bid = min(levels_to_ref, levels_to_spread)
-                max_levels_bid = max(1, max_levels_bid)
-    
-                level = random.choices(
-                    range(1, max_levels_bid + 1),
-                    weights=self.noise_choise_weights_passive[:max_levels_bid],
-                    k=1
-                )[0]
-    
-                price = best_bid + level * step
-    
-            else:
-                # --- tightening ask placement ---
-                levels_to_ref = int(np.round((best_ask - self.best_ask_ref) / step))
-                levels_to_spread = int((best_ask - (best_bid + step)) / step)
-    
-                max_levels_ask = min(levels_to_ref, levels_to_spread)
-                max_levels_ask = max(1, max_levels_ask)
-    
-                level = random.choices(
-                    range(1, max_levels_ask + 1),
-                    weights=self.noise_choise_weights_passive[:max_levels_ask],
-                    k=1
-                )[0]
-    
-                price = best_ask - level * step
 
-            await self.post_new_order(
-                1, price, OrderType.BID if side == "bids" else OrderType.ASK
-            )
-            self.historical_placed_orders += 1
+    ########new function
+    async def  place_tightening_passive_orders(self, max_order_amount: int, side: str, best_bid: float, best_ask: float) -> None:
+        
+        step = self.step
+        weights = self.noise_choise_weights_passive
+        active_levels = sum(w > 0 for w in weights)
+        if active_levels == 0:
+            return
     
+        half_spread_ticks = int((best_ask - best_bid) / (2*step))
+        # Anchor and direction
+        if side == "bids":
+            anchor = best_bid
+            sign = +1
+            ref_dist = int(np.round((self.best_bid_ref - best_bid) / step))
+            order_type = OrderType.BID
+        else:
+            anchor = best_ask
+            sign = -1
+            ref_dist = int(np.round((best_ask - self.best_ask_ref) / step))
+            order_type = OrderType.ASK
+    
+    
+        max_levels = max(1, min(half_spread_ticks,ref_dist, active_levels))
+    
+        level = random.choices(range(1, max_levels + 1),weights=weights[:max_levels],k=1)[0]
+    
+        # Fill all intermediate levels
+        for k in range(1, level + 1):
+            size = random.randint(1, max_order_amount)
+            price = anchor + sign * k * step
+            await self.post_new_order(size, price, order_type)
+            self.historical_placed_orders += size
+    
+    
+    #new function
+    async def fill_gaps(self, side: str, best_bid: float, best_ask: float) -> None:
+    
+        step = self.step
+        weights = self.noise_choise_weights_passive
+        active_levels = sum(w > 0 for w in weights)
+        
+        if active_levels == 0:
+            return
+    
+        if side == "bids":
+            anchor = best_bid
+            sign = -1
+            book_side = "bids"
+            order_type = OrderType.BID
+        else:
+            anchor = best_ask
+            sign = +1
+            book_side = "asks"
+            order_type = OrderType.ASK
+    
+        existing_prices = {lvl["x"] for lvl in self.order_book[book_side]}
+    
+        for k in range(1, active_levels + 1):
+            price = anchor + sign * k * step
+            if price not in existing_prices:
+                await self.post_new_order(1, price, order_type)
+                self.historical_placed_orders += 1
     
     async def act(self) -> None:
         if not self.order_book:
@@ -279,18 +300,22 @@ class NoiseTrader(PausingTrader):
 
         if tightening_mode:
         
-            if side == "asks":
-                delta_price = best_ask - self.best_ask_ref
-            else:
-                delta_price = self.best_bid_ref - best_bid
+            #if side == "asks":
+            #    delta_price = best_ask - self.best_ask_ref
+            #else:
+            #    delta_price = self.best_bid_ref - best_bid
         
-            delta_ticks = max(1, delta_price / step)
+            #delta_ticks = max(1, delta_price / step)
+
+            await self.fill_gaps('bids', best_bid, best_ask)
+            await self.fill_gaps('asks', best_bid, best_ask)
         
-            amt = int(round(max_order_amount * delta_ticks))
-            await self.place_tightening_passive_orders(amt, side, best_bid, best_ask)
+            await self.place_tightening_passive_orders(max_order_amount, side, best_bid, best_ask)
         else:
             # Normal behavior
             action = random.choices(["passive", "aggressive"],weights=[pr_passive, pr_aggresive],k=1)[0]
+
+            amt = random.randint(1, max_order_amount)
     
             if action == "passive":
                 await self.place_passive_orders(amt, side)
