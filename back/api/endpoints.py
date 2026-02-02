@@ -1480,7 +1480,7 @@ async def test_reset_state():
 @app.post("/admin/run_headless_batch")
 async def run_headless_batch(
     background_tasks: BackgroundTasks,
-    num_markets: int = Query(default=3, ge=1, le=10),
+    num_markets: int = Query(default=3, ge=1, le=100),
     start_treatment: int = Query(default=0, ge=0),
     parallel: bool = Query(default=True, description="Run markets simultaneously (True) or sequentially (False)"),
     delay_seconds: int = Query(default=5, ge=1, le=60, description="Delay between sequential markets (ignored if parallel=True)")
