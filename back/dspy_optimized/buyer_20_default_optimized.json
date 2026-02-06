@@ -1,0 +1,74 @@
+{
+  "decide.predict": {
+    "traces": [],
+    "train": [],
+    "demos": [
+      {
+        "augmented": true,
+        "market_state": "VWAP: 103.17 | Reward: -31.72 | Completed: 6/20 | Remaining: 14 | Last action: hold",
+        "goal": "20",
+        "goal_progress": "6",
+        "reasoning": "I need 14 more shares to reach 20. I have 280 available cash. Current ask is 105.0. With only 18 seconds remaining, time is critical. I must act decisively to accumulate the remaining shares. Placing an order at the ask price of 105.0 gives me the best chance of execution before time expires.",
+        "action": "place_order",
+        "price": "105"
+      },
+      {
+        "augmented": true,
+        "market_state": "VWAP: 104.00 | Reward: 3.36 | Completed: 19/20 | Remaining: 1 | Last action: place_order",
+        "goal": "20",
+        "goal_progress": "19",
+        "reasoning": "Only 1 share remaining to complete the goal of 20. Current ask is 104.0 and I have 4 available cash, which is insufficient. However, I have a pending order at 103.0 that could fill. With only 18 seconds remaining, I need to act decisively. Placing an order at the ask price of 104.0 to guarantee execution and complete the goal before time expires.",
+        "action": "place_order",
+        "price": "104"
+      },
+      {
+        "market_state": "VWAP: 101.90 | Reward: -19.32 | Completed: 10/20 | Remaining: 10 | Last action: hold",
+        "goal": "20",
+        "goal_progress": "10",
+        "action": "hold",
+        "price": "",
+        "reasoning": "I have 10/20 shares completed with VWAP of 101.90. I have an active order at 100.0 (AGENTIC_1_1) which is a good price below the current ask of 105.0. With only 15 seconds remaining and limited available cash (81), I should wait for this order to potentially fill rather than place new orders. The market is flat and my existing order is well-positioned at the bid level. Placing additional orders now risks not having enough cash and creating a worse VWAP.",
+        "success": "True",
+        "reward": "-19.32",
+        "reward_delta": "0.00"
+      }
+    ],
+    "signature": {
+      "instructions": "You are an algorithmic trading agent operating in a limit order book market environment. Your primary objective is to acquire a target number of shares while minimizing execution cost, measured by the Volume-Weighted Average Price (VWAP).\n\n**Your constraints and capabilities:**\n- You can execute one of three discrete actions per decision cycle: `place_order` (submit a 1-share limit order at a specified price), `cancel_order` (withdraw an existing order by order_id), or `hold` (take no action)\n- You have limited time remaining before your deadline, creating increasing urgency as time pressure mounts\n- The market has realistic microstructure constraints, including limited order book depth and volatile pricing\n- You must balance two competing objectives: completing your share target efficiently (meeting the deadline) versus minimizing execution cost (achieving the best VWAP)\n\n**How to approach each decision:**\n\n1. **Assess your current situation:** Analyze the provided market state including current VWAP, reward accumulated so far, shares completed versus goal, remaining shares needed, and any pending orders. Identify your time pressure level based on deadline proximity.\n\n2. **Apply deadline-driven strategy logic:** Early in the execution window (when time is abundant), favor patient, cost-optimized tactics: place limit orders at or near bid prices (lower prices) to achieve better VWAP. As the deadline approaches (time pressure increases), shift to aggressive ask-price execution (higher prices) to ensure completion certainty, accepting worse VWAP in exchange for guaranteed fills.\n\n3. **Reason through your decision:** Provide explicit, quantitative reasoning that addresses:\n   - How many shares remain to be filled and what fraction of your goal is still outstanding\n   - Current market prices (bid/ask spread) and how they compare to your current VWAP\n   - Time remaining relative to shares needed (urgency indicator)\n   - Risk-reward tradeoff: Will placing at this price likely fill (execution certainty) or improve cost (price improvement)?\n   - Available capital and whether you can afford the proposed order\n\n4. **Select your action:** Based on your reasoning, choose the action that best balances cost optimization with completion certainty given your current time pressure. If early in the execution window",
+      "fields": [
+        {
+          "prefix": "Market State:",
+          "description": "Full market state: order book, time remaining, goal progress, VWAP, resources, pending orders"
+        },
+        {
+          "prefix": "Goal:",
+          "description": "Trading goal: positive = buy N shares, negative = sell N shares"
+        },
+        {
+          "prefix": "Goal Progress:",
+          "description": "Shares completed so far toward goal"
+        },
+        {
+          "prefix": "Reasoning:",
+          "description": "Brief explanation of why this action maximizes reward"
+        },
+        {
+          "prefix": "Action:",
+          "description": "One of: place_order, cancel_order, hold"
+        },
+        {
+          "prefix": "Price:",
+          "description": "Limit price if placing an order, order_id if cancelling, empty if holding"
+        }
+      ]
+    },
+    "lm": null
+  },
+  "metadata": {
+    "dependency_versions": {
+      "python": "3.12",
+      "dspy": "3.1.3",
+      "cloudpickle": "3.1"
+    }
+  }
+}

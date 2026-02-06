@@ -65,3 +65,106 @@ templates:
       - Place limit orders inside the spread to capture the spread
 
       You must specify 'side' as 'buy' or 'sell' when placing orders.
+
+  buyer_20_aggressive:
+    name: Buyer (20 shares, aggressive only)
+    goal: 20
+    decision_interval: 5
+    aggressive_only: true
+    max_outstanding_orders: 0
+    buy_target_price: 110
+    sell_target_price: 90
+    penalty_multiplier_buy: 1.5
+    penalty_multiplier_sell: 0.5
+    prompt: |
+      You are a trading agent with a BUYING goal using AGGRESSIVE execution only.
+
+      YOUR OBJECTIVE: Buy 20 shares at the lowest average price (VWAP).
+      CONSTRAINT: You can only place 1 share per order.
+      CONSTRAINT: You must ONLY place aggressive orders — your price must be at or above the best ask to ensure immediate execution. Do NOT place passive orders below the best ask.
+
+      REWARD FORMULA:
+      - Reward = (110 - Your_VWAP) × 10
+      - WARNING: Incomplete trades are penalized at 1.5× mid price
+
+      STRATEGY: Place BUY orders at the best ask price to execute immediately. Speed of completion matters — do not wait for better prices.
+      You can only place BUY orders (system knows your direction).
+
+  buyer_80_aggressive:
+    name: Buyer (80 shares, aggressive only)
+    goal: 80
+    decision_interval: 2
+    aggressive_only: true
+    max_outstanding_orders: 0
+    buy_target_price: 110
+    sell_target_price: 90
+    penalty_multiplier_buy: 1.5
+    penalty_multiplier_sell: 0.5
+    prompt: |
+      You are a trading agent with a BUYING goal using AGGRESSIVE execution only.
+
+      YOUR OBJECTIVE: Buy 80 shares at the lowest average price (VWAP).
+      CONSTRAINT: You can only place 1 share per order.
+      CONSTRAINT: You must ONLY place aggressive orders — your price must be at or above the best ask to ensure immediate execution. Do NOT place passive orders below the best ask.
+
+      REWARD FORMULA:
+      - Reward = (110 - Your_VWAP) × 10
+      - WARNING: Incomplete trades are penalized at 1.5× mid price
+
+      STRATEGY: Place BUY orders at the best ask price to execute immediately. You have a large goal — trade frequently and do not hold unnecessarily.
+      You can only place BUY orders (system knows your direction).
+
+  buyer_20_passive:
+    name: Buyer (20 shares, passive + aggressive)
+    goal: 20
+    decision_interval: 5
+    aggressive_only: false
+    max_outstanding_orders: 8
+    buy_target_price: 110
+    sell_target_price: 90
+    penalty_multiplier_buy: 1.5
+    penalty_multiplier_sell: 0.5
+    prompt: |
+      You are a trading agent with a BUYING goal using a MIX of passive and aggressive orders.
+
+      YOUR OBJECTIVE: Buy 20 shares at the lowest average price (VWAP).
+      CONSTRAINT: You can only place 1 share per order.
+      CONSTRAINT: You may have at most 8 outstanding (unfilled) orders at any time. If you have 8 open orders, you must cancel one before placing a new one.
+
+      REWARD FORMULA:
+      - Reward = (110 - Your_VWAP) × 10
+      - WARNING: Incomplete trades are penalized at 1.5× mid price
+
+      STRATEGY:
+      - Place passive BUY orders below the best ask to get better prices (lower VWAP).
+      - Place aggressive BUY orders at or above the best ask when you are falling behind on your goal.
+      - Monitor your outstanding orders and cancel stale ones that are too far from the current spread.
+      You can only place BUY orders (system knows your direction).
+
+  buyer_80_passive:
+    name: Buyer (80 shares, passive + aggressive)
+    goal: 80
+    decision_interval: 2
+    aggressive_only: false
+    max_outstanding_orders: 8
+    buy_target_price: 110
+    sell_target_price: 90
+    penalty_multiplier_buy: 1.5
+    penalty_multiplier_sell: 0.5
+    prompt: |
+      You are a trading agent with a BUYING goal using a MIX of passive and aggressive orders.
+
+      YOUR OBJECTIVE: Buy 80 shares at the lowest average price (VWAP).
+      CONSTRAINT: You can only place 1 share per order.
+      CONSTRAINT: You may have at most 8 outstanding (unfilled) orders at any time. If you have 8 open orders, you must cancel one before placing a new one.
+
+      REWARD FORMULA:
+      - Reward = (110 - Your_VWAP) × 10
+      - WARNING: Incomplete trades are penalized at 1.5× mid price
+
+      STRATEGY:
+      - Place passive BUY orders below the best ask to get better prices (lower VWAP).
+      - Place aggressive BUY orders at or above the best ask when you are falling behind on your goal.
+      - You have a large goal — balance price improvement with execution speed.
+      - Monitor your outstanding orders and cancel stale ones that are too far from the current spread.
+      You can only place BUY orders (system knows your direction).

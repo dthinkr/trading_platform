@@ -250,6 +250,10 @@ class AgenticBase(PausingTrader):
         self.sell_target_price = self.template.get("sell_target_price", 90)
         self.penalty_multiplier_buy = self.template.get("penalty_multiplier_buy", 1.5)
         self.penalty_multiplier_sell = self.template.get("penalty_multiplier_sell", 0.5)
+
+        # Order constraints from template
+        self.aggressive_only = self.template.get("aggressive_only", False)
+        self.max_outstanding_orders = self.template.get("max_outstanding_orders", 0)  # 0 = no limit
         
         self.last_decision_time = 0
 
@@ -579,8 +583,18 @@ class AgenticTrader(AgenticBase):
         super().__init__(trader_type=TraderType.AGENTIC, id=id, params=params)
         # Goal comes from template
         self.goal = self.template.get("goal", 0)
-        self.cash = params.get("initial_cash", 10000)
-        self.shares = params.get("initial_shares", 0)
+
+        # Initialize inventory based on goal direction (like informed trader)
+        default_price = params.get("default_price", 100)
+        if self.goal > 0:  # buyer: needs cash, starts with 0 shares
+            self.cash = abs(self.goal) * default_price * 2
+            self.shares = 0
+        elif self.goal < 0:  # seller: needs shares, starts with 0 cash
+            self.cash = 0
+            self.shares = abs(self.goal)
+        else:  # speculator: use defaults
+            self.cash = params.get("initial_cash", 10000)
+            self.shares = params.get("initial_shares", 0)
         self.initial_cash = self.cash
         self.initial_shares = self.shares
 
@@ -620,9 +634,26 @@ class AgenticTrader(AgenticBase):
     async def _handle_place_order(self, args: Dict) -> Dict:
         price, qty = args.get("price", 0), 1
         min_price, max_price = self._get_valid_price_range()
-        
+
         if not (min_price <= price <= max_price):
             return {"error": f"Price {price} out of range ({min_price}-{max_price})"}
+
+        # Enforce max outstanding orders
+        if self.max_outstanding_orders > 0 and len(self.orders) >= self.max_outstanding_orders:
+            return {"error": f"Max outstanding orders ({self.max_outstanding_orders}) reached. Cancel an order first."}
+
+        # Enforce aggressive-only: order must cross the spread
+        if self.aggressive_only and self.order_book:
+            asks = self.order_book.get("asks", [])
+            bids = self.order_book.get("bids", [])
+            if self.is_buyer and asks:
+                best_ask = asks[0]["x"]
+                if price < best_ask:
+                    return {"error": f"Aggressive only: bid price {price} must be >= best ask {best_ask}"}
+            elif self.is_seller and bids:
+                best_bid = bids[0]["x"]
+                if price > best_bid:
+                    return {"error": f"Aggressive only: ask price {price} must be <= best bid {best_bid}"}
 
         if self.is_buyer:
             order_type, side, avail = OrderType.BID, "buy", self.get_available_cash()
