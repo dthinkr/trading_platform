@@ -70,3 +70,8 @@ REVIEW.md
 platform-paper/
 analysis/
 research/
+
+# ====================
+# DSPY OPTIMIZATION
+# ====================
+back/dspy_optimized/

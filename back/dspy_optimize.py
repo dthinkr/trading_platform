@@ -375,11 +375,15 @@ def run_optimization(
         display_progress=True,
     )
 
-    baseline_score = evaluator(agent)
-    optimized_score = evaluator(optimized_agent)
+    baseline_result = evaluator(agent)
+    optimized_result = evaluator(optimized_agent)
 
-    print(f"\nBaseline score:  {baseline_score:.2f}")
-    print(f"Optimized score: {optimized_score:.2f}")
+    # DSPy 3.x returns EvaluationResult objects
+    baseline_score = float(baseline_result) if not isinstance(baseline_result, (int, float)) else baseline_result
+    optimized_score = float(optimized_result) if not isinstance(optimized_result, (int, float)) else optimized_result
+
+    print(f"\nBaseline score:  {baseline_score}")
+    print(f"Optimized score: {optimized_score}")
     print(f"Improvement:     {optimized_score - baseline_score:+.2f}")
 
     return optimized_agent
