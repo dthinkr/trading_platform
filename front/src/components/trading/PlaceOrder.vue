@@ -105,7 +105,7 @@ const tradingStore = useTraderStore()
 const marketStore = useMarketStore()
 const uiStore = useUIStore()
 const { gameParams, bidData, askData, trader, aiAdvice, advisorEnabled } = storeToRefs(tradingStore)
-const { extraParams, anchorMid } = storeToRefs(marketStore)
+const { extraParams } = storeToRefs(marketStore)
 
 const step = computed(() => gameParams.value.step || 1)
 const hasAskData = computed(() => askData.value.length > 0)
@@ -117,24 +117,28 @@ const bestAsk = computed(() =>
   hasAskData.value ? Math.min(...askData.value.map((ask) => ask.x)) : null
 )
 
-const depthBookShown = computed(() => gameParams.value.depth_book_shown || 8)
+const orderBookLevels = computed(() => gameParams.value.order_book_levels || 5)
 
-// Buy prices: start from best_ask - 1, descending (allows aggressive orders)
 const buyPrices = computed(() => {
-  if (bestAsk.value === null) return []
-  return Array.from(
-    { length: depthBookShown.value },
-    (_, i) => bestAsk.value - step.value * (i + 1)
-  )
+  if (bestAsk.value === null || !orderBookLevels.value) {
+    return Array.from(
+      { length: orderBookLevels.value },
+      (_, i) => bestBid.value + step.value * 1 - step.value * i
+    )
+  } else {
+    return Array.from({ length: orderBookLevels.value }, (_, i) => bestAsk.value - step.value * i)
+  }
 })
 
-// Sell prices: start from best_bid + 1, ascending (allows aggressive orders)
 const sellPrices = computed(() => {
-  if (bestBid.value === null) return []
-  return Array.from(
-    { length: depthBookShown.value },
-    (_, i) => bestBid.value + step.value * (i + 1)
-  )
+  if (bestBid.value === null || !orderBookLevels.value) {
+    return Array.from(
+      { length: orderBookLevels.value },
+      (_, i) => bestAsk.value - step.value * 1 + step.value * i
+    )
+  } else {
+    return Array.from({ length: orderBookLevels.value }, (_, i) => bestBid.value + step.value * i)
+  }
 })
 
 // const isBuyButtonDisabled = computed(() => !hasAskData.value);
