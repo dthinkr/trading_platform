@@ -225,8 +225,13 @@ class TradingParameters(BaseModel):
         description="human_parameter",
     )
     depth_book_shown: int = Field(
-        default=5,
-        title="Depth Book Shown",
+        default=8,
+        title="Depth Book Shown (steps from mid)",
+        description="human_parameter",
+    )
+    adj_edge: int = Field(
+        default=2,
+        title="Adjust Edge (mid drift to re-center)",
         description="human_parameter",
     )
 

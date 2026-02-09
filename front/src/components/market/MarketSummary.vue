@@ -113,7 +113,7 @@
                     <p class="text-subtitle-1 mb-2">2. Which window of the trading platform provided the most useful information for your decisions?</p>
                     <v-radio-group v-model="questionnaire.q2" row>
                       <v-radio label="Order Book Chart (Bar Plot)" value="Order Book Chart"></v-radio>
-                      <v-radio label="Price History Chart (Line Plot)" value="Price History Chart"></v-radio>
+                      <v-radio label="Trade Price History Chart (Line Plot)" value="Trade Price History Chart"></v-radio>
                       <v-radio label="Market Info Card (Market Information)" value="Market Info Card"></v-radio>
                     </v-radio-group>
                   </div>

@@ -105,7 +105,7 @@ const tradingStore = useTraderStore()
 const marketStore = useMarketStore()
 const uiStore = useUIStore()
 const { gameParams, bidData, askData, trader, aiAdvice, advisorEnabled } = storeToRefs(tradingStore)
-const { extraParams } = storeToRefs(marketStore)
+const { extraParams, anchorMid } = storeToRefs(marketStore)
 
 const step = computed(() => gameParams.value.step || 1)
 const hasAskData = computed(() => askData.value.length > 0)
@@ -117,38 +117,24 @@ const bestAsk = computed(() =>
   hasAskData.value ? Math.min(...askData.value.map((ask) => ask.x)) : null
 )
 
-const orderBookLevels = computed(() => gameParams.value.order_book_levels || 5)
+const depthBookShown = computed(() => gameParams.value.depth_book_shown || 8)
 
+// Buy prices: depth_book_shown steps below the anchored mid, descending
 const buyPrices = computed(() => {
-  if (bestAsk.value === null || !orderBookLevels.value) {
-    return Array.from(
-      { length: orderBookLevels.value },
-      (_, i) => bestBid.value + step.value * 1 - step.value * i
-    )
-  } else {
-    return Array.from({ length: orderBookLevels.value }, (_, i) => bestAsk.value - step.value * i)
-  }
+  if (anchorMid.value === null) return []
+  return Array.from(
+    { length: depthBookShown.value },
+    (_, i) => anchorMid.value - step.value * (i + 1)
+  )
 })
 
-// const buyPrices = computed(() => {
-//   if (bestAsk.value === null || !orderBookLevels.value) return [];
-//   return Array.from({ length: orderBookLevels.value }, (_, i) => bestAsk.value - step.value * i);
-// });
-
-// const sellPrices = computed(() => {
-//   if (bestBid.value === null || !orderBookLevels.value) return [];
-//   return Array.from({ length: orderBookLevels.value }, (_, i) => bestBid.value + step.value * i);
-// });
-
+// Sell prices: depth_book_shown steps above the anchored mid, ascending
 const sellPrices = computed(() => {
-  if (bestBid.value === null || !orderBookLevels.value) {
-    return Array.from(
-      { length: orderBookLevels.value },
-      (_, i) => bestAsk.value - step.value * 1 + step.value * i
-    )
-  } else {
-    return Array.from({ length: orderBookLevels.value }, (_, i) => bestBid.value + step.value * i)
-  }
+  if (anchorMid.value === null) return []
+  return Array.from(
+    { length: depthBookShown.value },
+    (_, i) => anchorMid.value + step.value * (i + 1)
+  )
 })
 
 // const isBuyButtonDisabled = computed(() => !hasAskData.value);

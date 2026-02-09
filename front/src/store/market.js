@@ -20,6 +20,8 @@ export const useMarketStore = defineStore('market', {
       spread: null,
       midpoint: 0,
     },
+    anchorMid: null,
+    anchorInitialized: false,
     chartData: [
       {
         name: 'Bids',
@@ -76,11 +78,33 @@ export const useMarketStore = defineStore('market', {
       if (!orderBook) return
 
       const { bids, asks } = orderBook
-      const depthBookShown = gameParams?.depth_book_shown || 3
+      const depthBookShown = gameParams?.depth_book_shown || 8
+      const adjEdge = gameParams?.adj_edge || 2
+      const step = gameParams?.step || 1
 
-      this.orderBook.bids = bids.slice(0, depthBookShown)
-      this.orderBook.asks = asks.slice(0, depthBookShown)
-      this.orderBook.midpoint = findMidpoint(this.orderBook.bids, this.orderBook.asks)
+      // Compute real midpoint from full (unfiltered) data
+      const realMid = findMidpoint(bids, asks)
+
+      // Initialize or update anchor mid-price
+      if (!this.anchorInitialized && realMid > 0) {
+        this.anchorMid = Math.round(realMid)
+        this.anchorInitialized = true
+      } else if (!this.anchorInitialized && gameParams?.default_price) {
+        this.anchorMid = gameParams.default_price
+      } else if (this.anchorInitialized && realMid > 0) {
+        // Only re-center if mid drifts by adj_edge or more
+        if (Math.abs(realMid - this.anchorMid) >= adjEdge) {
+          this.anchorMid = Math.round(realMid)
+        }
+      }
+
+      // Filter bids/asks to the anchor price range
+      const minPrice = this.anchorMid - depthBookShown * step
+      const maxPrice = this.anchorMid + depthBookShown * step
+
+      this.orderBook.bids = bids.filter(b => b.x >= minPrice && b.x <= maxPrice)
+      this.orderBook.asks = asks.filter(a => a.x >= minPrice && a.x <= maxPrice)
+      this.orderBook.midpoint = realMid
 
       this.chartData = [
         {
