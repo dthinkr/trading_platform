@@ -117,27 +117,27 @@ const bestAsk = computed(() =>
   hasAskData.value ? Math.min(...askData.value.map((ask) => ask.x)) : null
 )
 
-const orderBookLevels = computed(() => gameParams.value.order_book_levels || 5)
+const numButtons = computed(() => gameParams.value.depth_book_shown || 5)
 
 const buyPrices = computed(() => {
-  if (bestAsk.value === null || !orderBookLevels.value) {
+  if (bestAsk.value === null || !numButtons.value) {
     return Array.from(
-      { length: orderBookLevels.value },
+      { length: numButtons.value },
       (_, i) => bestBid.value + step.value * 1 - step.value * i
     )
   } else {
-    return Array.from({ length: orderBookLevels.value }, (_, i) => bestAsk.value - step.value * i)
+    return Array.from({ length: numButtons.value }, (_, i) => bestAsk.value - step.value * i)
   }
 })
 
 const sellPrices = computed(() => {
-  if (bestBid.value === null || !orderBookLevels.value) {
+  if (bestBid.value === null || !numButtons.value) {
     return Array.from(
-      { length: orderBookLevels.value },
+      { length: numButtons.value },
       (_, i) => bestAsk.value - step.value * 1 + step.value * i
     )
   } else {
-    return Array.from({ length: orderBookLevels.value }, (_, i) => bestBid.value + step.value * i)
+    return Array.from({ length: numButtons.value }, (_, i) => bestBid.value + step.value * i)
   }
 })
 
