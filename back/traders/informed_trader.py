@@ -37,7 +37,7 @@ class InformedTrader(PausingTrader):
                 )
             
         self.goal = self.initialize_inventory(params)
-        self.num_passive_to_keep = int(self.params["informed_share_passive"] * self.goal * self.order_multiplier)
+        self.num_passive_to_keep = int(self.params["informed_share_passive"] * self.goal / self.order_multiplier)
         # Adjust sleep time to account for increased order volume
         self.next_sleep_time = params.get("trading_day_duration", 5) * 60 / (self.goal * self.order_multiplier)
         self.shares_traded = 0
@@ -50,7 +50,7 @@ class InformedTrader(PausingTrader):
         if not self.filled_orders:
             return 0
         filled_amount = sum(order["amount"] for order in self.filled_orders)
-        return filled_amount / (self.goal * self.order_multiplier) if self.goal > 0 else 1
+        return filled_amount / self.goal if self.goal > 0 else 1
 
     @property
     def target_progress(self) -> float:
@@ -167,11 +167,13 @@ class InformedTrader(PausingTrader):
             
         return spread
 
-    def calculate_sleep_time(self,remaining_time,number_trades,goal):
-        if goal <= number_trades:
+    def calculate_sleep_time(self, remaining_time, filled_shares, goal_shares):
+        remaining_shares = goal_shares - filled_shares
+        if remaining_shares <= 0:
             sleep_time = 1000
         else:
-            sleep_time = max(0.5,(remaining_time - 7) / (goal - number_trades))
+            remaining_orders = remaining_shares / self.order_multiplier
+            sleep_time = max(0.5, (remaining_time - 7) / remaining_orders)
         return sleep_time * self.speed_factor
         
     async def manage_passive_aggresive_orders(self):
@@ -181,9 +183,7 @@ class InformedTrader(PausingTrader):
         trade_direction = self.params["informed_trade_direction"]
         order_side = OrderType.BID if trade_direction == TradeDirection.BUY else OrderType.ASK
         
-        self.number_trades = len(self.filled_orders)
-        # print('total goal', self.goal)
-        # print('number of trades', self.number_trades)
+        total_filled_shares = sum(order['amount'] for order in self.filled_orders) if self.filled_orders else 0
 
         # Get order placement levels
         #levels = self.order_placement_levels
@@ -211,27 +211,25 @@ class InformedTrader(PausingTrader):
         # remaining_trades to achieve goal
         # are less than the number of passive orders at the top levels
 
-        remaining_trades = max(self.goal - self.number_trades,0)
-        total_passive_are_all_levels =  sum(order['amount'] for order in self.orders)   
+        remaining_shares = max(self.goal - total_filled_shares, 0)
+        total_passive_shares = sum(order['amount'] for order in self.orders)
 
-        if remaining_trades < total_passive_are_all_levels:
-            num_orders_to_cancel = int(total_passive_are_all_levels - remaining_trades)
+        if remaining_shares < total_passive_shares:
+            excess_shares = total_passive_shares - remaining_shares
             if order_side == OrderType.BID:
                 sorted_orders = sorted(self.orders,
                         key=lambda x: (
                             x["price"],-datetime.strptime(x["timestamp"], "%Y-%m-%d %H:%M:%S.%f").timestamp()))
-                orders_to_cancel = sorted_orders[:num_orders_to_cancel]
-                for order in orders_to_cancel:
-                    order_id = order['id']
-                    await self.send_cancel_order_request(order_id)
             else:
                 sorted_orders = sorted(self.orders,
                         key=lambda x: (
                             -x["price"],-datetime.strptime(x["timestamp"], "%Y-%m-%d %H:%M:%S.%f").timestamp()))
-                orders_to_cancel = sorted_orders[:num_orders_to_cancel]
-                for order in orders_to_cancel:
-                    order_id = order['id']
-                    await self.send_cancel_order_request(order_id)
+            cancelled_shares = 0
+            for order in sorted_orders:
+                if cancelled_shares >= excess_shares:
+                    break
+                await self.send_cancel_order_request(order['id'])
+                cancelled_shares += order['amount']
 
         
         # calculate how many passive orders i need to send
@@ -254,11 +252,11 @@ class InformedTrader(PausingTrader):
 
         
         if self.total_number_passive_orders < self.num_passive_to_keep:
-            remaining_trades = max(self.goal - self.number_trades,0)
-            if remaining_trades >= self.num_passive_to_keep:
+            remaining_orders = max(0, int((self.goal - total_filled_shares) / self.order_multiplier))
+            if remaining_orders >= self.num_passive_to_keep:
                 num_passive_order_to_send = self.num_passive_to_keep - self.total_number_passive_orders
             else:
-                num_passive_order_to_send = max(remaining_trades -  self.total_number_passive_orders,0)
+                num_passive_order_to_send = max(remaining_orders - self.total_number_passive_orders, 0)
         else:
             num_passive_order_to_send = 0
        
@@ -268,7 +266,7 @@ class InformedTrader(PausingTrader):
         # and do not send aggresive order
 
         flag_send_aggresive = True
-        if self.number_trades >= (self.goal * self.order_multiplier):
+        if total_filled_shares >= self.goal:
             num_passive_order_to_send = 0
             flag_send_aggresive = False
             for order in self.orders:
@@ -330,8 +328,8 @@ class InformedTrader(PausingTrader):
                     amount = self.order_multiplier
                     await self.post_new_order(amount, price_to_send, order_side)
         
-        self.number_trades = len(self.filled_orders)
-        if self.number_trades >= (self.goal * self.order_multiplier):
+        total_filled_shares = sum(order['amount'] for order in self.filled_orders) if self.filled_orders else 0
+        if total_filled_shares >= self.goal:
             for order in self.orders:
                 order_id = order['id']
                 await self.send_cancel_order_request(order_id)
@@ -510,9 +508,9 @@ class InformedTrader(PausingTrader):
 
     async def check1(self) -> None:
         remaining_time = self.get_remaining_time()
-        self.number_trades = len(self.filled_orders)
-        
-        if remaining_time < 2 or (abs(self.goal * self.order_multiplier - self.number_trades) <= 0):
+        total_filled_shares = sum(order['amount'] for order in self.filled_orders) if self.filled_orders else 0
+
+        if remaining_time < 2 or total_filled_shares >= self.goal:
             #print(f'Informed trader fullfilled goal with {self.number_trades} trades')
             return
 
@@ -549,9 +547,8 @@ class InformedTrader(PausingTrader):
                 else:
                     return
         
-        self.number_trades = sum(order['amount'] for order in self.filled_orders)
-        # Adjust sleep time calculation to account for increased order volume
-        self.next_sleep_time = self.calculate_sleep_time(remaining_time, self.number_trades, self.goal * self.order_multiplier)
+        total_filled_shares = sum(order['amount'] for order in self.filled_orders) if self.filled_orders else 0
+        self.next_sleep_time = self.calculate_sleep_time(remaining_time, total_filled_shares, self.goal)
         # print('next sleep time', self.next_sleep_time)
 
     async def check(self) -> None:

@@ -119,10 +119,14 @@ class LLMMonitor:
         order_mult = trader.order_multiplier
         passive = trader.use_passive_orders
 
-        # Progress
-        filled = len(trader.filled_orders)
+        # Trade direction
+        from core.data_models import TradeDirection
+        direction = trader.params.get("informed_trade_direction")
+        direction_str = "BUYING" if direction == TradeDirection.BUY else "SELLING"
+
+        # Progress — always measured against the fixed original goal (in shares)
         total_filled_amount = sum(o["amount"] for o in trader.filled_orders) if trader.filled_orders else 0
-        goal = trader.goal * order_mult
+        goal = trader.goal
         progress_pct = (total_filled_amount / goal * 100) if goal > 0 else 100
         target_pct = trader.target_progress * 100
 
@@ -143,6 +147,14 @@ class LLMMonitor:
         filled_value = sum(o.get("price", 0) * o.get("amount", 1) for o in trader.filled_orders) if trader.filled_orders else 0
         vwap = filled_value / total_filled_amount if total_filled_amount > 0 else 0
 
+        # Speed factor bounds info
+        if speed_factor <= 0.2:
+            speed_note = " (AT MINIMUM — cannot go faster)"
+        elif speed_factor >= 3.0:
+            speed_note = " (AT MAXIMUM — cannot go slower)"
+        else:
+            speed_note = ""
+
         # Recent fills and market impact
         recent_fills = trader.filled_orders[-10:] if trader.filled_orders else []
         fills_str = self._format_recent_fills(recent_fills, best_bid, best_ask)
@@ -150,14 +162,17 @@ class LLMMonitor:
         # Previous decisions
         decisions_str = self._format_decisions(self.decision_log[-5:])
 
-        return f"""=== TIME ===
+        return f"""=== DIRECTION ===
+{direction_str}
+
+=== TIME ===
 Elapsed: {int(elapsed)}s | Remaining: {int(remaining)}s
 
 === CURRENT PARAMETERS ===
-Sleep interval: {sleep_time:.1f}s | Speed factor: {speed_factor:.2f} | Order size: {order_mult} | Passive orders: {passive}
+Sleep interval: {sleep_time:.1f}s | Speed factor: {speed_factor:.2f}{speed_note} | Order size: {order_mult} | Passive orders: {passive}
 
 === PROGRESS ===
-Filled: {total_filled_amount}/{goal} ({progress_pct:.0f}%) | Target: {target_pct:.0f}% | {pace}
+Filled: {total_filled_amount}/{goal} shares ({progress_pct:.0f}%) | Target: {target_pct:.0f}% | {pace}
 
 === MARKET ===
 Bid: {best_bid} | Ask: {best_ask} | Spread: {spread} | VWAP: {vwap:.2f}
@@ -257,9 +272,9 @@ Bid: {best_bid} | Ask: {best_ask} | Spread: {spread} | VWAP: {vwap:.2f}
         if aggression is not None:
             trader.use_passive_orders = aggression < 0.7
             trader.informed_share_passive = max(0.0, min(1.0, 1.0 - aggression))
-            trader.num_passive_to_keep = int(
-                trader.informed_share_passive * trader.goal * trader.order_multiplier
-            )
+            trader.num_passive_to_keep = max(0, int(
+                trader.informed_share_passive * trader.goal / trader.order_multiplier
+            ))
 
     # ---- main loop ----
 
