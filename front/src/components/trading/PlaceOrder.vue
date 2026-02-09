@@ -119,24 +119,21 @@ const bestAsk = computed(() =>
 
 const depthBookShown = computed(() => gameParams.value.depth_book_shown || 8)
 
-// Full price range: [mid - depth_book_shown, mid + depth_book_shown]
-// Buy prices: descending (highest = most aggressive, crosses spread)
+// Buy prices: start from best_ask - 1, descending (allows aggressive orders)
 const buyPrices = computed(() => {
-  if (anchorMid.value === null) return []
-  const n = depthBookShown.value * 2
+  if (bestAsk.value === null) return []
   return Array.from(
-    { length: n },
-    (_, i) => anchorMid.value + depthBookShown.value * step.value - step.value * i
+    { length: depthBookShown.value },
+    (_, i) => bestAsk.value - step.value * (i + 1)
   )
 })
 
-// Sell prices: ascending (lowest = most aggressive, crosses spread)
+// Sell prices: start from best_bid + 1, ascending (allows aggressive orders)
 const sellPrices = computed(() => {
-  if (anchorMid.value === null) return []
-  const n = depthBookShown.value * 2
+  if (bestBid.value === null) return []
   return Array.from(
-    { length: n },
-    (_, i) => anchorMid.value - depthBookShown.value * step.value + step.value * i
+    { length: depthBookShown.value },
+    (_, i) => bestBid.value + step.value * (i + 1)
   )
 })
 
