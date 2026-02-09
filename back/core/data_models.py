@@ -353,6 +353,25 @@ class TradingParameters(BaseModel):
         description="agentic_parameter",
     )
 
+    # LLM Monitor settings (informed trader with LLM parameter tuning)
+    num_monitored_traders: int = Field(
+        default=0,
+        title="Number of LLM-Monitored Informed Traders",
+        description="monitor_parameter",
+        ge=0,
+    )
+    monitor_model: str = Field(
+        default="anthropic/claude-haiku-4.5",
+        title="Monitor LLM Model",
+        description="monitor_parameter",
+    )
+    monitor_interval: float = Field(
+        default=7.0,
+        title="Monitor Decision Interval (seconds)",
+        description="monitor_parameter",
+        gt=1.0,
+    )
+
     throttle_settings: Dict[TraderType, ThrottleConfig] = Field(
         default_factory=lambda: {
             TraderType.HUMAN: ThrottleConfig(order_throttle_ms=100, max_orders_per_window=1),

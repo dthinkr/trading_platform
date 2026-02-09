@@ -23,6 +23,8 @@ class InformedTrader(PausingTrader):
         self.use_passive_orders = params.get("informed_use_passive_orders", False)
         # Order multiplier to increase trading volume
         self.order_multiplier = 1
+        # Speed factor applied by LLM monitor (1.0 = no change)
+        self.speed_factor = 1.0
         
         # Add random direction handling
         if params.get("informed_random_direction", False):
@@ -170,7 +172,7 @@ class InformedTrader(PausingTrader):
             sleep_time = 1000
         else:
             sleep_time = max(0.5,(remaining_time - 7) / (goal - number_trades))
-        return sleep_time
+        return sleep_time * self.speed_factor
         
     async def manage_passive_aggresive_orders(self):
         if not self.use_passive_orders:

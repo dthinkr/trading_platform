@@ -18,6 +18,7 @@ from traders import (
     AgenticTrader,
     AgenticAdvisor,
 )
+from traders.llm_monitor import LLMMonitor
 from .trading_platform import TradingPlatform
 import asyncio
 import os
@@ -54,6 +55,11 @@ class TraderManager:
         self.agentic_traders = self._create_agentic_traders(params.num_agentic_traders, params_dict)
         self.agentic_advisors = []  # Created dynamically when humans join
 
+        # Create LLM-monitored informed traders
+        self.monitored_traders, self.monitors = self._create_monitored_traders(
+            params.num_monitored_traders, params_dict
+        )
+
         # Combine all traders into one dict
         self.traders = {
             t.id: t
@@ -62,6 +68,7 @@ class TraderManager:
             + self.manipulator_traders
             + self.spoofing_traders
             + self.agentic_traders
+            + self.monitored_traders
             + [self.book_initializer]
             + self.simple_order_traders
         }
@@ -176,6 +183,34 @@ class TraderManager:
         
         return traders
 
+    def _create_monitored_traders(self, n_monitored_traders: int, params: dict):
+        """Create informed traders with LLM monitors attached."""
+        if n_monitored_traders <= 0:
+            return [], []
+
+        api_key = os.getenv("OPENROUTER_API_KEY")
+        traders = []
+        monitors = []
+
+        for i in range(n_monitored_traders):
+            trader = InformedTrader(
+                id=f"MONITORED_{i+1}",
+                params=dict(params),
+            )
+
+            monitor_params = {
+                **params,
+                "openrouter_api_key": api_key,
+                "monitor_model": params.get("monitor_model", "anthropic/claude-haiku-4.5"),
+                "monitor_interval": params.get("monitor_interval", 7.0),
+            }
+            monitor = LLMMonitor(trader=trader, params=monitor_params)
+
+            traders.append(trader)
+            monitors.append(monitor)
+
+        return traders, monitors
+
     async def add_human_trader(self, gmail_username: str, role: TraderRole, goal: Optional[int] = None) -> str:
         """Add human trader with specified role and goal"""
         trader_id = f"HUMAN_{gmail_username}"
@@ -284,14 +319,18 @@ class TraderManager:
 
         trading_market_task = asyncio.create_task(self.trading_market.run())
         trader_tasks = [asyncio.create_task(i.run()) for i in self.traders.values()]
+        monitor_tasks = [asyncio.create_task(m.run()) for m in self.monitors]
 
         self.tasks.append(trading_market_task)
         self.tasks.extend(trader_tasks)
+        self.tasks.extend(monitor_tasks)
 
         await trading_market_task
 
     async def cleanup(self):
         await self.trading_market.clean_up()
+        for monitor in self.monitors:
+            monitor.stop()
         for trader in self.traders.values():
             await trader.clean_up()
         for task in self.tasks:

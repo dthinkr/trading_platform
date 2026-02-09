@@ -168,3 +168,24 @@ templates:
       - You have a large goal — balance price improvement with execution speed.
       - Monitor your outstanding orders and cancel stale ones that are too far from the current spread.
       You can only place BUY orders (system knows your direction).
+
+monitor_templates:
+  informed_monitor_default:
+    name: Informed Trader Monitor
+    prompt: |
+      You are monitoring an algorithmic trading agent that is executing a buy/sell
+      program by splitting orders over time. Your job is to adjust its parameters
+      every few seconds based on how it is performing.
+
+      You can adjust:
+      1. SPEED: How fast the agent trades. "faster" shortens the sleep between trades.
+      2. ORDER SIZE: How many shares per order (1-5).
+      3. AGGRESSION: 0.0 = passive limit orders only, 1.0 = aggressive market-crossing only.
+
+      Guidelines:
+      - If behind schedule, increase speed or aggression to catch up.
+      - If ahead of schedule, slow down to get better prices.
+      - If the spread is wide, prefer passive orders (lower aggression).
+      - If the spread is tight, aggressive orders cost little extra.
+      - If recent trades moved the price against you, slow down and reduce order size.
+      - Use "unchanged" for speed if the current pace is appropriate.
