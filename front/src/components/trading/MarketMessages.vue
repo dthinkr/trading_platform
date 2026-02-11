@@ -7,6 +7,7 @@
           :key="item.var_name"
           class="market-info-item"
         >
+
           <v-list-item-title class="info-title">
             {{ item.display_name }}
             <v-tooltip location="bottom" :text="item.explanation" max-width="300">
@@ -21,6 +22,18 @@
             {{ formatValue(item.value) }}
           </v-list-item-subtitle>
         </v-list-item>
+        
+        <!-- IMBALANCE MESSAGE -->
+        <v-list-item v-if="imbalanceValue !== 0" class="market-info-item">
+          <v-list-item-title
+            class="info-title font-weight-bold"
+            :class="imbalanceColorClass"
+          >
+      {{ imbalanceMessage }}
+    </v-list-item-title>
+  </v-list-item>
+
+
       </v-list>
     </v-card-text>
   </v-card>
@@ -32,6 +45,27 @@ import { storeToRefs } from 'pinia'
 import { useTraderStore } from '@/store/app'
 
 const { extraParams } = storeToRefs(useTraderStore())
+
+const imbalanceValue = computed(() => {
+  const item = extraParams.value.find(p => p.var_name === 'imbalance')
+  return item && item.value ? Number(item.value) : 0
+})
+
+const imbalanceMessage = computed(() => {
+  const val = imbalanceValue.value || 0
+  
+  if (val > 0) {
+    return `You have ${val} shares in excess. You need to Sell.`
+  } else if (val < 0) {
+    return `You have ${Math.abs(val)} shares in deficit. You need to Buy.`
+  } else {
+    return `Your inventory is balanced.`
+  }
+})
+
+const imbalanceColorClass = computed(() => {
+  return imbalanceValue.value !== 0 ? 'imbalance-red' : 'imbalance-green'
+})
 
 const formatValue = (value) => {
   if (typeof value === 'number') {
@@ -99,4 +133,23 @@ onMounted(() => {
 .market-info-content::-webkit-scrollbar-thumb:hover {
   background: #555;
 }
+
+.imbalance-red {
+  color: red !important;
+  font-size: 18px; /* bigger font */
+  font-weight: 700;
+  animation: flicker 1s infinite;
+}
+
+@keyframes flicker {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.imbalance-green {
+  color: green !important;
+  font-size: 18px; /* bigger font */
+  font-weight: 700;
+}
+
 </style>

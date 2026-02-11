@@ -36,14 +36,8 @@ export const useMarketStore = defineStore('market', {
     extraParams: [
       {
         var_name: 'transaction_price',
-        display_name: 'Transaction price',
+        display_name: 'Last Traded Price',
         explanation: 'Price of the last transaction',
-        value: null,
-      },
-      {
-        var_name: 'spread',
-        display_name: 'Spread',
-        explanation: 'Difference between the best bid and best ask prices',
         value: null,
       },
       {
@@ -53,9 +47,15 @@ export const useMarketStore = defineStore('market', {
         value: null,
       },
       {
-        var_name: 'noise_trader_status',
-        display_name: 'Noise Trader Status',
-        explanation: 'Current status of the noise trader (active or sleeping)',
+        var_name: 'spread',
+        display_name: 'Spread',
+        explanation: 'Difference between the best bid and best ask prices',
+        value: null,
+      },
+      {
+        var_name: 'imbalance',
+        display_name: 'Share Imbalance',
+        explanation: 'Difference between current and initial shares',
         value: null,
       },
     ],
