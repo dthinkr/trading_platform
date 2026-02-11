@@ -479,6 +479,11 @@ export const useTraderStore = defineStore('trader', {
 
       if (sum_dinv !== undefined) {
         this.trader.sum_dinv = sum_dinv
+
+        this.updateExtraParams({
+          imbalance: sum_dinv
+        })
+        
       }
 
       if (vwap !== undefined) {
