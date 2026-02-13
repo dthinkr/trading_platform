@@ -28,6 +28,7 @@
           <v-list-item-title
             class="info-title font-weight-bold"
             :class="imbalanceColorClass"
+            style="white-space: pre-line;"
           >
       {{ imbalanceMessage }}
     </v-list-item-title>
@@ -55,9 +56,9 @@ const imbalanceMessage = computed(() => {
   const val = imbalanceValue.value || 0
   
   if (val > 0) {
-    return `You have ${val} shares in excess. You need to Sell.`
+    return `⚠️ You have ${val} shares in excess. \n Sell ${val} shares before the market ends. \n Penalty if not corrected: ${val*(-5)}`
   } else if (val < 0) {
-    return `You have ${Math.abs(val)} shares in deficit. You need to Buy.`
+    return `⚠️ You have ${Math.abs(val)} shares in deficit. \n Buy ${Math.abs(val)} shares before the market ends. \n Penalty if not corrected: ${Math.abs(val)* (-5)}`
   } else {
     return `Your inventory is balanced.`
   }
@@ -136,9 +137,9 @@ onMounted(() => {
 
 .imbalance-red {
   color: red !important;
-  font-size: 18px; /* bigger font */
+  font-size: 14px; /* bigger font */
   font-weight: 700;
-  animation: flicker 1s infinite;
+  animation: flicker 3s infinite;
 }
 
 @keyframes flicker {
