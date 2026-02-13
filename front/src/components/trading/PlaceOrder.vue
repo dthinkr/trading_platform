@@ -122,11 +122,14 @@ const orderBookLevels = computed(() => gameParams.value.order_book_levels || 5)
 const buyPrices = computed(() => {
   if (bestAsk.value === null || !orderBookLevels.value) {
     return Array.from(
-      { length: orderBookLevels.value },
+      //{ length: orderBookLevels.value },
+      { length: 6 }, // replace 6 with orderBookLevels.value
       (_, i) => bestBid.value + step.value * 1 - step.value * i
     )
   } else {
-    return Array.from({ length: orderBookLevels.value }, (_, i) => bestAsk.value - step.value * i)
+    return Array.from(
+      { length: 6},  // replace 6 with orderBookLevels.value
+      (_, i) => bestAsk.value - step.value * i)
   }
 })
 
@@ -143,11 +146,14 @@ const buyPrices = computed(() => {
 const sellPrices = computed(() => {
   if (bestBid.value === null || !orderBookLevels.value) {
     return Array.from(
-      { length: orderBookLevels.value },
+      //{ length: orderBookLevels.value },
+      { length: 6 }, // replace 6 with orderBookLevels.value
       (_, i) => bestAsk.value - step.value * 1 + step.value * i
     )
   } else {
-    return Array.from({ length: orderBookLevels.value }, (_, i) => bestBid.value + step.value * i)
+    return Array.from(
+      { length: 6}, // replace 6 with orderBookLevels.value
+      (_, i) => bestBid.value + step.value * i)
   }
 })
 
