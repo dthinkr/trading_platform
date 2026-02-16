@@ -298,11 +298,8 @@ watch(remainingTime, (newValue) => {
 const zoomLevel = ref(0.95) // Fixed 90% zoom
 
 onMounted(async () => {
-  // Apply zoom only once, using CSS transform instead of zoom
-  document.body.style.transform = 'scale(0.95)'
-  document.body.style.transformOrigin = 'top left'
-  // Remove the zoom property as it can cause flickering in some browsers
-  // document.body.style.zoom = zoomLevel.value;
+  // Apply zoom - use CSS zoom (not transform) to preserve position:fixed on the app bar
+  document.body.style.zoom = '0.95'
 
   // Set default user role
   userRole.value = 'trader'
