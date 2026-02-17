@@ -814,6 +814,11 @@ onMounted(() => {
 .dynamic-header {
   min-height: 64px !important;
   height: auto !important;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 1000 !important;
 }
 
 .dynamic-header .v-toolbar__content {
