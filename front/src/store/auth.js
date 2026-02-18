@@ -102,6 +102,9 @@ export const useAuthStore = defineStore('auth', {
             username: credentials.username,
             password: credentials.password,
           }
+          if (credentials.turnstile_token) {
+            requestBody.turnstile_token = credentials.turnstile_token
+          }
         }
 
         const response = await axios.post(url, requestBody)

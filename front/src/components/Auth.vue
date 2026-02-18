@@ -44,7 +44,9 @@
             />
           </div>
 
-          <button type="submit" class="btn btn-primary" :disabled="credentialLoading">
+          <div ref="turnstileRef" class="turnstile-widget"></div>
+
+          <button type="submit" class="btn btn-primary" :disabled="credentialLoading || !turnstileToken">
             {{ credentialLoading ? 'Signing in...' : 'Sign In' }}
           </button>
         </form>
@@ -101,7 +103,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { getAuth, GoogleAuthProvider, signInWithPopup } from 'firebase/auth'
 import { useAuthStore } from '@/store/auth'
@@ -133,6 +135,44 @@ const isProlificUser = ref(false)
 const username = ref('')
 const password = ref('')
 const prolificParams = ref(null)
+
+// Turnstile state
+const turnstileRef = ref(null)
+const turnstileToken = ref(null)
+let turnstileWidgetId = null
+
+function loadTurnstileScript() {
+  if (document.getElementById('turnstile-script')) return
+  const script = document.createElement('script')
+  script.id = 'turnstile-script'
+  script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad&render=explicit'
+  script.async = true
+  document.head.appendChild(script)
+}
+
+function renderTurnstile() {
+  if (!turnstileRef.value || !window.turnstile) return
+  if (turnstileWidgetId !== null) return
+  turnstileWidgetId = window.turnstile.render(turnstileRef.value, {
+    sitekey: import.meta.env.VITE_TURNSTILE_SITE_KEY,
+    theme: 'light',
+    callback: (token) => { turnstileToken.value = token },
+    'expired-callback': () => { turnstileToken.value = null },
+    'error-callback': () => { turnstileToken.value = null },
+  })
+}
+
+window.onTurnstileLoad = () => {
+  renderTurnstile()
+}
+
+watch(isProlificUser, async (val) => {
+  if (val) {
+    loadTurnstileScript()
+    await nextTick()
+    if (window.turnstile) renderTurnstile()
+  }
+})
 
 const getProlificParams = () => {
   if (props.prolificPID && props.studyID && props.sessionID) {
@@ -264,6 +304,7 @@ const handleProlificCredentialLogin = async () => {
     await authStore.prolificLogin(prolificParams.value, {
       username: username.value,
       password: password.value,
+      turnstile_token: turnstileToken.value,
     })
 
     localStorage.setItem('prolific_last_username', username.value)
@@ -526,6 +567,13 @@ const handleProlificCredentialLogin = async () => {
   cursor: pointer;
   padding: 0;
   line-height: 1;
+}
+
+/* Turnstile */
+.turnstile-widget {
+  display: flex;
+  justify-content: center;
+  margin-bottom: var(--space-4);
 }
 
 /* Responsive */

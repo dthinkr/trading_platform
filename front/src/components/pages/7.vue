@@ -88,12 +88,25 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import axios from '@/api/axios'
+import { useSessionStore } from '@/store/session'
+import { useAuthStore } from '@/store/auth'
 
 const props = defineProps({
   iconColor: String,
 })
 
 const router = useRouter()
+const sessionStore = useSessionStore()
+const authStore = useAuthStore()
+const httpUrl = import.meta.env.VITE_HTTP_URL
+
+const traderId = computed(() => {
+  if (authStore.user?.isProlific) {
+    return `HUMAN_${authStore.user.prolificData.PROLIFIC_PID}`
+  }
+  return sessionStore.traderId || authStore.traderId
+})
 
 const questions = ref([
   {
@@ -206,6 +219,15 @@ const checkAnswer = (index) => {
   question.showFeedback = true
   question.isCorrect = question.userAnswer === question.correctAnswer
   emit('update:canProgress', allQuestionsAnsweredCorrectly.value)
+
+  // Save every click to backend (fire-and-forget)
+  axios.post(`${httpUrl}save_premarket_interaction`, {
+    trader_id: traderId.value || 'unknown',
+    question_index: index,
+    question_text: question.text,
+    selected_answer: question.userAnswer,
+    is_correct: question.isCorrect,
+  }).catch(err => console.warn('Failed to save premarket interaction:', err))
 }
 
 const getRadioColor = (question, option) => {

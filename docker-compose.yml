@@ -14,6 +14,7 @@ services:
     environment:
       - VITE_HTTP_URL=http://localhost:8000/
       - VITE_WS_URL=ws://localhost:8000/
+      - VITE_TURNSTILE_SITE_KEY=${TURNSTILE_SITE_KEY}
     command: yarn dev --host
     depends_on:
       - back
@@ -69,6 +70,7 @@ services:
       - FIREBASE_MEASUREMENT_ID=${FIREBASE_MEASUREMENT_ID}
       - GOOGLE_APPLICATION_CREDENTIALS=/app/config/auth/firebase-service-account.json
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - TURNSTILE_SECRET_KEY=${TURNSTILE_SECRET_KEY}
     command: sh -c "uv sync && uv run uvicorn api.endpoints:app --host 0.0.0.0 --port 8000 --root-path $${ROOT_PATH:-/api} --reload"
 
     networks:

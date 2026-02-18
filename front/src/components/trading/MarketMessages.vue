@@ -1,41 +1,30 @@
 <template>
   <v-card height="100%" elevation="3" class="market-info-card">
     <v-card-text class="market-info-content" ref="messageContainer">
-      <v-list>
-        <v-list-item
-          v-for="(item, index) in extraParams"
+      <div class="info-grid">
+        <div
+          v-for="item in extraParams"
           :key="item.var_name"
-          class="market-info-item"
+          class="info-cell"
         >
-
-          <v-list-item-title class="info-title">
+          <div class="info-title">
             {{ item.display_name }}
             <v-tooltip location="bottom" :text="item.explanation" max-width="300">
               <template v-slot:activator="{ props }">
-                <v-icon x-small v-bind="props" color="grey lighten-1"
-                  >mdi-information-outline</v-icon
-                >
+                <v-icon x-small v-bind="props" color="grey lighten-1">mdi-information-outline</v-icon>
               </template>
             </v-tooltip>
-          </v-list-item-title>
-          <v-list-item-subtitle class="info-value" :class="getValueColor(item.value)">
+          </div>
+          <div class="info-value" :class="getValueColor(item.value)">
             {{ formatValue(item.value) }}
-          </v-list-item-subtitle>
-        </v-list-item>
-        
-        <!-- IMBALANCE MESSAGE -->
-        <v-list-item v-if="imbalanceValue !== 0" class="market-info-item">
-          <v-list-item-title
-            class="info-title font-weight-bold"
-            :class="imbalanceColorClass"
-            style="white-space: pre-line;"
-          >
-      {{ imbalanceMessage }}
-    </v-list-item-title>
-  </v-list-item>
+          </div>
+        </div>
+      </div>
 
-
-      </v-list>
+      <!-- IMBALANCE MESSAGE -->
+      <div v-if="imbalanceValue !== 0" class="imbalance-msg" :class="imbalanceColorClass">
+        {{ imbalanceMessage }}
+      </div>
     </v-card-text>
   </v-card>
 </template>
@@ -97,47 +86,45 @@ onMounted(() => {
 }
 
 .market-info-content {
-  height: 300px;
-  overflow-y: auto;
-  padding: 0;
+  padding: 12px 8px;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.info-cell {
+  text-align: center;
 }
 
 .info-title {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
+  color: #666;
+  margin-bottom: 4px;
 }
 
 .info-value {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 700;
 }
 
 .v-icon.v-icon--size-x-small {
-  font-size: 14px;
-  margin-left: 4px;
+  font-size: 12px;
+  margin-left: 2px;
 }
 
-/* Custom scrollbar for webkit browsers */
-.market-info-content::-webkit-scrollbar {
-  width: 8px;
-}
-
-.market-info-content::-webkit-scrollbar-track {
-  background: #f1f1f1;
-}
-
-.market-info-content::-webkit-scrollbar-thumb {
-  background: #888;
-  border-radius: 4px;
-}
-
-.market-info-content::-webkit-scrollbar-thumb:hover {
-  background: #555;
+.imbalance-msg {
+  text-align: center;
+  margin-top: 8px;
+  white-space: pre-line;
 }
 
 .imbalance-red {
   color: red !important;
-  font-size: 14px; /* bigger font */
+  font-size: 13px;
   font-weight: 700;
   animation: flicker 3s infinite;
 }
@@ -149,8 +136,7 @@ onMounted(() => {
 
 .imbalance-green {
   color: green !important;
-  font-size: 18px; /* bigger font */
+  font-size: 14px;
   font-weight: 700;
 }
-
 </style>
