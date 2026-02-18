@@ -42,6 +42,9 @@ jobs:
         key: ${{ secrets.SERVER_SSH_KEY }}
         passphrase: ${{ secrets.SERVER_SSH_PASSPHRASE }}
         script: |
+          grep -q '^TURNSTILE_SECRET_KEY=' /root/trading_platform/.env 2>/dev/null \
+            && sed -i 's|^TURNSTILE_SECRET_KEY=.*|TURNSTILE_SECRET_KEY=${{ secrets.TURNSTILE_SECRET_KEY }}|' /root/trading_platform/.env \
+            || echo 'TURNSTILE_SECRET_KEY=${{ secrets.TURNSTILE_SECRET_KEY }}' >> /root/trading_platform/.env
           /root/trading_platform/deploy.sh
 
   deploy-frontend:
