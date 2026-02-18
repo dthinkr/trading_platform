@@ -70,8 +70,11 @@ REVIEW.md
 platform-paper/
 analysis/
 research/
+agentic-paper/
+designs/
 
 # ====================
 # DSPY OPTIMIZATION
 # ====================
 back/dspy_optimized/
+back/reference/
