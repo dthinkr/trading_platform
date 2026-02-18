@@ -3,7 +3,7 @@
     <v-card-text class="market-info-content" ref="messageContainer">
       <div class="info-grid">
         <div
-          v-for="item in extraParams"
+          v-for="item in filteredParams"
           :key="item.var_name"
           class="info-cell"
         >
@@ -21,6 +21,20 @@
         </div>
       </div>
 
+      <div class="guidance-msg">
+        <div class="tip-title">💡 Trading Tip</div>
+        <ul class="tip-list">
+        <li>
+        If you believe the market will go up:
+        <span class="buy-text">Buy now</span> and sell later.
+        </li>
+        <li>
+        If you believe the market will go down:
+        <span class="sell-text">Sell now</span> and buy later.
+         </li>
+        </ul>
+      </div>
+
       <!-- IMBALANCE MESSAGE -->
       <div v-if="imbalanceValue !== 0" class="imbalance-msg" :class="imbalanceColorClass">
         {{ imbalanceMessage }}
@@ -35,6 +49,12 @@ import { storeToRefs } from 'pinia'
 import { useTraderStore } from '@/store/app'
 
 const { extraParams } = storeToRefs(useTraderStore())
+
+//filter params are extraParams without imbalance
+// remove them if imbalance is needed
+const filteredParams = computed(() => {
+  return extraParams.value.filter(p => p.var_name !== 'imbalance')
+})
 
 const imbalanceValue = computed(() => {
   const item = extraParams.value.find(p => p.var_name === 'imbalance')
@@ -117,7 +137,7 @@ onMounted(() => {
 }
 
 .imbalance-msg {
-  text-align: center;
+  text-align: left;
   margin-top: 8px;
   white-space: pre-line;
 }
@@ -139,4 +159,39 @@ onMounted(() => {
   font-size: 14px;
   font-weight: 700;
 }
+
+.guidance-msg {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 14px 16px;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  color: #334155;
+  margin-top: 10px;
+}
+
+.tip-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.tip-list {
+  padding-left: 18px;
+  margin: 0;
+}
+
+.tip-list li {
+  margin-bottom: 6px;
+}
+
+.buy-text {
+  color: blue;
+  font-weight: 600;
+}
+
+.sell-text {
+  color: #dc2626;
+  font-weight: 600;
+}
+
 </style>

@@ -112,10 +112,10 @@ const formatTime = (timestamp) => {
   <v-card height="100%" elevation="3" class="order-history-card">
     <div class="trading-summary pa-2">
       <div class="vwap-display">
-        <div class="label">VWAP</div>
-        <span class="vwap-item buy">{{ tradingSummary.buyVWAP }}</span>
+        <div class="label">Average Price</div>
+        <span class="vwap-item buy"> Buy: {{ tradingSummary.buyVWAP }}</span>
         <span class="vwap-divider">|</span>
-        <span class="vwap-item sell">{{ tradingSummary.sellVWAP }}</span>
+        <span class="vwap-item sell"> Sell: {{ tradingSummary.sellVWAP }}</span>
       </div>
       <!-- <div class="count-display">
         <div class="label">Count</div>

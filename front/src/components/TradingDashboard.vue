@@ -130,7 +130,7 @@
               <v-card class="mb-4 tool-card" elevation="2">
                 <v-card-title class="tool-title">
                   <History :size="20" class="tool-icon" />
-                  Trades History
+                  Your Trades
                 </v-card-title>
                 <v-card-text class="pa-0">
                   <OrderHistory :isGoalAchieved="isGoalAchieved" :goalType="goalType" />
@@ -172,7 +172,7 @@
               <v-card class="mb-4 tool-card price-history-card" elevation="2">
                 <v-card-title class="tool-title">
                   <LineChart :size="20" class="tool-icon" />
-                  Price History
+                  Market Trade Price History   
                 </v-card-title>
                 <v-card-text class="pa-0">
                   <PriceHistory :isGoalAchieved="isGoalAchieved" :goalType="goalType" />
