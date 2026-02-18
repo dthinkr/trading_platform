@@ -88,7 +88,7 @@ def load_credentials() -> Dict[str, str]:
     # Otherwise, fall back to loading from .env file (for backward compatibility)
     try:
         from pathlib import Path
-        env_path = Path(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))) / ".env"
+        env_path = Path(os.path.dirname(os.path.dirname(__file__))) / ".env"
         
         if env_path.exists():
             env_content = env_path.read_text()

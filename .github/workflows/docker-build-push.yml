@@ -64,6 +64,7 @@ jobs:
       env:
         VITE_HTTP_URL: https://dthinkr.ngrok.app/
         VITE_WS_URL: wss://dthinkr.ngrok.app/
+        VITE_TURNSTILE_SITE_KEY: 0x4AAAAAACfHKEP_ndWYpu3-
 
     - name: Deploy to Firebase
       uses: FirebaseExtended/action-hosting-deploy@v0

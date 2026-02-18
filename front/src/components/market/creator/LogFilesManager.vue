@@ -246,16 +246,16 @@ const downloadParameterHistory = async () => {
 
 const downloadQuestionnaireResponses = async () => {
   try {
-    const response = await axios.get(`${import.meta.env.VITE_HTTP_URL}admin/download_questionnaire_responses`, { responseType: 'blob' })
+    const response = await axios.get(`${import.meta.env.VITE_HTTP_URL}admin/download_questionnaire_data`, { responseType: 'blob' })
     const url = window.URL.createObjectURL(new Blob([response.data]))
     const link = document.createElement('a')
     link.href = url
-    link.setAttribute('download', 'questionnaire_responses.csv')
+    link.setAttribute('download', 'questionnaire_data.zip')
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
   } catch (error) {
-    console.error('Error downloading questionnaire responses:', error)
+    console.error('Error downloading questionnaire data:', error)
   }
 }
 

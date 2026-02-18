@@ -240,41 +240,63 @@ async def get_treatment_for_user(username: str):
     )
 
 
+async def verify_turnstile(token: str) -> bool:
+    """Verify a Cloudflare Turnstile token server-side."""
+    secret_key = os.environ.get('TURNSTILE_SECRET_KEY', '')
+    if not secret_key:
+        return True  # Skip verification if no secret key configured
+    try:
+        import httpx
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                'https://challenges.cloudflare.com/turnstile/v0/siteverify',
+                data={'secret': secret_key, 'response': token},
+            )
+            return resp.json().get('success', False)
+    except Exception as e:
+        print(f"Turnstile verification error: {e}")
+        return False
+
 @app.post("/user/login")
 async def user_login(request: Request):
     # Check for Prolific parameters first
     prolific_params = await extract_prolific_params(request)
     if prolific_params:
-        # Use the authenticate_prolific_user function which properly checks credentials
+        # Parse body once (both turnstile and authenticate_prolific_user need it)
         try:
-            prolific_user = await authenticate_prolific_user(request)
-            if prolific_user:
-                # Use Prolific ID as username
-                gmail_username = prolific_user['gmail_username']
-                trader_id = f"HUMAN_{gmail_username}"
-                
-                # Get the Prolific token to return to the client
-                prolific_token = prolific_user.get('prolific_token', '')
-                
-                print(f"Authenticated Prolific user via params: {gmail_username}")
-                
-                # Remove user from any existing session (fresh start on login/refresh)
-                await market_handler.remove_user_from_session(gmail_username)
-                
-                # DON'T assign session at login - wait until they click "Start Trading"
-                return success(
-                    message="Prolific login successful",
-                    data={"trader_id": trader_id, "username": gmail_username, "is_admin": False,
-                          "is_prolific": True, "prolific_token": prolific_token}
-                )
-            else:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid Prolific credentials",
-                )
-        except HTTPException as e:
-            # Re-raise the exception from authenticate_prolific_user
-            raise e
+            body = await request.json()
+        except Exception:
+            body = {}
+
+        # Verify Turnstile token for Prolific users
+        turnstile_token = body.get('turnstile_token')
+        if turnstile_token:
+            if not await verify_turnstile(turnstile_token):
+                raise HTTPException(status_code=403, detail="Turnstile verification failed")
+
+        # Validate Prolific credentials directly (avoid double request.json() call)
+        username = body.get('username')
+        password = body.get('password')
+        is_valid, prolific_user = validate_prolific_user(prolific_params, username, password)
+        if not is_valid:
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+
+        # Credentials already validated above
+        gmail_username = prolific_user['gmail_username']
+        trader_id = f"HUMAN_{gmail_username}"
+        prolific_token = prolific_user.get('prolific_token', '')
+
+        print(f"Authenticated Prolific user via params: {gmail_username}")
+
+        # Remove user from any existing session (fresh start on login/refresh)
+        await market_handler.remove_user_from_session(gmail_username)
+
+        # DON'T assign session at login - wait until they click "Start Trading"
+        return success(
+            message="Prolific login successful",
+            data={"trader_id": trader_id, "username": gmail_username, "is_admin": False,
+                  "is_prolific": True, "prolific_token": prolific_token}
+        )
     
     # If not Prolific, proceed with regular Firebase authentication
     auth_header = request.headers.get('Authorization')
@@ -1590,6 +1612,14 @@ class QuestionnaireResponse(BaseModel):
     trader_id: str
     responses: List[str]
 
+# Pre-market interaction model
+class PremarketInteraction(BaseModel):
+    trader_id: str
+    question_index: int
+    question_text: str
+    selected_answer: str
+    is_correct: bool
+
 # Consent form data model
 class ConsentData(BaseModel):
     trader_id: str = ''  # Make trader_id optional
@@ -1658,61 +1688,96 @@ async def get_prolific_settings(current_user: dict = Depends(get_current_admin_u
             "message": str(e)
         }
 
-# Save questionnaire responses
+# --- Per-trader JSON questionnaire helpers ---
+_trader_locks: Dict[str, asyncio.Lock] = {}
+
+def _get_questionnaire_dir():
+    d = ROOT_DIR / "questionnaire"
+    d.mkdir(exist_ok=True)
+    return d
+
+def _get_trader_json_path(trader_id: str) -> Path:
+    return _get_questionnaire_dir() / f"{trader_id}.json"
+
+def _read_trader_data(trader_id: str) -> dict:
+    path = _get_trader_json_path(trader_id)
+    if path.exists():
+        with open(path, 'r') as f:
+            return json.load(f)
+    return {"trader_id": trader_id, "premarket_interactions": [], "postmarket_responses": None}
+
+def _write_trader_data(trader_id: str, data: dict):
+    path = _get_trader_json_path(trader_id)
+    with open(path, 'w') as f:
+        json.dump(data, f, indent=2)
+
+async def _get_lock(trader_id: str) -> asyncio.Lock:
+    if trader_id not in _trader_locks:
+        _trader_locks[trader_id] = asyncio.Lock()
+    return _trader_locks[trader_id]
+
+# Save pre-market knowledge check interactions (every click)
+@app.post("/save_premarket_interaction")
+async def save_premarket_interaction(interaction: PremarketInteraction):
+    try:
+        lock = await _get_lock(interaction.trader_id)
+        async with lock:
+            data = _read_trader_data(interaction.trader_id)
+            data["premarket_interactions"].append({
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "question_index": interaction.question_index,
+                "question_text": interaction.question_text,
+                "selected_answer": interaction.selected_answer,
+                "is_correct": interaction.is_correct,
+            })
+            _write_trader_data(interaction.trader_id, data)
+        return success(message="Pre-market interaction saved")
+    except Exception as e:
+        return {"status": "error", "message": f"Failed to save pre-market interaction: {str(e)}"}
+
+# Save post-market questionnaire responses
 @app.post("/save_questionnaire_response")
 async def save_questionnaire_response(response: QuestionnaireResponse):
     try:
-        # Create logs directory if it doesn't exist
-        questionnaire_dir = ROOT_DIR / "questionnaire"
-        questionnaire_dir.mkdir(exist_ok=True)
-        
-        # Create or append to CSV file
-        csv_path = questionnaire_dir / "questionnaire_responses.csv"
-        
-        # Check if file exists to determine if we need to write headers
-        file_exists = csv_path.exists()
-        
-        # Get current timestamp
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
-        # Prepare data row
-        row = [timestamp, response.trader_id] + response.responses
-        
-        # Open file in append mode
-        with open(csv_path, 'a', newline='') as f:
-            # If file doesn't exist, write headers
-            if not file_exists:
-                headers = ["timestamp", "trader_id", "question1", "question2", "question3", "question4"]
-                f.write(','.join(headers) + '\n')
-            
-            # Write data row
-            f.write(','.join([str(item) for item in row]) + '\n')
-        
+        lock = await _get_lock(response.trader_id)
+        async with lock:
+            data = _read_trader_data(response.trader_id)
+            data["postmarket_responses"] = {
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "q1": response.responses[0] if len(response.responses) > 0 else None,
+                "q2": response.responses[1] if len(response.responses) > 1 else None,
+                "q3": response.responses[2] if len(response.responses) > 2 else None,
+                "q4": response.responses[3] if len(response.responses) > 3 else None,
+            }
+            _write_trader_data(response.trader_id, data)
         return success(message="Questionnaire response saved successfully")
     except Exception as e:
         return {"status": "error", "message": f"Failed to save questionnaire response: {str(e)}"}
 
-# Download questionnaire responses
-@app.get("/admin/download_questionnaire_responses")
-async def download_questionnaire_responses(current_user: dict = Depends(get_current_admin_user)):
+# Download all questionnaire data as zip of per-trader JSON files
+@app.get("/admin/download_questionnaire_data")
+async def download_questionnaire_data(current_user: dict = Depends(get_current_admin_user)):
     try:
-        questionnaire_dir = ROOT_DIR / "questionnaire"
-        csv_path = questionnaire_dir / "questionnaire_responses.csv"
-        
-        if not csv_path.exists():
-            return Response(
-                content="No questionnaire responses found",
-                media_type="text/plain"
-            )
-        
-        return FileResponse(
-            path=csv_path,
-            filename="questionnaire_responses.csv",
-            media_type="text/csv"
+        questionnaire_dir = _get_questionnaire_dir()
+        json_files = list(questionnaire_dir.glob("*.json"))
+
+        if not json_files:
+            return Response(content="No questionnaire data found", media_type="text/plain")
+
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for f in json_files:
+                zf.write(f, f.name)
+        buf.seek(0)
+
+        return StreamingResponse(
+            buf,
+            media_type="application/zip",
+            headers={"Content-Disposition": "attachment; filename=questionnaire_data.zip"}
         )
     except Exception as e:
         return Response(
-            content=f"Error downloading questionnaire responses: {str(e)}",
+            content=f"Error downloading questionnaire data: {str(e)}",
             media_type="text/plain",
             status_code=500
         )
