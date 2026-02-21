@@ -371,6 +371,11 @@ class TradingParameters(BaseModel):
         description="monitor_parameter",
         gt=1.0,
     )
+    monitor_mode: str = Field(
+        default="supervisor",
+        title="Monitor Mode (full or supervisor)",
+        description="monitor_parameter",
+    )
 
     throttle_settings: Dict[TraderType, ThrottleConfig] = Field(
         default_factory=lambda: {

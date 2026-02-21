@@ -169,9 +169,9 @@ templates:
       - Monitor your outstanding orders and cancel stale ones that are too far from the current spread.
       You can only place BUY orders (system knows your direction).
 
-# NOT CURRENTLY USED — Alternative supervisor templates by Alessio.
-# Paired with SupervisorTrader + UrgencyExecutionTrader (see traders/).
-# Simpler approach: LLM only controls urgency, not order size or aggression.
+# Supervisor templates — Alessio's urgency-only pipeline.
+# Used when monitor_mode="supervisor". LLM controls only speed/urgency.
+# Placeholders {N} and {BUY or SELL} are filled at runtime.
 supervisor_templates:
   supervisor_execution:
     name: Execution Supervisor

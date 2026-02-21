@@ -203,6 +203,7 @@ class TraderManager:
                 "openrouter_api_key": api_key,
                 "monitor_model": params.get("monitor_model", "anthropic/claude-haiku-4.5"),
                 "monitor_interval": params.get("monitor_interval", 7.0),
+                "monitor_mode": params.get("monitor_mode", "supervisor"),
             }
             monitor = LLMMonitor(trader=trader, params=monitor_params)
 

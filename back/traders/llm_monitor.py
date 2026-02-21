@@ -1,8 +1,10 @@
 """
 LLM Monitor - Periodically adjusts a heuristic trader's parameters.
 
-The LLM does NOT trade directly. It observes how the trader is performing
-and tunes speed, order size, and aggression every few seconds.
+Two modes:
+  "full"       – LLM tunes speed, order size, and aggression (3 dimensions).
+  "supervisor" – LLM controls only urgency/speed (Alessio's design).
+                 Same underlying InformedTrader, only pacing changes.
 """
 import asyncio
 import os
@@ -16,6 +18,8 @@ from pathlib import Path
 from utils.utils import setup_custom_logger
 
 logger = setup_custom_logger(__name__)
+
+# ── full-mode constants ──────────────────────────────────────────────
 
 SPEED_FACTORS = {
     "much_faster": 0.4,
@@ -78,18 +82,44 @@ Guidelines:
 - If recent trades had minimal impact, you can safely speed up.
 - Use "unchanged" for speed if the current pace is appropriate."""
 
+# ── supervisor-mode constants ────────────────────────────────────────
 
-def _load_monitor_templates() -> Dict:
+SUPERVISOR_TOOLS = [
+    {"type": "function", "function": {"name": "INCREASE_URGENCY", "description": "Increase execution speed",
+        "parameters": {"type": "object", "properties": {"reasoning": {"type": "string", "description": "Brief explanation (1-2 sentences)."}}, "required": ["reasoning"]}}},
+    {"type": "function", "function": {"name": "DECREASE_URGENCY", "description": "Decrease execution speed",
+        "parameters": {"type": "object", "properties": {"reasoning": {"type": "string", "description": "Brief explanation (1-2 sentences)."}}, "required": ["reasoning"]}}},
+    {"type": "function", "function": {"name": "NO_CHANGE", "description": "Keep execution speed unchanged",
+        "parameters": {"type": "object", "properties": {"reasoning": {"type": "string", "description": "Brief explanation (1-2 sentences)."}}, "required": ["reasoning"]}}},
+]
+
+DECISION_MULTIPLIER = 2.0   # urgency *= 2 or /= 2 per step
+URGENCY_FLOOR = 0.5
+URGENCY_CEILING = 2.0
+
+
+def _load_yaml_config() -> Dict:
     yaml_path = Path(__file__).parent.parent / "config" / "agentic_prompts.yaml"
     if yaml_path.exists():
         with open(yaml_path) as f:
-            data = yaml.safe_load(f) or {}
-        return data.get("monitor_templates", {})
+            return yaml.safe_load(f) or {}
     return {}
 
 
+def _load_monitor_templates() -> Dict:
+    return _load_yaml_config().get("monitor_templates", {})
+
+
+def _load_supervisor_templates() -> Dict:
+    return _load_yaml_config().get("supervisor_templates", {})
+
+
 class LLMMonitor:
-    """Monitors a heuristic trader and adjusts its parameters via LLM."""
+    """Monitors a heuristic trader and adjusts its parameters via LLM.
+
+    mode="full"       → 3-dimension control (speed, order_size, aggression)
+    mode="supervisor"  → urgency-only control (Alessio's pipeline)
+    """
 
     def __init__(self, trader, params: dict):
         self.trader = trader
@@ -100,15 +130,96 @@ class LLMMonitor:
         self.decision_log: List[Dict] = []
         self._stop_requested = asyncio.Event()
 
-        # Load prompt from template or use default
-        templates = _load_monitor_templates()
-        template_name = params.get("monitor_template", "informed_monitor_default")
-        template = templates.get(template_name, {})
-        self.system_prompt = template.get("prompt", DEFAULT_SYSTEM_PROMPT)
+        # Mode: "full" (existing 3-dim) or "supervisor" (urgency-only)
+        self.mode = params.get("monitor_mode", "full")
+
+        if self.mode == "supervisor":
+            self.urgency = 1.0  # baseline
+            self.decision_multiplier = params.get("decision_multiplier", DECISION_MULTIPLIER)
+            sup_templates = _load_supervisor_templates()
+            template = sup_templates.get("supervisor_execution", {})
+            self.system_prompt = self._fill_supervisor_prompt(
+                template.get("prompt", ""), trader, params
+            )
+            self.monitor_interval = template.get("decision_interval", self.monitor_interval)
+        else:
+            templates = _load_monitor_templates()
+            template_name = params.get("monitor_template", "informed_monitor_default")
+            template = templates.get(template_name, {})
+            self.system_prompt = template.get("prompt", DEFAULT_SYSTEM_PROMPT)
+
+    @staticmethod
+    def _fill_supervisor_prompt(prompt: str, trader, params: dict) -> str:
+        """Replace {N} and {BUY or SELL} placeholders in Alessio's prompt."""
+        from core.data_models import TradeDirection
+        direction = params.get("informed_trade_direction")
+        direction_str = "BUY" if direction == TradeDirection.BUY else "SELL"
+        prompt = prompt.replace("{N}", str(trader.goal))
+        prompt = prompt.replace("{BUY or SELL}", direction_str)
+        return prompt
 
     # ---- state building ----
 
     def build_monitor_state(self) -> str:
+        if self.mode == "supervisor":
+            return self._build_supervisor_state()
+        return self._build_full_state()
+
+    def _build_supervisor_state(self) -> str:
+        """Compact state matching Alessio's prompt: progress gap, time pressure, recent impact."""
+        trader = self.trader
+        elapsed = trader.get_elapsed_time()
+        remaining = trader.get_remaining_time()
+        duration = trader.params["trading_day_duration"] * 60
+
+        total_filled = sum(o["amount"] for o in trader.filled_orders) if trader.filled_orders else 0
+        goal = trader.goal
+        progress_pct = total_filled / goal if goal > 0 else 1.0
+        target_pct = elapsed / duration if duration > 0 else 1.0
+
+        # PROGRESS GAP: positive = ahead, negative = behind
+        progress_gap = progress_pct - target_pct
+
+        # TIME PRESSURE: 0 early, 1 at deadline
+        time_pressure = elapsed / duration if duration > 0 else 1.0
+
+        # RECENT IMPACT: how much price moved against us in last few fills
+        from core.data_models import OrderType, TradeDirection
+        direction = trader.params.get("informed_trade_direction")
+        best_bid = trader.get_best_price(OrderType.BID)
+        best_ask = trader.get_best_price(OrderType.ASK)
+        mid = (best_bid + best_ask) / 2 if best_bid and best_ask else 0
+
+        recent_impact = 0.0
+        if trader.filled_orders and mid > 0:
+            recent = trader.filled_orders[-5:]
+            prices = [o.get("price", mid) for o in recent]
+            avg_fill = sum(prices) / len(prices)
+            if direction == TradeDirection.BUY:
+                recent_impact = (avg_fill - mid) / mid  # positive = adverse for buyer
+            else:
+                recent_impact = (mid - avg_fill) / mid  # positive = adverse for seller
+
+        # VWAP
+        filled_value = sum(o.get("price", 0) * o.get("amount", 1) for o in trader.filled_orders) if trader.filled_orders else 0
+        vwap = filled_value / total_filled if total_filled > 0 else 0
+
+        # Previous decisions
+        prev = ""
+        for d in self.decision_log[-3:]:
+            prev += f"  {d['action']} (urgency {d['urgency_before']:.2f} → {d['urgency_after']:.2f})\n"
+        if not prev:
+            prev = "  None yet.\n"
+
+        return f"""PROGRESS GAP: {progress_gap:+.3f}  ({total_filled}/{goal} shares, {progress_pct:.0%} done, target {target_pct:.0%})
+TIME PRESSURE: {time_pressure:.2f}  ({int(remaining)}s remaining)
+RECENT IMPACT: {recent_impact:+.4f}
+CURRENT URGENCY: {self.urgency:.2f}
+VWAP: {vwap:.2f} | Mid: {mid:.1f}
+PREVIOUS DECISIONS:
+{prev}"""
+
+    def _build_full_state(self) -> str:
         trader = self.trader
         elapsed = trader.get_elapsed_time()
         remaining = trader.get_remaining_time()
@@ -208,9 +319,16 @@ Bid: {best_bid} | Ask: {best_ask} | Spread: {spread} | VWAP: {vwap:.2f}
     # ---- LLM interaction ----
 
     async def call_llm(self, market_state: str) -> Dict:
+        tools = SUPERVISOR_TOOLS if self.mode == "supervisor" else MONITOR_TOOLS
+        user_msg = (
+            f"{market_state}\n\nDecide your action."
+            if self.mode == "supervisor"
+            else f"{market_state}\n\nDecide your parameter adjustments."
+        )
+
         messages = [
             {"role": "system", "content": self.system_prompt},
-            {"role": "user", "content": f"{market_state}\n\nDecide your parameter adjustments."},
+            {"role": "user", "content": user_msg},
         ]
 
         try:
@@ -224,7 +342,7 @@ Bid: {best_bid} | Ask: {best_ask} | Spread: {spread} | VWAP: {vwap:.2f}
                     json={
                         "model": self.model,
                         "messages": messages,
-                        "tools": MONITOR_TOOLS,
+                        "tools": tools,
                         "tool_choice": "required",
                         "temperature": 0.3,
                         "max_tokens": 300,
@@ -243,10 +361,14 @@ Bid: {best_bid} | Ask: {best_ask} | Spread: {spread} | VWAP: {vwap:.2f}
                     return {"error": "No tool call returned"}
 
                 tc = tool_calls[0]
+                tool_name = tc["function"]["name"]
                 try:
                     args = json.loads(tc["function"].get("arguments", "{}"))
                 except json.JSONDecodeError:
                     args = {}
+
+                if self.mode == "supervisor":
+                    return {"tool_name": tool_name, "args": args}
                 return {"args": args}
 
         except Exception as e:
@@ -256,6 +378,7 @@ Bid: {best_bid} | Ask: {best_ask} | Spread: {spread} | VWAP: {vwap:.2f}
     # ---- parameter application ----
 
     def apply_adjustments(self, adjustments: Dict) -> None:
+        """Full mode: adjust speed, order size, and aggression."""
         trader = self.trader
 
         # Speed (sets speed_factor, applied inside calculate_sleep_time)
@@ -276,6 +399,33 @@ Bid: {best_bid} | Ask: {best_ask} | Spread: {spread} | VWAP: {vwap:.2f}
                 trader.informed_share_passive * trader.goal / trader.order_multiplier
             ))
 
+    def apply_supervisor_decision(self, tool_name: str, args: Dict) -> Dict:
+        """Supervisor mode: only adjust speed_factor via urgency."""
+        u_before = self.urgency
+
+        if tool_name == "INCREASE_URGENCY":
+            new_u = u_before * self.decision_multiplier
+            new_u = min(new_u, URGENCY_CEILING)
+        elif tool_name == "DECREASE_URGENCY":
+            new_u = u_before / self.decision_multiplier
+            new_u = max(new_u, URGENCY_FLOOR)
+        else:  # NO_CHANGE
+            new_u = u_before
+
+        self.urgency = new_u
+        # Map urgency to speed_factor: urgency > 1 → faster (lower factor),
+        # urgency < 1 → slower (higher factor). Baseline urgency=1 → factor=1.
+        self.trader.speed_factor = max(0.2, min(3.0, 1.0 / self.urgency))
+
+        return {
+            "timestamp": datetime.now().isoformat(),
+            "action": tool_name,
+            "urgency_before": u_before,
+            "urgency_after": self.urgency,
+            "speed_factor": self.trader.speed_factor,
+            "reasoning": args.get("reasoning", ""),
+        }
+
     # ---- main loop ----
 
     async def run(self) -> None:
@@ -287,6 +437,8 @@ Bid: {best_bid} | Ask: {best_ask} | Spread: {spread} | VWAP: {vwap:.2f}
 
         # Wait a bit before first adjustment to let the trader establish baseline
         await asyncio.sleep(self.monitor_interval)
+
+        logger.info(f"[Monitor:{self.trader.id}] Starting in '{self.mode}' mode")
 
         while not self._stop_requested.is_set():
             try:
@@ -305,6 +457,16 @@ Bid: {best_bid} | Ask: {best_ask} | Spread: {spread} | VWAP: {vwap:.2f}
 
                 if "error" in result:
                     logger.error(f"[Monitor:{self.trader.id}] {result['error']}")
+                elif self.mode == "supervisor":
+                    tool_name = result["tool_name"]
+                    args = result.get("args", {})
+                    decision = self.apply_supervisor_decision(tool_name, args)
+                    self.decision_log.append(decision)
+                    logger.info(
+                        f"[Monitor:{self.trader.id}] {tool_name}: "
+                        f"urgency {decision['urgency_before']:.2f}→{decision['urgency_after']:.2f} "
+                        f"sf={decision['speed_factor']:.2f} | {decision['reasoning'][:80]}"
+                    )
                 else:
                     adjustments = result.get("args", {})
                     self.apply_adjustments(adjustments)
@@ -348,6 +510,7 @@ Bid: {best_bid} | Ask: {best_ask} | Spread: {spread} | VWAP: {vwap:.2f}
 
         data = {
             "trader_id": self.trader.id,
+            "mode": self.mode,
             "model": self.model,
             "monitor_interval": self.monitor_interval,
             "total_decisions": len(self.decision_log),
