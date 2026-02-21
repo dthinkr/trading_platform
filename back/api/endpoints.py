@@ -1509,7 +1509,7 @@ async def run_headless_batch(
             
             params_dict["predefined_goals"] = []
             
-            if params_dict.get("num_agentic_traders", 0) == 0 and params_dict.get("num_monitored_traders", 0) == 0:
+            if params_dict.get("num_agentic_traders", 0) == 0 and params_dict.get("num_monitored_traders", 0) == 0 and params_dict.get("num_informed_traders", 0) == 0:
                 params_dict["num_agentic_traders"] = 1
                 params_dict["agentic_prompt_template"] = "buyer_20_default"
             
