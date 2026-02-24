@@ -114,7 +114,7 @@
                   <span class="text-h6">Trading Platform</span>
                 </div>
                 <v-img
-                  :src="Screenshot_1"
+                  :src="Intro"
                   alt="Trading Platform Screenshot 1"
                   max-width="850"
                   contain
@@ -137,7 +137,7 @@
                   <span class="text-h6">Trading Platform: Panel 1</span>
                 </div>
                 <v-img
-                  :src="Screenshot_2"
+                  :src="Timer"
                   alt="Trading Platform Screenshot 2"
                   max-width="850"
                   contain
@@ -157,7 +157,7 @@
                   <span class="text-h6">Trading Platform: Panel 2</span>
                 </div>
                 <v-img
-                  :src="Screenshot_3"
+                  :src="Bars"
                   alt="Trading Platform Screenshot 3"
                   max-width="850"
                   contain
@@ -177,7 +177,7 @@
                   <span class="text-h6">Trading Platform: Panel 3</span>
                 </div>
                 <v-img
-                  :src="Screenshot_4"
+                  :src="Plot"
                   alt="Trading Platform Screenshot 4"
                   max-width="850"
                   contain
@@ -197,7 +197,7 @@
                   <span class="text-h6">Trading Platform: Panel 4</span>
                 </div>
                 <v-img
-                  :src="Screenshot_5"
+                  :src="Trades"
                   alt="Trading Platform Screenshot 5"
                   max-width="850"
                   contain
@@ -217,7 +217,7 @@
                   <span class="text-h6">Trading Platform: Panel 5</span>
                 </div>
                 <v-img
-                  :src="Screenshot_6"
+                  :src="Messages"
                   alt="Trading Platform Screenshot 6"
                   max-width="850"
                   contain
@@ -237,7 +237,7 @@
                   <span class="text-h6">Trading Platform: Panel 6</span>
                 </div>
                 <v-img
-                  :src="Screenshot_7"
+                  :src="Buttons"
                   alt="Trading Platform Screenshot 7"
                   max-width="850"
                   contain
@@ -257,7 +257,7 @@
                   <span class="text-h6">Trading Platform: Panel 7</span>
                 </div>
                 <v-img
-                  :src="Screenshot_8"
+                  :src="Orders"
                   alt="Trading Platform Screenshot 8"
                   max-width="850"
                   contain
@@ -302,14 +302,14 @@
 
 <script setup>
 import demoGif from '@/assets/demo.gif'
-import Screenshot_2 from '@/assets/Screenshot_2.png'
-import Screenshot_1 from '@/assets/Screenshot_1.png'
-import Screenshot_3 from '@/assets/Screenshot_3.png'
-import Screenshot_4 from '@/assets/Screenshot_4.png'
-import Screenshot_5 from '@/assets/Screenshot_5.png'
-import Screenshot_6 from '@/assets/Screenshot_6.png'
-import Screenshot_7 from '@/assets/Screenshot_7.png'
-import Screenshot_8 from '@/assets/Screenshot_8.png'
+import Intro from '@/assets/Intro.jpg'
+import Timer from '@/assets/Timer.jpg'
+import Bars from '@/assets/Bars.jpg'
+import Plot from '@/assets/Plot.jpg'
+import Trades from '@/assets/Trades.jpg'
+import Messages from '@/assets/Messages.jpg'
+import Buttons from '@/assets/Buttons.jpg'
+import Orders from '@/assets/Orders.jpg'
 
 const props = defineProps({
   iconColor: String,
