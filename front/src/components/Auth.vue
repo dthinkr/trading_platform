@@ -46,7 +46,7 @@
 
           <div ref="turnstileRef" class="turnstile-widget"></div>
 
-          <button type="submit" class="btn btn-primary" :disabled="credentialLoading || (!turnstileToken && !turnstileFailed)">
+          <button type="submit" class="btn btn-primary" :disabled="credentialLoading || !turnstileToken">
             {{ credentialLoading ? 'Signing in...' : 'Sign In' }}
           </button>
         </form>
@@ -139,7 +139,6 @@ const prolificParams = ref(null)
 // Turnstile state
 const turnstileRef = ref(null)
 const turnstileToken = ref(null)
-const turnstileFailed = ref(false)
 let turnstileWidgetId = null
 
 function loadTurnstileScript() {
@@ -148,7 +147,6 @@ function loadTurnstileScript() {
   script.id = 'turnstile-script'
   script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad&render=explicit'
   script.async = true
-  script.onerror = () => { turnstileFailed.value = true }
   document.head.appendChild(script)
 }
 
@@ -160,7 +158,7 @@ function renderTurnstile() {
     theme: 'light',
     callback: (token) => { turnstileToken.value = token },
     'expired-callback': () => { turnstileToken.value = null },
-    'error-callback': () => { turnstileFailed.value = true },
+    'error-callback': () => { turnstileToken.value = null },
   })
 }
 
