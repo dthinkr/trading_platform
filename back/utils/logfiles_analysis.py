@@ -590,6 +590,7 @@ def calculate_trader_specific_metrics(trader_specific_metrics, general_metrics, 
             'Penalized_VWAP': penalized_vwap,
             'Slippage': slippage,
             'Slippage_Scaled': slippage_scaled,
+            'PnL_Before_Penalty': original_pnl,
             'PnL': pnl_informed,
             'Reward': reward
         })
@@ -600,6 +601,7 @@ def calculate_trader_specific_metrics(trader_specific_metrics, general_metrics, 
             'Penalized_VWAP': '-',
             'Slippage': '-',
             'Slippage_Scaled': '-',
+            'PnL_Before_Penalty': original_pnl,
             'PnL': original_pnl,
             'Reward': reward
         })

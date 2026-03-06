@@ -33,37 +33,25 @@
                     <span class="text-h6 font-weight-bold">{{ formatValue(orderBookMetrics?.Last_Midprice, 'number') }}</span>
                   </div>
                   <div v-if="traderSpecificMetrics" class="mt-3">
-                    <h4 class="text-subtitle-1 font-weight-medium mb-2">Your Trading Activity</h4>
+                    <h4 class="text-subtitle-1 font-weight-medium mb-2">Your Statistics</h4>
                     <div class="d-flex justify-space-between align-center mb-2">
                       <span class="text-subtitle-1">Your Trades:</span>
                       <span class="text-h6 font-weight-bold">{{ formatValue(traderSpecificMetrics.Trades, 'number') }}</span>
                     </div>
                     <div class="d-flex justify-space-between align-center mb-2">
-                      <span class="text-subtitle-1">Your VWAP:</span>
-                      <span class="text-h6 font-weight-bold">{{ formatValue(traderSpecificMetrics.VWAP, 'number') }}</span>
-                    </div>
-                    <div class="d-flex justify-space-between align-center mb-2">
-                      <span class="text-subtitle-1">Remaining Trades:</span>
+                      <span class="text-subtitle-1">Inventory Imbalance:</span>
                       <span class="text-h6 font-weight-bold">{{ formatValue(traderSpecificMetrics.Remaining_Trades, 'number') }}</span>
                     </div>
                     <div class="d-flex justify-space-between align-center mb-2">
-                      <span class="text-subtitle-1">Penalized VWAP:</span>
-                      <span class="text-h6 font-weight-bold">{{ formatValue(traderSpecificMetrics.Penalized_VWAP, 'number') }}</span>
+                      <span class="text-subtitle-1">PnL (before penalty):</span>
+                      <span class="text-h6 font-weight-bold">{{ formatValue(traderSpecificMetrics.PnL_Before_Penalty, 'number') }}</span>
                     </div>
                     <div class="d-flex justify-space-between align-center mb-2">
-                      <span class="text-subtitle-1">Slippage:</span>
-                      <span class="text-h6 font-weight-bold">{{ formatValue(traderSpecificMetrics.Slippage, 'number') }}</span>
-                    </div>
-                    <div class="d-flex justify-space-between align-center mb-2">
-                      <span class="text-subtitle-1">Slippage Scaled:</span>
-                      <span class="text-h6 font-weight-bold">{{ formatValue(traderSpecificMetrics.Slippage_Scaled, 'number') }}</span>
-                    </div>
-                    <div class="d-flex justify-space-between align-center mb-2">
-                      <span class="text-subtitle-1">PnL:</span>
+                      <span class="text-subtitle-1">PnL (after penalty):</span>
                       <span class="text-h6 font-weight-bold">{{ formatValue(traderSpecificMetrics.PnL, 'number') }}</span>
                     </div>
                     <div class="d-flex justify-space-between align-center mb-2">
-                      <span class="text-subtitle-1">Market Reward:</span>
+                      <span class="text-subtitle-1">Market Reward (if selected):</span>
                       <span class="text-h6 font-weight-bold">{{ formatValue(traderSpecificMetrics.Reward, 'gbp') }}</span>
                     </div>
                   </div>
@@ -84,6 +72,39 @@
               </v-col>
             </v-row>
           </v-card-text>
+
+          <!-- Per-market questions (shown after every market) -->
+          <div v-if="traderSpecificMetrics" class="pa-6 questionnaire-section">
+            <h3 class="text-h6 mb-3">Answer the following question to continue:</h3>
+            <p class="text-body-2 mb-3 font-italic">
+              Which statement best describes the market?<br>
+              (A correct answer will add a £2 bonus to your market reward if this market is selected for payment.)
+            </p>
+            <div class="question-container mb-4">
+              <v-radio-group v-model="perMarketQuestions.marketDescription">
+                <v-radio label="An algorithmic trader consistently bought shares." value="algo_bought"></v-radio>
+                <v-radio label="An algorithmic trader consistently sold shares." value="algo_sold"></v-radio>
+                <v-radio label="There was no algorithmic trader consistently buying or selling shares." value="no_algo"></v-radio>
+              </v-radio-group>
+            </div>
+
+            <!-- Conditional: inventory imbalance question (only when Remaining_Trades != 0) -->
+            <div v-if="hasInventoryImbalance" class="mt-4">
+              <h3 class="text-h6 mb-3">Answer the following question to continue:</h3>
+              <p class="text-body-2 mb-3">
+                Your number of shares at the end of the market must equal your initial number of shares. Because they did not match, a penalty was applied.<br>
+                Why did this happen?
+              </p>
+              <div class="question-container mb-4">
+                <v-radio-group v-model="perMarketQuestions.imbalanceReason">
+                  <v-radio label="I did not understand that my final number of shares had to equal my initial number of shares." value="did_not_understand"></v-radio>
+                  <v-radio label="I did not have enough time to adjust my shares so that my final number matched my initial number." value="not_enough_time"></v-radio>
+                  <v-radio label="I lost track of time." value="lost_track_time"></v-radio>
+                </v-radio-group>
+              </div>
+            </div>
+          </div>
+
           <v-card-actions class="justify-center pa-6">
             <template v-if="isLastMarket">
               <div class="text-center">
@@ -94,10 +115,10 @@
                   <br><br>
                   Your final payment will be {{ formatValue((traderSpecificMetrics?.Accumulated_Reward || 0) + 5, 'gbp') }}.
                 </p>
-                <!-- Questionnaire Section -->
+                <!-- Final Questionnaire Section (last market only) -->
                 <div v-if="!questionnaireCompleted" class="questionnaire-section mt-4 mb-4">
                   <h3 class="text-h6 mb-3">Please complete this short questionnaire before finishing</h3>
-                  
+
                   <!-- Question 1 -->
                   <div class="question-container mb-4">
                     <p class="text-subtitle-1 mb-2">1. Was the overall direction of the price movement clear throughout the markets?</p>
@@ -107,7 +128,7 @@
                       <v-radio label="Not sure" value="Not sure"></v-radio>
                     </v-radio-group>
                   </div>
-                  
+
                   <!-- Question 2 -->
                   <div class="question-container mb-4">
                     <p class="text-subtitle-1 mb-2">2. Which window of the trading platform provided the most useful information for your decisions?</p>
@@ -117,7 +138,7 @@
                       <v-radio label="Market Info Card (Market Information)" value="Market Info Card"></v-radio>
                     </v-radio-group>
                   </div>
-                  
+
                   <!-- Question 3 -->
                   <div class="question-container mb-4">
                     <p class="text-subtitle-1 mb-2">3. Were you able to effectively monitor your inventory imbalance using information provided by the platform?</p>
@@ -127,7 +148,7 @@
                       <v-radio label="Not sure" value="Not sure"></v-radio>
                     </v-radio-group>
                   </div>
-                  
+
                   <!-- Question 4 -->
                   <div class="question-container mb-4">
                     <p class="text-subtitle-1 mb-2">4. Was the Volume Weighted Average Price (VWAP) of Buy and Sell trades helpful in informing your decisions?</p>
@@ -137,10 +158,10 @@
                       <v-radio label="Not sure" value="Not sure"></v-radio>
                     </v-radio-group>
                   </div>
-                  
-                  <v-btn 
-                    color="primary" 
-                    x-large 
+
+                  <v-btn
+                    color="primary"
+                    x-large
                     @click="submitQuestionnaire"
                     :disabled="!isQuestionnaireComplete"
                     class="mt-2"
@@ -148,15 +169,15 @@
                     Submit Questionnaire
                   </v-btn>
                 </div>
-                
+
                 <!-- Show this after questionnaire is completed -->
                 <div v-if="questionnaireCompleted" class="mt-4">
                   <p class="text-subtitle-1 mb-4">
                     <span class="font-weight-bold">Please click <a :href="prolificRedirectUrl" target="_blank" class="primary--text">here</a> to complete your submission on Prolific.</span>
                   </p>
-                  <v-btn 
-                    color="secondary" 
-                    x-large 
+                  <v-btn
+                    color="secondary"
+                    x-large
                     @click="downloadMarketMetrics"
                     class="mt-2"
                   >
@@ -167,17 +188,18 @@
             </template>
             <template v-else>
               <v-btn
-                color="primary" 
-                x-large 
+                color="primary"
+                x-large
                 @click="goToNextMarket"
                 :loading="isNavigating"
+                :disabled="!arePerMarketQuestionsComplete"
                 class="mr-4"
               >
                 Continue to Next Market
               </v-btn>
-              <v-btn 
-                color="secondary" 
-                x-large 
+              <v-btn
+                color="secondary"
+                x-large
                 @click="downloadMarketMetrics"
               >
                 Download Metrics
@@ -227,7 +249,26 @@ const dialogTitle = ref('')
 const dialogMessage = ref('')
 const isNavigating = ref(false)
 
-// Questionnaire state
+// Per-market questions state (shown after every market)
+const perMarketQuestions = ref({
+  marketDescription: null,
+  imbalanceReason: null
+})
+
+// Check if inventory is imbalanced
+const hasInventoryImbalance = computed(() => {
+  const remaining = traderSpecificMetrics.value?.Remaining_Trades
+  return remaining !== undefined && remaining !== null && remaining !== 0
+})
+
+// Check if per-market questions are complete
+const arePerMarketQuestionsComplete = computed(() => {
+  if (!perMarketQuestions.value.marketDescription) return false
+  if (hasInventoryImbalance.value && !perMarketQuestions.value.imbalanceReason) return false
+  return true
+})
+
+// Questionnaire state (last market only)
 const questionnaireCompleted = ref(false)
 const questionnaire = ref({
   q1: null,
@@ -236,11 +277,12 @@ const questionnaire = ref({
   q4: null
 })
 
-// Check if all questions are answered
+// Check if all questions are answered (per-market + final questionnaire)
 const isQuestionnaireComplete = computed(() => {
-  return questionnaire.value.q1 && 
-         questionnaire.value.q2 && 
-         questionnaire.value.q3 && 
+  return arePerMarketQuestionsComplete.value &&
+         questionnaire.value.q1 &&
+         questionnaire.value.q2 &&
+         questionnaire.value.q3 &&
          questionnaire.value.q4
 })
 
@@ -251,7 +293,9 @@ async function submitQuestionnaire() {
       questionnaire.value.q1,
       questionnaire.value.q2,
       questionnaire.value.q3,
-      questionnaire.value.q4
+      questionnaire.value.q4,
+      perMarketQuestions.value.marketDescription,
+      perMarketQuestions.value.imbalanceReason || 'N/A'
     ]
     
     let traderIdForSubmit = traderId.value
@@ -376,11 +420,32 @@ const formatValue = (value, format) => {
   return value
 }
 
+// Save per-market question responses
+async function savePerMarketResponses() {
+  let traderIdForSubmit = traderId.value
+  if (authStore.user?.isProlific) {
+    const prolificPID = authStore.user.prolificData.PROLIFIC_PID
+    traderIdForSubmit = `HUMAN_${prolificPID}`
+  }
+
+  await axios.post(`${httpUrl}save_questionnaire_response`, {
+    trader_id: traderIdForSubmit,
+    responses: [
+      perMarketQuestions.value.marketDescription,
+      perMarketQuestions.value.imbalanceReason || 'N/A'
+    ],
+    market_number: currentMarket.value
+  })
+}
+
 // Navigate to next market with page refresh (ensures clean state)
 const goToNextMarket = async () => {
   isNavigating.value = true
 
   try {
+    // Save per-market responses before moving on
+    await savePerMarketResponses()
+
     // Check if user can start a new market
     if (!sessionStore.canStartNewMarket) {
       dialogTitle.value = 'Maximum Markets Reached'
