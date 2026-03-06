@@ -36,7 +36,7 @@ import csv
 import zipfile
 from pydantic import BaseModel, ValidationError
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from .google_sheet_auth import get_registered_users
 
 # init fastapi
@@ -1611,6 +1611,7 @@ class ProlificSettings(BaseModel):
 class QuestionnaireResponse(BaseModel):
     trader_id: str
     responses: List[str]
+    market_number: Optional[int] = None
 
 # Pre-market interaction model
 class PremarketInteraction(BaseModel):
@@ -1742,13 +1743,28 @@ async def save_questionnaire_response(response: QuestionnaireResponse):
         lock = await _get_lock(response.trader_id)
         async with lock:
             data = _read_trader_data(response.trader_id)
-            data["postmarket_responses"] = {
-                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "q1": response.responses[0] if len(response.responses) > 0 else None,
-                "q2": response.responses[1] if len(response.responses) > 1 else None,
-                "q3": response.responses[2] if len(response.responses) > 2 else None,
-                "q4": response.responses[3] if len(response.responses) > 3 else None,
-            }
+
+            if response.market_number is not None:
+                # Per-market responses (2 questions: market_description, imbalance_reason)
+                if "per_market_responses" not in data:
+                    data["per_market_responses"] = {}
+                data["per_market_responses"][str(response.market_number)] = {
+                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "market_description": response.responses[0] if len(response.responses) > 0 else None,
+                    "imbalance_reason": response.responses[1] if len(response.responses) > 1 else None,
+                }
+            else:
+                # Final questionnaire responses (q1-q4 + per-market questions for last market)
+                data["postmarket_responses"] = {
+                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "q1": response.responses[0] if len(response.responses) > 0 else None,
+                    "q2": response.responses[1] if len(response.responses) > 1 else None,
+                    "q3": response.responses[2] if len(response.responses) > 2 else None,
+                    "q4": response.responses[3] if len(response.responses) > 3 else None,
+                    "market_description": response.responses[4] if len(response.responses) > 4 else None,
+                    "imbalance_reason": response.responses[5] if len(response.responses) > 5 else None,
+                }
+
             _write_trader_data(response.trader_id, data)
         return success(message="Questionnaire response saved successfully")
     except Exception as e:
