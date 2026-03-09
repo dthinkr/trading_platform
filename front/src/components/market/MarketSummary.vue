@@ -8,32 +8,10 @@
           </v-card-title>
           <v-card-text class="pa-6">
             <v-row>
-              <!-- Order Book Metrics -->
+              <!-- Your Statistics -->
               <v-col cols="12">
-                <div class="metric-card pa-4 mb-4">
-                  <h3 class="text-h6 font-weight-medium mb-2">Order Book Metrics</h3>
-                  <div class="d-flex justify-space-between align-center mb-2">
-                    <span class="text-subtitle-1">Total Orders:</span>
-                    <span class="text-h6 font-weight-bold">{{ formatValue(orderBookMetrics?.Total_Orders, 'number') }}</span>
-                  </div>
-                  <div class="d-flex justify-space-between align-center mb-2">
-                    <span class="text-subtitle-1">Total Trades:</span>
-                    <span class="text-h6 font-weight-bold">{{ formatValue(orderBookMetrics?.Total_Trades, 'number') }}</span>
-                  </div>
-                  <div class="d-flex justify-space-between align-center mb-2">
-                    <span class="text-subtitle-1">Total Cancellations:</span>
-                    <span class="text-h6 font-weight-bold">{{ formatValue(orderBookMetrics?.Total_Cancellations, 'number') }}</span>
-                  </div>
-                  <div class="d-flex justify-space-between align-center mb-2">
-                    <span class="text-subtitle-1">Initial Midprice:</span>
-                    <span class="text-h6 font-weight-bold">{{ formatValue(orderBookMetrics?.Initial_Midprice, 'number') }}</span>
-                  </div>
-                  <div class="d-flex justify-space-between align-center mb-2">
-                    <span class="text-subtitle-1">Final Midprice:</span>
-                    <span class="text-h6 font-weight-bold">{{ formatValue(orderBookMetrics?.Last_Midprice, 'number') }}</span>
-                  </div>
-                  <div v-if="traderSpecificMetrics" class="mt-3">
-                    <h4 class="text-subtitle-1 font-weight-medium mb-2">Your Statistics</h4>
+                <div v-if="traderSpecificMetrics" class="metric-card pa-4 mb-4">
+                  <h3 class="text-h6 font-weight-medium mb-2">Your Statistics</h3>
                     <div class="d-flex justify-space-between align-center mb-2">
                       <span class="text-subtitle-1">Your Trades:</span>
                       <span class="text-h6 font-weight-bold">{{ formatValue(traderSpecificMetrics.Trades, 'number') }}</span>
@@ -54,7 +32,6 @@
                       <span class="text-subtitle-1">Market Reward (if selected):</span>
                       <span class="text-h6 font-weight-bold">{{ formatValue(traderSpecificMetrics.Reward, 'gbp') }}</span>
                     </div>
-                  </div>
                 </div>
               </v-col>
               <v-col cols="12">
