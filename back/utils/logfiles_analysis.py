@@ -578,18 +578,15 @@ def calculate_trader_specific_metrics(trader_specific_metrics, general_metrics, 
         pnl_informed = reward_result["pnl"]
         reward = reward_result["reward"]
 
-        # Calculate PnL before penalty (same formula but with multiplier=1.0)
-        no_penalty_result = calculate_vwap_reward(
-            goal=trader_goal,
-            completed_trades=completed_trades,
-            current_vwap=current_vwap if current_vwap and current_vwap != '-' else 0,
-            mid_price=mid_price,
-            buy_target_price=110,
-            sell_target_price=90,
-            penalty_multiplier_buy=1.0,
-            penalty_multiplier_sell=1.0,
-        )
-        pnl_before_penalty = no_penalty_result["pnl"]
+        # Calculate PnL before penalty: use raw VWAP without any penalty for incomplete trades
+        vwap = current_vwap if current_vwap and current_vwap != '-' else 0
+        if completed_trades > 0 and vwap > 0:
+            if trader_goal > 0:  # Buyer
+                pnl_before_penalty = (110 - vwap) * 10
+            else:  # Seller
+                pnl_before_penalty = (vwap - 90) * 10
+        else:
+            pnl_before_penalty = 0
 
         # Calculate slippage (platform-specific metric)
         if trader_goal > 0:
