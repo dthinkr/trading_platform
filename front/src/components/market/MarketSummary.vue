@@ -21,11 +21,11 @@
                       <span class="text-h6 font-weight-bold">{{ formatValue(traderSpecificMetrics.Remaining_Trades, 'number') }}</span>
                     </div>
                     <div class="d-flex justify-space-between align-center mb-2">
-                      <span class="text-subtitle-1">PnL (before penalty):</span>
-                      <span class="text-h6 font-weight-bold">{{ formatValue(traderSpecificMetrics.PnL_Before_Penalty, 'number') }}</span>
+                      <span class="text-subtitle-1">Penalty :</span>
+                      <span class="text-h6 font-weight-bold">{{ formatValue( (- traderSpecificMetrics.Remaining_Trades * 5) || 0, 'number') }}</span>
                     </div>
                     <div class="d-flex justify-space-between align-center mb-2">
-                      <span class="text-subtitle-1">PnL (after penalty):</span>
+                      <span class="text-subtitle-1">PnL:</span>
                       <span class="text-h6 font-weight-bold">{{ formatValue(traderSpecificMetrics.PnL, 'number') }}</span>
                     </div>
                     <div class="d-flex justify-space-between align-center mb-2">
@@ -349,6 +349,8 @@ async function fetchTraderInfo() {
     traderInfo.value = response.data.data
     orderBookMetrics.value = response.data.data.order_book_metrics
     traderSpecificMetrics.value = response.data.data.trader_specific_metrics
+    //console.log('Trader Specific metrics:', traderSpecificMetrics.value) for printing the traderspecific metrics
+    //console.log('Order Book metrics:', orderBookMetrics.value)
 
     // Retry for metrics if missing
     if (traderInfo.value && (!orderBookMetrics.value || !traderSpecificMetrics.value)) {
@@ -468,6 +470,7 @@ const isLastMarket = computed(() => {
 onMounted(() => {
   fetchTraderInfo()
 })
+
 </script>
 
 <style scoped>
