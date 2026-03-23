@@ -501,9 +501,9 @@ def process_logfile(logfile_name):
         if num_buy == num_sell:
             pnl = sum(prices_sell) - sum(prices_buy)
         elif num_buy > num_sell:
-            pnl = sum(prices_sell) - sum(prices_buy) + (num_buy - num_sell) * (all_midprices[-1] - 5)
+            pnl = sum(prices_sell) - sum(prices_buy) + (num_buy - num_sell) * (all_midprices[-1] - 1.5)
         else:
-            pnl = sum(prices_sell) - sum(prices_buy) - (num_sell - num_buy) * (all_midprices[-1] + 5)
+            pnl = sum(prices_sell) - sum(prices_buy) - (num_sell - num_buy) * (all_midprices[-1] + 1.5)
         
         all_metrics[trader] = {'Trades': total_trades_trader_i,
                                'VWAP': trader_i_vwap,
@@ -530,7 +530,7 @@ def calculate_trader_specific_metrics(trader_specific_metrics, general_metrics, 
     
     # Calculate reward with scaling between 3 and 10 based on PnL (for no-goal traders)
     if isinstance(original_pnl, (int, float)):
-        max_pnl_possible = 100
+        max_pnl_possible = 10
         max_gbp_to_give = 10
         if original_pnl < 0:
             reward = 0

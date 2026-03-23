@@ -36,9 +36,9 @@
       </div>
 
       <!-- IMBALANCE MESSAGE -->
-      <div v-if="imbalanceValue !== 0" class="imbalance-msg" :class="imbalanceColorClass">
+      <!--<div v-if="imbalanceValue !== 0" class="imbalance-msg" :class="imbalanceColorClass">
         {{ imbalanceMessage }}
-      </div>
+      </div> -->
     </v-card-text>
   </v-card>
 </template>

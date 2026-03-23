@@ -90,9 +90,8 @@
                   </span>
                 </div>
                 <p class="text-body-1" v-if="goalStatus === 'noGoal' || goalStatus === 'unknown'">
-                  The market price may fluctuate above or below the mid-price at the beginning of
-                  the market. These fluctuations can lead to potential gains or losses on your
-                  trades.
+                  The market price may fluctuate above or below the initial mid-price. 
+                  These fluctuations can lead to potential gains or losses on your trades.
                 </p>
                 <template v-else-if="hasGoal">
                   <p class="text-body-1">
@@ -140,6 +139,114 @@
           </v-hover>
         </v-col>
 
+        <!-- Image Card 1 -->
+        <v-col cols="12">
+          <v-hover v-slot="{ isHovering, props }">
+            <v-card
+              v-bind="props"
+              :elevation="isHovering ? 8 : 2"
+              class="info-card"
+            >
+              <v-card-text>
+                <div class="text-h6 mb-4">Market Dynamics 1 (Clear Upward Trending)</div>
+
+                <v-row>
+                  <v-col cols="12" md="6">
+                    <img src="@/assets/buy_1min.png" style="width: 100%;" />
+                    <div class="text-caption text-center mt-2"> Price movement over 1 minute </div>
+                  </v-col>
+                  <v-col cols="12" md="6">
+                    <img src="@/assets/buy_2_5min.png" style="width: 100%;" />
+                    <div class="text-caption text-center mt-2"> Price movement over 2.5 minutes </div>
+                  </v-col>
+                </v-row>
+
+              </v-card-text>
+            </v-card>
+          </v-hover>
+        </v-col>
+
+        <!-- Image Card 2 -->
+        <v-col cols="12">
+          <v-hover v-slot="{ isHovering, props }">
+            <v-card
+              v-bind="props"
+              :elevation="isHovering ? 8 : 2"
+              class="info-card"
+            >
+              <v-card-text>
+                <div class="text-h6 mb-4">Market Dynamics 2 (Unclear Upward Trending)</div>
+
+                <v-row>
+                  <v-col cols="12" md="6">
+                    <img src="@/assets/unclear_buy_1min.png" style="width: 100%;" />
+                    <div class="text-caption text-center mt-2"> Price movement over 1 minute </div>
+                  </v-col>
+                  <v-col cols="12" md="6">
+                    <img src="@/assets/unclear_buy_2_5min.png" style="width: 100%;" />
+                    <div class="text-caption text-center mt-2"> Price movement over 2.5 minutes </div>
+                  </v-col>
+                </v-row>
+
+              </v-card-text>
+            </v-card>
+          </v-hover>
+        </v-col>
+
+        <!-- Image Card 3 -->
+        <v-col cols="12">
+          <v-hover v-slot="{ isHovering, props }">
+            <v-card
+              v-bind="props"
+              :elevation="isHovering ? 8 : 2"
+              class="info-card"
+            >
+              <v-card-text>
+                <div class="text-h6 mb-4">Market Dynamics 3 (Clear Downward Trending)</div>
+
+                <v-row>
+                  <v-col cols="12" md="6">
+                    <img src="@/assets/sell_1min.png" style="width: 100%;" />
+                    <div class="text-caption text-center mt-2"> Price movement over 1 minute </div>
+                  </v-col>
+                  <v-col cols="12" md="6">
+                    <img src="@/assets/sell_2_5min.png" style="width: 100%;" />
+                    <div class="text-caption text-center mt-2"> Price movement over 2.5 minutes </div>
+                  </v-col>
+                </v-row>
+
+              </v-card-text>
+            </v-card>
+          </v-hover>
+        </v-col>
+
+        <!-- Image Card 4 -->
+        <v-col cols="12">
+          <v-hover v-slot="{ isHovering, props }">
+            <v-card
+              v-bind="props"
+              :elevation="isHovering ? 8 : 2"
+              class="info-card"
+            >
+              <v-card-text>
+                <div class="text-h6 mb-4">Market Dynamics 4 (Unclear Downward Trending)</div>
+
+                <v-row>
+                  <v-col cols="12" md="6">
+                    <img src="@/assets/unclear_sell_1min.png" style="width: 100%;" />
+                    <div class="text-caption text-center mt-2"> Price movement over 1 minute </div>
+                  </v-col>
+                  <v-col cols="12" md="6">
+                    <img src="@/assets/unclear_sell_2_5min.png" style="width: 100%;" />
+                    <div class="text-caption text-center mt-2"> Price movement over 2.5 minutes </div>
+                  </v-col>
+                </v-row>
+
+              </v-card-text>
+            </v-card>
+          </v-hover>
+        </v-col>
+        
         <!-- Final Earnings Card -->
         <v-col cols="12">
           <v-hover v-slot="{ isHovering, props }">
@@ -151,7 +258,9 @@
                 </div>
                 <p class="text-body-1">
                   At the end of the study, you will be awarded earnings from one randomly selected
-                  market. Your earnings will be converted at a rate of
+                  market. 
+                  <br /><br />
+                  Your earnings will be converted at a rate of
                   <span class="highlight-text">{{ conversionRate }} Liras = 1 GBP</span>.
                   <br /><br />
                   The minimum earning is your participation fee, which is
