@@ -2,19 +2,19 @@
   <img src="front/src/assets/trading_platform_logo.png" alt="Trading Platform Logo" width="200"/>
 </p>
 
-<h1 align="center">Trading Platform</h1>
+<h1 align="center">LOBX</h1>
 
 <p align="center">
   A platform for conducting financial market experiments with multiple traders and role-based interactions.
 </p>
 
 <p align="center">
-  <a href="https://github.com/dthinkr/trading_platform/stargazers"><img src="https://img.shields.io/github/stars/dthinkr/trading_platform" alt="Stars Badge"/></a>
-  <a href="https://github.com/dthinkr/trading_platform/network/members"><img src="https://img.shields.io/github/forks/dthinkr/trading_platform" alt="Forks Badge"/></a>
-  <a href="https://github.com/dthinkr/trading_platform/pulls"><img src="https://img.shields.io/github/issues-pr/dthinkr/trading_platform" alt="Pull Requests Badge"/></a>
-  <a href="https://github.com/dthinkr/trading_platform/issues"><img src="https://img.shields.io/github/issues/dthinkr/trading_platform" alt="Issues Badge"/></a>
-  <a href="https://github.com/dthinkr/trading_platform/graphs/contributors"><img alt="GitHub contributors" src="https://img.shields.io/github/contributors/dthinkr/trading_platform?color=2b9348"></a>
-  <a href="https://github.com/dthinkr/trading_platform/blob/master/LICENSE"><img src="https://img.shields.io/github/license/dthinkr/trading_platform?color=2b9348" alt="License Badge"/></a>
+  <a href="https://github.com/lobx-platform/trading_platform/stargazers"><img src="https://img.shields.io/github/stars/lobx-platform/trading_platform" alt="Stars Badge"/></a>
+  <a href="https://github.com/lobx-platform/trading_platform/network/members"><img src="https://img.shields.io/github/forks/lobx-platform/trading_platform" alt="Forks Badge"/></a>
+  <a href="https://github.com/lobx-platform/trading_platform/pulls"><img src="https://img.shields.io/github/issues-pr/lobx-platform/trading_platform" alt="Pull Requests Badge"/></a>
+  <a href="https://github.com/lobx-platform/trading_platform/issues"><img src="https://img.shields.io/github/issues/lobx-platform/trading_platform" alt="Issues Badge"/></a>
+  <a href="https://github.com/lobx-platform/trading_platform/graphs/contributors"><img alt="GitHub contributors" src="https://img.shields.io/github/contributors/lobx-platform/trading_platform?color=2b9348"></a>
+  <a href="https://github.com/lobx-platform/trading_platform/blob/master/LICENSE"><img src="https://img.shields.io/github/license/lobx-platform/trading_platform?color=2b9348" alt="License Badge"/></a>
 </p>
 
 ## Key Features (v2.2.0)
@@ -69,26 +69,20 @@ Session pool mechanism handles multiple human traders elegantly:
 ### One-Line Installation
 
 ```bash
-bash <(curl -sSL https://raw.githubusercontent.com/dthinkr/trading_platform/main/trading_platform_run.sh)
+bash <(curl -sSL https://raw.githubusercontent.com/lobx-platform/trading_platform/main/trading_platform_run.sh)
 ```
 
 ### Development Setup
 
 ```bash
-# Frontend
-cd front
-npm install
-npm run dev
-
-# Backend
-cd back
-pip install -r requirements.txt
-uvicorn api.endpoints:app --reload
+sh run.sh dev
 ```
+
+This starts both backend (port 8000) and frontend (port 3000) via Docker Compose.
 
 ## Documentation
 
-For detailed documentation, feature explanations, and API references, please visit our [Wiki](https://github.com/dthinkr/trading_platform/wiki).
+For detailed documentation, feature explanations, and API references, please visit our [Wiki](https://github.com/lobx-platform/trading_platform/wiki).
 
 ## Recent Updates
 
