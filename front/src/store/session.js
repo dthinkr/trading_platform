@@ -27,6 +27,9 @@ export const useSessionStore = defineStore('session', {
     
     // Prolific-specific
     prolificParams: null,
+
+    // Lab-specific
+    labToken: null,
   }),
 
   getters: {
@@ -34,6 +37,7 @@ export const useSessionStore = defineStore('session', {
     canStartNewMarket: (state) => state.marketsCompleted < state.maxMarkets,
     isLastMarket: (state) => state.marketsCompleted >= state.maxMarkets,
     isProlificUser: (state) => !!state.prolificParams,
+    isLabUser: (state) => !!state.labToken,
     
     // Get the route name for current onboarding step
     currentOnboardingRoute: (state) => {
@@ -114,6 +118,31 @@ export const useSessionStore = defineStore('session', {
       }
     },
 
+    // Store Lab token
+    setLabToken(token) {
+      this.labToken = token
+      if (token) {
+        localStorage.setItem('lab_token', token)
+      } else {
+        localStorage.removeItem('lab_token')
+      }
+      this.saveToLocalStorage()
+    },
+
+    // Load Lab token from localStorage
+    loadLabToken() {
+      try {
+        const stored = localStorage.getItem('lab_token')
+        if (stored) {
+          this.labToken = stored
+          return stored
+        }
+      } catch (e) {
+        localStorage.removeItem('lab_token')
+      }
+      return null
+    },
+
     // Store Prolific params
     setProlificParams(params) {
       this.prolificParams = params
@@ -177,8 +206,10 @@ export const useSessionStore = defineStore('session', {
         isSyncing: false,
         lastSyncTime: null,
         prolificParams: null,
+        labToken: null,
       })
       localStorage.removeItem('prolific_params')
+      localStorage.removeItem('lab_token')
       this.saveToLocalStorage()
     },
 
@@ -193,6 +224,7 @@ export const useSessionStore = defineStore('session', {
         marketsCompleted: this.marketsCompleted,
         maxMarkets: this.maxMarkets,
         prolificParams: this.prolificParams,
+        labToken: this.labToken,
       }
       localStorage.setItem('session_store', JSON.stringify(dataToSave))
     },
@@ -226,6 +258,7 @@ export const useSessionStore = defineStore('session', {
         'marketsCompleted',
         'maxMarkets',
         'prolificParams',
+        'labToken',
       ]
     }]
   }

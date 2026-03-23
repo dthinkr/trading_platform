@@ -51,7 +51,7 @@
           </v-card-text>
 
           <!-- Per-market questions (shown after every market) -->
-          <div v-if="traderSpecificMetrics" class="pa-6 questionnaire-section">
+          <div v-if="traderSpecificMetrics && !questionnaireCompleted" class="pa-6 questionnaire-section">
             <h3 class="text-h6 mb-3">Answer the following question to continue:</h3>
             <p class="text-body-2 mb-3 font-italic">
               Which statement best describes the market?<br>
@@ -148,8 +148,11 @@
 
                 <!-- Show this after questionnaire is completed -->
                 <div v-if="questionnaireCompleted" class="mt-4">
-                  <p class="text-subtitle-1 mb-4">
+                  <p v-if="sessionType === 'prolific'" class="text-subtitle-1 mb-4">
                     <span class="font-weight-bold">Please click <a :href="prolificRedirectUrl" target="_blank" class="primary--text">here</a> to complete your submission on Prolific.</span>
+                  </p>
+                  <p v-else class="text-subtitle-1 mb-4">
+                    <span class="font-weight-bold">Thank you for your participation. You may now close this page.</span>
                   </p>
                   <v-btn
                     color="secondary"
@@ -459,6 +462,10 @@ const maxMarketsDisplay = computed(() => {
          'Loading...'
 })
 
+const sessionType = computed(() => {
+  return traderInfo.value?.all_attributes?.params?.session_type || 'prolific'
+})
+
 const isLastMarket = computed(() => {
   if (traderInfo.value?.all_attributes?.is_admin || authStore.isAdmin) return false
   const currentCount = traderInfo.value?.all_attributes?.historical_markets_count || sessionStore.marketsCompleted || 1
@@ -466,8 +473,25 @@ const isLastMarket = computed(() => {
   return currentCount >= maxMarkets
 })
 
+async function checkQuestionnaireStatus() {
+  try {
+    let tid = traderId.value
+    if (authStore.user?.isProlific) {
+      tid = `HUMAN_${authStore.user.prolificData.PROLIFIC_PID}`
+    }
+    if (!tid) return
+    const response = await axios.get(`${httpUrl}questionnaire/status`, { params: { trader_id: tid } })
+    if (response.data?.data?.completed) {
+      questionnaireCompleted.value = true
+    }
+  } catch (e) {
+    // silently ignore - don't block the page
+  }
+}
+
 onMounted(() => {
   fetchTraderInfo()
+  checkQuestionnaireStatus()
 })
 
 </script>

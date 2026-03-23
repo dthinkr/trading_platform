@@ -259,7 +259,24 @@ async def verify_turnstile(token: str) -> bool:
 
 @app.post("/user/login")
 async def user_login(request: Request):
-    # Check for Prolific parameters first
+    # Check for lab token first
+    lab_token = request.query_params.get('LAB_TOKEN')
+    if lab_token:
+        from .lab_auth import validate_lab_token, lab_trader_map
+        is_valid, lab_user = validate_lab_token(lab_token)
+        if not is_valid:
+            raise HTTPException(status_code=401, detail="Invalid or expired lab token")
+        gmail_username = lab_user['gmail_username']
+        trader_id = lab_user['trader_id']
+        lab_trader_map[trader_id] = lab_user
+        await market_handler.remove_user_from_session(gmail_username)
+        return success(
+            message="Lab login successful",
+            data={"trader_id": trader_id, "username": gmail_username, "is_admin": False,
+                  "is_lab": True, "lab_token": lab_token}
+        )
+
+    # Check for Prolific parameters
     prolific_params = await extract_prolific_params(request)
     if prolific_params:
         # Parse body once (both turnstile and authenticate_prolific_user need it)
@@ -827,9 +844,24 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
     try:
         token = await websocket.receive_text()
         
+        # Check if this is a Lab token
+        is_lab = False
+        if token.startswith('lab_'):
+            from .lab_auth import validate_lab_token, lab_trader_map
+            is_valid, lab_user = validate_lab_token(token)
+            if is_valid:
+                gmail_username = lab_user['gmail_username']
+                is_lab = True
+                lab_trader_map[lab_user['trader_id']] = lab_user
+                print(f"Authenticated Lab user via WebSocket: {gmail_username}")
+            elif trader_id.startswith('HUMAN_'):
+                gmail_username = trader_id[6:]
+                is_lab = True
+                print(f"Lab token not found but using trader_id: {gmail_username}")
+
         # Check if this is a Prolific token
         is_prolific = False
-        if token.startswith('prolific_') or token == 'no-auth':
+        if not is_lab and (token.startswith('prolific_') or token == 'no-auth'):
             # Extract username from trader_id for Prolific users
             # Format is typically HUMAN_123456abcdef
             if trader_id.startswith('HUMAN_'):
@@ -1737,6 +1769,15 @@ async def save_premarket_interaction(interaction: PremarketInteraction):
         return {"status": "error", "message": f"Failed to save pre-market interaction: {str(e)}"}
 
 # Save post-market questionnaire responses
+@app.get("/questionnaire/status")
+async def questionnaire_status(trader_id: str = Query(...)):
+    try:
+        data = _read_trader_data(trader_id)
+        completed = data.get("postmarket_responses") is not None
+        return success(data={"completed": completed})
+    except Exception:
+        return success(data={"completed": False})
+
 @app.post("/save_questionnaire_response")
 async def save_questionnaire_response(response: QuestionnaireResponse):
     try:
@@ -1833,6 +1874,27 @@ async def download_consent_data(current_user: dict = Depends(get_current_admin_u
     if not consent_file.exists():
         return JSONResponse(status_code=404, content={"status": "error", "message": "Consent data file not found"})
     return FileResponse(path=consent_file, filename="consent_data.csv", media_type="text/csv")
+
+# Generate lab session links
+@app.post("/admin/generate-lab-links")
+async def generate_lab_links(request: Request, current_user: dict = Depends(get_current_admin_user)):
+    from .lab_auth import generate_lab_tokens
+    try:
+        body = await request.json()
+        count = body.get("count", 10)
+        # Use the request's base URL to construct lab links
+        base_url = str(request.base_url).rstrip("/")
+        # Frontend is typically on a different port; use origin header if available
+        origin = request.headers.get("origin", base_url)
+        links = generate_lab_tokens(count, base_url=origin)
+        return success(message=f"Generated {count} lab links", data={"links": links})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate lab links: {str(e)}")
+
+# Get session type (unauthenticated, for login page to branch)
+@app.get("/settings/session-type")
+async def get_session_type():
+    return success(data={"session_type": base_settings.get("session_type", "prolific")})
 
 # Update Prolific settings in .env file
 @app.post("/admin/prolific-settings")

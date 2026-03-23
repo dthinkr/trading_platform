@@ -166,19 +166,28 @@
       </v-expand-transition>
     </section>
 
-    <!-- Prolific Settings (Collapsed) -->
+    <!-- Session & Prolific Settings (Collapsed) -->
     <section class="tp-card">
-      <header 
+      <header
         class="tp-card-header tp-card-header-collapsible"
         @click="showProlific = !showProlific"
       >
-        <h2 class="tp-card-title">Prolific Settings</h2>
+        <h2 class="tp-card-title">Session & Prolific Settings</h2>
         <v-icon size="20">{{ showProlific ? 'mdi-chevron-up' : 'mdi-chevron-down' }}</v-icon>
       </header>
 
       <v-expand-transition>
         <div v-show="showProlific">
           <div class="tp-card-body">
+            <v-select
+              v-model="formState.session_type"
+              :items="['prolific', 'lab']"
+              label="Session Type"
+              hide-details
+              class="mb-3"
+              @update:model-value="updatePersistentSettings"
+            />
+
             <v-textarea
               v-model="prolificSettings.credentials"
               label="Prolific Credentials"
@@ -218,15 +227,46 @@
           </div>
 
           <footer class="tp-card-footer">
-            <button 
-              class="tp-btn tp-btn-primary" 
-              @click="saveProlificSettings" 
+            <button
+              class="tp-btn tp-btn-primary"
+              @click="saveProlificSettings"
               :disabled="savingProlific"
               style="width: 100%"
             >
               Save Prolific Settings
             </button>
           </footer>
+
+          <!-- Lab Links Generation (only in lab mode) -->
+          <div v-if="formState.session_type === 'lab'" class="tp-card-body" style="border-top: 1px solid var(--color-border, #e0e0e0)">
+            <h3 class="text-subtitle-1 font-weight-medium mb-2">Lab Session Links</h3>
+            <div class="credential-gen mb-3">
+              <v-text-field
+                v-model="numLabLinks"
+                label="Participants"
+                type="number"
+                min="1"
+                max="50"
+                hide-details
+                style="max-width: 120px"
+              />
+              <button class="tp-btn tp-btn-secondary" @click="generateLabLinks" :disabled="generatingLabLinks">
+                {{ generatingLabLinks ? 'Generating...' : 'Generate Links' }}
+              </button>
+            </div>
+            <v-textarea
+              v-if="labLinks"
+              v-model="labLinks"
+              label="Lab Links (one per line)"
+              readonly
+              rows="5"
+              hide-details
+              class="mb-3"
+            />
+            <button v-if="labLinks" class="tp-btn tp-btn-secondary" @click="copyLabLinks" style="width: 100%">
+              Copy Links
+            </button>
+          </div>
         </div>
       </v-expand-transition>
     </section>
@@ -264,6 +304,11 @@ const prolificSettings = ref({ credentials: '', studyId: '', redirectUrl: '' })
 const numCredentials = ref(5)
 const generatingCredentials = ref(false)
 const savingProlific = ref(false)
+
+// Lab links state
+const numLabLinks = ref(10)
+const labLinks = ref('')
+const generatingLabLinks = ref(false)
 
 const traderTypes = ['HUMAN', 'NOISE', 'INFORMED', 'MARKET_MAKER', 'INITIAL_ORDER_BOOK', 'SIMPLE_ORDER']
 
@@ -446,6 +491,27 @@ const generateCredentials = () => {
   } finally {
     generatingCredentials.value = false
   }
+}
+
+// Lab link functions
+const generateLabLinks = async () => {
+  generatingLabLinks.value = true
+  try {
+    const response = await axios.post(`${import.meta.env.VITE_HTTP_URL}admin/generate-lab-links`, {
+      count: parseInt(numLabLinks.value) || 10,
+    })
+    labLinks.value = (response.data.data?.links || []).join('\n')
+    uiStore.showSuccess(`Generated ${numLabLinks.value} lab links`)
+  } catch (error) {
+    uiStore.showError('Failed to generate lab links')
+  } finally {
+    generatingLabLinks.value = false
+  }
+}
+
+const copyLabLinks = () => {
+  navigator.clipboard.writeText(labLinks.value)
+  uiStore.showSuccess('Links copied to clipboard')
 }
 
 onMounted(() => {

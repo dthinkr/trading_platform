@@ -204,19 +204,36 @@ const getProlificParams = () => {
 }
 
 onMounted(async () => {
+  // Check for lab token in URL or localStorage
+  const labToken = route.query.LAB_TOKEN || sessionStore.labToken || sessionStore.loadLabToken()
+  if (labToken) {
+    isLoading.value = true
+    loadingMessage.value = 'Signing in...'
+    try {
+      sessionStore.setLabToken(labToken)
+      await authStore.labLogin(labToken)
+      await NavigationService.afterLogin()
+      return
+    } catch (error) {
+      console.error('Lab auto-login failed:', error)
+      errorMessage.value = error.message || 'Failed to sign in with lab token'
+      isLoading.value = false
+    }
+  }
+
   const params = getProlificParams()
-  
+
   if (params) {
     isProlificUser.value = true
     prolificParams.value = params
     sessionStore.setProlificParams(params)
-    
+
     const lastUsername = localStorage.getItem('prolific_last_username')
     const lastPassword = localStorage.getItem('prolific_last_password')
     if (lastUsername) username.value = lastUsername
     if (lastPassword) password.value = lastPassword
   }
-  
+
   if (!isProlificUser.value && !authStore.isAuthenticated) {
     await authStore.initializeAuth()
   }
