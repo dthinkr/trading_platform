@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="front/src/assets/trading_platform_logo.png" alt="Trading Platform Logo" width="200"/>
+  <img src="front/src/assets/lobx_logo.png" alt="LOBX Logo" width="200"/>
 </p>
 
 <h1 align="center">LOBX</h1>
@@ -9,15 +9,15 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/lobx-platform/trading_platform/stargazers"><img src="https://img.shields.io/github/stars/lobx-platform/trading_platform" alt="Stars Badge"/></a>
-  <a href="https://github.com/lobx-platform/trading_platform/network/members"><img src="https://img.shields.io/github/forks/lobx-platform/trading_platform" alt="Forks Badge"/></a>
-  <a href="https://github.com/lobx-platform/trading_platform/pulls"><img src="https://img.shields.io/github/issues-pr/lobx-platform/trading_platform" alt="Pull Requests Badge"/></a>
-  <a href="https://github.com/lobx-platform/trading_platform/issues"><img src="https://img.shields.io/github/issues/lobx-platform/trading_platform" alt="Issues Badge"/></a>
-  <a href="https://github.com/lobx-platform/trading_platform/graphs/contributors"><img alt="GitHub contributors" src="https://img.shields.io/github/contributors/lobx-platform/trading_platform?color=2b9348"></a>
-  <a href="https://github.com/lobx-platform/trading_platform/blob/master/LICENSE"><img src="https://img.shields.io/github/license/lobx-platform/trading_platform?color=2b9348" alt="License Badge"/></a>
+  <a href="https://github.com/lobx-platform/lobx/stargazers"><img src="https://img.shields.io/github/stars/lobx-platform/lobx" alt="Stars Badge"/></a>
+  <a href="https://github.com/lobx-platform/lobx/network/members"><img src="https://img.shields.io/github/forks/lobx-platform/lobx" alt="Forks Badge"/></a>
+  <a href="https://github.com/lobx-platform/lobx/pulls"><img src="https://img.shields.io/github/issues-pr/lobx-platform/lobx" alt="Pull Requests Badge"/></a>
+  <a href="https://github.com/lobx-platform/lobx/issues"><img src="https://img.shields.io/github/issues/lobx-platform/lobx" alt="Issues Badge"/></a>
+  <a href="https://github.com/lobx-platform/lobx/graphs/contributors"><img alt="GitHub contributors" src="https://img.shields.io/github/contributors/lobx-platform/lobx?color=2b9348"></a>
+  <a href="https://github.com/lobx-platform/lobx/blob/master/LICENSE"><img src="https://img.shields.io/github/license/lobx-platform/lobx?color=2b9348" alt="License Badge"/></a>
 </p>
 
-## Key Features (v2.2.0)
+## Key Features (v3.0.0)
 
 ### Session-Based Architecture
 - Lightweight session pools with lazy market creation
@@ -69,7 +69,7 @@ Session pool mechanism handles multiple human traders elegantly:
 ### One-Line Installation
 
 ```bash
-bash <(curl -sSL https://raw.githubusercontent.com/lobx-platform/trading_platform/main/trading_platform_run.sh)
+bash <(curl -sSL https://raw.githubusercontent.com/lobx-platform/lobx/main/trading_platform_run.sh)
 ```
 
 ### Development Setup
@@ -82,7 +82,7 @@ This starts both backend (port 8000) and frontend (port 3000) via Docker Compose
 
 ## Documentation
 
-For detailed documentation, feature explanations, and API references, please visit our [Wiki](https://github.com/lobx-platform/trading_platform/wiki).
+For detailed documentation, feature explanations, and API references, please visit our [Wiki](https://github.com/lobx-platform/lobx/wiki).
 
 ## Recent Updates
 

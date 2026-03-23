@@ -109,7 +109,7 @@ import { getAuth, GoogleAuthProvider, signInWithPopup } from 'firebase/auth'
 import { useAuthStore } from '@/store/auth'
 import { useSessionStore } from '@/store/session'
 import NavigationService from '@/services/navigation'
-import logo from '@/assets/trading_platform_logo.svg'
+import logo from '@/assets/lobx_logo.svg'
 
 const props = defineProps({
   prolificPID: String,
