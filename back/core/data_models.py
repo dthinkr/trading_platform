@@ -268,6 +268,13 @@ class TradingParameters(BaseModel):
         description="human_parameter",
     )
 
+    # session type (prolific or lab)
+    session_type: str = Field(
+        default="prolific",
+        title="Session Type",
+        description="human_parameter",
+    )
+
     # admin stuff
     google_form_id: str = Field(
         default='1yDf7vd5wLaPhm30IiGKTkPw4s5spb3Xlm86Li81YDXI',

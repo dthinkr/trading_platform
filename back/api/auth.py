@@ -12,6 +12,7 @@ from pytz import timezone
 from datetime import datetime
 import jwt
 from .prolific_auth import extract_prolific_params, authenticate_prolific_user, get_prolific_user_by_trader_id, prolific_tokens
+from .lab_auth import LAB_TOKENS, lab_trader_map
 
 # Initialize Firebase Admin SDK using the service account file
 cred = credentials.Certificate('config/auth/firebase-service-account.json')
@@ -75,9 +76,20 @@ async def get_current_user(request: Request):
             # If authentication fails, continue with other methods
             pass
     
+    # Check for lab token in Authorization header
+    auth_header_check = request.headers.get('Authorization', '')
+    if auth_header_check.startswith('Lab '):
+        lab_token = auth_header_check.split('Lab ')[1]
+        if lab_token in LAB_TOKENS:
+            from .lab_auth import validate_lab_token
+            is_valid, lab_user = validate_lab_token(lab_token)
+            if is_valid:
+                lab_trader_map[lab_user['trader_id']] = lab_user
+                return lab_user
+
     # Check if this is a request for a specific trader
     path = request.url.path
-    
+
     # Handle trader-specific paths
     trader_id = None
     if path.startswith("/trader/"):
@@ -95,8 +107,13 @@ async def get_current_user(request: Request):
         if prolific_user:
             print(f"Found Prolific user by trader_id: {trader_id}")
             return prolific_user
-        
-        # If not a Prolific user but we have it in authenticated_users
+
+        # Check if this is a lab user by trader_id
+        if trader_id in lab_trader_map:
+            print(f"Found lab user by trader_id: {trader_id}")
+            return lab_trader_map[trader_id]
+
+        # If not a Prolific/lab user but we have it in authenticated_users
         if trader_id.startswith("HUMAN_"):
             gmail_username = trader_id.split('_')[1]
             if gmail_username in authenticated_users:

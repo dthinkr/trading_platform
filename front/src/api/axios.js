@@ -24,12 +24,15 @@ instance.interceptors.request.use(
       const { useAuthStore } = await import('@/store/auth')
       const authStore = useAuthStore()
 
-      // Check for Prolific token first
-      if (authStore.prolificToken) {
-        // Using Prolific token for authentication
+      // Check for Lab token first
+      if (authStore.labToken) {
+        config.headers.Authorization = `Lab ${authStore.labToken}`
+      }
+      // Check for Prolific token
+      else if (authStore.prolificToken) {
         config.headers.Authorization = `Prolific ${authStore.prolificToken}`
       }
-      // Fall back to Firebase authentication if no Prolific token
+      // Fall back to Firebase authentication
       else if (auth.currentUser) {
         // Force token refresh if it's close to expiring
         const user = auth.currentUser

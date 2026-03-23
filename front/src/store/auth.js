@@ -16,6 +16,7 @@ export const useAuthStore = defineStore('auth', {
     lastLoginTime: null,
     loginInProgress: false,
     prolificToken: null,
+    labToken: null,
   }),
   actions: {
     // Sync trader ID to session store
@@ -133,6 +134,43 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
+    async labLogin(labToken) {
+      if (this.loginInProgress) {
+        return
+      }
+
+      try {
+        this.loginInProgress = true
+
+        const response = await axios.post(`/user/login?LAB_TOKEN=${labToken}`)
+
+        if (!response.data.data || !response.data.data.trader_id) {
+          throw new Error('No trader ID received')
+        }
+
+        const data = response.data.data
+        this.user = {
+          uid: data.uid || `lab_${labToken}`,
+          email: data.email || 'lab@lab.local',
+          displayName: `Lab Participant`,
+          isLab: true,
+        }
+        this.isAdmin = false
+        this.traderId = data.trader_id
+        this.labToken = data.lab_token || labToken
+        this.lastLoginTime = Date.now()
+        this.isPersisted = false
+
+        this.syncToSessionStore()
+      } catch (error) {
+        console.error('Lab login error:', error)
+        this.user = null
+        throw new Error(error.message || 'Failed to login with lab token')
+      } finally {
+        this.loginInProgress = false
+      }
+    },
+
     async login(user, isAutoLogin = false) {
       if (this.loginInProgress) {
         return
@@ -201,12 +239,14 @@ export const useAuthStore = defineStore('auth', {
       this.isInitialized = false
       this.lastLoginTime = null
       this.prolificToken = null
+      this.labToken = null
 
       localStorage.removeItem('auth')
     },
   },
   getters: {
     isAuthenticated: (state) => !!state.user,
+    isLabUser: (state) => !!state.user?.isLab,
     prolificId: (state) =>
       state.user?.isProlific ? state.user.prolificData?.PROLIFIC_PID || '' : '',
   },
@@ -223,6 +263,7 @@ export const useAuthStore = defineStore('auth', {
           'lastLoginTime',
           'loginInProgress',
           'prolificToken',
+          'labToken',
         ],
       },
     ],

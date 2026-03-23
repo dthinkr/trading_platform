@@ -28,10 +28,10 @@ export const useWebSocketStore = defineStore('websocket', {
         setTimeout(async () => {
           try {
             if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-              // Check if we're using Prolific authentication
               const authStore = useAuthStore()
-              if (authStore.prolificToken) {
-                // Use Prolific token for authentication
+              if (authStore.labToken) {
+                this.ws.send(authStore.labToken)
+              } else if (authStore.prolificToken) {
                 this.ws.send(authStore.prolificToken)
               } else if (auth.currentUser) {
                 // Use Firebase token for authentication
