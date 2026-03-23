@@ -145,10 +145,10 @@ const questions = ref([
     text: "What happens if you don't complete your trading objective within the time limit?",
     options: [
       'Nothing happens',
-      'The system automatically completes the trades for you',
+      'The system automatically completes the trades for you at the prevailing price.',
       'You lose all your earnings',
     ],
-    correctAnswer: 'The system automatically completes the trades for you',
+    correctAnswer: 'The system automatically completes the trades for you at the prevailing price.',
     explanation:
       'The trading platform will automatically execute any remaining required trades at the end of the market.',
     userAnswer: null,
@@ -174,6 +174,7 @@ const questions = ref([
     isCorrect: false,
     showFeedback: false,
   },
+  /*
   {
     text: 'Let assume that you bought 3 shares at an average price of 101 Liras, and you sold all of them at an average price of 104 Liras. The initial midprice is 100 liras. What is the generated profit?',
     options: ['0', '5', '9'],
@@ -193,7 +194,7 @@ const questions = ref([
     userAnswer: null,
     isCorrect: false,
     showFeedback: false,
-  },
+  },*/
 ])
 
 const correctCount = computed(() => {

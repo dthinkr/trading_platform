@@ -49,8 +49,8 @@
                   <br><br>
                   Potential tasks for your role could include:
                   <ul style="margin-left: 20px;">
-                    <li style="margin-bottom: 10px; margin-top: 10px;">Buy a certain number of shares at the lowest price. (Informed Trader)</li>
-                    <li style="margin-bottom: 10px;">Sell a certain number of shares at the highest price. (Informed Trader)</li>
+                    <!-- <li style="margin-bottom: 10px; margin-top: 10px;">Buy a certain number of shares at the lowest price. (Informed Trader)</li> 
+                    <li style="margin-bottom: 10px;">Sell a certain number of shares at the highest price. (Informed Trader)</li> -->
                     <li>Buy and Sell shares to generate profit. (Speculator)</li>
                   </ul>
                 </p>
@@ -60,7 +60,7 @@
         </v-col>
 
         <!-- Task Card -->
-        <v-col cols="12">
+        <!-- <v-col cols="12">
           <v-hover v-slot="{ isHovering, props }">
             <v-card
               v-bind="props"
@@ -89,7 +89,7 @@
               </v-card-text>
             </v-card>
           </v-hover>
-        </v-col>
+        </v-col> -->
 
         <!-- Task Card -->
         <v-col cols="12">
@@ -108,8 +108,8 @@
                   In this role, your task is to buy and sell shares in order to make profits.
                   <br><br>
                   At the beginning of each market, you will be given a specific number of shares.
-                  <br><br>
-                  By the end of the market, you must ensure that the number of shares matches the initial number you were given.
+                  <!-- <br><br>
+                  By the end of the market, you must ensure that the number of shares matches the initial number you were given. -->
                   <br><br>
 
                   <div style="border: 1px solid #f44336; background-color: #fdecea; color: #b71c1c; padding: 16px; border-radius: 8px; font-family: sans-serif;">
@@ -117,12 +117,12 @@
                   <br><br>
                   At the end of each market, if the number of shares you hold is different from your initial amount, the platform will automatically adjust your balance.
                   <br><br>
-                  To do this, the platform will:
+                  <!-- To do this, the platform will:
                   <ul style="margin-left: 20px;">
                     <li><strong>Sell extra shares</strong> at <strong>Final Midprice − 5</strong></li>
                     <li><strong>Buy missing shares</strong> at <strong>Final Midprice + 5</strong></li>
                   </ul>
-                  <br><br>
+                  <br><br> -->
                   This adjustment is very likely to result in a loss.
                   <br><br>
                   <strong>Example 1 - You end up with more shares</strong>
@@ -229,6 +229,7 @@ const marketDuration = computed(() => {
 const numMarkets = computed(() => {
   return traderStore.traderAttributes?.all_attributes?.params?.max_markets_per_human || 0;
 });
+
 </script>
 
 <style scoped>

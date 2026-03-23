@@ -20,10 +20,10 @@
                       <span class="text-subtitle-1">Inventory Imbalance:</span>
                       <span class="text-h6 font-weight-bold">{{ formatValue(traderSpecificMetrics.Remaining_Trades, 'number') }}</span>
                     </div>
-                    <div class="d-flex justify-space-between align-center mb-2">
+                   <!--<div class="d-flex justify-space-between align-center mb-2">
                       <span class="text-subtitle-1">Penalty :</span>
                       <span class="text-h6 font-weight-bold">{{ formatValue( (- traderSpecificMetrics.Remaining_Trades * 5) || 0, 'number') }}</span>
-                    </div>
+                    </div>  -->
                     <div class="d-flex justify-space-between align-center mb-2">
                       <span class="text-subtitle-1">PnL:</span>
                       <span class="text-h6 font-weight-bold">{{ formatValue(traderSpecificMetrics.PnL, 'number') }}</span>
@@ -55,7 +55,6 @@
             <h3 class="text-h6 mb-3">Answer the following question to continue:</h3>
             <p class="text-body-2 mb-3 font-italic">
               Which statement best describes the market?<br>
-              (A correct answer will add a £2 bonus to your market reward if this market is selected for payment.)
             </p>
             <div class="question-container mb-4">
               <v-radio-group v-model="perMarketQuestions.marketDescription">
@@ -128,7 +127,7 @@
 
                   <!-- Question 4 -->
                   <div class="question-container mb-4">
-                    <p class="text-subtitle-1 mb-2">4. Was the Volume Weighted Average Price (VWAP) of Buy and Sell trades helpful in informing your decisions?</p>
+                    <p class="text-subtitle-1 mb-2">4. Was the Average Price of Buy and Sell trades helpful in informing your decisions?</p>
                     <v-radio-group v-model="questionnaire.q4" row>
                       <v-radio label="Yes" value="Yes"></v-radio>
                       <v-radio label="No" value="No"></v-radio>
