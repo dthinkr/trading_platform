@@ -5,71 +5,47 @@
 <h1 align="center">LOBX</h1>
 
 <p align="center">
-  A platform for conducting financial market experiments with multiple traders and role-based interactions.
+  <strong>Limit Order Book Exchange</strong><br/>
+  A research platform for conducting financial market experiments.
 </p>
 
 <p align="center">
-  <a href="https://github.com/lobx-platform/lobx/stargazers"><img src="https://img.shields.io/github/stars/lobx-platform/lobx" alt="Stars Badge"/></a>
-  <a href="https://github.com/lobx-platform/lobx/network/members"><img src="https://img.shields.io/github/forks/lobx-platform/lobx" alt="Forks Badge"/></a>
-  <a href="https://github.com/lobx-platform/lobx/pulls"><img src="https://img.shields.io/github/issues-pr/lobx-platform/lobx" alt="Pull Requests Badge"/></a>
-  <a href="https://github.com/lobx-platform/lobx/issues"><img src="https://img.shields.io/github/issues/lobx-platform/lobx" alt="Issues Badge"/></a>
-  <a href="https://github.com/lobx-platform/lobx/graphs/contributors"><img alt="GitHub contributors" src="https://img.shields.io/github/contributors/lobx-platform/lobx?color=2b9348"></a>
-  <a href="https://github.com/lobx-platform/lobx/blob/master/LICENSE"><img src="https://img.shields.io/github/license/lobx-platform/lobx?color=2b9348" alt="License Badge"/></a>
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.11+-blue?logo=python&logoColor=white" alt="Python"/></a>
+  <a href="https://vuejs.org/"><img src="https://img.shields.io/badge/vue-3-42b883?logo=vuedotjs&logoColor=white" alt="Vue 3"/></a>
+  <a href="https://www.docker.com/"><img src="https://img.shields.io/badge/docker-compose-2496ED?logo=docker&logoColor=white" alt="Docker"/></a>
+  <a href="https://github.com/lobx-platform/lobx/blob/main/LICENSE"><img src="https://img.shields.io/github/license/lobx-platform/lobx?color=2b9348" alt="License"/></a>
+  <a href="https://github.com/lobx-platform/lobx/issues"><img src="https://img.shields.io/github/issues/lobx-platform/lobx" alt="Issues"/></a>
 </p>
 
-## Key Features (v3.0.0)
+---
 
-### Session-Based Architecture
-- Lightweight session pools with lazy market creation
-- Zero resource waste from zombie markets
+LOBX (Limit Order Book Exchange) is a research platform for conducting financial market experiments. Built for experimental economics research at Royal Holloway, University of London, funded by the Leverhulme Trust (PRG-2021-359).
 
-### Role-Based Trading
-- Informed traders (buy/sell specialists)
-- Speculators (flexible strategies)
-- Automatic goal-based trader matching
+## Key Features
 
-### Multi-Trader Markets
-- Coordinated market starts when all traders ready
-- Real-time status updates and waiting room
-- Seamless session-to-market conversion
+- **Continuous Double Auction** -- Price-time priority matching engine with a full limit order book
+- **Multi-Participant Sessions** -- Cohort-based treatment groups with automatic role assignment
+- **AI Trader Integration** -- LLM-powered agents, informed traders, noise traders, and spoofers
+- **Real-Time Interface** -- Live order book, price charts, and instant execution feedback
+- **Lab Session Management** -- Token-based authentication for controlled lab environments
+- **Batch Experiment Mode** -- Headless automated runs for large-scale data collection
+- **Docker Deployment** -- Single-command setup via Docker Compose
 
-### Real-Time Data
-- Live order book and price charts
-- Instant execution feedback
-- Market summary with P&L and VWAP
+## Architecture
 
-### Infrastructure
-- Google authentication
-- WebSocket communication
-- Comprehensive error handling
-- Modular event-driven architecture
-
-## How Multi-Trader Markets Work
-
-Session pool mechanism handles multiple human traders elegantly:
-
-### Session Pool Phase
-1. Users join lightweight session pools (not heavy markets)
-2. Goal assignment based on predefined slots (e.g., [100, -200, 150])
-3. Real-time trader count updates ("2 out of 3 traders joined")
-
-### Market Creation Phase  
-1. All traders ready → automatic market creation
-2. Heavy infrastructure created only when needed
-3. Human + AI traders added, trading begins
-
-### Benefits
-- Fast user onboarding
-- Zero resource waste  
-- Automatic role assignment
-- Seamless scaling
+| Layer | Technology |
+|-------|------------|
+| Backend | FastAPI (Python 3.11+) |
+| Frontend | Vue 3 + Vite |
+| Communication | WebSocket (real-time), REST API |
+| Infrastructure | Docker Compose |
 
 ## Quick Start
 
 ### One-Line Installation
 
 ```bash
-bash <(curl -sSL https://raw.githubusercontent.com/lobx-platform/lobx/main/trading_platform_run.sh)
+bash <(curl -sSL https://raw.githubusercontent.com/lobx-platform/lobx/main/run.sh)
 ```
 
 ### Development Setup
@@ -78,18 +54,14 @@ bash <(curl -sSL https://raw.githubusercontent.com/lobx-platform/lobx/main/tradi
 sh run.sh dev
 ```
 
-This starts both backend (port 8000) and frontend (port 3000) via Docker Compose.
+This starts both the backend (port 8000) and frontend (port 3000) via Docker Compose.
 
 ## Documentation
 
-For detailed documentation, feature explanations, and API references, please visit our [Wiki](https://github.com/lobx-platform/lobx/wiki).
-
-## Recent Updates
-
-See our [Changelog](CHANGELOG.md) for detailed version history and updates.
+For detailed documentation, feature explanations, and API references, visit the [Wiki](https://github.com/lobx-platform/lobx/wiki).
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT License -- see [LICENSE](LICENSE) for details.
 
 ---
