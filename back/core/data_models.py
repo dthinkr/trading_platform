@@ -65,7 +65,7 @@ class TradingParameters(BaseModel):
         ge=0,
     )
     num_informed_traders: int = Field(
-        default=0,
+        default=1,
         title="Number of Informed Traders",
         description="model_parameter", 
         ge=0,
@@ -126,12 +126,12 @@ class TradingParameters(BaseModel):
         description="noise_parameter",
     )
     noise_passive_probability: float = Field(
-        default=0.7,
+        default=0.8,
         title="Passive Order Probability",
         description="noise_parameter",
     )
     noise_cancel_probability: float = Field(
-        default=0.1,
+        default=0.6,
         title="Cancel Order Probability",
         description="noise_parameter",
     )
@@ -153,12 +153,12 @@ class TradingParameters(BaseModel):
         gt=0,
     )
     noise_pr_passive_weights: List[int] = Field(
-        default=[11,7,3,1,1],
+        default=[40,20,10,5,5,5,5,5,5,0],
         title="Passive Odds/Ratios",
         description="noise_parameter",
     )
     noise_alpha: float = Field(
-        default=0.05,
+        default=0.33,
         title="Mid-Price Smoothing Alpha",
         description="noise_parameter",
         gt=0,
@@ -173,7 +173,7 @@ class TradingParameters(BaseModel):
 
     # informed trader settings
     informed_trade_intensity: float = Field(
-        default=0.43,
+        default=0.69,
         title="Trade Intensity",
         description="informed_parameter",
     )
@@ -183,7 +183,7 @@ class TradingParameters(BaseModel):
         description="informed_parameter",
     )
     informed_edge: int = Field(
-        default=2,
+        default=3,
         title="Informed Edge",
         description="informed_parameter",
     )
@@ -198,7 +198,7 @@ class TradingParameters(BaseModel):
         description="informed_parameter",
     )
     informed_use_passive_orders: bool = Field(
-        default=True,
+        default=False,
         title="Use Passive Orders",
         description="informed_parameter",
     )
@@ -208,7 +208,7 @@ class TradingParameters(BaseModel):
         description="informed_parameter",
     )
     informed_share_passive: float = Field(
-        default=0.2,
+        default=0.1,
         title="Share passive orders",
         description="informed_parameter",
     )
@@ -225,14 +225,14 @@ class TradingParameters(BaseModel):
         description="human_parameter",
     )
     depth_book_shown: int = Field(
-        default=5,
+        default=6,
         title="Depth Book Shown",
         description="human_parameter",
     )
 
     # general market settings
     order_book_levels: int = Field(
-        default=5,
+        default=30,
         title="Order Book Levels",
         description="model_parameter",
     )
@@ -243,7 +243,7 @@ class TradingParameters(BaseModel):
     )
 
     conversion_rate: float = Field(
-        default=10,
+        default=1,
         title="Lira-GBP Conversion Rate",
         description="model_parameter",
         gt=0,
@@ -256,7 +256,7 @@ class TradingParameters(BaseModel):
     )
 
     max_markets_per_human: int = Field(
-        default=4,
+        default=6,
         title="Max Markets per Human",
         description="human_parameter",
         ge=1,
