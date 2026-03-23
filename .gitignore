@@ -67,7 +67,6 @@ Thumbs.db
 # PROJECT SPECIFIC IGNORES
 # ====================
 REVIEW.md
-platform-paper/
-agentic-paper/
+papers/
 analysis/
 designs/
