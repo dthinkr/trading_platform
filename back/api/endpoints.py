@@ -268,12 +268,16 @@ async def user_login(request: Request):
             raise HTTPException(status_code=401, detail="Invalid or expired lab token")
         gmail_username = lab_user['gmail_username']
         trader_id = lab_user['trader_id']
+        treatment_group = lab_user.get('treatment_group')
         lab_trader_map[trader_id] = lab_user
         await market_handler.remove_user_from_session(gmail_username)
+        # Register forced cohort assignment if treatment_group is set
+        if treatment_group is not None:
+            market_handler.session_manager.user_treatment_groups[gmail_username] = treatment_group
         return success(
             message="Lab login successful",
             data={"trader_id": trader_id, "username": gmail_username, "is_admin": False,
-                  "is_lab": True, "lab_token": lab_token}
+                  "is_lab": True, "lab_token": lab_token, "treatment_group": treatment_group}
         )
 
     # Check for Prolific parameters
@@ -1882,14 +1886,41 @@ async def generate_lab_links(request: Request, current_user: dict = Depends(get_
     try:
         body = await request.json()
         count = body.get("count", 10)
+        num_treatments = body.get("num_treatments", 1)
+        treatment_overrides = body.get("treatment_overrides", None)
         # Use the request's base URL to construct lab links
         base_url = str(request.base_url).rstrip("/")
         # Frontend is typically on a different port; use origin header if available
         origin = request.headers.get("origin", base_url)
-        links = generate_lab_tokens(count, base_url=origin)
-        return success(message=f"Generated {count} lab links", data={"links": links})
+        links = generate_lab_tokens(count, base_url=origin, num_treatments=num_treatments)
+
+        # Store cohort treatment overrides if provided
+        # Format: {0: {"informed_trade_intensity": 0.36}, 1: {"informed_trade_intensity": 0.69}, ...}
+        if treatment_overrides and isinstance(treatment_overrides, dict):
+            for cohort_id_str, overrides in treatment_overrides.items():
+                cohort_id = int(cohort_id_str)
+                market_handler.session_manager.cohort_treatment_overrides[cohort_id] = overrides
+
+        return success(message=f"Generated {count} lab links ({num_treatments} treatments)", data={"links": links})
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate lab links: {str(e)}")
+
+# Set/get cohort treatment overrides for parallel treatment groups
+@app.post("/admin/treatment-overrides")
+async def set_treatment_overrides(request: Request, current_user: dict = Depends(get_current_admin_user)):
+    try:
+        body = await request.json()
+        overrides = body.get("overrides", {})
+        for cohort_id_str, params in overrides.items():
+            cohort_id = int(cohort_id_str)
+            market_handler.session_manager.cohort_treatment_overrides[cohort_id] = params
+        return success(message="Treatment overrides updated", data={"overrides": overrides})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/admin/treatment-overrides")
+async def get_treatment_overrides(current_user: dict = Depends(get_current_admin_user)):
+    return success(data={"overrides": market_handler.session_manager.cohort_treatment_overrides})
 
 # Get session type (unauthenticated, for login page to branch)
 @app.get("/settings/session-type")
