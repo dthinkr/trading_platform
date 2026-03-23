@@ -101,7 +101,12 @@ class SessionManager:
         
         # Persistent session IDs: Each cohort gets one session_id that spans all their markets
         self.cohort_persistent_session_ids: Dict[int, str] = {}  # cohort_id -> SESSION_{timestamp}_{uuid}
-        
+
+        # Treatment groups: lab users can be forced into specific cohorts
+        self.user_treatment_groups: Dict[str, int] = {}  # username -> treatment_group (cohort_id)
+        # Per-cohort parameter overrides (e.g., {0: {"informed_trade_intensity": 0.36}, ...})
+        self.cohort_treatment_overrides: Dict[int, dict] = {}
+
         # Concurrency control: Lock for atomic session join operations
         self._session_join_lock = asyncio.Lock()
         
@@ -233,7 +238,14 @@ class SessionManager:
         # Get treatment-modified params
         base_params_dict = base_params.model_dump()
         merged_params_dict = treatment_manager.get_merged_params(market_count, base_params_dict)
-        
+
+        # Apply cohort-specific treatment overrides (for parallel treatment groups)
+        cohort_id = self.user_cohorts.get(first_user)
+        if cohort_id is not None and cohort_id in self.cohort_treatment_overrides:
+            overrides = self.cohort_treatment_overrides[cohort_id]
+            merged_params_dict.update(overrides)
+            logger.info(f"Applied cohort {cohort_id} treatment overrides: {overrides}")
+
         # Create new TradingParameters with merged settings
         params = TradingParameters(**merged_params_dict)
         logger.info(f"Applied treatment {market_count} for session {session_id} (user {first_user})")
@@ -630,9 +642,21 @@ class SessionManager:
         # User already has a cohort
         if username in self.user_cohorts:
             return self.user_cohorts[username]
-        
+
         effective_sizes = self._get_effective_market_sizes(params)
-        
+
+        # If user has a forced treatment group, assign to that cohort directly
+        if username in self.user_treatment_groups:
+            forced_cohort = self.user_treatment_groups[username]
+            if forced_cohort < len(effective_sizes):
+                if forced_cohort not in self.cohort_members:
+                    self.cohort_members[forced_cohort] = set()
+                self.user_cohorts[username] = forced_cohort
+                self.cohort_members[forced_cohort].add(username)
+                self._get_or_create_cohort_session_id(forced_cohort)
+                logger.info(f"Assigned {username} to forced treatment cohort {forced_cohort}")
+                return forced_cohort
+
         # Find first cohort with space
         for cohort_id, max_size in enumerate(effective_sizes):
             if cohort_id not in self.cohort_members:

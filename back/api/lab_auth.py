@@ -18,6 +18,7 @@ def _persist_tokens():
         for token, data in LAB_TOKENS.items():
             serializable[token] = {
                 "participant_index": data["participant_index"],
+                "treatment_group": data.get("treatment_group"),
                 "created_at": data["created_at"],
                 "used": data["used"],
             }
@@ -44,12 +45,19 @@ def _load_tokens():
 _load_tokens()
 
 
-def generate_lab_tokens(count: int, base_url: str = "") -> list:
+def generate_lab_tokens(count: int, base_url: str = "", num_treatments: int = 1) -> list:
+    """Generate lab tokens, distributing evenly across treatment groups.
+
+    If num_treatments > 1, tokens are assigned treatment_group 0..N-1 in round-robin.
+    E.g. count=100, num_treatments=4 → 25 tokens per treatment group.
+    """
     links = []
     for i in range(count):
         token = f"lab_{uuid.uuid4().hex}"
+        treatment_group = i % num_treatments if num_treatments > 1 else None
         LAB_TOKENS[token] = {
             "participant_index": i + 1,
+            "treatment_group": treatment_group,
             "created_at": time.time(),
             "used": False,
         }
@@ -78,6 +86,7 @@ def validate_lab_token(token: str) -> Tuple[bool, Optional[dict]]:
     participant_index = info["participant_index"]
     trader_id = f"HUMAN_LAB_{participant_index}"
 
+    treatment_group = info.get("treatment_group")
     user = {
         "uid": f"lab_{participant_index}",
         "email": f"lab_{participant_index}@lab.local",
@@ -86,6 +95,7 @@ def validate_lab_token(token: str) -> Tuple[bool, Optional[dict]]:
         "is_lab": True,
         "lab_token": token,
         "trader_id": trader_id,
+        "treatment_group": treatment_group,
     }
     return True, user
 

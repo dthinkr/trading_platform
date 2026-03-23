@@ -243,10 +243,19 @@
             <div class="credential-gen mb-3">
               <v-text-field
                 v-model="numLabLinks"
-                label="Participants"
+                label="Total Participants"
                 type="number"
                 min="1"
-                max="50"
+                max="200"
+                hide-details
+                style="max-width: 150px"
+              />
+              <v-text-field
+                v-model="numTreatments"
+                label="Treatments"
+                type="number"
+                min="1"
+                max="8"
                 hide-details
                 style="max-width: 120px"
               />
@@ -254,6 +263,36 @@
                 {{ generatingLabLinks ? 'Generating...' : 'Generate Links' }}
               </button>
             </div>
+
+            <!-- Treatment overrides (when more than 1 treatment) -->
+            <div v-if="parseInt(numTreatments) > 1" class="mb-3">
+              <h4 class="text-subtitle-2 font-weight-medium mb-2">Treatment Parameter Overrides</h4>
+              <div v-for="t in parseInt(numTreatments)" :key="t" class="mb-2" style="display: flex; gap: 8px; align-items: center">
+                <span style="min-width: 30px; font-weight: 500">T{{ t }}:</span>
+                <v-text-field
+                  v-model="treatmentOverrides[t-1].informed_trade_intensity"
+                  label="informed_trade_intensity"
+                  type="number"
+                  step="0.01"
+                  hide-details
+                  density="compact"
+                  style="max-width: 180px"
+                />
+                <v-text-field
+                  v-model="treatmentOverrides[t-1].informed_share_passive"
+                  label="informed_share_passive"
+                  type="number"
+                  step="0.01"
+                  hide-details
+                  density="compact"
+                  style="max-width: 180px"
+                />
+              </div>
+              <button class="tp-btn tp-btn-secondary" @click="saveTreatmentOverrides" style="width: 100%">
+                Save Treatment Overrides
+              </button>
+            </div>
+
             <v-textarea
               v-if="labLinks"
               v-model="labLinks"
@@ -306,9 +345,21 @@ const generatingCredentials = ref(false)
 const savingProlific = ref(false)
 
 // Lab links state
-const numLabLinks = ref(10)
+const numLabLinks = ref(100)
+const numTreatments = ref(4)
 const labLinks = ref('')
 const generatingLabLinks = ref(false)
+// Pre-fill with Alessio's T1-T4 defaults
+const treatmentOverrides = ref([
+  { informed_trade_intensity: 0.36, informed_share_passive: '' },
+  { informed_trade_intensity: 0.69, informed_share_passive: '' },
+  { informed_trade_intensity: 0.36, informed_share_passive: 0.4 },
+  { informed_trade_intensity: 0.69, informed_share_passive: 0.1 },
+  { informed_trade_intensity: '', informed_share_passive: '' },
+  { informed_trade_intensity: '', informed_share_passive: '' },
+  { informed_trade_intensity: '', informed_share_passive: '' },
+  { informed_trade_intensity: '', informed_share_passive: '' },
+])
 
 const traderTypes = ['HUMAN', 'NOISE', 'INFORMED', 'MARKET_MAKER', 'INITIAL_ORDER_BOOK', 'SIMPLE_ORDER']
 
@@ -497,15 +548,48 @@ const generateCredentials = () => {
 const generateLabLinks = async () => {
   generatingLabLinks.value = true
   try {
-    const response = await axios.post(`${import.meta.env.VITE_HTTP_URL}admin/generate-lab-links`, {
+    const nt = parseInt(numTreatments.value) || 1
+    const payload = {
       count: parseInt(numLabLinks.value) || 10,
-    })
+      num_treatments: nt,
+    }
+    // Include treatment overrides if using multiple treatments
+    if (nt > 1) {
+      const overrides = {}
+      for (let i = 0; i < nt; i++) {
+        const o = {}
+        const t = treatmentOverrides.value[i]
+        if (t.informed_trade_intensity !== '') o.informed_trade_intensity = parseFloat(t.informed_trade_intensity)
+        if (t.informed_share_passive !== '') o.informed_share_passive = parseFloat(t.informed_share_passive)
+        if (Object.keys(o).length > 0) overrides[i] = o
+      }
+      if (Object.keys(overrides).length > 0) payload.treatment_overrides = overrides
+    }
+    const response = await axios.post(`${import.meta.env.VITE_HTTP_URL}admin/generate-lab-links`, payload)
     labLinks.value = (response.data.data?.links || []).join('\n')
-    uiStore.showSuccess(`Generated ${numLabLinks.value} lab links`)
+    uiStore.showSuccess(`Generated ${numLabLinks.value} lab links (${nt} treatments)`)
   } catch (error) {
     uiStore.showError('Failed to generate lab links')
   } finally {
     generatingLabLinks.value = false
+  }
+}
+
+const saveTreatmentOverrides = async () => {
+  try {
+    const nt = parseInt(numTreatments.value) || 1
+    const overrides = {}
+    for (let i = 0; i < nt; i++) {
+      const o = {}
+      const t = treatmentOverrides.value[i]
+      if (t.informed_trade_intensity !== '') o.informed_trade_intensity = parseFloat(t.informed_trade_intensity)
+      if (t.informed_share_passive !== '') o.informed_share_passive = parseFloat(t.informed_share_passive)
+      if (Object.keys(o).length > 0) overrides[i] = o
+    }
+    await axios.post(`${import.meta.env.VITE_HTTP_URL}admin/treatment-overrides`, { overrides })
+    uiStore.showSuccess('Treatment overrides saved')
+  } catch (error) {
+    uiStore.showError('Failed to save treatment overrides')
   }
 }
 
