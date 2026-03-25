@@ -49,8 +49,8 @@
                   <br><br>
                   Potential tasks for your role could include:
                   <ul style="margin-left: 20px;">
-                    <!-- <li style="margin-bottom: 10px; margin-top: 10px;">Buy a certain number of shares at the lowest price. (Informed Trader)</li> 
-                    <li style="margin-bottom: 10px;">Sell a certain number of shares at the highest price. (Informed Trader)</li> -->
+                    <li style="margin-bottom: 10px; margin-top: 10px;">Buy a certain number of shares at the lowest price. (Informed Trader)</li> 
+                    <li style="margin-bottom: 10px;">Sell a certain number of shares at the highest price. (Informed Trader)</li>
                     <li>Buy and Sell shares to generate profit. (Speculator)</li>
                   </ul>
                 </p>
@@ -60,7 +60,7 @@
         </v-col>
 
         <!-- Task Card -->
-        <!-- <v-col cols="12">
+        <v-col cols="12">
           <v-hover v-slot="{ isHovering, props }">
             <v-card
               v-bind="props"
@@ -89,7 +89,7 @@
               </v-card-text>
             </v-card>
           </v-hover>
-        </v-col> -->
+        </v-col> 
 
         <!-- Task Card -->
         <v-col cols="12">

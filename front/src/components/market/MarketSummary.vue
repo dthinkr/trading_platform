@@ -65,7 +65,7 @@
             </div>
 
             <!-- Conditional: inventory imbalance question (only when Remaining_Trades != 0) -->
-            <div v-if="hasInventoryImbalance" class="mt-4">
+            <!-- <div v-if="hasInventoryImbalance" class="mt-4">
               <h3 class="text-h6 mb-3">Answer the following question to continue:</h3>
               <p class="text-body-2 mb-3">
                 Your number of shares at the end of the market must equal your initial number of shares. Because they did not match, a penalty was applied.<br>
@@ -78,7 +78,7 @@
                   <v-radio label="I lost track of time." value="lost_track_time"></v-radio>
                 </v-radio-group>
               </div>
-            </div>
+            </div> -->
           </div>
 
           <v-card-actions class="justify-center pa-6">

@@ -203,7 +203,7 @@ class TradingParameters(BaseModel):
         description="informed_parameter",
     )
     informed_random_direction: bool = Field(
-        default=False,
+        default=True,
         title="Randomly Flip Trade Direction",
         description="informed_parameter",
     )
