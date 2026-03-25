@@ -153,13 +153,26 @@
                 <v-row>
                   <v-col cols="12" md="6">
                     <img src="@/assets/buy_1min.png" style="width: 100%;" />
-                    <div class="text-caption text-center mt-2"> Price movement over 1 minute </div>
+                    <div class="text-caption text-center mt-2"> Price movement after 1 minute </div>
                   </v-col>
                   <v-col cols="12" md="6">
                     <img src="@/assets/buy_2_5min.png" style="width: 100%;" />
-                    <div class="text-caption text-center mt-2"> Price movement over 2.5 minutes </div>
+                    <div class="text-caption text-center mt-2"> Price movement after 2.5 minutes </div>
                   </v-col>
                 </v-row>
+
+                <!-- Strategy Hint -->
+                <div class="strategy-hint-box mt-5">
+                  <div class="strategy-hint-header">
+                    <v-icon color="amber-darken-2" size="20" class="mr-2">mdi-lightbulb-on</v-icon>
+                    <span class="strategy-hint-title">Strategy Insight</span>
+                  </div>
+                  <div class="strategy-hint-body">
+                    Both charts show a clear <strong>upward trend</strong> in price. The best strategy here
+                    is to <strong>buy shares early</strong> and hold them as the price rises, allowing you
+                    to sell at a higher value and maximise your profit.
+                  </div>
+                </div>
 
               </v-card-text>
             </v-card>
@@ -180,13 +193,25 @@
                 <v-row>
                   <v-col cols="12" md="6">
                     <img src="@/assets/unclear_buy_1min.png" style="width: 100%;" />
-                    <div class="text-caption text-center mt-2"> Price movement over 1 minute </div>
+                    <div class="text-caption text-center mt-2"> Price movement after 1 minute </div>
                   </v-col>
                   <v-col cols="12" md="6">
                     <img src="@/assets/unclear_buy_2_5min.png" style="width: 100%;" />
-                    <div class="text-caption text-center mt-2"> Price movement over 2.5 minutes </div>
+                    <div class="text-caption text-center mt-2"> Price movement after 2.5 minutes </div>
                   </v-col>
                 </v-row>
+
+                <!-- Strategy Hint -->
+                <div class="strategy-hint-box mt-5">
+                  <div class="strategy-hint-header">
+                    <v-icon color="amber-darken-2" size="20" class="mr-2">mdi-lightbulb-on</v-icon>
+                    <span class="strategy-hint-title">Strategy Insight</span>
+                  </div>
+                  <div class="strategy-hint-body">
+                    Although there is buying pressure, the price direction is not clear. The best strategy here
+                    is to <strong>wait</strong> or <strong>send limit orders</strong>.
+                  </div>
+                </div>
 
               </v-card-text>
             </v-card>
@@ -207,13 +232,26 @@
                 <v-row>
                   <v-col cols="12" md="6">
                     <img src="@/assets/sell_1min.png" style="width: 100%;" />
-                    <div class="text-caption text-center mt-2"> Price movement over 1 minute </div>
+                    <div class="text-caption text-center mt-2"> Price movement after 1 minute </div>
                   </v-col>
                   <v-col cols="12" md="6">
                     <img src="@/assets/sell_2_5min.png" style="width: 100%;" />
-                    <div class="text-caption text-center mt-2"> Price movement over 2.5 minutes </div>
+                    <div class="text-caption text-center mt-2"> Price movement after 2.5 minutes </div>
                   </v-col>
                 </v-row>
+
+                <!-- Strategy Hint -->
+                <div class="strategy-hint-box mt-5">
+                  <div class="strategy-hint-header">
+                    <v-icon color="amber-darken-2" size="20" class="mr-2">mdi-lightbulb-on</v-icon>
+                    <span class="strategy-hint-title">Strategy Insight</span>
+                  </div>
+                  <div class="strategy-hint-body">
+                    Both charts show a clear <strong>downward trend</strong> in price. The best strategy here
+                    is to <strong>sell shares early</strong> and hold them as the price drops, allowing you
+                    to buy at a lower value and maximise your profit.
+                  </div>
+                </div>
 
               </v-card-text>
             </v-card>
@@ -234,13 +272,26 @@
                 <v-row>
                   <v-col cols="12" md="6">
                     <img src="@/assets/unclear_sell_1min.png" style="width: 100%;" />
-                    <div class="text-caption text-center mt-2"> Price movement over 1 minute </div>
+                    <div class="text-caption text-center mt-2"> Price movement after 1 minute </div>
                   </v-col>
                   <v-col cols="12" md="6">
                     <img src="@/assets/unclear_sell_2_5min.png" style="width: 100%;" />
-                    <div class="text-caption text-center mt-2"> Price movement over 2.5 minutes </div>
+                    <div class="text-caption text-center mt-2"> Price movement after 2.5 minutes </div>
                   </v-col>
                 </v-row>
+
+                <!-- Strategy Hint -->
+                <div class="strategy-hint-box mt-5">
+                  <div class="strategy-hint-header">
+                    <v-icon color="amber-darken-2" size="20" class="mr-2">mdi-lightbulb-on</v-icon>
+                    <span class="strategy-hint-title">Strategy Insight</span>
+                  </div>
+                  <div class="strategy-hint-body">
+                    Although there is selling pressure, the price initially <strong>dropped</strong>, then <strong>recovered upward</strong>, before
+                    <strong>dropping again</strong>. This volatility makes timing critical. The best strategy is to
+                    <strong>sell shares</strong> when the price is high.
+                  </div>
+                </div>
 
               </v-card-text>
             </v-card>
@@ -419,5 +470,30 @@ const goalDescription = computed(() => {
   font-size: 0.9em;
   font-style: italic;
   color: #666;
+}
+
+.strategy-hint-box {
+  background: linear-gradient(135deg, #fff8e1, #fff3cd);
+  border-left: 4px solid #ffb300;
+  border-radius: 8px;
+  padding: 14px 18px;
+  color: #4e3b00;
+}
+
+.strategy-hint-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.strategy-hint-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #e65100;
+}
+
+.strategy-hint-body {
+  font-size: 0.9rem;
+  line-height: 1.6;
 }
 </style>

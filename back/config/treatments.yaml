@@ -1,6 +1,6 @@
 treatments:
-- name: Test Market - Quick
-  num_noise_traders: 1
-  num_informed_traders: 0
-  num_spoofing_traders: 0
-  num_manipulator_traders: 0
+  - name: Test Market - Quick
+    num_noise_traders: 1
+    num_informed_traders: 1
+    num_spoofing_traders: 0
+    num_manipulator_traders: 0

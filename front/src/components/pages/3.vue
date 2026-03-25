@@ -115,14 +115,14 @@
                   <div style="border: 1px solid #f44336; background-color: #fdecea; color: #b71c1c; padding: 16px; border-radius: 8px; font-family: sans-serif;">
                   <strong>Important Notice:</strong>
                   <br><br>
-                  At the end of each market, if the number of shares you hold is different from your initial amount, the platform will automatically adjust your balance.
+                  At the end of each market, if the number of shares you hold is different from your initial amount, the platform will automatically adjust your balance at the prevailing bid or ask price.
                   <br><br>
                   <!-- To do this, the platform will:
                   <ul style="margin-left: 20px;">
                     <li><strong>Sell extra shares</strong> at <strong>Final Midprice − 5</strong></li>
                     <li><strong>Buy missing shares</strong> at <strong>Final Midprice + 5</strong></li>
                   </ul>
-                  <br><br> -->
+                  <br><br> 
                   This adjustment is very likely to result in a loss.
                   <br><br>
                   <strong>Example 1 - You end up with more shares</strong>
@@ -158,7 +158,8 @@
                   If not, the system automatically restores your original balance at a <strong>Penalised Price</strong>, 
                   <br>
                   which may likely result in a loss.
-                  </div>
+                  -->
+                  </div>  
                 </div>
               </v-card-text>
             </v-card>
