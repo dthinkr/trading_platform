@@ -46,15 +46,18 @@ _load_tokens()
 
 
 def generate_lab_tokens(count: int, base_url: str = "", num_treatments: int = 1) -> list:
-    """Generate lab tokens, distributing evenly across treatment groups.
+    """Generate lab tokens, distributing across treatment groups in blocks.
 
-    If num_treatments > 1, tokens are assigned treatment_group 0..N-1 in round-robin.
-    E.g. count=100, num_treatments=4 → 25 tokens per treatment group.
+    If num_treatments > 1, tokens are assigned in sequential blocks.
+    E.g. count=100, num_treatments=4 → first 25 get T0, next 25 get T1, etc.
     """
     links = []
+    block_size = count // num_treatments if num_treatments > 1 else count
     for i in range(count):
         token = f"lab_{uuid.uuid4().hex}"
-        treatment_group = i % num_treatments if num_treatments > 1 else None
+        treatment_group = i // block_size if num_treatments > 1 else None
+        if treatment_group is not None and treatment_group >= num_treatments:
+            treatment_group = num_treatments - 1
         LAB_TOKENS[token] = {
             "participant_index": i + 1,
             "treatment_group": treatment_group,

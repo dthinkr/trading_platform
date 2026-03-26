@@ -872,7 +872,7 @@ async def websocket_trader_endpoint(websocket: WebSocket, trader_id: str):
                 gmail_username = trader_id[6:]  # Remove 'HUMAN_' prefix
                 is_prolific = True
                 print(f"Authenticated Prolific user via WebSocket: {gmail_username}")
-        else:
+        elif not is_lab and not is_prolific:
             # Regular Firebase authentication
             try:
                 decoded_token = custom_verify_id_token(token)
@@ -1173,7 +1173,8 @@ async def start_trading_market(background_tasks: BackgroundTasks, request: Reque
     
     # Mark trader ready and start trading if possible using trader ID only
     all_ready = await market_handler.mark_trader_ready_by_trader_id(trader_id)
-    
+    print(f"[DEBUG] trading/start: trader_id={trader_id}, all_ready={all_ready}")
+
     if all_ready:
         status_message = "Trading started successfully!"
         

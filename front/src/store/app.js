@@ -761,17 +761,14 @@ export const useTraderStore = defineStore('trader', {
       try {
         const response = await axios.post(`${import.meta.env.VITE_HTTP_URL}trading/start`)
         if (response.data.status === 'success') {
-          // If all traders are ready, the session should transition to active
           if (response.data.all_ready) {
-            // Update waiting state immediately
             this.isWaitingForOthers = false
+            this.isTradingStarted = true
 
-            // Wait a moment for backend to complete setup, then refresh trader attributes
+            // Refresh trader attributes and reconnect WebSocket
             setTimeout(async () => {
               try {
                 await this.getTraderAttributes(this.traderUuid)
-
-                // Reconnect WebSocket since the session is now active
                 const wsStore = useWebSocketStore()
                 if (!wsStore.ws || wsStore.ws.readyState !== WebSocket.OPEN) {
                   await this.initializeWebSocket()
@@ -779,9 +776,10 @@ export const useTraderStore = defineStore('trader', {
               } catch (error) {
                 console.error('Error transitioning to active state:', error)
               }
-            }, 100) // 0.1 second delay to allow backend to complete setup
+            }, 500)
           }
         }
+        return response.data
       } catch (error) {
         console.error('Error starting trading market:', error)
         if (error.response) {

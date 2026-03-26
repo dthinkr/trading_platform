@@ -230,9 +230,14 @@ export const NavigationService = {
     const traderStore = useTraderStore()
 
     try {
-      await traderStore.startTradingMarket()
-      sessionStore.setStatus('waiting')
-      // Navigation will happen via WebSocket 'market_started' event
+      const result = await traderStore.startTradingMarket()
+      if (result && result.all_ready) {
+        // Market started immediately, navigate directly
+        await this.onMarketStarted()
+      } else {
+        sessionStore.setStatus('waiting')
+        // Navigation will happen via WebSocket 'market_started' event
+      }
     } catch (error) {
       console.error('Failed to start trading:', error)
       throw error
