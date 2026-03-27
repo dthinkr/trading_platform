@@ -243,7 +243,6 @@ const hasInventoryImbalance = computed(() => {
 // Check if per-market questions are complete
 const arePerMarketQuestionsComplete = computed(() => {
   if (!perMarketQuestions.value.marketDescription) return false
-  if (hasInventoryImbalance.value && !perMarketQuestions.value.imbalanceReason) return false
   return true
 })
 

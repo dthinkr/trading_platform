@@ -639,14 +639,28 @@ async def get_trader_info(trader_id: str):
     
     # If market is active, get full trader info using trader ID only
     trader_manager = market_handler.get_trader_manager_by_trader_id(trader_id)
+
+    # Use internal session/market ID for logging only (don't expose to frontend)
+    internal_session_id = market_handler.trader_to_market_lookup.get(trader_id)
+
     if not trader_manager:
-        raise HTTPException(status_code=404, detail="Trader not found")
+        # Market ended and trader_manager was cleaned up — compute metrics from log file
+        if not internal_session_id:
+            raise HTTPException(status_code=404, detail="Trader not found")
+
+        trader_data = {
+            "trader_id": trader_id,
+            "all_attributes": {
+                "is_admin": False,
+                "isWaitingForOthers": False,
+                "historical_markets_count": len(market_handler.session_manager.user_historical_markets.get(gmail_username, set())),
+                "params": {"max_markets_per_human": base_settings.get("max_markets_per_human", 6)},
+            },
+        }
 
     try:
-        trader_data = get_trader_info_with_market_data(trader_manager, trader_id)
-        
-        # Use internal session/market ID for logging only (don't expose to frontend)
-        internal_session_id = market_handler.trader_to_market_lookup.get(trader_id)
+        if trader_manager:
+            trader_data = get_trader_info_with_market_data(trader_manager, trader_id)
         log_file_path = os.path.join("logs", f"{internal_session_id}.log")
 
         try:
